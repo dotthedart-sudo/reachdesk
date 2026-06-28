@@ -455,7 +455,7 @@ function AppProvider({ children }) {
     const teamId = invite ? invite.team_id : null;
     const status = 'approved';
     const userPlan = invite ? 'teams' : 'trial';
-    const trialEnds = new Date(Date.now() + 72 * 60 * 60 * 1000).toISOString();
+    const trialEnds = new Date(Date.now() + 168 * 60 * 60 * 1000).toISOString(); // 7-day trial
 
     const { error: profileErr } = await supabase.from('user_profiles').upsert({
       id: data.user.id, email, status, plan: userPlan,

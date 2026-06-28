@@ -433,7 +433,7 @@ export function UpgradePage({ profile, handleLogout, onRefreshProfile, bankAccou
           <>
             <h1 className="paywall-title">Free Trial Expired</h1>
             <p className="paywall-text">
-              Your 3-day free trial has ended. Please send a payment and request an activation tier below to continue.
+              Your 7-day free trial has ended. Please send a payment and request an activation tier below to continue.
             </p>
           </>
         ) : (

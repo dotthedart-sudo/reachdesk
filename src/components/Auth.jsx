@@ -140,7 +140,7 @@ export default function Auth({ onRegister, onLogin, mode = 'login' }) {
             <p className="color-muted" style={{ fontSize: '0.9rem', marginTop: '0.25rem' }}>
               {forgotMode 
                 ? "Enter your email and we'll send you a reset link" 
-                : (mode === 'login' ? 'Access your ReachDesk client workspace' : 'Start your free 3-day trial — no payment needed')}
+                : (mode === 'login' ? 'Access your ReachDesk client workspace' : 'Start your free 7-day trial — no payment needed')}
             </p>
           </div>
 
@@ -362,7 +362,7 @@ export default function Auth({ onRegister, onLogin, mode = 'login' }) {
                 gap: '0.25rem'
               }}>
                 <span style={{ color: 'var(--primary-purple)', fontWeight: '600', fontSize: '0.95rem', display: 'inline-flex', alignItems: 'center', gap: '0.4rem' }}>
-                  <Sparkles size={16} /> 3-day free trial included
+                  <Sparkles size={16} /> 7-day free trial included
                 </span>
                 <span className="color-muted" style={{ fontSize: '0.8rem' }}>
                   Full access &middot; No payment needed &middot; Choose plan after trial

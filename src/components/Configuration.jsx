@@ -277,7 +277,7 @@ export default function Configuration({
           team_role: 'owner', 
           plan: 'trial',
           status: 'approved',
-          trial_ends_at: new Date(Date.now() + 72*60*60*1000).toISOString()
+          trial_ends_at: new Date(Date.now() + 168*60*60*1000).toISOString() // 7-day trial
         })
         .eq('id', memberId);
 

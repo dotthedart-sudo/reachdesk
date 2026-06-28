@@ -284,16 +284,21 @@ export default function AppLayout({
 
       {/* ── Main Content ── */}
       <div className="main-content">
-        {/* Trial banner */}
-        {profile?.plan === 'trial' && subStatus === 'active' && (
-          <div style={{ background: 'var(--bg-card)', border: '0.5px solid var(--border)', borderRadius: '4px', padding: '0.75rem 1.25rem', marginBottom: '1.5rem', display: 'flex', alignItems: 'center', gap: '0.75rem', fontSize: '0.8rem' }}>
-            <Clock size={14} style={{ color: 'var(--accent-blue)', flexShrink: 0 }} />
-            <span style={{ color: 'var(--text-secondary)', fontFamily: 'var(--font-body)' }}>
-              <strong style={{ color: 'var(--accent-blue)' }}>Free Trial Active</strong>
-              {' '}— Trial ends on {new Date(profile.trial_ends_at).toLocaleString()}. Choose plan in settings to avoid lock.
-            </span>
-          </div>
-        )}
+        {/* Trial banner — days remaining is derived from trial_ends_at stored in DB */}
+        {profile?.plan === 'trial' && subStatus === 'active' && (() => {
+          const msLeft = new Date(profile.trial_ends_at) - Date.now();
+          const daysLeft = Math.max(0, Math.ceil(msLeft / (1000 * 60 * 60 * 24)));
+          const label = daysLeft === 0 ? 'less than a day' : daysLeft === 1 ? '1 day' : `${daysLeft} days`;
+          return (
+            <div style={{ background: 'var(--bg-card)', border: '0.5px solid var(--border)', borderRadius: '4px', padding: '0.75rem 1.25rem', marginBottom: '1.5rem', display: 'flex', alignItems: 'center', gap: '0.75rem', fontSize: '0.8rem' }}>
+              <Clock size={14} style={{ color: 'var(--accent-blue)', flexShrink: 0 }} />
+              <span style={{ color: 'var(--text-secondary)', fontFamily: 'var(--font-body)' }}>
+                <strong style={{ color: 'var(--accent-blue)' }}>Free Trial Active</strong>
+                {' '}— Your trial ends in <strong style={{ color: 'var(--accent-blue)' }}>{label}</strong> ({new Date(profile.trial_ends_at).toLocaleDateString()}). Choose a plan in settings to avoid lock.
+              </span>
+            </div>
+          );
+        })()}
         {children}
       </div>
       {profile?.account_locked && (

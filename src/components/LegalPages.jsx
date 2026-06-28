@@ -54,7 +54,7 @@ export function TermsOfService() {
 
       <h3 style={{ color: 'var(--text-primary)', marginTop: '1rem', fontFamily: 'var(--font-headers)' }}>3. Subscription Plans and Free Trial</h3>
       <p>
-        ReachDesk is offered on a subscription basis with the following tiers: Starter, Pro, and Teams, billed monthly, with discounted rates available for 6-month and yearly commitments. New accounts receive a 3-day free trial. At the end of the trial period, continued access requires an active paid subscription.
+        ReachDesk is offered on a subscription basis with the following tiers: Starter, Pro, and Teams, billed monthly, with discounted rates available for 6-month and yearly commitments. New accounts receive a 7-day free trial. At the end of the trial period, continued access requires an active paid subscription.
       </p>
       <p>
         Pricing for each plan is displayed within the Service and may be updated from time to time. Continued use of the Service after a price change constitutes acceptance of the new pricing for your next billing cycle.
@@ -219,7 +219,7 @@ export function RefundPolicy() {
 
       <h3 style={{ color: 'var(--text-primary)', marginTop: '1rem', fontFamily: 'var(--font-headers)' }}>1. Free Trial</h3>
       <p>
-        Every new account receives a 3-day free trial with full access to the Service. We encourage you to use this period to evaluate whether ReachDesk meets your needs before making a payment. No payment is required to begin the trial.
+        Every new account receives a 7-day free trial with full access to the Service. We encourage you to use this period to evaluate whether ReachDesk meets your needs before making a payment. No payment is required to begin the trial.
       </p>
 
       <h3 style={{ color: 'var(--text-primary)', marginTop: '1rem', fontFamily: 'var(--font-headers)' }}>2. Payment and Activation</h3>
