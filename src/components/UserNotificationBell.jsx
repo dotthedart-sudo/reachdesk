@@ -1,0 +1,355 @@
+import React, { useState, useEffect, useRef } from 'react';
+import { Bell, Check, X, Clock, CheckCircle, Slash } from 'lucide-react';
+import { supabase } from '../lib/supabase';
+
+export default function UserNotificationBell({ profile, onRefreshProfile }) {
+  const [notifications, setNotifications] = useState([]);
+  const [dueReminders, setDueReminders] = useState([]);
+  const [isOpen, setIsOpen] = useState(false);
+  const dropdownRef = useRef(null);
+
+  const fetchNotifications = async () => {
+    if (!profile?.id) return;
+    try {
+      const { data, error } = await supabase
+        .from('user_notifications')
+        .select('*')
+        .eq('user_id', profile.id)
+        .eq('is_read', false)
+        .order('created_at', { ascending: false });
+
+      if (!error) {
+        setNotifications(data || []);
+      }
+    } catch (err) {
+      console.error('Error fetching user notifications:', err);
+    }
+  };
+
+  const fetchDueReminders = async () => {
+    if (!profile?.id) return;
+    try {
+      const now = new Date().toISOString();
+      const { data, error } = await supabase
+        .from('follow_up_reminders')
+        .select('*')
+        .eq('user_id', profile.id)
+        .eq('status', 'pending')
+        .lte('scheduled_at', now)
+        .order('scheduled_at', { ascending: true });
+
+      if (!error) {
+        setDueReminders(data || []);
+      }
+    } catch (err) {
+      console.error('Error fetching due reminders:', err);
+    }
+  };
+
+  useEffect(() => {
+    if (profile?.id) {
+      fetchNotifications();
+      fetchDueReminders();
+
+      // Check due reminders every 5 minutes (300,000 ms)
+      const interval = setInterval(() => {
+        fetchDueReminders();
+        fetchNotifications();
+      }, 5 * 60 * 1000);
+
+      // Realtime subscription for live updates
+      const channel = supabase.channel(`user-notifications-${profile.id}`)
+        .on('postgres_changes', 
+          { event: 'INSERT', schema: 'public', table: 'user_notifications', filter: `user_id=eq.${profile.id}` }, 
+          (payload) => {
+            if (payload.new && !payload.new.is_read) {
+              setNotifications(prev => [payload.new, ...prev]);
+              if (onRefreshProfile) onRefreshProfile();
+            }
+          }
+        )
+        .on('postgres_changes',
+          { event: '*', schema: 'public', table: 'follow_up_reminders', filter: `user_id=eq.${profile.id}` },
+          () => {
+            fetchDueReminders();
+          }
+        )
+        .subscribe();
+
+      return () => {
+        clearInterval(interval);
+        supabase.removeChannel(channel);
+      };
+    }
+  }, [profile?.id]);
+
+  // Close dropdown on click outside
+  useEffect(() => {
+    const handleClickOutside = (event) => {
+      if (dropdownRef.current && !dropdownRef.current.contains(event.target)) {
+        setIsOpen(false);
+      }
+    };
+    document.addEventListener('mousedown', handleClickOutside);
+    return () => document.removeEventListener('mousedown', handleClickOutside);
+  }, []);
+
+  const handleMarkRead = async (id, e) => {
+    e.stopPropagation();
+    try {
+      const { error } = await supabase
+        .from('user_notifications')
+        .update({ is_read: true })
+        .eq('id', id);
+
+      if (error) throw error;
+      setNotifications(prev => prev.filter(n => n.id !== id));
+      if (onRefreshProfile) onRefreshProfile();
+    } catch (err) {
+      console.error('Error marking notification as read:', err);
+    }
+  };
+
+  const handleMarkAllRead = async () => {
+    try {
+      const { error } = await supabase
+        .from('user_notifications')
+        .update({ is_read: true })
+        .eq('user_id', profile.id)
+        .eq('is_read', false);
+
+      if (error) throw error;
+      setNotifications([]);
+      if (onRefreshProfile) onRefreshProfile();
+    } catch (err) {
+      console.error('Error marking all as read:', err);
+    }
+  };
+
+  const handleReminderAction = async (reminderId, actionStatus) => {
+    try {
+      const { error } = await supabase
+        .from('follow_up_reminders')
+        .update({ status: actionStatus, updated_at: new Date().toISOString() })
+        .eq('id', reminderId);
+
+      if (error) throw error;
+      setDueReminders(prev => prev.filter(r => r.id !== reminderId));
+    } catch (err) {
+      console.error(`Error updating reminder to ${actionStatus}:`, err);
+    }
+  };
+
+  if (!profile) return null;
+
+  const totalCount = notifications.length + dueReminders.length;
+
+  return (
+    <div ref={dropdownRef} style={{ position: 'fixed', top: '1.25rem', right: '1.5rem', zIndex: 995 }}>
+      {/* Bell Button */}
+      <button
+        onClick={() => setIsOpen(!isOpen)}
+        style={{
+          width: '42px',
+          height: '42px',
+          borderRadius: '50%',
+          border: '1px solid var(--border-color)',
+          background: 'var(--bg-card)',
+          color: 'var(--text-primary)',
+          cursor: 'pointer',
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'center',
+          boxShadow: 'var(--glow-shadow)',
+          position: 'relative',
+          transition: 'all 0.2s',
+          outline: 'none'
+        }}
+        onMouseOver={e => e.currentTarget.style.transform = 'scale(1.05)'}
+        onMouseOut={e => e.currentTarget.style.transform = 'scale(1)'}
+      >
+        <Bell size={20} />
+        {totalCount > 0 && (
+          <span style={{
+            position: 'absolute',
+            top: '-2px',
+            right: '-2px',
+            background: 'var(--danger-color, #ef4444)',
+            color: '#fff',
+            borderRadius: '50%',
+            width: '18px',
+            height: '18px',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            fontSize: '0.7rem',
+            fontWeight: 700,
+            boxShadow: '0 0 8px rgba(239, 68, 68, 0.6)'
+          }}>
+            {totalCount}
+          </span>
+        )}
+      </button>
+
+      {/* Dropdown Panel */}
+      {isOpen && (
+        <div style={{
+          position: 'absolute',
+          top: '50px',
+          right: 0,
+          width: '350px',
+          background: 'var(--bg-card)',
+          border: '1px solid var(--border-color)',
+          borderRadius: '12px',
+          boxShadow: '0 8px 30px rgba(0,0,0,0.5)',
+          padding: '1rem',
+          display: 'flex',
+          flexDirection: 'column',
+          gap: '0.75rem',
+          maxHeight: '450px',
+          overflowY: 'auto',
+          color: 'var(--text-primary)'
+        }}>
+          <div style={{ borderBottom: '1px solid var(--border-color)', paddingBottom: '0.5rem', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+            <span style={{ fontWeight: 700, fontSize: '0.95rem' }}>
+              Notifications {totalCount > 0 && `(${totalCount})`}
+            </span>
+            {notifications.length > 0 && (
+              <button 
+                onClick={handleMarkAllRead}
+                style={{ background: 'none', border: 'none', color: 'var(--primary-purple)', fontSize: '0.75rem', cursor: 'pointer', fontWeight: 600 }}
+              >
+                Mark all read
+              </button>
+            )}
+          </div>
+
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '0.6rem' }}>
+            {totalCount === 0 ? (
+              <div style={{ textAlign: 'center', padding: '1.5rem 0', color: 'var(--text-muted)', fontSize: '0.85rem' }}>
+                No new notifications or pending follow-ups
+              </div>
+            ) : (
+              <>
+                {/* Due Follow-up Reminders Section */}
+                {dueReminders.map(rem => (
+                  <div 
+                    key={rem.id}
+                    style={{
+                      padding: '0.85rem',
+                      background: 'rgba(139, 92, 246, 0.08)',
+                      borderRadius: '8px',
+                      border: '1px solid rgba(139, 92, 246, 0.25)',
+                      display: 'flex',
+                      flexDirection: 'column',
+                      gap: '0.4rem'
+                    }}
+                  >
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '0.4rem', color: 'var(--primary-purple, #8b5cf6)', fontWeight: 700, fontSize: '0.85rem' }}>
+                      <Clock size={15} />
+                      <span>Follow-up Due</span>
+                    </div>
+                    <p style={{ margin: 0, fontSize: '0.85rem', fontWeight: 600, color: 'var(--text-primary)', lineHeight: 1.3 }}>
+                      Follow up with {rem.lead_name || 'Lead'} — Reminder #{rem.reminder_number}
+                    </p>
+                    <div style={{ display: 'flex', gap: '0.5rem', marginTop: '0.3rem' }}>
+                      <button
+                        onClick={() => handleReminderAction(rem.id, 'completed')}
+                        style={{
+                          flex: 1,
+                          padding: '0.35rem 0.6rem',
+                          background: 'var(--success-color, #10b981)',
+                          color: '#fff',
+                          border: 'none',
+                          borderRadius: '6px',
+                          fontSize: '0.75rem',
+                          fontWeight: 600,
+                          cursor: 'pointer',
+                          display: 'flex',
+                          alignItems: 'center',
+                          justifyContent: 'center',
+                          gap: '0.25rem'
+                        }}
+                      >
+                        <CheckCircle size={13} /> Mark Done
+                      </button>
+                      <button
+                        onClick={() => handleReminderAction(rem.id, 'dismissed')}
+                        style={{
+                          flex: 1,
+                          padding: '0.35rem 0.6rem',
+                          background: 'rgba(100, 116, 139, 0.15)',
+                          color: 'var(--text-secondary)',
+                          border: '1px solid var(--border-color)',
+                          borderRadius: '6px',
+                          fontSize: '0.75rem',
+                          fontWeight: 600,
+                          cursor: 'pointer',
+                          display: 'flex',
+                          alignItems: 'center',
+                          justifyContent: 'center',
+                          gap: '0.25rem'
+                        }}
+                      >
+                        <X size={13} /> Dismiss
+                      </button>
+                    </div>
+                  </div>
+                ))}
+
+                {/* Standard User Notifications */}
+                {notifications.map(n => (
+                  <div 
+                    key={n.id} 
+                    style={{
+                      padding: '0.75rem',
+                      background: 'var(--bg-secondary)',
+                      borderRadius: '8px',
+                      border: '1px solid var(--border-color)',
+                      display: 'flex',
+                      flexDirection: 'column',
+                      gap: '0.25rem',
+                      position: 'relative'
+                    }}
+                  >
+                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
+                      <span style={{ fontWeight: 600, fontSize: '0.85rem', color: 'var(--text-primary)', paddingRight: '1.5rem' }}>
+                        {n.title || 'Notification'}
+                      </span>
+                      <button
+                        onClick={(e) => handleMarkRead(n.id, e)}
+                        style={{
+                          position: 'absolute',
+                          top: '0.5rem',
+                          right: '0.5rem',
+                          background: 'none',
+                          border: 'none',
+                          color: 'var(--text-muted)',
+                          cursor: 'pointer',
+                          display: 'flex',
+                          alignItems: 'center',
+                          justifyContent: 'center',
+                          borderRadius: '4px',
+                          padding: '2px'
+                        }}
+                        title="Mark read"
+                      >
+                        <Check size={14} style={{ color: 'var(--success-color)' }} />
+                      </button>
+                    </div>
+                    <p style={{ margin: 0, fontSize: '0.8rem', color: 'var(--text-secondary)', lineHeight: 1.4 }}>
+                      {n.message}
+                    </p>
+                    <span style={{ fontSize: '0.7rem', color: 'var(--text-muted)', marginTop: '0.25rem' }}>
+                      {new Date(n.created_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                    </span>
+                  </div>
+                ))}
+              </>
+            )}
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}

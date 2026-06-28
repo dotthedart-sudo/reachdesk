@@ -1,0 +1,2 @@
+/* Local wrapper to include Excalidraw CSS */
+@import "../../node_modules/@excalidraw/excalidraw/dist/prod/index.css";
