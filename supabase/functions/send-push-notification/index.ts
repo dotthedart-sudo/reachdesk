@@ -39,53 +39,37 @@ serve(async (req) => {
         .or('role.eq.admin,email.eq.dotthedart@gmail.com');
 
       const adminIds = adminProfiles?.map((p: { id: string }) => p.id) || [];
-      if (adminIds.length === 0) {
-        return new Response(JSON.stringify({ sent: 0, info: 'No admin profiles found' }), {
-          headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+
+      // Send push only if there are admin subscriptions
+      if (adminIds.length > 0) {
+        const { data: subs, error: subErr } = await query.in('user_id', adminIds);
+        if (subErr) throw subErr;
+
+        const payload = JSON.stringify({
+          title: title || 'ReachDesk',
+          body: body || 'You have a new notification',
+          url: url || '/dashboard',
+          tag: 'reachdesk',
         });
+
+        const results = await Promise.allSettled(
+          (subs || []).map((sub: { endpoint: string; p256dh: string; auth: string }) =>
+            webpush.sendNotification(
+              { endpoint: sub.endpoint, keys: { p256dh: sub.p256dh, auth: sub.auth } },
+              payload
+            )
+          )
+        );
+
+        const sent = results.filter((r) => r.status === 'fulfilled').length;
+        const failed = results.filter((r) => r.status === 'rejected').length;
+        console.log(`[send-push-notification] sent=${sent} failed=${failed}`);
+      } else {
+        console.log('[send-push-notification] No admin push subscriptions found — skipping push, still inserting admin_notifications row.');
       }
-      query = query.in('user_id', adminIds);
-    } else if (target_user_id) {
-      query = query.eq('user_id', target_user_id);
-    } else {
-      return new Response(JSON.stringify({ error: 'Provide target_user_id or notify_admin=true' }), {
-        status: 400,
-        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-      });
-    }
 
-    const { data: subs, error: subErr } = await query;
-    if (subErr) throw subErr;
-
-    const payload = JSON.stringify({
-      title: title || 'ReachDesk',
-      body: body || 'You have a new notification',
-      url: url || '/dashboard',
-      tag: 'reachdesk',
-    });
-
-    // ── Send to all matched subscriptions ────────────────────────────────────
-    const results = await Promise.allSettled(
-      (subs || []).map((sub: { endpoint: string; p256dh: string; auth: string }) =>
-        webpush.sendNotification(
-          {
-            endpoint: sub.endpoint,
-            keys: { p256dh: sub.p256dh, auth: sub.auth },
-          },
-          payload
-        )
-      )
-    );
-
-    const sent = results.filter((r) => r.status === 'fulfilled').length;
-    const failed = results.filter((r) => r.status === 'rejected').length;
-
-    console.log(`[send-push-notification] sent=${sent} failed=${failed}`);
-
-    // ── If notify_admin, also persist a row in admin_notifications ───────────
-    // This uses the service-role client so it bypasses RLS and always lands
-    // in the admin panel regardless of whether push was delivered.
-    if (notify_admin) {
+      // ── Always persist a row in admin_notifications when notify_admin ────────
+      // Uses the service-role client so it bypasses RLS regardless of push delivery.
       const notifType = notification_type || 'new_signup';
       const { error: insertErr } = await supabase
         .from('admin_notifications')
@@ -101,7 +85,44 @@ serve(async (req) => {
       } else {
         console.log('[send-push-notification] admin_notifications row inserted, type:', notifType);
       }
+
+      return new Response(JSON.stringify({ ok: true }), {
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+      });
+
+    } else if (target_user_id) {
+      query = query.eq('user_id', target_user_id);
+    } else {
+      return new Response(JSON.stringify({ error: 'Provide target_user_id or notify_admin=true' }), {
+        status: 400,
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+      });
     }
+
+    // ── Non-admin targeted push ────────────────────────────────────────────────
+    const { data: subs, error: subErr } = await query;
+    if (subErr) throw subErr;
+
+    const payload = JSON.stringify({
+      title: title || 'ReachDesk',
+      body: body || 'You have a new notification',
+      url: url || '/dashboard',
+      tag: 'reachdesk',
+    });
+
+    const results = await Promise.allSettled(
+      (subs || []).map((sub: { endpoint: string; p256dh: string; auth: string }) =>
+        webpush.sendNotification(
+          { endpoint: sub.endpoint, keys: { p256dh: sub.p256dh, auth: sub.auth } },
+          payload
+        )
+      )
+    );
+
+    const sent = results.filter((r) => r.status === 'fulfilled').length;
+    const failed = results.filter((r) => r.status === 'rejected').length;
+
+    console.log(`[send-push-notification] sent=${sent} failed=${failed}`);
 
     return new Response(JSON.stringify({ sent, failed }), {
       headers: { ...corsHeaders, 'Content-Type': 'application/json' },
