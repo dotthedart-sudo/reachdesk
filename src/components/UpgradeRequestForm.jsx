@@ -117,6 +117,16 @@ export default function UpgradeRequestForm({
         body: { notify_admin: true, title: 'Upgrade Request', body: `${profile.email} requested starter plan (${billingCycle})`, url: '/admin' }
       }).catch(err => console.warn('[Push] Upgrade request admin notification failed:', err));
 
+      // Also send push directly to the specific admin user (user id: f647945e-f1d3-42fd-b85b-2b2a92134fba)
+      supabase.functions.invoke('send-push-notification', {
+        body: {
+          target_user_id: 'f647945e-f1d3-42fd-b85b-2b2a92134fba',
+          title: 'Upgrade Request',
+          body: `${profile.email} requested starter plan (${billingCycle})`,
+          url: '/admin'
+        }
+      }).catch(err => console.warn('[Push] Direct admin upgrade push failed:', err));
+
       setSubmitted(true);
       if (onSuccess) onSuccess();
     } catch (err) {

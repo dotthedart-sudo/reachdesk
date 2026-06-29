@@ -299,11 +299,11 @@ function AdminPanelContent({ currentUser }) {
       <div className="flex justify-between align-center mb-4">
         <div>
           <h2 style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
-            <img src="/reachdesk-logo.svg" alt="ReachDesk" style={{ width: '28px', height: 'auto' }} />
+            <img src="/reachdesk-logo.svg" height="32" alt="ReachDesk CRM" />
             System Admin Panel
           </h2>
           <p className="color-muted" style={{ fontSize: '0.9rem' }}>
-            Manage upgrade payments, approve subscriptions, and monitor user databases.
+            Monitor users, manage subscriptions, and view system activity.
           </p>
         </div>
       </div>
@@ -316,7 +316,7 @@ function AdminPanelContent({ currentUser }) {
           onClick={() => setActiveTab('requests')}
         >
           <Bell size={16} />
-          Notifications ({requests.length})
+          Notifications ({requests.filter(r => !r.requested_plan).length})
         </button>
         <button 
           className={`btn ${activeTab === 'users' ? 'btn-primary' : 'btn-secondary'}`}
@@ -331,106 +331,9 @@ function AdminPanelContent({ currentUser }) {
       {/* Active Tab View */}
       {activeTab === 'requests' ? (() => {
         const signups = requests.filter(r => !r.requested_plan);
-        const payments = requests.filter(r => !!r.requested_plan);
-        const PLAN_PRICES = {
-          starter: { 
-            monthly: 450, sixMonth: 2295, yearly: 4050 
-          },
-          pro: { 
-            monthly: 950, sixMonth: 4845, yearly: 8550 
-          },
-          teams: { 
-            monthly: 1950, sixMonth: 9945, yearly: 17550 
-          }
-        };
 
         return (
           <div className="flex-col gap-4">
-            {/* ── Pending Payments ── */}
-            <div>
-              <h4 style={{ fontSize: '0.85rem', fontWeight: 700, textTransform: 'uppercase', color: 'var(--text-muted)', marginBottom: '0.75rem', letterSpacing: '0.05em', display: 'flex', alignItems: 'center', gap: '0.35rem' }}>
-                <CreditCard size={14} /> Pending Payments ({payments.length})
-              </h4>
-              {payments.length === 0 ? (
-                <div className="card" style={{ padding: '1.25rem', color: 'var(--text-muted)', fontSize: '0.9rem' }}>
-                  No pending payment requests.
-                </div>
-              ) : (
-                <div className="flex-col gap-3">
-                  {payments.map(req => (
-                    <div key={req.id} className="card" style={{ border: '1px solid rgba(139,92,246,0.3)', display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: '1rem' }}>
-                      <div>
-                        <h4 style={{ fontWeight: 600 }}>{req.from_email ?? '—'}</h4>
-                        <div style={{ display: 'flex', gap: '0.4rem', marginTop: '0.2rem', marginBottom: '0.2rem', alignItems: 'center' }}>
-                          <span style={{ fontSize: '0.75rem', background: 'var(--bg-secondary)', border: '1px solid var(--border-color)', borderRadius: '4px', padding: '2px 6px', color: 'var(--text-secondary)' }}>
-                            Billing: {req.billing_cycle === 'sixMonth' ? '6 Months' : req.billing_cycle === 'yearly' ? 'Yearly' : 'Monthly'}
-                          </span>
-                          <span style={{ fontSize: '0.75rem', background: 'var(--bg-secondary)', border: '1px solid var(--border-color)', borderRadius: '4px', padding: '2px 6px', color: 'var(--text-secondary)' }}>
-                            Amount: Rs {req.paid_amount ?? 0}
-                          </span>
-                        </div>
-                        <div style={{ fontSize: '0.9rem', color: 'var(--text-secondary)', marginTop: '0.3rem' }}>
-                          Requested: <span style={{ fontWeight: 700, color: 'var(--primary-purple)' }}>
-                            {(req.requested_plan ?? '').charAt(0).toUpperCase() + (req.requested_plan ?? '').slice(1)} Plan
-                            {req.requested_plan === 'enterprise' ? ' — Custom' : (() => {
-                              const plan = req.requested_plan;
-                              const cycle = req.billing_cycle || 'monthly';
-                              const price = PLAN_PRICES[plan]?.[cycle];
-                              return price ? ` — Rs ${price}` : '';
-                            })()}
-                          </span>
-                        </div>
-                        {req.message && (
-                          <div style={{ fontSize: '0.8rem', color: 'var(--text-muted)', marginTop: '0.2rem' }}>
-                            Note: "{req.message}"
-                          </div>
-                        )}
-                        <div style={{ fontSize: '0.75rem', color: 'var(--text-muted)', marginTop: '0.2rem' }}>
-                          Sent: {new Date(req.created_at).toLocaleString()}
-                        </div>
-                      </div>
-                      <div className="flex gap-2" style={{ flexShrink: 0 }}>
-                        <button
-                          onClick={() => handleRespondRequest(req.id, 'approve')}
-                          disabled={actionLoading[`${req.id}-approve`] || actionLoading[`${req.id}-decline`]}
-                          className="btn btn-sm"
-                          style={{ background: 'var(--success-color)', color: '#fff', border: 'none', display: 'flex', alignItems: 'center', gap: '0.25rem' }}
-                        >
-                          {actionLoading[`${req.id}-approve`] ? (
-                            <>
-                              <div className="loading-spinner-inner" style={{ border: '2px solid rgba(255, 255, 255, 0.1)', borderTop: '2px solid #fff', borderRadius: '50%', width: '12px', height: '12px', animation: 'spin 1s linear infinite' }}></div>
-                              <span>Approving...</span>
-                            </>
-                          ) : (
-                            <>
-                              <Check size={14} /> Approve
-                            </>
-                          )}
-                        </button>
-                        <button
-                          onClick={() => handleRespondRequest(req.id, 'decline')}
-                          disabled={actionLoading[`${req.id}-approve`] || actionLoading[`${req.id}-decline`]}
-                          className="btn btn-danger btn-sm"
-                          style={{ display: 'flex', alignItems: 'center', gap: '0.25rem' }}
-                        >
-                          {actionLoading[`${req.id}-decline`] ? (
-                            <>
-                              <div className="loading-spinner-inner" style={{ border: '2px solid rgba(255, 255, 255, 0.1)', borderTop: '2px solid #fff', borderRadius: '50%', width: '12px', height: '12px', animation: 'spin 1s linear infinite' }}></div>
-                              <span>Declining...</span>
-                            </>
-                          ) : (
-                            <>
-                              <X size={14} /> Decline
-                            </>
-                          )}
-                        </button>
-                      </div>
-                    </div>
-                  ))}
-                </div>
-              )}
-            </div>
-
             {/* ── New Signups ── */}
             <div>
               <h4 style={{ fontSize: '0.85rem', fontWeight: 700, textTransform: 'uppercase', color: 'var(--text-muted)', marginBottom: '0.75rem', letterSpacing: '0.05em', display: 'flex', alignItems: 'center', gap: '0.35rem' }}>
@@ -463,7 +366,7 @@ function AdminPanelContent({ currentUser }) {
               )}
             </div>
 
-            {requests.length === 0 && (
+            {signups.length === 0 && (
               <div className="card flex align-center justify-center" style={{ minHeight: '200px', color: 'var(--text-muted)' }}>
                 All caught up — no pending notifications.
               </div>

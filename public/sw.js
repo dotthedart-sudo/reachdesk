@@ -1,7 +1,12 @@
 // Push notification push event — show the notification
 self.addEventListener('push', (event) => {
-  const data = event.data?.json() || {};
-  const title = data.title || 'ReachDesk';
+  let data = {};
+  try {
+    data = event.data ? event.data.json() : {};
+  } catch (e) {
+    console.error('[Service Worker] Failed to parse push payload:', e);
+  }
+  const title = 'ReachDesk CRM';
   const options = {
     body: data.body || 'You have a new notification',
     icon: '/android-chrome-192x192.png',

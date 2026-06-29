@@ -29,6 +29,11 @@ export async function subscribeToPush(supabase, userId) {
       return false;
     }
 
+    if (window.Notification && window.Notification.permission === 'denied') {
+      console.log('[Push] Notification permission is denied.');
+      return false;
+    }
+
     if (!VAPID_PUBLIC_KEY) {
       console.warn('[Push] VITE_VAPID_PUBLIC_KEY not set — skipping push subscription.');
       return false;
