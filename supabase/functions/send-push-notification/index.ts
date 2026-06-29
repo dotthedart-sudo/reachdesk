@@ -15,7 +15,7 @@ serve(async (req) => {
   }
 
   try {
-    const { target_user_id, title, body, url, notify_admin } = await req.json();
+    const { target_user_id, title, body, url, notify_admin, notification_type, from_email, from_name } = await req.json();
 
     const supabase = createClient(
       Deno.env.get('SUPABASE_URL')!,
@@ -81,6 +81,27 @@ serve(async (req) => {
     const failed = results.filter((r) => r.status === 'rejected').length;
 
     console.log(`[send-push-notification] sent=${sent} failed=${failed}`);
+
+    // ── If notify_admin, also persist a row in admin_notifications ───────────
+    // This uses the service-role client so it bypasses RLS and always lands
+    // in the admin panel regardless of whether push was delivered.
+    if (notify_admin) {
+      const notifType = notification_type || 'new_signup';
+      const { error: insertErr } = await supabase
+        .from('admin_notifications')
+        .insert({
+          from_email: from_email || null,
+          from_name: from_name || null,
+          type: notifType,
+          message: body || title || 'New notification',
+          is_read: false,
+        });
+      if (insertErr) {
+        console.warn('[send-push-notification] admin_notifications insert failed:', insertErr.message);
+      } else {
+        console.log('[send-push-notification] admin_notifications row inserted, type:', notifType);
+      }
+    }
 
     return new Response(JSON.stringify({ sent, failed }), {
       headers: { ...corsHeaders, 'Content-Type': 'application/json' },

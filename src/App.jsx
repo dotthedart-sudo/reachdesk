@@ -473,6 +473,8 @@ function AppProvider({ children }) {
     supabase.functions.invoke('send-push-notification', {
       body: {
         notify_admin: true,
+        notification_type: 'new_signup',
+        from_email: email,
         title: 'New Signup',
         body: `${email} just signed up on ReachDesk`,
         url: '/admin',

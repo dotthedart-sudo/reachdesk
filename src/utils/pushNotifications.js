@@ -66,23 +66,40 @@ export async function subscribeToPush(supabase, userId) {
 
     const { endpoint, keys } = subscription.toJSON();
 
-    // Upsert into Supabase — conflict on (user_id, endpoint)
-    const { error } = await supabase.from('push_subscriptions').upsert(
-      {
-        user_id: userId,
-        endpoint,
-        p256dh: keys.p256dh,
-        auth: keys.auth,
-      },
-      { onConflict: 'user_id,endpoint' }
-    );
+    // Check if this exact endpoint is already saved for this user
+    const { data: existing, error: checkErr } = await supabase
+      .from('push_subscriptions')
+      .select('id, p256dh')
+      .eq('user_id', userId)
+      .eq('endpoint', endpoint)
+      .maybeSingle();
 
-    if (error) {
-      console.error('[Push] Failed to save subscription:', error);
-      return false;
+    if (checkErr) {
+      console.warn('[Push] Could not check existing subscription:', checkErr);
     }
 
-    console.log('[Push] Subscription saved successfully.');
+    // Only upsert if no existing row or keys have changed
+    const keysChanged = !existing || existing.p256dh !== keys.p256dh;
+    if (keysChanged) {
+      const { error } = await supabase.from('push_subscriptions').upsert(
+        {
+          user_id: userId,
+          endpoint,
+          p256dh: keys.p256dh,
+          auth: keys.auth,
+        },
+        { onConflict: 'user_id,endpoint' }
+      );
+
+      if (error) {
+        console.error('[Push] Failed to save subscription:', error);
+        return false;
+      }
+      console.log('[Push] Subscription saved successfully.');
+    } else {
+      console.log('[Push] Subscription already up-to-date, skipping upsert.');
+    }
+
     return true;
   } catch (err) {
     console.error('[Push] subscribeToPush error:', err);

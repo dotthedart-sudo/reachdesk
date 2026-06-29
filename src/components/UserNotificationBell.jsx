@@ -7,6 +7,8 @@ export default function UserNotificationBell({ profile, onRefreshProfile }) {
   const [dueReminders, setDueReminders] = useState([]);
   const [isOpen, setIsOpen] = useState(false);
   const dropdownRef = useRef(null);
+  // Tracks which reminder IDs we've already fired a browser Notification for
+  const notifiedIds = useRef(new Set());
 
   const fetchNotifications = async () => {
     if (!profile?.id) return;
@@ -40,6 +42,24 @@ export default function UserNotificationBell({ profile, onRefreshProfile }) {
 
       if (!error) {
         setDueReminders(data || []);
+
+        // Fire a browser Notification for each newly-due reminder not yet notified
+        if ('Notification' in window && Notification.permission === 'granted') {
+          (data || []).forEach((rem) => {
+            if (!notifiedIds.current.has(rem.id)) {
+              notifiedIds.current.add(rem.id);
+              try {
+                new Notification('ReachDesk — Follow-up Due', {
+                  body: `Follow up with ${rem.lead_name || 'Lead'} — Reminder #${rem.reminder_number}`,
+                  icon: '/android-chrome-192x192.png',
+                  tag: `reminder-${rem.id}`,
+                });
+              } catch (notifErr) {
+                console.warn('[Bell] Browser Notification failed:', notifErr);
+              }
+            }
+          });
+        }
       }
     } catch (err) {
       console.error('Error fetching due reminders:', err);
@@ -65,6 +85,18 @@ export default function UserNotificationBell({ profile, onRefreshProfile }) {
             if (payload.new && !payload.new.is_read) {
               setNotifications(prev => [payload.new, ...prev]);
               if (onRefreshProfile) onRefreshProfile();
+              // Fire browser Notification popup for in-app / PWA
+              if ('Notification' in window && Notification.permission === 'granted') {
+                try {
+                  new Notification(payload.new.title || 'ReachDesk', {
+                    body: payload.new.message || 'You have a new notification',
+                    icon: '/android-chrome-192x192.png',
+                    tag: `user-notif-${payload.new.id}`,
+                  });
+                } catch (notifErr) {
+                  console.warn('[Bell] Browser Notification (user_notifications) failed:', notifErr);
+                }
+              }
             }
           }
         )

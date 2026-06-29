@@ -226,6 +226,7 @@ h3 { font-size: 1rem; }
   color: var(--text-primary);
   background: none;
   -webkit-background-clip: unset;
+  background-clip: unset;
   -webkit-text-fill-color: unset;
 }
 
@@ -801,6 +802,7 @@ select option {
   font-size: 2.25rem;
   background: var(--gradient-brand);
   -webkit-background-clip: text;
+  background-clip: text;
   -webkit-text-fill-color: transparent;
   margin-bottom: 0.5rem;
 }
@@ -1543,6 +1545,7 @@ select option {
   font-weight: 800;
   background: var(--gradient-brand);
   -webkit-background-clip: text;
+  background-clip: text;
   -webkit-text-fill-color: transparent;
   font-family: var(--font-headers);
 }
@@ -1625,6 +1628,7 @@ select option {
 :root.light .hero-title {
   background: none;
   -webkit-background-clip: unset;
+  background-clip: unset;
   -webkit-text-fill-color: #1e293b;
   color: #1e293b;
 }
@@ -1716,6 +1720,7 @@ select option {
   font-size: 2.5rem;
   background: var(--gradient-brand);
   -webkit-background-clip: text;
+  background-clip: text;
   -webkit-text-fill-color: transparent;
 }
 
