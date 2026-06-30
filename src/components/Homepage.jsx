@@ -20,17 +20,11 @@ const InstagramIcon = ({ size = 18 }) => (
 );
 
 const BILLING = {
-  monthly:   { label: 'Monthly',   badge: null,       multiplier: 1,    months: 1  },
-  quarterly: { label: '3 Months',  badge: '10% off',  multiplier: 2.7,  months: 3  },
-  sixMonth:  { label: '6 Months',  badge: '15% off',  multiplier: 5.1,  months: 6  },
-  yearly:    { label: 'Yearly',    badge: '20% off',  multiplier: 9.6,  months: 12 },
+  monthly:   { label: 'Monthly',   badge: null,      usdPerMonth: '1.60', usdTotal: '1.60',  pkrPerMonth: 450,  pkrTotal: 450,  months: 1 },
+  threeMonth:{ label: '3 Month',   badge: '-10%',    usdPerMonth: '1.44', usdTotal: '4.32',  pkrPerMonth: 405,  pkrTotal: 1215, months: 3 },
+  sixMonth:  { label: '6 Month',   badge: '-15%',    usdPerMonth: '1.36', usdTotal: '8.16',  pkrPerMonth: 382,  pkrTotal: 2292, months: 6 },
+  yearly:    { label: 'Yearly',    badge: '-20%',    usdPerMonth: '1.28', usdTotal: '15.36', pkrPerMonth: 360,  pkrTotal: 4320, months: 12 },
 };
-
-const BASE = { starter: 450, pro: 950, teams: 1800 };
-
-function getTotal(plan, cycle) {
-  return Math.round(BASE[plan] * BILLING[cycle].multiplier);
-}
 
 export default function Homepage({ currentUserEmail, brandName = 'ReachDesk' }) {
   const { theme, toggleTheme } = useAppContext() || {};
@@ -200,12 +194,15 @@ export default function Homepage({ currentUserEmail, brandName = 'ReachDesk' }) 
             <div>
               <div className="hp-plan-name" style={{ marginBottom: '0.5rem' }}>Starter</div>
               <div className="hp-plan-price">
-                Rs {getTotal('starter', billing).toLocaleString()}
+                <span style={{ fontFamily: "'Mattone', serif" }}>$</span>{BILLING[billing].usdTotal}
                 <span className="hp-plan-mo">/{BILLING[billing].months === 1 ? 'mo' : `${BILLING[billing].months} mo`}</span>
               </div>
+              <div style={{ fontFamily: 'Mattone, serif', fontSize: '0.72rem', color: 'var(--hp-muted)', letterSpacing: '0.04em', marginTop: '4px' }}>
+                ≈ Rs {BILLING[billing].pkrTotal.toLocaleString()} {BILLING[billing].months > 1 ? 'total' : '/mo'}
+              </div>
               {billing !== 'monthly' && (
-                <div style={{ fontFamily: 'Mattone, serif', fontSize: '0.72rem', color: 'var(--hp-muted)', letterSpacing: '0.04em', marginTop: '4px' }}>
-                  Rs {Math.round(getTotal('starter', billing) / BILLING[billing].months)}/mo effective
+                <div style={{ fontFamily: 'Mattone, serif', fontSize: '0.72rem', color: 'var(--hp-muted)', letterSpacing: '0.04em', marginTop: '2px' }}>
+                  effective: <span style={{ fontFamily: "'Mattone', serif" }}>$</span>{BILLING[billing].usdPerMonth}/mo · ≈ Rs {BILLING[billing].pkrPerMonth}/mo
                 </div>
               )}
             </div>
@@ -225,8 +222,11 @@ export default function Homepage({ currentUserEmail, brandName = 'ReachDesk' }) 
             <div>
               <div className="hp-plan-name" style={{ marginBottom: '0.5rem' }}>Pro</div>
               <div className="hp-plan-price">
-                Rs {getTotal('pro', billing).toLocaleString()}
-                <span className="hp-plan-mo">/{BILLING[billing].months === 1 ? 'mo' : `${BILLING[billing].months} mo`}</span>
+                <span style={{ fontFamily: "'Mattone', serif" }}>$</span>3.40
+                <span className="hp-plan-mo">/mo</span>
+              </div>
+              <div style={{ fontFamily: 'Mattone, serif', fontSize: '0.72rem', color: 'var(--hp-muted)', letterSpacing: '0.04em', marginTop: '4px' }}>
+                ≈ Rs 952/mo
               </div>
             </div>
             <ul className="hp-feature-list">
@@ -245,8 +245,11 @@ export default function Homepage({ currentUserEmail, brandName = 'ReachDesk' }) 
             <div>
               <div className="hp-plan-name" style={{ marginBottom: '0.5rem' }}>Teams</div>
               <div className="hp-plan-price">
-                Rs {getTotal('teams', billing).toLocaleString()}
-                <span className="hp-plan-mo">/{BILLING[billing].months === 1 ? 'mo' : `${BILLING[billing].months} mo`}</span>
+                <span style={{ fontFamily: "'Mattone', serif" }}>$</span>6.98
+                <span className="hp-plan-mo">/mo</span>
+              </div>
+              <div style={{ fontFamily: 'Mattone, serif', fontSize: '0.72rem', color: 'var(--hp-muted)', letterSpacing: '0.04em', marginTop: '4px' }}>
+                ≈ Rs 1,954/mo
               </div>
             </div>
             <ul className="hp-feature-list">

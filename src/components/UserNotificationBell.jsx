@@ -1,14 +1,19 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { Bell, Check, X, Clock, CheckCircle, Slash } from 'lucide-react';
+import { Bell, Check, X, Clock, CheckCircle, Users } from 'lucide-react';
 import { supabase } from '../lib/supabase';
+import { useNavigate } from 'react-router-dom';
 
 export default function UserNotificationBell({ profile, onRefreshProfile }) {
+  const navigate = useNavigate();
   const [notifications, setNotifications] = useState([]);
   const [dueReminders, setDueReminders] = useState([]);
+  const [adminNotifs, setAdminNotifs] = useState([]);
   const [isOpen, setIsOpen] = useState(false);
   const dropdownRef = useRef(null);
   // Tracks which reminder IDs we've already fired a browser Notification for
   const notifiedIds = useRef(new Set());
+
+  const isAdmin = profile?.role === 'admin' || profile?.email === 'dotthedart@gmail.com';
 
   const fetchNotifications = async () => {
     if (!profile?.id) return;
@@ -66,15 +71,42 @@ export default function UserNotificationBell({ profile, onRefreshProfile }) {
     }
   };
 
+  const fetchAdminNotifs = async () => {
+    if (!isAdmin) return;
+    try {
+      const { data, error } = await supabase
+        .from('admin_notifications')
+        .select('*')
+        .eq('is_read', false)
+        .order('created_at', { ascending: false });
+      if (!error) setAdminNotifs(data || []);
+    } catch (err) {
+      console.error('Error fetching admin notifications:', err);
+    }
+  };
+
+  const handleAcknowledgeAdmin = async (id, e) => {
+    e?.stopPropagation();
+    try {
+      await supabase.from('admin_notifications').update({ is_read: true }).eq('id', id);
+      setAdminNotifs(prev => prev.filter(n => n.id !== id));
+    } catch (err) {
+      console.error('Error acknowledging admin notif:', err);
+    }
+  };
+
+
   useEffect(() => {
     if (profile?.id) {
       fetchNotifications();
       fetchDueReminders();
+      if (isAdmin) fetchAdminNotifs();
 
       // Check due reminders every 5 minutes (300,000 ms)
       const interval = setInterval(() => {
         fetchDueReminders();
         fetchNotifications();
+        if (isAdmin) fetchAdminNotifs();
       }, 5 * 60 * 1000);
 
       // Realtime subscription for live updates
@@ -105,8 +137,39 @@ export default function UserNotificationBell({ profile, onRefreshProfile }) {
           () => {
             fetchDueReminders();
           }
-        )
-        .subscribe();
+        );
+
+      // Admin: subscribe to new admin_notifications (signups, upgrade requests)
+      if (isAdmin) {
+        channel.on('postgres_changes',
+          { event: 'INSERT', schema: 'public', table: 'admin_notifications' },
+          (payload) => {
+            if (payload.new && !payload.new.is_read) {
+              setAdminNotifs(prev => [payload.new, ...prev]);
+              if ('Notification' in window && Notification.permission === 'granted') {
+                try {
+                  const fromEmail = payload.new.from_email || 'Someone';
+                  const notifTitle = payload.new.type === 'new_signup'
+                    ? 'ReachDesk — New Signup'
+                    : 'ReachDesk — Upgrade Request';
+                  const notifBody = payload.new.type === 'new_signup'
+                    ? `${fromEmail} just signed up`
+                    : payload.new.message || `${fromEmail} requested an upgrade`;
+                  new Notification(notifTitle, {
+                    body: notifBody,
+                    icon: '/android-chrome-192x192.png',
+                    tag: `admin-notif-${payload.new.id}`,
+                  });
+                } catch (notifErr) {
+                  console.warn('[Bell] Admin browser Notification failed:', notifErr);
+                }
+              }
+            }
+          }
+        );
+      }
+
+      channel.subscribe();
 
       return () => {
         clearInterval(interval);
@@ -174,7 +237,7 @@ export default function UserNotificationBell({ profile, onRefreshProfile }) {
 
   if (!profile) return null;
 
-  const totalCount = notifications.length + dueReminders.length;
+  const totalCount = notifications.length + dueReminders.length + (isAdmin ? adminNotifs.length : 0);
 
   return (
     <div ref={dropdownRef} style={{ position: 'fixed', top: '1.25rem', right: '1.5rem', zIndex: 995 }}>
@@ -375,6 +438,52 @@ export default function UserNotificationBell({ profile, onRefreshProfile }) {
                     <span style={{ fontSize: '0.7rem', color: 'var(--text-muted)', marginTop: '0.25rem' }}>
                       {new Date(n.created_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
                     </span>
+                  </div>
+                ))}
+
+                {/* Admin Notifications — new signups / upgrade requests */}
+                {isAdmin && adminNotifs.map(n => (
+                  <div
+                    key={n.id}
+                    onClick={() => {
+                      navigate(`/admin?tab=users&userEmail=${encodeURIComponent(n.from_email || '')}`);
+                      handleAcknowledgeAdmin(n.id);
+                      setIsOpen(false);
+                    }}
+                    style={{
+                      padding: '0.85rem',
+                      background: 'rgba(91, 143, 185, 0.08)',
+                      borderRadius: '8px',
+                      border: '1px solid rgba(91, 143, 185, 0.25)',
+                      display: 'flex',
+                      flexDirection: 'column',
+                      gap: '0.3rem',
+                      cursor: 'pointer',
+                      position: 'relative',
+                      transition: 'background 0.15s ease'
+                    }}
+                    onMouseOver={e => e.currentTarget.style.background = 'rgba(91, 143, 185, 0.15)'}
+                    onMouseOut={e => e.currentTarget.style.background = 'rgba(91, 143, 185, 0.08)'}
+                  >
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '0.4rem', color: 'var(--accent-blue, #5b8fb9)', fontWeight: 700, fontSize: '0.8rem' }}>
+                      <Users size={13} />
+                      <span>{n.type === 'new_signup' ? 'New Signup' : 'Upgrade Request'}</span>
+                    </div>
+                    <p style={{ margin: 0, fontSize: '0.82rem', fontWeight: 600, color: 'var(--text-primary)', lineHeight: 1.3 }}>
+                      {n.from_email || '—'}
+                    </p>
+                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginTop: '0.2rem' }}>
+                      <span style={{ fontSize: '0.7rem', color: 'var(--text-muted)' }}>
+                        {new Date(n.created_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                      </span>
+                      <button
+                        onClick={(e) => handleAcknowledgeAdmin(n.id, e)}
+                        style={{ background: 'none', border: 'none', color: 'var(--text-muted)', cursor: 'pointer', display: 'flex', alignItems: 'center', padding: '2px' }}
+                        title="Acknowledge"
+                      >
+                        <Check size={13} style={{ color: 'var(--success-color)' }} />
+                      </button>
+                    </div>
                   </div>
                 ))}
               </>

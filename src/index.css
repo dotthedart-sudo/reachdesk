@@ -2474,3 +2474,12 @@ select option {
     grid-template-columns: repeat(4, minmax(0, 1fr)) !important;
   }
 }
+
+/* Global select & dropdown font overrides to enforce Mattone */
+select,
+.form-select,
+.csv-select,
+select option {
+  font-family: 'Mattone', var(--font-headers), sans-serif !important;
+}
+

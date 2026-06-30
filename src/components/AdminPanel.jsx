@@ -1,5 +1,5 @@
-import React, { useState, useEffect } from 'react';
-import { useNavigate } from 'react-router-dom';
+import React, { useState, useEffect, useRef } from 'react';
+import { useNavigate, useLocation } from 'react-router-dom';
 import { supabase } from '../lib/supabase';
 import { useAppContext } from '../App';
 import { 
@@ -40,15 +40,43 @@ class AdminErrorBoundary extends React.Component {
 
 function AdminPanelContent({ currentUser }) {
   const navigate = useNavigate();
+  const location = useLocation();
   const { showToast } = useAppContext();
   const [isAdmin, setIsAdmin] = useState(false);
   const [authLoading, setAuthLoading] = useState(true);
 
   const [activeTab, setActiveTab] = useState('requests'); // 'requests' | 'users'
+  const [timeFilter, setTimeFilter] = useState('all_time');
+  const [searchQuery, setSearchQuery] = useState('');
+  const [expandedUserId, setExpandedUserId] = useState(null);
+  const [userStats, setUserStats] = useState({});
+  const [statsLoadingUserId, setStatsLoadingUserId] = useState(null);
+  const [highlightEmail, setHighlightEmail] = useState(null);
+  const highlightRef = useRef(null);
   const [requests, setRequests] = useState([]);
   const [userList, setUserList] = useState([]);
   const [loading, setLoading] = useState(true);
   const [actionLoading, setActionLoading] = useState({});
+
+  // Read URL params to jump to a specific tab/user
+  useEffect(() => {
+    const params = new URLSearchParams(location.search);
+    const tab = params.get('tab');
+    const userEmail = params.get('userEmail');
+    if (tab === 'users') {
+      setActiveTab('users');
+    }
+    if (userEmail) {
+      setHighlightEmail(userEmail);
+    }
+  }, [location.search]);
+
+  // Scroll highlighted user row into view
+  useEffect(() => {
+    if (highlightRef.current) {
+      highlightRef.current.scrollIntoView({ behavior: 'smooth', block: 'center' });
+    }
+  }, [highlightEmail, activeTab]);
 
   useEffect(() => {
     supabase.auth.getSession().then(({ data: { session } }) => {
@@ -375,7 +403,40 @@ function AdminPanelContent({ currentUser }) {
         );
       })() : (
         /* User Directory */
-        <div className="card" style={{ padding: 0, overflowX: 'auto' }}>
+        <div className="flex-col gap-3">
+          {/* Folder Filter */}
+          <div style={{ display: 'flex', gap: '0.5rem', flexWrap: 'wrap', marginBottom: '0.5rem' }}>
+            {[
+              { key: 'all',     label: 'All Users',     icon: null },
+              { key: 'trial',   label: 'Trial Users',   icon: null },
+              { key: 'paid',    label: 'Paid Users',    icon: null },
+              { key: 'expired', label: 'Expired Users', icon: null },
+            ].map(folder => (
+              <button
+                key={folder.key}
+                onClick={() => setUserFolder(folder.key)}
+                className={`btn btn-sm ${userFolder === folder.key ? 'btn-primary' : 'btn-secondary'}`}
+              >
+                {folder.label}
+                <span style={{ marginLeft: '4px', opacity: 0.7, fontSize: '0.75rem' }}>
+                  ({userList.filter(u => {
+                    if (folder.key === 'all') return true;
+                    const now = Date.now();
+                    const plan = (u.plan ?? '').toLowerCase();
+                    const status = (u.subscription_status ?? '').toLowerCase();
+                    const trialEnds = u.trial_ends_at ? new Date(u.trial_ends_at).getTime() : null;
+                    const planExpires = u.plan_expires_at ? new Date(u.plan_expires_at).getTime() : null;
+                    if (folder.key === 'trial') return plan === 'trial' || status === 'trial' || (trialEnds && trialEnds > now && !planExpires);
+                    if (folder.key === 'paid') return (plan === 'starter' || plan === 'pro' || plan === 'teams' || plan === 'enterprise') && planExpires && planExpires > now;
+                    if (folder.key === 'expired') return planExpires && planExpires < now;
+                    return false;
+                  }).length})
+                </span>
+              </button>
+            ))}
+          </div>
+
+          <div className="card" style={{ padding: 0, overflowX: 'auto' }}>
           <table className="w-full" style={{ borderCollapse: 'collapse' }}>
             <thead>
               <tr style={{ borderBottom: '1px solid var(--border-color)', textAlign: 'left', background: 'var(--bg-tertiary)' }}>
@@ -387,12 +448,37 @@ function AdminPanelContent({ currentUser }) {
               </tr>
             </thead>
             <tbody>
-              {userList.map(user => (
-                <tr key={user.id} style={{ borderBottom: '1px solid var(--border-color)' }}>
+              {userList.filter(user => {
+                const now = Date.now();
+                const plan = (user.plan ?? '').toLowerCase();
+                const status = (user.subscription_status ?? '').toLowerCase();
+                const trialEnds = user.trial_ends_at ? new Date(user.trial_ends_at).getTime() : null;
+                const planExpires = user.plan_expires_at ? new Date(user.plan_expires_at).getTime() : null;
+                if (userFolder === 'all') return true;
+                if (userFolder === 'trial') return plan === 'trial' || status === 'trial' || (trialEnds && trialEnds > now && !planExpires);
+                if (userFolder === 'paid') return (plan === 'starter' || plan === 'pro' || plan === 'teams' || plan === 'enterprise') && planExpires && planExpires > now;
+                if (userFolder === 'expired') return planExpires && planExpires < now;
+                return false;
+              }).map(user => {
+                const isHighlighted = highlightEmail && user.email === highlightEmail;
+                return (
+                <tr
+                  key={user.id}
+                  ref={isHighlighted ? highlightRef : null}
+                  style={{
+                    borderBottom: '1px solid var(--border-color)',
+                    background: isHighlighted ? 'rgba(245, 158, 11, 0.12)' : 'transparent',
+                    outline: isHighlighted ? '2px solid rgba(245, 158, 11, 0.5)' : 'none',
+                    transition: 'background 0.3s ease'
+                  }}
+                >
                   <td style={{ padding: '0.75rem 1rem' }}>
                     <div style={{ fontWeight: 600 }}>{user.email ?? '—'}</div>
                     {user.payment_pending && (
                       <span className="badge badge-pending" style={{ fontSize: '0.7rem', marginTop: '0.2rem' }}>Payment Pending</span>
+                    )}
+                    {isHighlighted && (
+                      <span style={{ display: 'inline-block', fontSize: '0.68rem', color: '#f59e0b', fontWeight: 700, marginLeft: '6px' }}>◄ New Signup</span>
                     )}
                   </td>
                   <td style={{ padding: '0.75rem 1rem' }}>
@@ -479,9 +565,11 @@ function AdminPanelContent({ currentUser }) {
                     </div>
                   </td>
                 </tr>
-              ))}
+                );
+              })}
             </tbody>
           </table>
+          </div>
         </div>
       )}
 

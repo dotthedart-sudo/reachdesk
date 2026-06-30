@@ -2,20 +2,9 @@ import React, { useState } from 'react';
 import { supabase } from '../lib/supabase';
 import { Upload, CheckCircle, AlertCircle, Loader2, ArrowLeft, Landmark } from 'lucide-react';
 
-// Prices billed per cycle (total, not per-month)
-const PRICES = {
-  monthly:    { starter: 450  },
-  quarterly:  { starter: 1215 },
-  sixMonth:   { starter: 2292 },
-  yearly:     { starter: 4320 },
-};
-
-const BILLING_LABELS = {
-  monthly:   { label: 'Monthly',   badge: null,        perMonth: 450  },
-  quarterly: { label: '3 Months',  badge: '10% off',   perMonth: 405  },
-  sixMonth:  { label: '6 Months',  badge: '15% off',   perMonth: 382  },
-  yearly:    { label: 'Yearly',    badge: '20% off',   perMonth: 360  },
-};
+// Monthly pricing only
+const MONTHLY_USD = '1.60';
+const MONTHLY_PKR = 450;
 
 const selectedPlan = 'starter';
 
@@ -28,14 +17,10 @@ export default function UpgradeRequestForm({
 }) {
   const [fullName, setFullName]       = useState(profile?.full_name || '');
   const [mobileNumber, setMobileNumber] = useState(profile?.mobile_number || '');
-  const [billingCycle, setBillingCycle] = useState('monthly');
   const [receiptFile, setReceiptFile] = useState(null);
   const [loading, setLoading]         = useState(false);
   const [errorMessage, setErrorMessage] = useState('');
   const [submitted, setSubmitted]     = useState(false);
-
-  const amount = PRICES[billingCycle]?.starter || 0;
-  const billing = BILLING_LABELS[billingCycle];
 
   const handleFileChange = (e) => {
     const file = e.target.files[0];
@@ -79,7 +64,7 @@ export default function UpgradeRequestForm({
         .upload(storagePath, receiptFile);
       if (uploadError) throw new Error(`Receipt upload failed: ${uploadError.message}`);
 
-      const descriptiveMsg = `${fullName} (${profile.email}) requested Starter Plan (${billing.label}) — Rs ${amount}`;
+      const descriptiveMsg = `${fullName} (${profile.email}) requested Starter Plan (Monthly) — ${MONTHLY_USD}/mo (≈ Rs ${MONTHLY_PKR})`;
       const { error: notifError } = await supabase
         .from('admin_notifications')
         .insert({
@@ -88,8 +73,8 @@ export default function UpgradeRequestForm({
           from_name: fullName,
           type: 'plan_request',
           requested_plan: 'starter',
-          billing_cycle: billingCycle,
-          paid_amount: amount,
+          billing_cycle: 'monthly',
+          paid_amount: MONTHLY_PKR,
           mobile_number: digitsOnly,
           full_name: fullName,
           receipt_url: storagePath,
@@ -110,7 +95,7 @@ export default function UpgradeRequestForm({
       if (profileError) throw new Error(`Failed to update profile: ${profileError.message}`);
 
       supabase.functions.invoke('send-upgrade-email', {
-        body: { fullName, email: profile.email, mobileNumber: digitsOnly, requestedPlan: 'starter', billingCycle, paidAmount: amount, receiptPath: storagePath }
+        body: { fullName, email: profile.email, mobileNumber: digitsOnly, requestedPlan: 'starter', billingCycle: 'monthly', paidAmount: MONTHLY_PKR, receiptPath: storagePath }
       }).catch(err => console.error('Silent Edge Function invocation error:', err));
 
       supabase.functions.invoke('send-push-notification', {
@@ -181,60 +166,17 @@ export default function UpgradeRequestForm({
         </div>
       </div>
 
-      {/* Billing Cycle */}
-      <div className="form-group">
-        <label className="form-label">Billing Cycle</label>
-        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr 1fr', gap: '0.4rem' }}>
-          {Object.entries(BILLING_LABELS).map(([key, info]) => {
-            const isActive = billingCycle === key;
-            return (
-              <button
-                key={key}
-                type="button"
-                onClick={() => setBillingCycle(key)}
-                disabled={loading}
-                style={{
-                  padding: '0.6rem 0.4rem',
-                  borderRadius: '4px',
-                  border: isActive ? '1.5px solid var(--accent-blue)' : '0.5px solid var(--border-strong)',
-                  background: isActive ? 'rgba(91,143,185,0.1)' : 'transparent',
-                  color: isActive ? 'var(--text-primary)' : 'var(--text-muted)',
-                  cursor: 'pointer',
-                  fontFamily: 'var(--font-body)',
-                  fontSize: '0.72rem',
-                  fontWeight: isActive ? 700 : 500,
-                  textAlign: 'center',
-                  transition: 'all 0.15s ease',
-                  display: 'flex',
-                  flexDirection: 'column',
-                  alignItems: 'center',
-                  gap: '2px',
-                }}
-              >
-                <span>{info.label}</span>
-                {info.badge && (
-                  <span style={{ fontSize: '0.62rem', color: 'var(--accent-green)', fontWeight: 600 }}>
-                    {info.badge}
-                  </span>
-                )}
-              </button>
-            );
-          })}
-        </div>
-      </div>
-
       {/* Amount to Pay — prominent */}
       <div style={{ padding: '1rem', borderRadius: '6px', background: 'var(--bg-card)', border: '0.5px solid var(--border)', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
         <div>
           <div style={{ fontFamily: 'var(--font-body)', fontSize: '0.7rem', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.08em', color: 'var(--text-muted)', marginBottom: '4px' }}>
-            Total Due
+            Monthly Price
           </div>
           <div style={{ fontFamily: 'var(--font-heading)', fontSize: '2rem', color: 'var(--text-primary)', lineHeight: 1 }}>
-            Rs {amount.toLocaleString()}
+            <span style={{ fontFamily: 'var(--font-heading)' }}>$</span>{MONTHLY_USD}<span style={{ fontSize: '1rem', color: 'var(--text-muted)', fontFamily: 'var(--font-body)' }}>/mo</span>
           </div>
           <div style={{ fontFamily: 'var(--font-body)', fontSize: '0.72rem', color: 'var(--text-muted)', marginTop: '4px' }}>
-            Rs {billing.perMonth}/mo · {billing.label} billing
-            {billing.badge && <span style={{ color: 'var(--accent-green)', marginLeft: '6px' }}>({billing.badge})</span>}
+            ≈ Rs {MONTHLY_PKR}/mo · Monthly billing
           </div>
         </div>
       </div>

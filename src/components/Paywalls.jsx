@@ -3,44 +3,30 @@ import { Lock, CreditCard, CheckCircle, ShieldAlert, Landmark, Check } from 'luc
 import { supabase } from '../lib/supabase';
 
 // ─── Pricing data ────────────────────────────────────────────────────────────
-// Per-month rates at each billing cycle
-const MONTHLY_RATES = {
-  monthly:   { starter: 450,  pro: 950,  teams: 1950 },
-  threeMonth:{ starter: 405,  pro: 855,  teams: 1755 },
-  sixMonth:  { starter: 382,  pro: 807,  teams: 1657 },
-  yearly:    { starter: 360,  pro: 760,  teams: 1560 },
-};
-
-const CYCLE_MONTHS = {
-  monthly: 1,
-  threeMonth: 3,
-  sixMonth: 6,
-  yearly: 12,
-};
-
-const BILLING_LABELS = {
-  monthly:    'Monthly',
-  threeMonth: '3 Month  -10%',
-  sixMonth:   '6 Month  -15%',
-  yearly:     'Yearly   -20%',
+const BILLING = {
+  monthly:   { label: 'Monthly',   badge: null,      usdPerMonth: '1.60', usdTotal: '1.60',  pkrPerMonth: 450,  pkrTotal: 450,  months: 1 },
+  threeMonth:{ label: '3 Month',   badge: '-10%',    usdPerMonth: '1.44', usdTotal: '4.32',  pkrPerMonth: 405,  pkrTotal: 1215, months: 3 },
+  sixMonth:  { label: '6 Month',   badge: '-15%',    usdPerMonth: '1.36', usdTotal: '8.16',  pkrPerMonth: 382,  pkrTotal: 2292, months: 6 },
+  yearly:    { label: 'Yearly',    badge: '-20%',    usdPerMonth: '1.28', usdTotal: '15.36', pkrPerMonth: 360,  pkrTotal: 4320, months: 12 },
 };
 
 // Total billed per cycle
-function cycleTotal(billing, plan) {
-  return MONTHLY_RATES[billing][plan] * CYCLE_MONTHS[billing];
-}
-
 function formatPriceDisplay(billing, plan) {
-  const perMonth = MONTHLY_RATES[billing][plan];
-  const total    = cycleTotal(billing, plan);
-  if (billing === 'monthly') {
-    return { main: `Rs ${perMonth.toLocaleString()} / mo`, sub: null };
+  if (plan === 'starter') {
+    const info = BILLING[billing];
+    return {
+      main: `${info.usdTotal} / ${info.months === 1 ? 'mo' : `${info.months} mo`}`,
+      sub: `≈ Rs ${info.pkrTotal.toLocaleString()} ${info.months > 1 ? 'total' : '/mo'}`,
+      effective: info.months > 1 ? `effective: $${info.usdPerMonth}/mo · ≈ Rs ${info.pkrPerMonth}/mo` : null
+    };
   }
-  const months = CYCLE_MONTHS[billing];
-  return {
-    main: `Rs ${perMonth.toLocaleString()} / mo`,
-    sub:  `Rs ${total.toLocaleString()} billed every ${months} months`,
-  };
+  if (plan === 'pro') {
+    return { main: '3.40 / mo', sub: '≈ Rs 952/mo', effective: null };
+  }
+  if (plan === 'teams') {
+    return { main: '6.98 / mo', sub: '≈ Rs 1,954/mo', effective: null };
+  }
+  return { main: '', sub: null, effective: null };
 }
 
 // ─── Plan config ─────────────────────────────────────────────────────────────
@@ -138,7 +124,7 @@ function PlanCard({ plan, billing, isSelected, onSelect }) {
 
   return (
     <div
-      onClick={() => !comingSoon && !isEnterprise && onSelect(id)}
+      onClick={() => id === 'starter' && onSelect(id)}
       style={{
         position: 'relative',
         border: comingSoon
@@ -154,7 +140,7 @@ function PlanCard({ plan, billing, isSelected, onSelect }) {
           ? 'var(--bg-secondary)'
           : 'var(--bg-card)',
         opacity: comingSoon ? 0.6 : 1,
-        cursor: comingSoon || isEnterprise ? 'default' : 'pointer',
+        cursor: id === 'starter' ? 'pointer' : 'not-allowed',
         transition: 'border-color 0.2s, box-shadow 0.2s',
         boxShadow: isSelected && !comingSoon
           ? '0 0 0 3px rgba(139,92,246,0.18)'
@@ -207,7 +193,7 @@ function PlanCard({ plan, billing, isSelected, onSelect }) {
 
       {/* Header */}
       <div>
-        <div style={{ fontWeight: 700, fontSize: '1.05rem', color: comingSoon ? 'var(--text-muted)' : 'var(--text-primary)' }}>
+        <div style={{ fontWeight: 700, fontSize: '1.05rem', color: id !== 'starter' ? 'var(--text-muted)' : 'var(--text-primary)' }}>
           {name}
         </div>
         <div style={{ fontSize: '0.78rem', color: 'var(--text-muted)', marginTop: '0.2rem' }}>
@@ -218,19 +204,29 @@ function PlanCard({ plan, billing, isSelected, onSelect }) {
       {/* Price */}
       <div>
         {isEnterprise ? (
-          <div style={{ fontSize: '1.3rem', fontWeight: 700, color: 'var(--text-primary)' }}>Custom</div>
-        ) : comingSoon ? (
-          <div style={{ fontSize: '1.1rem', fontWeight: 700, color: 'var(--text-muted)' }}>
-            Rs {MONTHLY_RATES[billing][id]?.toLocaleString()} / mo
-          </div>
+          <div style={{ fontSize: '1.3rem', fontWeight: 700, color: 'var(--text-primary)', fontFamily: "'Mattone', sans-serif" }}>Custom</div>
+        ) : id !== 'starter' ? (
+          <>
+            <div style={{ fontSize: '1.3rem', fontWeight: 700, color: 'var(--text-muted)', fontFamily: "'Mattone', sans-serif" }}>
+              <span style={{ fontFamily: "'Mattone', sans-serif" }}>$</span>{id === 'teams' ? '6.98 / mo' : '3.40 / mo'}
+            </div>
+            <div style={{ fontSize: '0.75rem', color: 'var(--text-muted)', marginTop: '0.2rem', fontFamily: "'Mattone', sans-serif" }}>
+              {id === 'teams' ? '≈ Rs 1,954/mo' : '≈ Rs 952/mo'}
+            </div>
+          </>
         ) : priceInfo ? (
           <>
-            <div style={{ fontSize: '1.3rem', fontWeight: 700, color: 'var(--text-primary)' }}>
-              {priceInfo.main}
+            <div style={{ fontSize: '1.3rem', fontWeight: 700, color: 'var(--text-primary)', fontFamily: "'Mattone', sans-serif" }}>
+              <span style={{ fontFamily: "'Mattone', sans-serif" }}>$</span>{priceInfo.main}
             </div>
             {priceInfo.sub && (
-              <div style={{ fontSize: '0.75rem', color: 'var(--text-muted)', marginTop: '0.2rem' }}>
+              <div style={{ fontSize: '0.75rem', color: 'var(--text-muted)', marginTop: '0.2rem', fontFamily: "'Mattone', sans-serif" }}>
                 {priceInfo.sub}
+              </div>
+            )}
+            {priceInfo.effective && (
+              <div style={{ fontSize: '0.72rem', color: 'var(--text-muted)', marginTop: '0.2rem', fontFamily: "'Mattone', sans-serif" }}>
+                {priceInfo.effective}
               </div>
             )}
           </>
@@ -395,30 +391,29 @@ export function UpgradePage({ profile, handleLogout, onRefreshProfile, bankAccou
 
   // Compute per-month price label for the selected plan (for payment section)
   const selectedPlanMeta = PLANS.find(p => p.id === selectedPaywallPlan);
-  const selectedMonthlyRate = (!selectedPlanMeta?.isEnterprise && !selectedPlanMeta?.comingSoon)
-    ? MONTHLY_RATES[billing][selectedPaywallPlan]
-    : null;
-  const selectedTotal = selectedMonthlyRate
-    ? cycleTotal(billing, selectedPaywallPlan)
-    : null;
+  const selectedMonthlyRate = selectedPaywallPlan === 'starter' ? BILLING[billing].pkrPerMonth : selectedPaywallPlan === 'pro' ? 952 : selectedPaywallPlan === 'teams' ? 1954 : null;
+  const selectedTotal = selectedPaywallPlan === 'starter' ? parseFloat(BILLING[billing].usdTotal) : selectedPaywallPlan === 'pro' ? 3.40 : selectedPaywallPlan === 'teams' ? 6.98 : null;
 
   return (
-    <div className={isEmbedded ? '' : 'paywall-overlay'}>
+    <div className={isEmbedded ? '' : 'paywall-overlay'} style={{ fontFamily: 'Mattone, sans-serif' }}>
       <div
         className={isEmbedded ? 'card flex-col' : 'paywall-card'}
-        style={isEmbedded ? {
-          maxWidth: '900px',
-          margin: '1.5rem auto',
-          padding: '2.5rem 2rem',
-          display: 'flex',
-          flexDirection: 'column',
-          alignItems: 'center',
-          gap: '1.5rem',
-          width: '100%',
-          border: '1px solid var(--border-color)',
-          borderRadius: '12px',
-          backgroundColor: 'var(--bg-card)',
-        } : {}}
+        style={{
+          fontFamily: 'Mattone, sans-serif',
+          ...(isEmbedded ? {
+            maxWidth: '900px',
+            margin: '1.5rem auto',
+            padding: '2.5rem 2rem',
+            display: 'flex',
+            flexDirection: 'column',
+            alignItems: 'center',
+            gap: '1.5rem',
+            width: '100%',
+            border: '1px solid var(--border-color)',
+            borderRadius: '12px',
+            backgroundColor: 'var(--bg-card)',
+          } : {})
+        }}
       >
         <div className="paywall-icon"><Lock size={36} /></div>
 
@@ -447,36 +442,41 @@ export function UpgradePage({ profile, handleLogout, onRefreshProfile, bankAccou
           </>
         )}
 
-        {/* ── Billing toggle ──────────────────────────────────── */}
-        <div style={{
-          display: 'flex',
-          gap: '0.4rem',
-          background: 'var(--bg-tertiary)',
-          borderRadius: '8px',
-          padding: '4px',
-          width: '100%',
-        }}>
-          {Object.entries(BILLING_LABELS).map(([key, label]) => (
-            <button
-              key={key}
-              onClick={() => setBilling(key)}
-              style={{
-                flex: 1,
-                padding: '0.4rem 0.35rem',
-                borderRadius: '6px',
-                border: 'none',
-                cursor: 'pointer',
-                fontSize: '0.73rem',
-                fontWeight: billing === key ? 700 : 400,
-                background: billing === key ? 'var(--primary-purple)' : 'transparent',
-                color: billing === key ? '#fff' : 'var(--text-muted)',
-                transition: 'all 0.2s',
-                whiteSpace: 'nowrap',
-              }}
-            >
-              {label}
-            </button>
-          ))}
+        {/* Billing cycle toggle */}
+        <div style={{ display: 'flex', gap: 0, border: '0.5px solid var(--border-color)', borderRadius: '3px', overflow: 'hidden', width: 'fit-content', marginBottom: '2.5rem', marginTop: '1.5rem' }}>
+          {Object.entries(BILLING).map(([key, info]) => {
+            const isActive = billing === key;
+            return (
+              <button
+                key={key}
+                onClick={() => setBilling(key)}
+                style={{
+                  padding: '8px 16px',
+                  background: isActive ? 'var(--accent-blue)' : 'transparent',
+                  color: isActive ? '#0D1117' : 'var(--text-muted)',
+                  border: 'none',
+                  borderRight: key !== 'yearly' ? '0.5px solid var(--border-color)' : 'none',
+                  cursor: 'pointer',
+                  fontFamily: 'Mattone, sans-serif',
+                  fontSize: '0.72rem',
+                  letterSpacing: '0.06em',
+                  transition: 'all 0.15s ease',
+                  display: 'flex',
+                  flexDirection: 'column',
+                  alignItems: 'center',
+                  gap: '2px',
+                  minWidth: '80px',
+                }}
+              >
+                <span>{info.label}</span>
+                {info.badge && (
+                  <span style={{ fontSize: '0.6rem', color: isActive ? '#0D1117' : 'var(--accent-green)', fontWeight: 600 }}>
+                    {info.badge}
+                  </span>
+                )}
+              </button>
+            );
+          })}
         </div>
 
         {/* ── Plan cards grid ─────────────────────────────────── */}
@@ -507,32 +507,90 @@ export function UpgradePage({ profile, handleLogout, onRefreshProfile, bankAccou
             borderRadius: '8px',
             border: '1px solid var(--border-color)',
             width: '100%',
+            fontFamily: 'Mattone, sans-serif',
           }}
         >
-          <p style={{ fontWeight: 600, color: 'var(--text-primary)' }}>Select Upgrade Plan &amp; Send Payment:</p>
+          <p style={{ fontWeight: 600, color: 'var(--text-primary)', fontFamily: 'Mattone, sans-serif' }}>Select Upgrade Plan &amp; Send Payment:</p>
 
-          {/* Plan select — Starter and Pro only */}
-          <select
-            value={selectedPaywallPlan}
-            onChange={e => setSelectedPaywallPlan(e.target.value)}
-            className="form-select w-full"
-            style={{ marginBottom: '0.25rem' }}
-          >
-            <option value="starter">Starter Plan</option>
-            <option value="pro">Pro Plan</option>
-          </select>
+          {/* Styled clickable cards instead of plan dropdown selector */}
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '0.75rem', margin: '0.5rem 0 1.25rem 0' }}>
+            {/* Starter Plan Card */}
+            <div
+              onClick={() => setSelectedPaywallPlan('starter')}
+              style={{
+                padding: '0.75rem 0.5rem',
+                borderRadius: '8px',
+                border: selectedPaywallPlan === 'starter' ? '2px solid var(--primary-purple)' : '1px solid var(--border-color)',
+                background: selectedPaywallPlan === 'starter' ? 'rgba(139,92,246,0.08)' : 'var(--bg-card)',
+                cursor: 'pointer',
+                textAlign: 'center',
+                transition: 'all 0.2s',
+                fontFamily: 'Mattone, sans-serif'
+              }}
+            >
+              <div style={{ fontWeight: 700, fontSize: '0.85rem', color: selectedPaywallPlan === 'starter' ? 'var(--primary-purple)' : 'var(--text-primary)' }}>Starter</div>
+              <div style={{ fontSize: '0.75rem', fontWeight: 600, marginTop: '0.2rem', fontFamily: "'Mattone', sans-serif" }}>
+                <span style={{ fontFamily: "'Mattone', sans-serif" }}>$</span>{BILLING[billing].usdTotal}
+                {BILLING[billing].months > 1 ? `/${BILLING[billing].months}mo` : '/mo'}
+              </div>
+              <div style={{ fontSize: '0.65rem', color: 'var(--text-muted)' }}>
+                ≈ Rs {BILLING[billing].pkrTotal.toLocaleString()}
+              </div>
+            </div>
+
+            {/* Pro Plan Card — Disabled/Coming Soon */}
+            <div
+              style={{
+                padding: '0.75rem 0.5rem',
+                borderRadius: '8px',
+                border: '1px solid var(--border-color)',
+                background: 'var(--bg-secondary)',
+                opacity: 0.6,
+                cursor: 'not-allowed',
+                textAlign: 'center',
+                fontFamily: 'Mattone, sans-serif'
+              }}
+            >
+              <div style={{ fontWeight: 700, fontSize: '0.85rem', color: 'var(--text-muted)' }}>Pro</div>
+              <div style={{ fontSize: '0.75rem', fontWeight: 600, marginTop: '0.2rem', color: 'var(--text-muted)', fontFamily: "'Mattone', sans-serif" }}><span style={{ fontFamily: "'Mattone', sans-serif" }}>$</span>3.40/mo</div>
+              <div style={{ fontSize: '0.65rem', color: 'var(--text-muted)' }}>≈ Rs 952</div>
+            </div>
+
+            {/* Teams Plan Card — Disabled/Coming Soon */}
+            <div
+              style={{
+                padding: '0.75rem 0.5rem',
+                borderRadius: '8px',
+                border: '1px solid var(--border-color)',
+                background: 'var(--bg-secondary)',
+                opacity: 0.6,
+                cursor: 'not-allowed',
+                textAlign: 'center',
+                fontFamily: 'Mattone, sans-serif'
+              }}
+            >
+              <div style={{ fontWeight: 700, fontSize: '0.85rem', color: 'var(--text-muted)' }}>Teams</div>
+              <div style={{ fontSize: '0.75rem', fontWeight: 600, marginTop: '0.2rem', color: 'var(--text-muted)', fontFamily: "'Mattone', sans-serif" }}><span style={{ fontFamily: "'Mattone', sans-serif" }}>$</span>6.98/mo</div>
+              <div style={{ fontSize: '0.65rem', color: 'var(--text-muted)' }}>≈ Rs 1,954</div>
+            </div>
+          </div>
 
           {/* Dynamic price summary */}
-          {selectedMonthlyRate && (
-            <div style={{ fontSize: '0.85rem', fontWeight: 600, color: 'var(--primary-purple)', marginBottom: '0.25rem' }}>
-              Rs {selectedMonthlyRate.toLocaleString()} / mo
-              {billing !== 'monthly' && (
+          <div style={{ fontSize: '0.85rem', fontWeight: 600, color: 'var(--primary-purple)', marginBottom: '0.25rem', fontFamily: 'Mattone, sans-serif' }}>
+            {selectedPaywallPlan === 'starter' && (
+              <>
+                <span style={{ fontSize: '1rem', fontWeight: 700, fontFamily: "'Mattone', sans-serif" }}><span style={{ fontFamily: "'Mattone', sans-serif" }}>$</span>{BILLING[billing].usdTotal}</span> / {BILLING[billing].months === 1 ? 'mo' : `${BILLING[billing].months} mo`}
                 <span style={{ fontWeight: 400, color: 'var(--text-muted)', marginLeft: '0.5rem' }}>
-                  (Rs {selectedTotal.toLocaleString()} total for {CYCLE_MONTHS[billing]} months)
+                  (≈ Rs {BILLING[billing].pkrTotal.toLocaleString()} total)
                 </span>
-              )}
-            </div>
-          )}
+                {BILLING[billing].months > 1 && (
+                  <div style={{ fontSize: '0.72rem', color: 'var(--text-muted)', marginTop: '0.2rem' }}>
+                    effective: <span style={{ fontFamily: "'Mattone', sans-serif" }}>$</span>{BILLING[billing].usdPerMonth}/mo · ≈ Rs {BILLING[billing].pkrPerMonth}/mo
+                  </div>
+                )}
+              </>
+            )}
+          </div>
 
           {/* Paddle Pay Now button */}
           <button
@@ -540,17 +598,19 @@ export function UpgradePage({ profile, handleLogout, onRefreshProfile, bankAccou
               const planKey = selectedPaywallPlan?.toLowerCase() || 'starter';
               handlePaddleCheckout(planKey);
             }}
+            disabled={selectedPaywallPlan !== 'starter'}
             style={{
               width: '100%',
               padding: '12px',
-              backgroundColor: '#5B8FB9',
+              backgroundColor: selectedPaywallPlan !== 'starter' ? 'var(--bg-tertiary)' : '#5B8FB9',
               color: '#fff',
               border: 'none',
               borderRadius: '3px',
               fontSize: '14px',
-              cursor: 'pointer',
-              marginTop: '16px',
+              cursor: selectedPaywallPlan !== 'starter' ? 'not-allowed' : 'pointer',
+              marginTop: '8px',
               fontWeight: 600,
+              fontFamily: 'Mattone, sans-serif'
             }}
           >
             Upgrade to {selectedPlanMeta?.name || selectedPaywallPlan} — Pay Now

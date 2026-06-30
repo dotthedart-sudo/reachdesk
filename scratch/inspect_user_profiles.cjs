@@ -11,24 +11,21 @@ envContent.split('\n').forEach(line => {
   }
 });
 
-const supabaseUrl = env.VITE_SUPABASE_URL;
-const supabaseKey = env.VITE_SUPABASE_ANON_KEY;
-const supabase = createClient(supabaseUrl, supabaseKey);
+const supabase = createClient(env.VITE_SUPABASE_URL, env.VITE_SUPABASE_ANON_KEY);
 
-async function checkProfiles() {
+async function inspectProfiles() {
   const { data, error } = await supabase
     .from('user_profiles')
-    .select('*');
-
+    .select('*')
+    .limit(10);
   if (error) {
-    console.error('Error fetching profiles:', error);
-    return;
+    console.error('Error fetching user_profiles:', error);
+  } else {
+    console.log('Sample profiles:', data);
+    if (data.length > 0) {
+      console.log('Keys in user_profiles:', Object.keys(data[0]));
+    }
   }
-
-  console.log(`Total profiles found: ${data.length}`);
-  data.forEach(p => {
-    console.log(`ID: ${p.id} | Email: ${p.email} | Role: ${p.role} | Plan: ${p.plan}`);
-  });
 }
 
-checkProfiles();
+inspectProfiles();
