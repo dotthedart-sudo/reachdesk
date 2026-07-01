@@ -202,8 +202,7 @@ export default function Auth({ onRegister, onLogin, mode = 'login' }) {
       {/* Mini Nav */}
       <nav className="landing-nav">
         <Link to="/homepage" className="landing-nav-logo" style={{ cursor: 'pointer', textDecoration: 'none', display: 'flex', alignItems: 'center' }}>
-          <img src="/reachdesk-logo.svg" alt="ReachDesk CRM" height="36" style={{objectFit: 'contain'}} />
-          <span className="hp-logo" style={{ marginLeft: '0.5rem', color: 'var(--text-primary)' }}>REACHDESK</span>
+          <span style={{fontFamily:'Mattone, sans-serif', textTransform:'uppercase', letterSpacing:'0.08em', fontSize:'20px', color:'var(--text-primary)', fontWeight:'400'}}>ReachDesk</span>
         </Link>
         <Link to="/homepage" className="btn btn-secondary btn-sm" style={{ textDecoration: 'none' }}>
           Back to Home

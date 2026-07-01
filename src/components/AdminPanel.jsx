@@ -405,8 +405,7 @@ function AdminPanelContent({ currentUser }) {
       <div className="flex justify-between align-center mb-4">
         <div>
           <h2 style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
-            <img src="/reachdesk-logo.svg" alt="ReachDesk CRM" height="32" style={{objectFit: 'contain'}} />
-            <span className="hp-logo" style={{ color: 'var(--text-primary)' }}>REACHDESK</span>
+            <span style={{fontFamily:'Mattone, sans-serif', textTransform:'uppercase', letterSpacing:'0.08em', fontSize:'18px', color:'var(--text-primary)', fontWeight:'400'}}>ReachDesk</span>
             <span style={{ fontSize: '0.85em', color: 'var(--text-muted)', fontWeight: 'normal', marginLeft: '0.25rem' }}>| System Admin Panel</span>
           </h2>
           <p className="color-muted" style={{ fontSize: '0.9rem' }}>
