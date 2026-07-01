@@ -1,10 +1,10 @@
 import React, { useState, useEffect } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { supabase } from '../lib/supabase';
 import { 
-  Settings, Save, Terminal, Layers, GitBranch, Plus, 
+  Settings, Save, CreditCard, GitBranch, Plus, 
   Trash2, ChevronUp, ChevronDown, AlertCircle, Users, Mail, UserMinus, User, Upload 
 } from 'lucide-react';
-import UpgradeRequestForm from './UpgradeRequestForm';
 
 const PRESET_COLORS = [
   '#6b7280', '#3b82f6', '#f59e0b', '#10b981', '#8b5cf6',
@@ -23,6 +23,7 @@ export default function Configuration({
   onRefreshStatuses,
   onRefreshProfile
 }) {
+  const navigate = useNavigate();
   const [localBrand, setLocalBrand] = useState(brandName);
   const [localCurrency, setLocalCurrency] = useState(currencySymbol);
   const [localWebhook, setLocalWebhook] = useState(webhookUrl);
@@ -755,66 +756,51 @@ export default function Configuration({
         </div>
       )}
 
-      {/* SECTION 3.5: Plan Upgrade / Renewal Request */}
-      {currentUser?.role !== 'admin' && currentUser?.email !== 'dotthedart@gmail.com' && currentUser?.plan !== 'enterprise' && (
-        <div className="card flex-col gap-3">
-          <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', borderBottom: '1px solid var(--border-color)', paddingBottom: '0.5rem', marginBottom: '0.5rem' }}>
-            <Settings size={18} style={{ color: 'var(--primary-purple)' }} />
-            <h3 style={{ fontSize: '1.1rem' }}>Request Plan Upgrade / Renewal</h3>
-          </div>
-          
-          {currentUser?.payment_pending ? (
-            <div style={{
-              display: 'flex',
-              alignItems: 'center',
-              gap: '0.5rem',
-              padding: '0.75rem 1rem',
-              background: 'rgba(245, 158, 11, 0.08)',
-              border: '1px solid rgba(245, 158, 11, 0.3)',
-              borderRadius: '8px',
-              color: 'var(--warning-color)',
-              fontSize: '0.9rem'
-            }}>
-              <AlertCircle size={16} style={{ flexShrink: 0 }} />
-              <span>An upgrade request is currently pending verification. We will review your payment and activate your plan soon.</span>
-            </div>
-          ) : (
-            <UpgradeRequestForm
-              profile={currentUser}
-              isModal={false}
-              initialPlan={currentUser?.plan === 'trial' ? 'starter' : currentUser?.plan || 'starter'}
-              onSuccess={onRefreshProfile}
-            />
-          )}
-        </div>
-      )}
-
-      {/* SECTION 4: Active Metadata */}
+      {/* SECTION 3.5 & 4: Billing & Subscription */}
       <div className="card flex-col gap-3">
         <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', borderBottom: '1px solid var(--border-color)', paddingBottom: '0.5rem', marginBottom: '0.5rem' }}>
-          <Terminal size={18} style={{ color: '#4ade80' }} />
-          <h3 style={{ fontSize: '1.1rem' }}>Operation Workspace Metadata</h3>
+          <CreditCard size={18} style={{ color: 'var(--accent-blue)' }} />
+          <h3 style={{ fontSize: '1.1rem' }}>Billing &amp; Subscription</h3>
         </div>
 
-        <div
-          style={{
-            fontFamily: 'Consolas, Monaco, "Andale Mono", monospace',
-            backgroundColor: '#0a0814',
-            border: '1px solid var(--border-color)',
-            borderRadius: '8px',
-            padding: '1rem 1.25rem',
-            color: '#4ade80',
-            lineHeight: 1.7,
-            fontSize: '0.85rem',
-            boxShadow: 'inset 0 2px 4px rgba(0,0,0,0.5)',
-            display: 'flex',
-            flexDirection: 'column',
-            gap: '0.25rem'
-          }}
-        >
-          <div>&gt; IDENTITY VECTOR ROLE: <span style={{ color: '#f8fafc' }}>{getIdentityRole()}</span></div>
-          <div>&gt; SUBSCRIPTION TIER  : <span style={{ color: '#f8fafc' }}>{currentUser.plan.toUpperCase()} ({currentUser.status})</span></div>
-          <div>&gt; SYSTEM CORE ENGINE  : <span style={{ color: '#f8fafc' }}>Supabase Live Realtime System (Replicated)</span></div>
+        <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
+          <div style={{ display: 'flex', gap: '1rem', alignItems: 'center' }}>
+            <span style={{ fontSize: '0.85rem', color: 'var(--text-muted)', minWidth: '100px' }}>Current Plan</span>
+            <span style={{
+              fontSize: '0.85rem',
+              fontWeight: 700,
+              color: 'var(--text-primary)',
+              textTransform: 'capitalize'
+            }}>
+              {currentUser?.plan || 'Trial'}
+            </span>
+          </div>
+          <div style={{ display: 'flex', gap: '1rem', alignItems: 'center' }}>
+            <span style={{ fontSize: '0.85rem', color: 'var(--text-muted)', minWidth: '100px' }}>Status</span>
+            <span style={{
+              fontSize: '0.8rem',
+              fontWeight: 600,
+              padding: '2px 10px',
+              borderRadius: '3px',
+              background: currentUser?.plan_status === 'active'
+                ? 'rgba(16, 185, 129, 0.1)'
+                : 'rgba(245, 158, 11, 0.1)',
+              color: currentUser?.plan_status === 'active' ? '#10b981' : 'var(--warning-color)',
+              border: `1px solid ${currentUser?.plan_status === 'active' ? '#10b981' : 'rgba(245,158,11,0.4)'}`,
+            }}>
+              {currentUser?.plan_status === 'active' ? 'Active' : currentUser?.plan === 'trial' ? 'Trial' : 'Inactive'}
+            </span>
+          </div>
+        </div>
+
+        <div style={{ marginTop: '0.5rem' }}>
+          <button
+            type="button"
+            className="btn btn-primary"
+            onClick={() => navigate('/upgrade')}
+          >
+            <CreditCard size={15} /> Manage Plan
+          </button>
         </div>
       </div>
     </div>
