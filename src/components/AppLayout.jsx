@@ -23,15 +23,7 @@ export default function AppLayout({
 }) {
   const { pathname } = useLocation();
   const navigate = useNavigate();
-  const [showMorePopover, setShowMorePopover] = useState(false);
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
-
-  // Close popover on outside click
-  useEffect(() => {
-    const handleOutsideClick = () => setShowMorePopover(false);
-    window.addEventListener('click', handleOutsideClick);
-    return () => window.removeEventListener('click', handleOutsideClick);
-  }, []);
 
   const isAdmin = profile?.role === 'admin' || profile?.email === 'dotthedart@gmail.com';
   const planLimits = PLAN_LIMITS[(profile?.plan || 'trial').toLowerCase()] || PLAN_LIMITS.trial;
@@ -250,28 +242,24 @@ export default function AppLayout({
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '0 0.5rem', marginBottom: '0.25rem' }}>
             <span style={{ fontSize: '0.8rem', color: 'var(--text-muted)', fontWeight: 600 }}>WORKSPACE</span>
             <button
-              className="btn btn-secondary btn-sm"
-              onClick={(e) => { e.stopPropagation(); setShowMorePopover(prev => !prev); }}
-              style={{ display: 'flex', alignItems: 'center', gap: '0.25rem', padding: '0.2rem 0.5rem', fontSize: '0.75rem', border: '1px solid var(--border-color)', background: 'var(--bg-tertiary)', cursor: 'pointer' }}
+              onClick={toggleTheme}
+              style={{
+                background: 'none',
+                border: 'none',
+                cursor: 'pointer',
+                color: 'var(--text-muted)',
+                display: 'flex',
+                alignItems: 'center',
+                padding: '4px',
+                transition: 'color 0.15s ease'
+              }}
+              title={theme === 'dark' ? 'Switch to Light Mode' : 'Switch to Dark Mode'}
+              onMouseEnter={e => e.currentTarget.style.color = 'var(--text-primary)'}
+              onMouseLeave={e => e.currentTarget.style.color = 'var(--text-muted)'}
             >
-              <MoreVertical size={14} /> More
+              {theme === 'dark' ? <Sun size={16} /> : <Moon size={16} />}
             </button>
           </div>
-
-          {showMorePopover && (
-            <div
-              onClick={(e) => e.stopPropagation()}
-              style={{ position: 'absolute', bottom: '100%', left: '0.5rem', right: '0.5rem', background: 'var(--bg-card)', border: '0.5px solid var(--border-strong)', borderRadius: '6px', padding: '0.5rem', zIndex: 1000, display: 'flex', flexDirection: 'column', gap: '0.25rem', marginBottom: '0.5rem' }}
-            >
-              <button
-                onClick={() => { toggleTheme(); setShowMorePopover(false); }}
-                style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', padding: '0.5rem 0.75rem', background: 'transparent', border: 'none', color: 'var(--text-secondary)', fontFamily: 'var(--font-body)', fontSize: '0.8rem', cursor: 'pointer', borderRadius: '4px', width: '100%', textAlign: 'left' }}
-              >
-                {theme === 'dark' ? <Sun size={14} /> : <Moon size={14} />}
-                <span>{theme === 'dark' ? 'Switch Light View' : 'Switch Dark Canvas'}</span>
-              </button>
-            </div>
-          )}
 
           <div className="user-info-card">
             <div className="user-avatar">{profile?.email ? profile.email.substring(0, 2).toUpperCase() : 'RD'}</div>
