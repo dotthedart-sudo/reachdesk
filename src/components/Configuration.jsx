@@ -29,6 +29,15 @@ export default function Configuration({
   const [localBankAccount, setLocalBankAccount] = useState(bankAccount || '');
   const [localBankIban, setLocalBankIban] = useState(bankIban || '');
 
+  // Profile Settings States
+  const [profileName, setProfileName] = useState(currentUser?.full_name || '');
+  const [profileAvatarUrl, setProfileAvatarUrl] = useState(currentUser?.avatar_url || '');
+  const [profileAvatarFile, setProfileAvatarFile] = useState(null);
+  const [profileAvatarPreview, setProfileAvatarPreview] = useState('');
+  const [profileSuccess, setProfileSuccess] = useState('');
+  const [profileError, setProfileError] = useState('');
+  const [profileSaving, setProfileSaving] = useState(false);
+
   // Statuses states
   const [statuses, setStatuses] = useState([]);
   const [statusesLoading, setStatusesLoading] = useState(true);
@@ -98,8 +107,100 @@ export default function Configuration({
     if (currentUser) {
       loadStatuses();
       loadTeam();
+      setProfileName(currentUser.full_name || '');
+      setProfileAvatarUrl(currentUser.avatar_url || '');
+      setProfileAvatarFile(null);
+      setProfileAvatarPreview('');
     }
   }, [currentUser]);
+
+  const handleProfileAvatarChange = (e) => {
+    setProfileError('');
+    const file = e.target.files[0];
+    if (!file) return;
+
+    const allowedTypes = ['image/jpeg', 'image/jpg', 'image/png', 'image/webp'];
+    const maxSizeBytes = 2 * 1024 * 1024;
+
+    if (!allowedTypes.includes(file.type) && !/\.(jpe?g|png|webp)$/i.test(file.name)) {
+      setProfileError('Only JPG, JPEG, PNG, or WebP images are allowed.');
+      e.target.value = '';
+      setProfileAvatarFile(null);
+      setProfileAvatarPreview('');
+      return;
+    }
+
+    if (file.size > maxSizeBytes) {
+      setProfileError('File size must be less than 2MB.');
+      e.target.value = '';
+      setProfileAvatarFile(null);
+      setProfileAvatarPreview('');
+      return;
+    }
+
+    setProfileAvatarFile(file);
+    setProfileAvatarPreview(URL.createObjectURL(file));
+  };
+
+  const handleSaveProfile = async (e) => {
+    e.preventDefault();
+    setProfileError('');
+    setProfileSuccess('');
+    setProfileSaving(true);
+
+    const trimmedName = profileName.trim();
+    if (trimmedName.length < 2 || !/^[a-zA-Z\s]+$/.test(trimmedName)) {
+      setProfileError('Please enter your real name.');
+      setProfileSaving(false);
+      return;
+    }
+
+    try {
+      let finalAvatarUrl = profileAvatarUrl;
+
+      if (profileAvatarFile) {
+        const fileExt = profileAvatarFile.name.split('.').pop();
+        const fileName = `${currentUser.id}-${Date.now()}.${fileExt}`;
+        const { error: uploadErr } = await supabase.storage
+          .from('avatars')
+          .upload(fileName, profileAvatarFile, {
+            cacheControl: '3600',
+            upsert: true
+          });
+
+        if (uploadErr) {
+          throw new Error(`Profile photo upload failed: ${uploadErr.message}`);
+        }
+
+        const { data: urlData } = supabase.storage
+          .from('avatars')
+          .getPublicUrl(fileName);
+        finalAvatarUrl = urlData?.publicUrl || null;
+      }
+
+      const { error: updateErr } = await supabase
+        .from('user_profiles')
+        .update({
+          full_name: trimmedName,
+          avatar_url: finalAvatarUrl
+        })
+        .eq('id', currentUser.id);
+
+      if (updateErr) throw updateErr;
+
+      setProfileSuccess('Profile updated successfully!');
+      setProfileAvatarFile(null);
+      setProfileAvatarPreview('');
+      if (onRefreshProfile) {
+        await onRefreshProfile();
+      }
+    } catch (err) {
+      console.error('Error updating profile:', err);
+      setProfileError(err.message || 'Failed to update profile.');
+    } finally {
+      setProfileSaving(false);
+    }
+  };
 
   const handleSubmitSettings = (e) => {
     e.preventDefault();
@@ -310,6 +411,81 @@ export default function Configuration({
           Manage your business configurations, custom status pipeline, and team workspace.
         </p>
       </div>
+
+      {/* SECTION 0: Profile Settings */}
+      <form onSubmit={handleSaveProfile} className="flex-col gap-4" style={{ marginBottom: '1.5rem' }}>
+        <div className="card flex-col gap-3">
+          <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', borderBottom: '1px solid var(--border-color)', paddingBottom: '0.5rem', marginBottom: '0.5rem' }}>
+            <User size={18} style={{ color: 'var(--primary-purple)' }} />
+            <h3 style={{ fontSize: '1.1rem' }}>Profile Settings</h3>
+          </div>
+
+          {profileError && (
+            <div style={{ padding: '0.75rem 1rem', borderRadius: '8px', background: 'rgba(224, 82, 82, 0.1)', border: '1px solid rgba(224, 82, 82, 0.2)', color: 'var(--status-hot)', fontSize: '0.875rem', display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+              <AlertCircle size={16} style={{ flexShrink: 0 }} />
+              <span>{profileError}</span>
+            </div>
+          )}
+
+          {profileSuccess && (
+            <div style={{ padding: '0.75rem 1rem', borderRadius: '8px', background: 'rgba(16, 185, 129, 0.1)', border: '1px solid rgba(16, 185, 129, 0.2)', color: '#10b981', fontSize: '0.875rem', display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+              <span style={{ fontSize: '1.1rem', fontWeight: 700 }}>✓</span>
+              <span>{profileSuccess}</span>
+            </div>
+          )}
+
+          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1.5rem', alignItems: 'center' }}>
+            <div className="form-group">
+              <label className="form-label">Full Name</label>
+              <input
+                type="text"
+                className="form-input"
+                value={profileName}
+                onChange={(e) => setProfileName(e.target.value)}
+                placeholder="e.g. Jane Doe"
+                required
+                disabled={profileSaving}
+              />
+            </div>
+
+            <div className="form-group">
+              <label className="form-label">Profile Photo</label>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '1rem' }}>
+                {profileAvatarPreview ? (
+                  <img
+                    src={profileAvatarPreview}
+                    alt="Avatar Preview"
+                    style={{ width: '48px', height: '48px', borderRadius: '50%', objectFit: 'cover', border: '1px solid var(--border)' }}
+                  />
+                ) : profileAvatarUrl ? (
+                  <img
+                    src={profileAvatarUrl}
+                    alt="Current Avatar"
+                    style={{ width: '48px', height: '48px', borderRadius: '50%', objectFit: 'cover', border: '1px solid var(--border)' }}
+                  />
+                ) : (
+                  <div style={{ width: '48px', height: '48px', borderRadius: '50%', background: 'var(--bg-secondary)', border: '1px dashed var(--border)', display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'var(--text-muted)' }}>
+                    <Upload size={16} />
+                  </div>
+                )}
+                <input
+                  type="file"
+                  accept="image/*"
+                  onChange={handleProfileAvatarChange}
+                  style={{ fontSize: '0.85rem', color: 'var(--text-secondary)' }}
+                  disabled={profileSaving}
+                />
+              </div>
+            </div>
+          </div>
+
+          <div style={{ display: 'flex', justifyContent: 'flex-end', marginTop: '0.5rem' }}>
+            <button type="submit" className="btn btn-primary" disabled={profileSaving}>
+              <Save size={16} /> {profileSaving ? 'Saving Profile...' : 'Save Profile'}
+            </button>
+          </div>
+        </div>
+      </form>
 
       {/* SECTION 1: Business specifications */}
       <form onSubmit={handleSubmitSettings} className="flex-col gap-4">

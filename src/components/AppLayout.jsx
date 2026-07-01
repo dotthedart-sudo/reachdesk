@@ -32,6 +32,17 @@ export default function AppLayout({
     setIsSidebarOpen(false);
   };
 
+  const getInitials = () => {
+    if (profile?.full_name) {
+      const parts = profile.full_name.trim().split(/\s+/);
+      return parts.map(p => p[0]).join('').substring(0, 2).toUpperCase();
+    }
+    if (profile?.email) {
+      return profile.email.substring(0, 2).toUpperCase();
+    }
+    return 'RD';
+  };
+
   return (
     <div className="app-container">
       {/* Mobile Top Bar */}
@@ -262,13 +273,22 @@ export default function AppLayout({
           </div>
 
           <div className="user-info-card">
-            <div className="user-avatar">{profile?.email ? profile.email.substring(0, 2).toUpperCase() : 'RD'}</div>
+            {profile?.avatar_url ? (
+              <img 
+                src={profile.avatar_url} 
+                alt="Profile Avatar" 
+                className="user-avatar"
+                style={{ objectFit: 'cover' }} 
+              />
+            ) : (
+              <div className="user-avatar">{getInitials()}</div>
+            )}
             <div className="user-details" style={{ overflow: 'hidden' }}>
-              <div className="user-name" title={profile?.email} style={{ textOverflow: 'ellipsis', overflow: 'hidden', whiteSpace: 'nowrap', maxWidth: '140px' }}>
-                {profile?.email || 'Logged In'}
+              <div className="user-name" title={profile?.full_name || profile?.email || 'Logged In'} style={{ textOverflow: 'ellipsis', overflow: 'hidden', whiteSpace: 'nowrap', maxWidth: '140px', fontWeight: 600 }}>
+                {profile?.full_name || profile?.email || 'Logged In'}
               </div>
-              <div className="user-role">
-                {profile?.status?.toUpperCase()} • {profile?.plan?.toUpperCase()}
+              <div className="user-role" title={profile?.full_name ? profile?.email : undefined} style={{ textOverflow: 'ellipsis', overflow: 'hidden', whiteSpace: 'nowrap', maxWidth: '140px' }}>
+                {profile?.full_name ? profile.email : `${profile?.status?.toUpperCase()} • ${profile?.plan?.toUpperCase()}`}
               </div>
             </div>
           </div>
