@@ -59,7 +59,7 @@ export default function AppLayout({
           onClick={() => { navigate('/dashboard'); setIsSidebarOpen(false); }} 
           style={{ cursor: 'pointer' }}
         >
-          <img src="/reachdesk-logo.svg" height="28" alt="ReachDesk CRM" />
+          <img src="/reachdesk-logo.svg" alt="ReachDesk CRM" height="28" style={{objectFit: 'contain'}} />
         </span>
         <div style={{ width: 24 }}></div>
       </div>
@@ -75,7 +75,7 @@ export default function AppLayout({
           {/* Sidebar Logo — text only */}
           <div className="sidebar-logo" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
             <div style={{ display: 'flex', alignItems: 'center' }}>
-              <img src="/reachdesk-logo.svg" height="28" alt="ReachDesk CRM" />
+              <img src="/reachdesk-logo.svg" alt="ReachDesk CRM" height="28" style={{objectFit: 'contain'}} />
             </div>
             <button 
               className="hamburger-btn mobile-only-close" 

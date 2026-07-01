@@ -202,8 +202,7 @@ export default function Auth({ onRegister, onLogin, mode = 'login' }) {
       {/* Mini Nav */}
       <nav className="landing-nav">
         <Link to="/homepage" className="landing-nav-logo" style={{ cursor: 'pointer', textDecoration: 'none' }}>
-          <div className="user-avatar" style={{ width: '32px', height: '32px', fontSize: '0.8rem' }}>RD</div>
-          <span className="landing-logo-text">ReachDesk</span>
+          <img src="/reachdesk-logo.svg" alt="ReachDesk CRM" height="36" style={{objectFit: 'contain'}} />
         </Link>
         <Link to="/homepage" className="btn btn-secondary btn-sm" style={{ textDecoration: 'none' }}>
           Back to Home
