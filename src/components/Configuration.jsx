@@ -521,16 +521,19 @@ export default function Configuration({
             </div>
           </div>
           
-          <div className="form-group">
-            <label className="form-label">Webhook URL (Telemetry Integrations)</label>
-            <input
-              type="url"
-              className="form-input"
-              value={localWebhook}
-              onChange={(e) => setLocalWebhook(e.target.value)}
-              placeholder="e.g. https://api.yourdomain.com/v1/telemetry"
-            />
-          </div>
+          {/* Webhook URL — hidden for Starter plan */}
+          {(currentUser?.plan || '').toLowerCase() !== 'starter' && (
+            <div className="form-group">
+              <label className="form-label">Webhook URL (Telemetry Integrations)</label>
+              <input
+                type="url"
+                className="form-input"
+                value={localWebhook}
+                onChange={(e) => setLocalWebhook(e.target.value)}
+                placeholder="e.g. https://api.yourdomain.com/v1/telemetry"
+              />
+            </div>
+          )}
 
           <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1.5rem' }}>
             <div className="form-group">

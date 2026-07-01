@@ -144,14 +144,12 @@ export default function AppLayout({
               </Link>
             </li>
 
-            {/* Configuration — hidden for Starter plan */}
-            {(profile?.plan ?? '').toLowerCase() !== 'starter' && (
-              <li>
-                <Link to="/settings" className={`sidebar-item ${pathname === '/settings' ? 'active' : ''}`}>
-                  <Settings size={18} /><span className="nav-label">Configuration</span>
-                </Link>
-              </li>
-            )}
+            {/* Configuration — visible to all plans */}
+            <li>
+              <Link to="/settings" className={`sidebar-item ${pathname === '/settings' ? 'active' : ''}`}>
+                <Settings size={18} /><span className="nav-label">Configuration</span>
+              </Link>
+            </li>
 
             <li>
               <Link to="/upgrade" className={`sidebar-item ${pathname === '/upgrade' ? 'active' : ''}`}>

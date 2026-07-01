@@ -813,9 +813,6 @@ function RemindersPage() {
 
 function SettingsPage() {
   const { profile, brandName, currencySymbol, webhookUrl, bankAccount, bankIban, leads, handleSaveSettings, fetchAllData, fetchProfile } = useAppContext();
-  if (profile && (profile.plan || '').toLowerCase() === 'starter') {
-    return <Navigate to="/dashboard" replace />;
-  }
   return (
     <Configuration
       brandName={brandName}

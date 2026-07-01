@@ -384,7 +384,7 @@ function PlanCard({ plan, billing, isSelected, onSelect, handlePaddleCheckout, p
               fontFamily: 'Mattone, sans-serif',
             }}
           >
-            Current Plan
+            ✓ Current Plan
           </button>
           <div style={{
             fontSize: '0.75rem',
@@ -393,7 +393,9 @@ function PlanCard({ plan, billing, isSelected, onSelect, handlePaddleCheckout, p
             marginTop: '0.5rem',
             lineHeight: '1.4'
           }}>
-            Your {name} plan is active. Next billing date: <span style={{ fontWeight: 600 }}>{profile?.paddle_next_billing_date || 'monthly'}</span>
+            {profile?.paddle_next_billing_date
+              ? `Your ${name} plan is active. Next billing date: ${profile.paddle_next_billing_date}`
+              : `Your ${name} plan is active and renews monthly.`}
           </div>
         </>
       ) : isSelectable ? (
