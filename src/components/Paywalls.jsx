@@ -202,11 +202,14 @@ const PLAN_LEVELS = {
   enterprise: 4
 };
 
-function PlanCard({ plan, billing, isSelected, onSelect, handlePaddleCheckout, currentUserPlan, isPlanActive }) {
+function PlanCard({ plan, billing, isSelected, onSelect, handlePaddleCheckout, profile }) {
   const { id, name, tagline, features, comingSoon, isEnterprise } = plan;
 
   const hasPricing = !isEnterprise && BILLING[billing] && BILLING[billing][id];
   const pricing = hasPricing ? BILLING[billing][id] : null;
+
+  const currentUserPlan = profile?.plan;
+  const isPlanActive = profile?.plan_status === 'active';
 
   const userPlanLevel = PLAN_LEVELS[(currentUserPlan || 'trial').toLowerCase()] || 0;
   const cardPlanLevel = PLAN_LEVELS[id.toLowerCase()] || 0;
@@ -278,7 +281,7 @@ function PlanCard({ plan, billing, isSelected, onSelect, handlePaddleCheckout, c
           borderRadius: '3px',
           letterSpacing: '0.04em',
         }}>
-          Current Plan
+          ✓ Current Plan
         </div>
       )}
 
@@ -365,23 +368,34 @@ function PlanCard({ plan, billing, isSelected, onSelect, handlePaddleCheckout, c
           Contact Us
         </a>
       ) : cardStatus === 'current' ? (
-        <button
-          disabled
-          style={{
-            width: '100%',
-            padding: '12px',
-            backgroundColor: 'var(--bg-secondary)',
+        <>
+          <button
+            disabled
+            style={{
+              width: '100%',
+              padding: '12px',
+              backgroundColor: 'var(--bg-secondary)',
+              color: 'var(--text-muted)',
+              border: '1px solid var(--border-color)',
+              borderRadius: '3px',
+              fontSize: '0.85rem',
+              fontWeight: 600,
+              cursor: 'not-allowed',
+              fontFamily: 'Mattone, sans-serif',
+            }}
+          >
+            Current Plan
+          </button>
+          <div style={{
+            fontSize: '0.75rem',
             color: 'var(--text-muted)',
-            border: '1px solid var(--border-color)',
-            borderRadius: '3px',
-            fontSize: '0.85rem',
-            fontWeight: 600,
-            cursor: 'not-allowed',
-            fontFamily: 'Mattone, sans-serif',
-          }}
-        >
-          Your Current Plan
-        </button>
+            textAlign: 'center',
+            marginTop: '0.5rem',
+            lineHeight: '1.4'
+          }}>
+            Your {name} plan is active. Next billing date: <span style={{ fontWeight: 600 }}>{profile?.paddle_next_billing_date || 'monthly'}</span>
+          </div>
+        </>
       ) : isSelectable ? (
         <button
           onClick={(e) => {
@@ -408,7 +422,7 @@ function PlanCard({ plan, billing, isSelected, onSelect, handlePaddleCheckout, c
             e.target.style.backgroundColor = 'var(--accent-blue)';
           }}
         >
-          Get Started
+          {cardStatus === 'upgrade' ? 'Upgrade' : 'Get Started'}
         </button>
       ) : (
         <button
@@ -573,8 +587,7 @@ export function UpgradePage({ profile, handleLogout, onRefreshProfile, bankAccou
               isSelected={selectedPaywallPlan === plan.id}
               onSelect={setSelectedPaywallPlan}
               handlePaddleCheckout={handlePaddleCheckout}
-              currentUserPlan={profile?.plan}
-              isPlanActive={profile?.plan_status === 'active'}
+              profile={profile}
             />
           ))}
         </div>

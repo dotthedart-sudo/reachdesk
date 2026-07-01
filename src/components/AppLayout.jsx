@@ -292,6 +292,13 @@ export default function AppLayout({
               <div className="user-role" title={profile?.full_name ? profile?.email : undefined} style={{ textOverflow: 'ellipsis', overflow: 'hidden', whiteSpace: 'nowrap', maxWidth: '140px' }}>
                 {profile?.full_name ? profile.email : `${profile?.status?.toUpperCase()} • ${profile?.plan?.toUpperCase()}`}
               </div>
+              {!profile?.full_name && (
+                <div style={{ fontSize: '0.75rem', marginTop: '2px' }}>
+                  <Link to="/settings" style={{ color: 'var(--accent-blue)', textDecoration: 'none', fontWeight: 500 }} onMouseEnter={e => e.target.style.textDecoration = 'underline'} onMouseLeave={e => e.target.style.textDecoration = 'none'}>
+                    Add your name →
+                  </Link>
+                </div>
+              )}
             </div>
           </div>
         </div>
