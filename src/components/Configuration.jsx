@@ -30,6 +30,12 @@ export default function Configuration({
   const [localBankAccount, setLocalBankAccount] = useState(bankAccount || '');
   const [localBankIban, setLocalBankIban] = useState(bankIban || '');
 
+  // Cancellation States
+  const [cancelModalOpen, setCancelModalOpen] = useState(false);
+  const [cancelLoading, setCancelLoading] = useState(false);
+  const [cancelSuccessMsg, setCancelSuccessMsg] = useState('');
+  const [cancelErrorMsg, setCancelErrorMsg] = useState('');
+
   // Profile Settings States
   const [profileName, setProfileName] = useState(currentUser?.full_name || '');
   const [profileAvatarUrl, setProfileAvatarUrl] = useState(currentUser?.avatar_url || '');
@@ -389,6 +395,33 @@ export default function Configuration({
     } catch (err) {
       console.error('Error removing team member:', err);
       setTeamError('Failed to remove team member.');
+    }
+  };
+
+  const handleCancelSubscription = async () => {
+    setCancelLoading(true);
+    setCancelErrorMsg('');
+    setCancelSuccessMsg('');
+    try {
+      const { data, error } = await supabase.functions.invoke('cancel-subscription', {
+        body: { subscription_id: currentUser?.paddle_subscription_id }
+      });
+
+      if (error) throw error;
+      if (data && data.success === false) {
+        throw new Error(data.error || 'Failed to cancel subscription');
+      }
+
+      setCancelSuccessMsg('Your subscription has been cancelled. Access continues till end of billing period.');
+      setCancelModalOpen(false);
+      if (onRefreshProfile) {
+        await onRefreshProfile();
+      }
+    } catch (err) {
+      console.error('Error cancelling subscription:', err);
+      setCancelErrorMsg(err instanceof Error ? err.message : 'Failed to cancel subscription. Please try again.');
+    } finally {
+      setCancelLoading(false);
     }
   };
 
@@ -763,6 +796,20 @@ export default function Configuration({
           <h3 style={{ fontSize: '1.1rem' }}>Billing &amp; Subscription</h3>
         </div>
 
+        {cancelSuccessMsg && (
+          <div style={{ padding: '0.75rem 1rem', borderRadius: '8px', background: 'rgba(16, 185, 129, 0.1)', border: '1px solid rgba(16, 185, 129, 0.2)', color: '#10b981', fontSize: '0.875rem', display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+            <span style={{ fontSize: '1.1rem', fontWeight: 700 }}>✓</span>
+            <span>{cancelSuccessMsg}</span>
+          </div>
+        )}
+
+        {cancelErrorMsg && (
+          <div style={{ padding: '0.75rem 1rem', borderRadius: '8px', background: 'rgba(224, 82, 82, 0.1)', border: '1px solid rgba(224, 82, 82, 0.2)', color: 'var(--status-hot)', fontSize: '0.875rem', display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+            <AlertCircle size={16} style={{ flexShrink: 0 }} />
+            <span>{cancelErrorMsg}</span>
+          </div>
+        )}
+
         <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
           <div style={{ display: 'flex', gap: '1rem', alignItems: 'center' }}>
             <span style={{ fontSize: '0.85rem', color: 'var(--text-muted)', minWidth: '100px' }}>Current Plan</span>
@@ -784,16 +831,34 @@ export default function Configuration({
               borderRadius: '3px',
               background: currentUser?.plan_status === 'active'
                 ? 'rgba(16, 185, 129, 0.1)'
-                : 'rgba(245, 158, 11, 0.1)',
-              color: currentUser?.plan_status === 'active' ? '#10b981' : 'var(--warning-color)',
-              border: `1px solid ${currentUser?.plan_status === 'active' ? '#10b981' : 'rgba(245,158,11,0.4)'}`,
+                : currentUser?.plan_status === 'cancelling'
+                  ? 'rgba(245, 158, 11, 0.1)'
+                  : 'rgba(245, 158, 11, 0.1)',
+              color: currentUser?.plan_status === 'active'
+                ? '#10b981'
+                : currentUser?.plan_status === 'cancelling'
+                  ? 'var(--warning-color)'
+                  : 'var(--warning-color)',
+              border: `1px solid ${
+                currentUser?.plan_status === 'active'
+                  ? '#10b981'
+                  : currentUser?.plan_status === 'cancelling'
+                    ? 'rgba(245, 158, 11, 0.4)'
+                    : 'rgba(245, 158, 11, 0.4)'
+              }`,
             }}>
-              {currentUser?.plan_status === 'active' ? 'Active' : currentUser?.plan === 'trial' ? 'Trial' : 'Inactive'}
+              {currentUser?.plan_status === 'active'
+                ? 'Active'
+                : currentUser?.plan_status === 'cancelling'
+                  ? 'Cancelling'
+                  : currentUser?.plan === 'trial'
+                    ? 'Trial'
+                    : 'Inactive'}
             </span>
           </div>
         </div>
 
-        <div style={{ marginTop: '0.5rem' }}>
+        <div style={{ marginTop: '0.5rem', display: 'flex', flexDirection: 'column', gap: '0.5rem', alignItems: 'flex-start' }}>
           <button
             type="button"
             className="btn btn-primary"
@@ -801,8 +866,85 @@ export default function Configuration({
           >
             <CreditCard size={15} /> Manage Plan
           </button>
+
+          {currentUser?.plan_status === 'active' && currentUser?.paddle_subscription_id && (
+            <button
+              type="button"
+              onClick={() => setCancelModalOpen(true)}
+              style={{
+                background: 'none',
+                border: 'none',
+                color: 'var(--status-hot)',
+                fontSize: '0.85rem',
+                cursor: 'pointer',
+                padding: 0,
+                marginTop: '0.25rem',
+                textDecoration: 'underline',
+                fontFamily: 'inherit'
+              }}
+            >
+              Cancel Subscription
+            </button>
+          )}
         </div>
       </div>
+
+      {/* Confirmation Modal */}
+      {cancelModalOpen && (
+        <div style={{
+          position: 'fixed',
+          inset: 0,
+          backgroundColor: 'rgba(0,0,0,0.7)',
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'center',
+          zIndex: 100000,
+          padding: '1rem'
+        }}>
+          <div className="card flex-col gap-4" style={{ maxWidth: '450px', width: '100%', background: '#161B22', border: '1px solid #21262D', borderRadius: '3px', padding: '1.5rem' }}>
+            <h3 style={{ fontSize: '1.2rem', margin: 0, color: '#FFFFFF', fontFamily: 'Mattone, sans-serif' }}>Cancel Subscription?</h3>
+            
+            <p style={{ fontSize: '0.9rem', color: 'var(--text-secondary)', lineHeight: '1.4', margin: 0 }}>
+              Your Starter plan will remain active until {currentUser?.plan_expires_at ? new Date(currentUser.plan_expires_at).toLocaleDateString() : currentUser?.trial_ends_at ? new Date(currentUser.trial_ends_at).toLocaleDateString() : 'the end of the current billing period'}. After that, your account will be downgraded. You will not be charged again.
+            </p>
+
+            <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '0.75rem', marginTop: '0.5rem' }}>
+              <button
+                type="button"
+                className="btn"
+                onClick={() => setCancelModalOpen(false)}
+                style={{
+                  background: 'transparent',
+                  border: '1px solid var(--accent-blue)',
+                  color: 'var(--accent-blue)',
+                  borderRadius: '3px',
+                  padding: '0.4rem 1rem',
+                  cursor: 'pointer'
+                }}
+                disabled={cancelLoading}
+              >
+                Keep My Plan
+              </button>
+              <button
+                type="button"
+                className="btn"
+                onClick={handleCancelSubscription}
+                style={{
+                  background: 'transparent',
+                  border: '1px solid var(--status-hot)',
+                  color: 'var(--status-hot)',
+                  borderRadius: '3px',
+                  padding: '0.4rem 1rem',
+                  cursor: 'pointer'
+                }}
+                disabled={cancelLoading}
+              >
+                {cancelLoading ? 'Cancelling...' : 'Yes, Cancel'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

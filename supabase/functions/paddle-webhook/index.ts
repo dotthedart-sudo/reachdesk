@@ -71,14 +71,27 @@ serve(async (req) => {
         .eq('email', customerEmail)
         .maybeSingle()
 
+      // Extract Paddle IDs
+      const paddleCustomerId = payload.data?.customer?.id || payload.data?.customer_id
+      const paddleSubscriptionId = payload.data?.subscription_id || payload.data?.items?.[0]?.subscription_id
+
       // 1. Update user profile to active Starter plan
+      const updateData: any = {
+        plan: 'starter',
+        plan_status: 'active',
+        trial_ends_at: null
+      }
+
+      if (paddleCustomerId) {
+        updateData.paddle_customer_id = paddleCustomerId
+      }
+      if (paddleSubscriptionId) {
+        updateData.paddle_subscription_id = paddleSubscriptionId
+      }
+
       const { error: updateError } = await supabaseAdmin
         .from('user_profiles')
-        .update({
-          plan: 'starter',
-          plan_status: 'active',
-          trial_ends_at: null
-        })
+        .update(updateData)
         .eq('email', customerEmail)
 
       if (updateError) {
