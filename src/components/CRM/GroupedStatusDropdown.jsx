@@ -26,6 +26,8 @@ const DEFAULT_STATUSES = [
   { label: 'No Show', color: '#6B7280' }
 ];
 
+const seedingPromises = {};
+
 export default function GroupedStatusDropdown({ value, onChange, isTableInline = false, onUpdate }) {
   const [isOpen, setIsOpen] = useState(false);
   const [isEditing, setIsEditing] = useState(false);
@@ -61,6 +63,28 @@ export default function GroupedStatusDropdown({ value, onChange, isTableInline =
       const uid = session.user.id;
       setUserId(uid);
 
+      // Lock to prevent concurrent seedings
+      if (seedingPromises[uid]) {
+        await seedingPromises[uid];
+        const { data } = await supabase
+          .from('custom_statuses')
+          .select('*')
+          .eq('user_id', uid)
+          .order('sort_order', { ascending: true });
+        if (data) {
+          // De-duplicate locally just in case
+          const seen = new Set();
+          const unique = data.filter(d => {
+            const labelLower = d.label.toLowerCase();
+            if (seen.has(labelLower)) return false;
+            seen.add(labelLower);
+            return true;
+          });
+          setStatuses(unique);
+        }
+        return;
+      }
+
       const { data, error } = await supabase
         .from('custom_statuses')
         .select('*')
@@ -69,49 +93,79 @@ export default function GroupedStatusDropdown({ value, onChange, isTableInline =
 
       if (!error) {
         if (data && data.length > 0) {
-          // Check if any default statuses are missing. If so, automatically seed them!
-          const existingLabels = new Set(data.map(d => d.label.toLowerCase()));
+          // Self-heal: Clean up duplicates from previous race conditions
+          const seenLabels = new Set();
+          const duplicateIds = [];
+          const uniqueData = [];
+
+          data.forEach(d => {
+            const lowerLabel = d.label.toLowerCase();
+            if (seenLabels.has(lowerLabel)) {
+              duplicateIds.push(d.id);
+            } else {
+              seenLabels.add(lowerLabel);
+              uniqueData.push(d);
+            }
+          });
+
+          if (duplicateIds.length > 0) {
+            await supabase.from('custom_statuses').delete().in('id', duplicateIds);
+          }
+
+          const existingLabels = new Set(uniqueData.map(d => d.label.toLowerCase()));
           const missingDefaults = DEFAULT_STATUSES.filter(d => !existingLabels.has(d.label.toLowerCase()));
           
           if (missingDefaults.length > 0) {
-            const seedMissing = missingDefaults.map((d, idx) => ({
-              user_id: uid,
-              label: d.label,
-              color: d.color,
-              sort_order: data.length + idx
-            }));
-            
-            const { data: insertedData, error: insertErr } = await supabase
-              .from('custom_statuses')
-              .insert(seedMissing)
-              .select();
+            const performSeeding = async () => {
+              const seedMissing = missingDefaults.map((d, idx) => ({
+                user_id: uid,
+                label: d.label,
+                color: d.color,
+                sort_order: uniqueData.length + idx
+              }));
               
-            if (!insertErr && insertedData) {
-              setStatuses([...data, ...insertedData]);
-            } else {
-              setStatuses(data);
-            }
+              const { data: insertedData, error: insertErr } = await supabase
+                .from('custom_statuses')
+                .insert(seedMissing)
+                .select();
+                
+              if (!insertErr && insertedData) {
+                return [...uniqueData, ...insertedData];
+              }
+              return uniqueData;
+            };
+
+            seedingPromises[uid] = performSeeding();
+            const result = await seedingPromises[uid];
+            delete seedingPromises[uid];
+            setStatuses(result);
           } else {
-            setStatuses(data);
+            setStatuses(uniqueData);
           }
         } else {
           // If custom_statuses is empty, seed it with defaults
-          const seedData = DEFAULT_STATUSES.map((d, idx) => ({
-            user_id: uid,
-            label: d.label,
-            color: d.color,
-            sort_order: idx
-          }));
-          const { data: insertedData, error: insertErr } = await supabase
-            .from('custom_statuses')
-            .insert(seedData)
-            .select();
-          
-          if (!insertErr && insertedData) {
-            setStatuses(insertedData);
-          } else {
-            setStatuses(DEFAULT_STATUSES);
-          }
+          const performInitialSeeding = async () => {
+            const seedData = DEFAULT_STATUSES.map((d, idx) => ({
+              user_id: uid,
+              label: d.label,
+              color: d.color,
+              sort_order: idx
+            }));
+            const { data: insertedData, error: insertErr } = await supabase
+              .from('custom_statuses')
+              .insert(seedData)
+              .select();
+            
+            if (!insertErr && insertedData) {
+              return insertedData;
+            }
+            return DEFAULT_STATUSES;
+          };
+
+          seedingPromises[uid] = performInitialSeeding();
+          const result = await seedingPromises[uid];
+          delete seedingPromises[uid];
+          setStatuses(result);
         }
       }
     } catch (err) {
