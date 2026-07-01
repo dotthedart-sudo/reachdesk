@@ -4,6 +4,7 @@ import { ShieldAlert } from 'lucide-react';
 
 export default function UpgradeLockModal({ profile, handleLogout, theme }) {
   const navigate = useNavigate();
+  if (profile?.plan_status === 'active') return null;
   const isTrial = profile?.plan === 'trial';
 
   const overlayStyle = {

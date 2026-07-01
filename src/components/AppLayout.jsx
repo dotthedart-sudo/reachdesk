@@ -155,7 +155,7 @@ export default function AppLayout({
 
             <li>
               <Link to="/upgrade" className={`sidebar-item ${pathname === '/upgrade' ? 'active' : ''}`}>
-                <CreditCard size={18} /><span className="nav-label">Upgrade Plan</span>
+                <CreditCard size={18} /><span className="nav-label">{profile?.plan_status === 'active' ? 'Manage Plan' : 'Upgrade Plan'}</span>
               </Link>
             </li>
 
@@ -225,7 +225,7 @@ export default function AppLayout({
 
             <li>
               <Link to="/upgrade" onClick={() => setIsSidebarOpen(false)} className="mobile-menu-item">
-                Upgrade Plan
+                {profile?.plan_status === 'active' ? 'Manage Plan' : 'Upgrade Plan'}
               </Link>
             </li>
 

@@ -194,19 +194,57 @@ export function DeniedScreen({ handleLogout }) {
 }
 
 // ─── Plan Card Component ──────────────────────────────────────────────────────
-function PlanCard({ plan, billing, isSelected, onSelect, handlePaddleCheckout }) {
+const PLAN_LEVELS = {
+  trial: 0,
+  starter: 1,
+  pro: 2,
+  teams: 3,
+  enterprise: 4
+};
+
+function PlanCard({ plan, billing, isSelected, onSelect, handlePaddleCheckout, currentUserPlan, isPlanActive }) {
   const { id, name, tagline, features, comingSoon, isEnterprise } = plan;
 
   const hasPricing = !isEnterprise && BILLING[billing] && BILLING[billing][id];
   const pricing = hasPricing ? BILLING[billing][id] : null;
 
-  const isStarter = id === 'starter';
-  // Grey out Pro and Teams
-  const displayOpacity = isStarter ? 1 : 0.6;
+  const userPlanLevel = PLAN_LEVELS[(currentUserPlan || 'trial').toLowerCase()] || 0;
+  const cardPlanLevel = PLAN_LEVELS[id.toLowerCase()] || 0;
+
+  const isCurrentPlan = isPlanActive && currentUserPlan?.toLowerCase() === id.toLowerCase();
+  const isUpgrade = isPlanActive && cardPlanLevel > userPlanLevel;
+
+  // Determine selectable and state
+  let isSelectable = false;
+  let cardStatus = 'disabled'; // 'current' | 'upgrade' | 'selectable' | 'disabled'
+
+  if (isCurrentPlan) {
+    cardStatus = 'current';
+    isSelectable = false;
+  } else if (isPlanActive) {
+    if (isUpgrade) {
+      cardStatus = 'upgrade';
+      isSelectable = true;
+    } else {
+      cardStatus = 'disabled';
+      isSelectable = false;
+    }
+  } else {
+    // Non-active user (trial/expired)
+    if (id === 'starter' || isEnterprise) {
+      cardStatus = 'selectable';
+      isSelectable = true;
+    } else {
+      cardStatus = 'disabled';
+      isSelectable = false;
+    }
+  }
+
+  const displayOpacity = (cardStatus === 'disabled') ? 0.6 : 1;
 
   return (
     <div
-      onClick={() => isStarter && onSelect(id)}
+      onClick={() => isSelectable && onSelect(id)}
       style={{
         position: 'relative',
         border: '1px solid var(--border)',
@@ -214,9 +252,9 @@ function PlanCard({ plan, billing, isSelected, onSelect, handlePaddleCheckout })
         padding: '2rem 1.5rem',
         background: 'var(--bg-card)',
         opacity: displayOpacity,
-        cursor: isStarter ? 'pointer' : 'not-allowed',
+        cursor: isSelectable ? 'pointer' : 'default',
         transition: 'border-color 0.2s, box-shadow 0.2s',
-        boxShadow: isStarter && isSelected
+        boxShadow: isSelectable && isSelected
           ? '0 0 0 3px color-mix(in srgb, var(--accent-blue) 25%, transparent)'
           : 'none',
         display: 'flex',
@@ -225,8 +263,27 @@ function PlanCard({ plan, billing, isSelected, onSelect, handlePaddleCheckout })
         textAlign: 'left',
       }}
     >
+      {/* Current Plan Badge */}
+      {cardStatus === 'current' && (
+        <div style={{
+          position: 'absolute',
+          top: '12px',
+          right: '12px',
+          background: 'rgba(16, 185, 129, 0.1)',
+          color: '#10b981',
+          border: '1px solid #10b981',
+          fontSize: '0.65rem',
+          fontWeight: 700,
+          padding: '2px 8px',
+          borderRadius: '3px',
+          letterSpacing: '0.04em',
+        }}>
+          Current Plan
+        </div>
+      )}
+
       {/* Discount Badge */}
-      {!isEnterprise && billing !== 'monthly' && (
+      {cardStatus !== 'current' && !isEnterprise && billing !== 'monthly' && (
         <div style={{
           position: 'absolute',
           top: '12px',
@@ -307,7 +364,25 @@ function PlanCard({ plan, billing, isSelected, onSelect, handlePaddleCheckout })
         >
           Contact Us
         </a>
-      ) : isStarter ? (
+      ) : cardStatus === 'current' ? (
+        <button
+          disabled
+          style={{
+            width: '100%',
+            padding: '12px',
+            backgroundColor: 'var(--bg-secondary)',
+            color: 'var(--text-muted)',
+            border: '1px solid var(--border-color)',
+            borderRadius: '3px',
+            fontSize: '0.85rem',
+            fontWeight: 600,
+            cursor: 'not-allowed',
+            fontFamily: 'Mattone, sans-serif',
+          }}
+        >
+          Your Current Plan
+        </button>
+      ) : isSelectable ? (
         <button
           onClick={(e) => {
             e.stopPropagation();
@@ -498,6 +573,8 @@ export function UpgradePage({ profile, handleLogout, onRefreshProfile, bankAccou
               isSelected={selectedPaywallPlan === plan.id}
               onSelect={setSelectedPaywallPlan}
               handlePaddleCheckout={handlePaddleCheckout}
+              currentUserPlan={profile?.plan}
+              isPlanActive={profile?.plan_status === 'active'}
             />
           ))}
         </div>
