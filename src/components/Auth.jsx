@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
-import { Lock, Mail, ShieldAlert, Sparkles, ArrowRight, Eye, EyeOff } from 'lucide-react';
+import { Lock, Mail, ShieldAlert, Sparkles, ArrowRight, Eye, EyeOff, User, Upload } from 'lucide-react';
 import { supabase } from '../lib/supabase';
 
 export default function Auth({ onRegister, onLogin, mode = 'login' }) {
@@ -16,6 +16,11 @@ export default function Auth({ onRegister, onLogin, mode = 'login' }) {
   const [showPasswordSignup, setShowPasswordSignup] = useState(false);
   const [agreeConsent, setAgreeConsent] = useState(false);
 
+  // New Signup Fields
+  const [fullName, setFullName] = useState('');
+  const [avatarFile, setAvatarFile] = useState(null);
+  const [avatarPreview, setAvatarPreview] = useState('');
+
   // Forgot Password States
   const [forgotMode, setForgotMode] = useState(false);
   const [forgotEmail, setForgotEmail] = useState('');
@@ -27,7 +32,38 @@ export default function Auth({ onRegister, onLogin, mode = 'login' }) {
     setForgotMode(false);
     setForgotEmail('');
     setForgotSuccess('');
+    setFullName('');
+    setAvatarFile(null);
+    setAvatarPreview('');
   }, [mode]);
+
+  const handleAvatarChange = (e) => {
+    setError('');
+    const file = e.target.files[0];
+    if (!file) return;
+
+    const allowedTypes = ['image/jpeg', 'image/jpg', 'image/png', 'image/webp'];
+    const maxSizeBytes = 2 * 1024 * 1024;
+
+    if (!allowedTypes.includes(file.type) && !/\.(jpe?g|png|webp)$/i.test(file.name)) {
+      setError('Only JPG, JPEG, PNG, or WebP images are allowed.');
+      e.target.value = '';
+      setAvatarFile(null);
+      setAvatarPreview('');
+      return;
+    }
+
+    if (file.size > maxSizeBytes) {
+      setError('File size must be less than 2MB.');
+      e.target.value = '';
+      setAvatarFile(null);
+      setAvatarPreview('');
+      return;
+    }
+
+    setAvatarFile(file);
+    setAvatarPreview(URL.createObjectURL(file));
+  };
 
   const handleToggleForgotMode = (val) => {
     setError('');
@@ -66,8 +102,16 @@ export default function Auth({ onRegister, onLogin, mode = 'login' }) {
     setError('');
     setLoading(true);
 
-    if (!email.trim() || !password.trim()) {
+    if (!email.trim() || !password.trim() || !fullName.trim()) {
       setError('All fields are required.');
+      setLoading(false);
+      return;
+    }
+
+    // Full Name Validation
+    const trimmedName = fullName.trim();
+    if (trimmedName.length < 2 || !/^[a-zA-Z\s]+$/.test(trimmedName)) {
+      setError('Please enter your real name.');
       setLoading(false);
       return;
     }
@@ -78,6 +122,7 @@ export default function Auth({ onRegister, onLogin, mode = 'login' }) {
       return;
     }
 
+    // Email Regex Validation
     const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
     if (!emailRegex.test(email)) {
       setError('Please enter a valid email address.');
@@ -85,11 +130,47 @@ export default function Auth({ onRegister, onLogin, mode = 'login' }) {
       return;
     }
 
+    // Disposable/Fake Email Domain Validation
+    const blockedDomains = [
+      'mailinator.com', 'guerrillamail.com', '10minutemail.com', 'tempmail.com',
+      'throwaway.email', 'yopmail.com', 'sharklasers.com', 'trashmail.com'
+    ];
+    const emailDomain = email.trim().split('@')[1]?.toLowerCase();
+    if (blockedDomains.includes(emailDomain)) {
+      setError('Please use a valid email address.');
+      setLoading(false);
+      return;
+    }
+
+    // Avatar File Validation
+    if (avatarFile) {
+      const allowedTypes = ['image/jpeg', 'image/jpg', 'image/png', 'image/webp'];
+      const maxSizeBytes = 2 * 1024 * 1024;
+      if (!allowedTypes.includes(avatarFile.type) && !/\.(jpe?g|png|webp)$/i.test(avatarFile.name)) {
+        setError('Only JPG, JPEG, PNG, or WebP images are allowed.');
+        setLoading(false);
+        return;
+      }
+      if (avatarFile.size > maxSizeBytes) {
+        setError('File size must be less than 2MB.');
+        setLoading(false);
+        return;
+      }
+    }
+
     try {
-      await onRegister(email.trim(), password.trim(), plan);
+      await onRegister(email.trim(), password.trim(), plan, fullName, avatarFile);
       navigate('/dashboard');
     } catch (err) {
-      setError(err.message || 'Registration failed.');
+      let errMsg = err.message || 'Registration failed.';
+      if (
+        errMsg.toLowerCase().includes('already registered') || 
+        errMsg.toLowerCase().includes('user already exists') || 
+        errMsg.toLowerCase().includes('email_exists')
+      ) {
+        errMsg = 'An account with this email already exists. Please log in instead.';
+      }
+      setError(errMsg);
     } finally {
       setLoading(false);
     }
@@ -303,6 +384,49 @@ export default function Auth({ onRegister, onLogin, mode = 'login' }) {
           ) : (
             /* Sign Up Form */
             <form onSubmit={handleRegisterSubmit} className="auth-form">
+              <div className="form-group">
+                <label className="form-label">Full Name</label>
+                <div style={{ position: 'relative' }}>
+                  <span style={{ position: 'absolute', left: '0.75rem', top: '50%', transform: 'translateY(-50%)', color: 'var(--text-muted)' }}>
+                    <User size={16} />
+                  </span>
+                  <input 
+                    type="text" 
+                    className="form-input w-full" 
+                    placeholder="John Doe"
+                    value={fullName}
+                    onChange={(e) => setFullName(e.target.value)}
+                    style={{ paddingLeft: '2.5rem' }}
+                    required
+                    disabled={loading}
+                  />
+                </div>
+              </div>
+
+              <div className="form-group">
+                <label className="form-label">Profile Photo (Optional)</label>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '1rem' }}>
+                  {avatarPreview ? (
+                    <img 
+                      src={avatarPreview} 
+                      alt="Avatar Preview" 
+                      style={{ width: '48px', height: '48px', borderRadius: '50%', objectFit: 'cover', border: '1px solid var(--border)' }} 
+                    />
+                  ) : (
+                    <div style={{ width: '48px', height: '48px', borderRadius: '50%', background: 'var(--bg-secondary)', border: '1px dashed var(--border)', display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'var(--text-muted)' }}>
+                      <Upload size={16} />
+                    </div>
+                  )}
+                  <input 
+                    type="file" 
+                    accept="image/*"
+                    onChange={handleAvatarChange}
+                    style={{ fontSize: '0.85rem', color: 'var(--text-secondary)' }}
+                    disabled={loading}
+                  />
+                </div>
+              </div>
+
               <div className="form-group">
                 <label className="form-label">Email Address</label>
                 <div style={{ position: 'relative' }}>

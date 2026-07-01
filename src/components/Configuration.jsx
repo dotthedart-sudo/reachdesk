@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { supabase } from '../lib/supabase';
 import { 
   Settings, Save, Terminal, Layers, GitBranch, Plus, 
-  Trash2, ChevronUp, ChevronDown, AlertCircle, Users, Mail, UserMinus 
+  Trash2, ChevronUp, ChevronDown, AlertCircle, Users, Mail, UserMinus, User, Upload 
 } from 'lucide-react';
 import UpgradeRequestForm from './UpgradeRequestForm';
 

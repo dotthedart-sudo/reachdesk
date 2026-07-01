@@ -444,10 +444,42 @@ function AppProvider({ children }) {
     setSubStatus('active');
   };
 
-  const handleRegisterUser = async (email, password, plan) => {
-    const { data, error } = await supabase.auth.signUp({ email, password });
+  const handleRegisterUser = async (email, password, plan, fullName, avatarFile) => {
+    const displayName = fullName ? fullName.trim().split(' ')[0] : '';
+    const { data, error } = await supabase.auth.signUp({
+      email,
+      password,
+      options: {
+        data: {
+          display_name: displayName
+        }
+      }
+    });
     if (error) throw error;
     if (!data.user) throw new Error('Registration failed.');
+
+    const userId = data.user.id;
+    let avatarUrl = null;
+
+    if (avatarFile) {
+      const fileExt = avatarFile.name.split('.').pop();
+      const fileName = `${userId}-${Date.now()}.${fileExt}`;
+      const { error: uploadErr } = await supabase.storage
+        .from('avatars')
+        .upload(fileName, avatarFile, {
+          cacheControl: '3600',
+          upsert: true
+        });
+
+      if (uploadErr) {
+        console.error('Avatar upload failed:', uploadErr);
+      } else {
+        const { data: urlData } = supabase.storage
+          .from('avatars')
+          .getPublicUrl(fileName);
+        avatarUrl = urlData?.publicUrl;
+      }
+    }
 
     const { data: invite } = await supabase.from('team_invitations')
       .select('*').eq('invited_email', email).eq('status', 'pending').maybeSingle();
@@ -458,10 +490,16 @@ function AppProvider({ children }) {
     const trialEnds = new Date(Date.now() + 168 * 60 * 60 * 1000).toISOString(); // 7-day trial
 
     const { error: profileErr } = await supabase.from('user_profiles').upsert({
-      id: data.user.id, email, status, plan: userPlan,
+      id: userId,
+      email,
+      status,
+      plan: userPlan,
       requested_plan: invite ? 'teams' : plan,
-      trial_ends_at: trialEnds, team_id: teamId,
-      team_role: teamId ? 'member' : 'owner'
+      trial_ends_at: trialEnds,
+      team_id: teamId,
+      team_role: teamId ? 'member' : 'owner',
+      full_name: fullName,
+      avatar_url: avatarUrl
     });
     if (profileErr) throw profileErr;
 

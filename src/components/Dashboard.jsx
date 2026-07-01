@@ -117,7 +117,7 @@ const loadDashboardData = async () => {
   return (
     <div className="flex-col gap-4" style={{ textAlign: 'left' }}>
       <div style={{ marginBottom: '1.5rem' }}>
-        <h2>Welcome back, {currentUser.email.split('@')[0]}!</h2>
+        <h2>Welcome back, {currentUser.full_name ? currentUser.full_name.trim().split(' ')[0] : currentUser.email.split('@')[0]}!</h2>
         <p className="color-muted">Outreach engine tracking, conversions, and follow-ups status.</p>
       </div>
 
