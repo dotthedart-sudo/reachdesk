@@ -160,9 +160,9 @@ const PLANS = [
 // ─── Shared Screens ──────────────────────────────────────────────────────────
 export function PendingScreen({ profile, handleLogout }) {
   return (
-    <div className="paywall-overlay" style={{ backgroundColor: '#0D1117', backgroundImage: 'none', fontFamily: 'Mattone, sans-serif' }}>
-      <div className="paywall-card" style={{ backgroundColor: '#161B22', border: '1px solid #21262D', borderRadius: '3px', boxShadow: 'none', animation: 'none' }}>
-        <div className="paywall-icon" style={{ background: '#5B8FB9', boxShadow: 'none' }}><Lock size={36} /></div>
+    <div className="paywall-overlay" style={{ backgroundColor: 'var(--bg-page)', backgroundImage: 'none', fontFamily: 'Mattone, sans-serif' }}>
+      <div className="paywall-card" style={{ backgroundColor: 'var(--bg-card)', border: '1px solid var(--border)', borderRadius: '3px', boxShadow: 'none', animation: 'none' }}>
+        <div className="paywall-icon" style={{ background: 'var(--accent-blue)', boxShadow: 'none' }}><Lock size={36} /></div>
         <h1 className="paywall-title" style={{ fontFamily: 'Mattone, sans-serif' }}>Activation Pending</h1>
         <p className="paywall-text">
           Your upgrade request for <strong>{profile?.requested_plan?.toUpperCase()}</strong> is pending
@@ -178,9 +178,9 @@ export function PendingScreen({ profile, handleLogout }) {
 
 export function DeniedScreen({ handleLogout }) {
   return (
-    <div className="paywall-overlay" style={{ backgroundColor: '#0D1117', backgroundImage: 'none', fontFamily: 'Mattone, sans-serif' }}>
-      <div className="paywall-card" style={{ backgroundColor: '#161B22', border: '1px solid #21262D', borderRadius: '3px', boxShadow: 'none', animation: 'none' }}>
-        <div className="paywall-icon" style={{ background: '#5B8FB9', boxShadow: 'none' }}><ShieldAlert size={36} /></div>
+    <div className="paywall-overlay" style={{ backgroundColor: 'var(--bg-page)', backgroundImage: 'none', fontFamily: 'Mattone, sans-serif' }}>
+      <div className="paywall-card" style={{ backgroundColor: 'var(--bg-card)', border: '1px solid var(--border)', borderRadius: '3px', boxShadow: 'none', animation: 'none' }}>
+        <div className="paywall-icon" style={{ background: 'var(--accent-blue)', boxShadow: 'none' }}><ShieldAlert size={36} /></div>
         <h1 className="paywall-title" style={{ fontFamily: 'Mattone, sans-serif' }}>Access Denied</h1>
         <p className="paywall-text">
           Your workspace access has been denied. Please contact support at reachdesk.io@gmail.com.
@@ -209,15 +209,15 @@ function PlanCard({ plan, billing, isSelected, onSelect, handlePaddleCheckout })
       onClick={() => isStarter && onSelect(id)}
       style={{
         position: 'relative',
-        border: '1px solid #21262D',
+        border: '1px solid var(--border)',
         borderRadius: '3px',
         padding: '2rem 1.5rem',
-        background: '#161B22',
+        background: 'var(--bg-card)',
         opacity: displayOpacity,
         cursor: isStarter ? 'pointer' : 'not-allowed',
         transition: 'border-color 0.2s, box-shadow 0.2s',
         boxShadow: isStarter && isSelected
-          ? '0 0 0 3px rgba(91, 143, 185, 0.25)'
+          ? '0 0 0 3px color-mix(in srgb, var(--accent-blue) 25%, transparent)'
           : 'none',
         display: 'flex',
         flexDirection: 'column',
@@ -231,9 +231,9 @@ function PlanCard({ plan, billing, isSelected, onSelect, handlePaddleCheckout })
           position: 'absolute',
           top: '12px',
           right: '12px',
-          background: 'rgba(91, 143, 185, 0.1)',
-          color: '#5B8FB9',
-          border: '1px solid #5B8FB9',
+          background: 'color-mix(in srgb, var(--accent-blue) 12%, transparent)',
+          color: 'var(--accent-blue)',
+          border: '1px solid var(--accent-blue)',
           fontSize: '0.65rem',
           fontWeight: 700,
           padding: '2px 8px',
@@ -246,7 +246,7 @@ function PlanCard({ plan, billing, isSelected, onSelect, handlePaddleCheckout })
 
       {/* Header */}
       <div>
-        <div style={{ fontWeight: 700, fontSize: '1.25rem', color: '#FFFFFF', fontFamily: "'Mattone', sans-serif" }}>
+        <div style={{ fontWeight: 700, fontSize: '1.25rem', color: 'var(--text-primary)', fontFamily: "'Mattone', sans-serif" }}>
           {name}
         </div>
         <div style={{ fontSize: '0.8rem', color: 'var(--text-muted)', marginTop: '0.25rem' }}>
@@ -257,10 +257,10 @@ function PlanCard({ plan, billing, isSelected, onSelect, handlePaddleCheckout })
       {/* Price */}
       <div style={{ minHeight: '3.5rem', display: 'flex', flexDirection: 'column', justifyContent: 'center' }}>
         {isEnterprise ? (
-          <div style={{ fontSize: '1.5rem', fontWeight: 700, color: '#FFFFFF', fontFamily: "'Mattone', sans-serif" }}>Custom</div>
+          <div style={{ fontSize: '1.5rem', fontWeight: 700, color: 'var(--text-primary)', fontFamily: "'Mattone', sans-serif" }}>Custom</div>
         ) : pricing ? (
           <>
-            <div style={{ fontSize: '1.5rem', fontWeight: 700, color: '#FFFFFF', fontFamily: "'Mattone', sans-serif" }}>
+            <div style={{ fontSize: '1.5rem', fontWeight: 700, color: 'var(--text-primary)', fontFamily: "'Mattone', sans-serif" }}>
               ${pricing.usdPerMonth}/mo <span style={{ fontSize: '0.9rem', fontWeight: 400, color: 'var(--text-muted)' }}>({`Rs. ${pricing.pkrPerMonth}/mo`})</span>
             </div>
             <div style={{ fontSize: '0.72rem', color: 'var(--text-muted)', marginTop: '0.35rem' }}>
@@ -276,7 +276,7 @@ function PlanCard({ plan, billing, isSelected, onSelect, handlePaddleCheckout })
           const isObj = typeof feat === 'object';
           return (
             <li key={i} style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', fontSize: '0.82rem', color: 'var(--text-secondary)' }}>
-              <Check size={13} style={{ color: '#5B8FB9', flexShrink: 0 }} />
+              <Check size={13} style={{ color: 'var(--accent-blue)', flexShrink: 0 }} />
               <span>{isObj ? feat.label : feat}</span>
               {isObj && feat.badge && (
                 <span style={{
@@ -316,8 +316,8 @@ function PlanCard({ plan, billing, isSelected, onSelect, handlePaddleCheckout })
           style={{
             width: '100%',
             padding: '12px',
-            backgroundColor: '#5B8FB9',
-            color: '#0D1117',
+            backgroundColor: 'var(--accent-blue)',
+            color: 'var(--bg-card)',
             border: 'none',
             borderRadius: '3px',
             fontSize: '0.85rem',
@@ -327,10 +327,10 @@ function PlanCard({ plan, billing, isSelected, onSelect, handlePaddleCheckout })
             transition: 'background-color 0.2s',
           }}
           onMouseEnter={(e) => {
-            e.target.style.backgroundColor = '#4A7EA8';
+            e.target.style.backgroundColor = 'var(--accent-blue-hover)';
           }}
           onMouseLeave={(e) => {
-            e.target.style.backgroundColor = '#5B8FB9';
+            e.target.style.backgroundColor = 'var(--accent-blue)';
           }}
         >
           Get Started
@@ -394,7 +394,7 @@ export function UpgradePage({ profile, handleLogout, onRefreshProfile, bankAccou
       style={{
         fontFamily: 'Mattone, sans-serif',
         ...(!isEmbedded ? {
-          backgroundColor: '#0D1117',
+          backgroundColor: 'var(--bg-page)',
           backgroundImage: 'none',
         } : {})
       }}
@@ -411,15 +411,15 @@ export function UpgradePage({ profile, handleLogout, onRefreshProfile, bankAccou
           flexDirection: 'column',
           alignItems: 'center',
           gap: '1.5rem',
-          backgroundColor: '#161B22',
-          border: '1px solid #21262D',
+          backgroundColor: 'var(--bg-card)',
+          border: '1px solid var(--border)',
           borderRadius: '3px',
           boxShadow: 'none',
           backdropFilter: 'none',
           animation: 'none',
         }}
       >
-        <div className="paywall-icon" style={{ background: '#5B8FB9', boxShadow: 'none' }}><Lock size={36} /></div>
+        <div className="paywall-icon" style={{ background: 'var(--accent-blue)', boxShadow: 'none' }}><Lock size={36} /></div>
 
         {isEmbedded ? (
           <>
@@ -456,8 +456,8 @@ export function UpgradePage({ profile, handleLogout, onRefreshProfile, bankAccou
                 onClick={() => setBilling(key)}
                 style={{
                   padding: '8px 16px',
-                  background: isActive ? '#5B8FB9' : 'transparent',
-                  color: isActive ? '#0D1117' : 'var(--text-muted)',
+                  background: isActive ? 'var(--accent-blue)' : 'transparent',
+                  color: isActive ? 'var(--bg-card)' : 'var(--text-muted)',
                   border: 'none',
                   borderRight: key !== 'yearly' ? '0.5px solid var(--border-color)' : 'none',
                   cursor: 'pointer',
@@ -474,7 +474,7 @@ export function UpgradePage({ profile, handleLogout, onRefreshProfile, bankAccou
               >
                 <span>{info.label}</span>
                 {info.badge && (
-                  <span style={{ fontSize: '0.6rem', color: isActive ? '#0D1117' : 'var(--success-color)', fontWeight: 600 }}>
+                  <span style={{ fontSize: '0.6rem', color: isActive ? 'var(--bg-card)' : 'var(--success-color)', fontWeight: 600 }}>
                     {info.badge}
                   </span>
                 )}
