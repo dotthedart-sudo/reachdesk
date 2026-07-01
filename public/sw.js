@@ -36,3 +36,13 @@ self.addEventListener('notificationclick', (event) => {
     })
   );
 });
+
+// App update listeners
+self.addEventListener('install', e => self.skipWaiting());
+self.addEventListener('activate', e => e.waitUntil(clients.claim()));
+
+self.addEventListener('message', (event) => {
+  if (event.data && event.data.type === 'SKIP_WAITING') {
+    self.skipWaiting();
+  }
+});

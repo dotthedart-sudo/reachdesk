@@ -922,10 +922,94 @@ function HomepagePage() {
 
 // Root app
 export default function App() {
+  const [swUpdateAvailable, setSwUpdateAvailable] = useState(false);
+  const [waitingWorker, setWaitingWorker] = useState(null);
+
+  useEffect(() => {
+    if ('serviceWorker' in navigator) {
+      navigator.serviceWorker.register('/sw.js', { scope: '/' })
+        .then((reg) => {
+          if (reg.waiting) {
+            setSwUpdateAvailable(true);
+            setWaitingWorker(reg.waiting);
+          }
+          reg.addEventListener('updatefound', () => {
+            const newWorker = reg.installing;
+            if (newWorker) {
+              newWorker.addEventListener('statechange', () => {
+                if (newWorker.state === 'installed' && navigator.serviceWorker.controller) {
+                  setSwUpdateAvailable(true);
+                  setWaitingWorker(reg.waiting || newWorker);
+                }
+              });
+            }
+          });
+        })
+        .catch((err) => {
+          console.error('[SW] ServiceWorker registration failed:', err);
+        });
+
+      let refreshing = false;
+      navigator.serviceWorker.addEventListener('controllerchange', () => {
+        if (!refreshing) {
+          refreshing = true;
+          window.location.reload();
+        }
+      });
+    }
+  }, []);
+
+  const handleSwUpdateRefresh = () => {
+    if (waitingWorker) {
+      waitingWorker.postMessage({ type: 'SKIP_WAITING' });
+    }
+  };
+
   return (
     <BrowserRouter>
       <AppProvider>
-        <AppRoutes />
+        {swUpdateAvailable && (
+          <div style={{
+            position: 'fixed',
+            top: 0,
+            left: 0,
+            right: 0,
+            backgroundColor: '#5B8FB9',
+            color: '#0D1117',
+            padding: '0.75rem 1rem',
+            textAlign: 'center',
+            zIndex: 99999,
+            fontFamily: 'Mattone, sans-serif',
+            fontWeight: 600,
+            fontSize: '0.9rem',
+            boxShadow: '0 2px 10px rgba(0,0,0,0.5)',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            gap: '0.75rem'
+          }}>
+            <span>A new version of ReachDesk CRM is available.</span>
+            <button 
+              onClick={handleSwUpdateRefresh}
+              style={{
+                backgroundColor: '#0D1117',
+                color: '#FFFFFF',
+                border: 'none',
+                padding: '4px 12px',
+                borderRadius: '3px',
+                cursor: 'pointer',
+                fontFamily: 'Mattone, sans-serif',
+                fontSize: '0.8rem',
+                fontWeight: 600
+              }}
+            >
+              Refresh Now
+            </button>
+          </div>
+        )}
+        <div style={{ paddingTop: swUpdateAvailable ? '40px' : '0px' }}>
+          <AppRoutes />
+        </div>
       </AppProvider>
     </BrowserRouter>
   );
