@@ -37,102 +37,170 @@ export const AppContext = createContext(null);
 export const useAppContext = () => useContext(AppContext);
 
 const STARTER_TEMPLATES = [
+  // 1. INITIAL TEMPLATES
   {
-    id: 'starter-1',
-    title: 'LinkedIn — First Message',
-    platform: 'LinkedIn',
+    id: 'starter-new-1',
+    title: 'Cold Opener — Straight Up',
+    platform: 'INITIAL TEMPLATES',
     subject: '',
-    body: `Hey [First Name],\n\nCame across your profile and really liked what you're doing with [Company].\n\nHad a quick thought — would love to share something that might be useful for you.\n\nOpen to connecting?\n— [Your Name]`,
+    body: "Hey [Name], came across your work and thought there might be a good fit here. I help [niche] with [result]. Worth a quick chat?",
     is_starter: true,
     user_id: null
   },
   {
-    id: 'starter-2',
-    title: 'LinkedIn — Second Message',
-    platform: 'LinkedIn',
+    id: 'starter-new-2',
+    title: 'Cold Opener — Value First',
+    platform: 'INITIAL TEMPLATES',
     subject: '',
-    body: `Hey [First Name], wanted to share something quick that I think could genuinely help with [Topic].\n\nWould love your thoughts if you have 2 mins!\n— [Your Name]`,
+    body: "Hey [Name], noticed [specific thing about them]. I recently helped someone in a similar space get [result]. Would love to share how — open to a 10-min call?",
     is_starter: true,
     user_id: null
   },
   {
-    id: 'starter-3',
-    title: 'LinkedIn — Follow Up',
-    platform: 'LinkedIn',
+    id: 'starter-new-3',
+    title: 'Cold Opener — Question Hook',
+    platform: 'INITIAL TEMPLATES',
     subject: '',
-    body: `Hey [First Name], just bumping this up in case it got buried!\n\nNo pressure at all — just thought there might be real value here for you.\n— [Your Name]`,
+    body: "Hey [Name], quick question — are you currently looking to [goal/pain point]? Working with a few [niche] clients on exactly this.",
     is_starter: true,
     user_id: null
   },
   {
-    id: 'starter-4',
-    title: 'Email — First Message',
-    platform: 'Email',
-    subject: 'Quick thought for [First Name]',
-    body: `Hi [First Name],\n\nI'll keep this short — I work with [Service] and came across your work at [Company].\n\nI had one idea that could help you with [Topic] — would it be okay if I shared it?\n\nTakes 2 minutes, promise.\n[Your Name]`,
-    is_starter: true,
-    user_id: null
-  },
-  {
-    id: 'starter-5',
-    title: 'Email — Follow Up',
-    platform: 'Email',
-    subject: 'Re: Quick thought for [First Name]',
-    body: `Hi [First Name],\n\nJust following up on my last message — totally understand if timing wasn't right.\n\nIf you're open to it, I'd love to share that idea. If not, no worries at all!\n[Your Name]`,
-    is_starter: true,
-    user_id: null
-  },
-  {
-    id: 'starter-6',
-    title: 'Instagram — First Message',
-    platform: 'Instagram',
+    id: 'starter-new-4',
+    title: 'Cold Opener — Compliment + Ask',
+    platform: 'INITIAL TEMPLATES',
     subject: '',
-    body: `Hey [First Name]! 👋\n\nLove what you're putting out — especially [Topic].\n\nI had something in mind that might help with [Company]. Mind if I share?`,
+    body: "Hey [Name], loved [specific work/post]. I work with [niche] to help them [result]. Would it make sense to connect?",
+    is_starter: true,
+    user_id: null
+  },
+  // 2. FOLLOW UPS
+  {
+    id: 'starter-new-5',
+    title: 'Follow Up #1 — Day 2',
+    platform: 'FOLLOW UPS',
+    subject: '',
+    body: "Hey [Name], just checking if you saw my last message. Still think there's something here worth exploring — let me know!",
     is_starter: true,
     user_id: null
   },
   {
-    id: 'starter-7',
-    title: 'Instagram — Follow Up',
-    platform: 'Instagram',
+    id: 'starter-new-6',
+    title: 'Follow Up #2 — Day 4',
+    platform: 'FOLLOW UPS',
     subject: '',
-    body: `Hey [First Name]! Just checking back on my last message 😊\n\nNo pressure — just didn't want it to get lost in the DMs. Let me know if open!`,
+    body: "Hey [Name], I know you're busy. Just wanted to bump this up. Happy to keep it super short — even 10 mins works.",
     is_starter: true,
     user_id: null
   },
   {
-    id: 'starter-8',
-    title: 'Facebook — First Message',
-    platform: 'Facebook',
+    id: 'starter-new-7',
+    title: 'Follow Up #3 — Day 7',
+    platform: 'FOLLOW UPS',
     subject: '',
-    body: `Hi [First Name],\n\nSaw your post about [Topic] and it really resonated — you're clearly doing great work.\n\nI had a quick idea that might be useful for [Company]. Would love to share if open?\n[Your Name]`,
+    body: "Hey [Name], throwing this back up in case it got buried. Would love to show you what we've been doing for [niche] lately.",
     is_starter: true,
     user_id: null
   },
   {
-    id: 'starter-9',
-    title: 'Facebook — Follow Up',
-    platform: 'Facebook',
+    id: 'starter-new-8',
+    title: 'Follow Up #4 — Day 10',
+    platform: 'FOLLOW UPS',
     subject: '',
-    body: `Hi [First Name], just a friendly follow-up!\n\nHappy to keep it super brief — just one idea I think you'd find useful.\nEither way, keep it up! 👏`,
+    body: "Hey [Name], still here if the timing wasn't right before. Things move fast — happy to reconnect whenever works for you.",
     is_starter: true,
     user_id: null
   },
   {
-    id: 'starter-10',
-    title: 'WhatsApp — First Message',
-    platform: 'WhatsApp',
+    id: 'starter-new-9',
+    title: 'Follow Up #5 — Day 14',
+    platform: 'FOLLOW UPS',
     subject: '',
-    body: `Hi [First Name]! \n\nI had a quick idea about [Topic] that might help you at [Company].\n\nWould it be okay if I shared it? 🙏`,
+    body: "Hey [Name], one more nudge — I genuinely think [result] is achievable for you. Worth 10 mins to find out?",
     is_starter: true,
     user_id: null
   },
   {
-    id: 'starter-11',
-    title: 'WhatsApp — Follow Up',
-    platform: 'WhatsApp',
+    id: 'starter-new-10',
+    title: 'Follow Up #6 — Day 21',
+    platform: 'FOLLOW UPS',
     subject: '',
-    body: `Hey [First Name], just bumping this up!\n\nTotally fine if timing isn't right — just didn't want my message to get lost.\nLet me know whenever you're free 😊`,
+    body: "Hey [Name], been a while! Circling back in case things have changed on your end. Still happy to help with [pain point].",
+    is_starter: true,
+    user_id: null
+  },
+  {
+    id: 'starter-new-11',
+    title: 'Follow Up #7 — Breakup',
+    platform: 'FOLLOW UPS',
+    subject: '',
+    body: "Hey [Name], I'll stop reaching out after this — don't want to clutter your inbox. If you ever need help with [result], you know where to find me. Wishing you the best!",
+    is_starter: true,
+    user_id: null
+  },
+  // 3. BOOKING MESSAGES
+  {
+    id: 'starter-new-12',
+    title: 'Calendar Link Send',
+    platform: 'BOOKING MESSAGES',
+    subject: '',
+    body: "Hey [Name], great connecting! Here's my calendar link to book a time that works for you: [Calendar Link]. Looking forward to it!",
+    is_starter: true,
+    user_id: null
+  },
+  {
+    id: 'starter-new-13',
+    title: 'Reschedule Request',
+    platform: 'BOOKING MESSAGES',
+    subject: '',
+    body: "Hey [Name], something came up on my end — so sorry! Would you be open to rescheduling? Here's my link: [Calendar Link].",
+    is_starter: true,
+    user_id: null
+  },
+  {
+    id: 'starter-new-14',
+    title: 'Reminder Before Call',
+    platform: 'BOOKING MESSAGES',
+    subject: '',
+    body: "Hey [Name], just a quick reminder — we have a call scheduled for [Date/Time]. Looking forward to chatting!",
+    is_starter: true,
+    user_id: null
+  },
+  // 4. AFTER BOOKED
+  {
+    id: 'starter-new-15',
+    title: 'Confirmation Message',
+    platform: 'AFTER BOOKED',
+    subject: '',
+    body: "Hey [Name], confirmed for [Date/Time]! I'll send over a quick agenda beforehand. Feel free to reach out if anything changes.",
+    is_starter: true,
+    user_id: null
+  },
+  {
+    id: 'starter-new-16',
+    title: 'Pre-Call Prep',
+    platform: 'AFTER BOOKED',
+    subject: '',
+    body: "Hey [Name], our call is tomorrow! Just wanted to share what we'll cover: [agenda points]. See you then!",
+    is_starter: true,
+    user_id: null
+  },
+  // 5. AFTER CLIENT BOOKED
+  {
+    id: 'starter-new-17',
+    title: 'Onboarding Welcome',
+    platform: 'AFTER CLIENT BOOKED',
+    subject: '',
+    body: "Hey [Name], so excited to work together! Here's what happens next: [onboarding steps]. Feel free to reach out anytime.",
+    is_starter: true,
+    user_id: null
+  },
+  {
+    id: 'starter-new-18',
+    title: 'First Check-In',
+    platform: 'AFTER CLIENT BOOKED',
+    subject: '',
+    body: "Hey [Name], checking in after our first week together! How's everything going? Any questions or feedback — I'm all ears.",
     is_starter: true,
     user_id: null
   }

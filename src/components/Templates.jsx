@@ -7,16 +7,20 @@ import {
   X, 
   Sparkles, 
   Check, 
-  Eye, 
-  BookOpen,
-  UserCheck,
-  Briefcase,
-  Mail,
-  Camera,
-  MessageCircle,
+  Eye,
+  ChevronDown,
+  ChevronRight,
   ClipboardList
 } from 'lucide-react';
 import { PLAN_LIMITS } from '../lib/utils';
+
+const SECTIONS = [
+  'INITIAL TEMPLATES',
+  'FOLLOW UPS',
+  'BOOKING MESSAGES',
+  'AFTER BOOKED',
+  'AFTER CLIENT BOOKED'
+];
 
 export default function Templates({ 
   currentUser, 
@@ -27,7 +31,7 @@ export default function Templates({
   teamProfilesMap = {},
   isTeamView = false
 }) {
-  const [selectedFolder, setSelectedFolder] = useState('all'); // 'all', 'LinkedIn', 'Email', 'Instagram', 'Facebook', 'WhatsApp', 'my-templates'
+  const [expandedSections, setExpandedSections] = useState({});
   const [showEditor, setShowEditor] = useState(false);
   const [editingTemplate, setEditingTemplate] = useState(null);
   
@@ -36,50 +40,39 @@ export default function Templates({
     title: '',
     subject: '',
     body: '',
-    platform: 'LinkedIn'
+    platform: 'INITIAL TEMPLATES'
   });
 
-  const [copied, setCopied] = useState(false);
+  const [copiedTemplateId, setCopiedTemplateId] = useState(null);
+  const [copiedBody, setCopiedBody] = useState(false);
 
   // Null guard - profile not yet loaded
   if (!currentUser) {
-    return <div className="loading-container">Loading profile...</div>;
+    return <div className="loading-container" style={{ fontFamily: 'Mattone, sans-serif' }}>Loading profile...</div>;
   }
 
   // Allowed templates (starters + user's own)
   const allowedTemplates = templates.filter(t => t.is_starter || t.user_id === currentUser.id);
-
-  // Counts for each sidebar folder
-  const countAll = allowedTemplates.length;
-  const countLinkedIn = allowedTemplates.filter(t => t.platform === 'LinkedIn').length;
-  const countEmail = allowedTemplates.filter(t => t.platform === 'Email').length;
-  const countInstagram = allowedTemplates.filter(t => t.platform === 'Instagram').length;
-  const countFacebook = allowedTemplates.filter(t => t.platform === 'Facebook').length;
-  const countWhatsApp = allowedTemplates.filter(t => t.platform === 'WhatsApp').length;
-  const countMyTemplates = allowedTemplates.filter(t => !t.is_starter && t.user_id === currentUser.id).length;
 
   const planKey = (currentUser.plan || 'trial').toLowerCase();
   const templateLimit = (PLAN_LIMITS[planKey] || PLAN_LIMITS.trial).templates;
   const userTemplates = allowedTemplates.filter(t => t.user_id && !t.is_starter);
   const isTemplateLimitReached = templateLimit !== Infinity && userTemplates.length >= templateLimit;
 
-  // Filter templates list for display
-  const displayedTemplates = allowedTemplates.filter(t => {
-    if (selectedFolder === 'all') return true;
-    if (selectedFolder === 'my-templates') {
-      return !t.is_starter && t.user_id === currentUser.id;
-    }
-    return t.platform === selectedFolder;
-  });
+  // Collapsible toggle handler
+  const toggleSection = (sectionName) => {
+    setExpandedSections(prev => ({
+      ...prev,
+      [sectionName]: !prev[sectionName]
+    }));
+  };
 
-  const handleOpenAdd = () => {
+  const handleOpenAdd = (sectionName) => {
     if (isTemplateLimitReached) {
       alert(`Template limit reached! Your ${currentUser.plan} plan allows up to ${templateLimit} templates. Please upgrade your plan or delete some templates.`);
       return;
     }
-    const defaultPlatform = ['LinkedIn', 'Email', 'Instagram', 'Facebook', 'WhatsApp'].includes(selectedFolder)
-      ? selectedFolder
-      : 'LinkedIn';
+    const defaultPlatform = SECTIONS.includes(sectionName) ? sectionName : 'INITIAL TEMPLATES';
     setFormState({ title: '', subject: '', body: '', platform: defaultPlatform });
     setEditingTemplate(null);
     setShowEditor(true);
@@ -91,7 +84,7 @@ export default function Templates({
       title: template.title || '',
       subject: template.subject || '',
       body: template.body || '',
-      platform: template.platform || 'LinkedIn'
+      platform: template.platform || 'INITIAL TEMPLATES'
     });
     setShowEditor(true);
   };
@@ -143,20 +136,26 @@ export default function Templates({
       title: `${template.title} (Copy)`,
       subject: template.subject || '',
       body: template.body || '',
-      platform: template.platform || 'LinkedIn',
+      platform: template.platform || 'INITIAL TEMPLATES',
       is_starter: false
     });
-    setSelectedFolder('my-templates');
-    alert(`Template duplicated! You can now edit it.`);
+    
+    alert(`Template duplicated! You can now find it in My Templates.`);
     if (newTemplate) {
       handleOpenEdit(newTemplate);
     }
   };
 
-  const handleCopyBody = () => {
+  const handleCopyBodyOnly = (bodyText, templateId) => {
+    navigator.clipboard.writeText(bodyText || '');
+    setCopiedTemplateId(templateId);
+    setTimeout(() => setCopiedTemplateId(null), 2000);
+  };
+
+  const handleCopyBodyModal = () => {
     navigator.clipboard.writeText(formState.body || '');
-    setCopied(true);
-    setTimeout(() => setCopied(false), 2000);
+    setCopiedBody(true);
+    setTimeout(() => setCopiedBody(false), 2000);
   };
 
   const insertTag = (tag) => {
@@ -175,12 +174,25 @@ export default function Templates({
   };
 
   const renderHighlightedContent = (text) => {
-    if (!text) return <span className="color-muted">Start typing template body...</span>;
-    const parts = text.split(/(\[First Name\]|\[Company\])/g);
+    if (!text) return <span style={{ color: '#8B949E' }}>Start typing template body...</span>;
+    // Capture any bracketed content like [Name], [niche], etc.
+    const parts = text.split(/(\[[^\]]+\])/g);
     return parts.map((part, index) => {
-      if (part === '[First Name]' || part === '[Company]') {
+      if (part.startsWith('[') && part.endsWith(']')) {
         return (
-          <span key={index} className="smart-tag">
+          <span 
+            key={index} 
+            className="smart-tag" 
+            style={{ 
+              backgroundColor: 'rgba(91, 143, 185, 0.15)', 
+              border: '1px solid rgba(91, 143, 185, 0.4)', 
+              color: '#5B8FB9',
+              padding: '0.1rem 0.3rem',
+              borderRadius: '2px',
+              fontWeight: 600,
+              fontSize: '0.85em'
+            }}
+          >
             {part}
           </span>
         );
@@ -189,255 +201,331 @@ export default function Templates({
     });
   };
 
-  return (
-    <div className="flex gap-4 w-full" style={{ minHeight: 'calc(100vh - 120px)' }}>
-      {/* Platform folders sidebar */}
+  // Group templates by section
+  const groupedTemplates = {};
+  SECTIONS.forEach(sec => {
+    groupedTemplates[sec] = [];
+  });
+  const otherTemplates = [];
+
+  allowedTemplates.forEach(t => {
+    if (SECTIONS.includes(t.platform)) {
+      groupedTemplates[t.platform].push(t);
+    } else {
+      otherTemplates.push(t);
+    }
+  });
+
+  const renderSection = (sectionName, list) => {
+    const isExpanded = !!expandedSections[sectionName];
+    return (
       <div 
-        className="sidebar-folders" 
-        style={{
-          width: '220px', borderRight: '1px solid var(--border-color)',
-          paddingRight: '1rem', display: 'flex', flexDirection: 'column', gap: '0.4rem',
-          textAlign: 'left', flexShrink: 0
+        key={sectionName} 
+        style={{ 
+          marginBottom: '1rem', 
+          backgroundColor: '#0D1117', 
+          border: '1px solid #21262D', 
+          borderRadius: '3px' 
         }}
       >
-        <h4 style={{ fontSize: '0.85rem', textTransform: 'uppercase', color: 'var(--text-muted)', fontWeight: 600, marginBottom: '0.5rem' }}>Templates</h4>
-        
-        <button 
-          onClick={() => setSelectedFolder('all')}
-          style={{
-            display: 'flex', alignItems: 'center', gap: '0.5rem', width: '100%',
-            padding: '0.5rem 0.75rem', borderRadius: '6px', background: selectedFolder === 'all' ? 'var(--bg-tertiary)' : 'transparent',
-            border: 'none', color: 'var(--text-primary)', cursor: 'pointer', textAlign: 'left',
-            fontWeight: selectedFolder === 'all' ? 600 : 400
+        {/* Collapsible Header */}
+        <div 
+          onClick={() => toggleSection(sectionName)}
+          style={{ 
+            display: 'flex', 
+            justifyContent: 'space-between', 
+            alignItems: 'center', 
+            padding: '1rem', 
+            cursor: 'pointer',
+            userSelect: 'none',
+            borderBottom: isExpanded ? '1px solid #21262D' : 'none'
           }}
         >
-          <ClipboardList size={16} /> All Templates ({countAll})
-        </button>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', flex: 1 }}>
+            {isExpanded ? <ChevronDown size={18} style={{ color: '#5B8FB9' }} /> : <ChevronRight size={18} style={{ color: '#8B949E' }} />}
+            <span 
+              style={{ 
+                fontFamily: 'Mattone, sans-serif', 
+                textTransform: 'uppercase', 
+                letterSpacing: '0.05em', 
+                fontSize: '0.95rem',
+                fontWeight: 600,
+                color: '#FFFFFF' 
+              }}
+            >
+              {sectionName}
+            </span>
+            <span 
+              style={{ 
+                backgroundColor: 'rgba(91, 143, 185, 0.1)', 
+                color: '#5B8FB9', 
+                fontSize: '0.75rem', 
+                padding: '2px 8px', 
+                borderRadius: '10px', 
+                marginLeft: '0.5rem',
+                fontWeight: 600
+              }}
+            >
+              {list.length}
+            </span>
+          </div>
 
-        <div style={{ borderTop: '1px solid var(--border-color)', margin: '0.25rem 0' }}></div>
+          <button 
+            onClick={(e) => { 
+              e.stopPropagation(); 
+              handleOpenAdd(sectionName); 
+            }}
+            className="btn btn-secondary btn-sm"
+            style={{ 
+              borderColor: '#21262D', 
+              borderRadius: '3px',
+              padding: '4px 10px',
+              display: 'flex',
+              alignItems: 'center',
+              gap: '4px',
+              fontSize: '0.75rem'
+            }}
+          >
+            <Plus size={12} /> Add Template
+          </button>
+        </div>
 
-        <button 
-          onClick={() => setSelectedFolder('LinkedIn')}
-          style={{
-            display: 'flex', alignItems: 'center', gap: '0.5rem', width: '100%',
-            padding: '0.5rem 0.75rem', borderRadius: '6px', background: selectedFolder === 'LinkedIn' ? 'var(--bg-tertiary)' : 'transparent',
-            border: 'none', color: 'var(--text-primary)', cursor: 'pointer', textAlign: 'left',
-            fontWeight: selectedFolder === 'LinkedIn' ? 600 : 400
-          }}
-        >
-          <Briefcase size={16} /> LinkedIn ({countLinkedIn})
-        </button>
+        {/* Collapsible Content */}
+        {isExpanded && (
+          <div style={{ padding: '1rem', backgroundColor: '#0D1117' }}>
+            {list.length === 0 ? (
+              <div style={{ padding: '2rem', textAlign: 'center', color: '#8B949E', fontSize: '0.9rem' }}>
+                No templates in this section. Click "Add Template" to create one.
+              </div>
+            ) : (
+              <div 
+                style={{ 
+                  display: 'grid', 
+                  gridTemplateColumns: 'repeat(auto-fill, minmax(280px, 1fr))', 
+                  gap: '1rem' 
+                }}
+              >
+                {list.map(template => {
+                  const addedByEmail = teamProfilesMap[template.user_id];
+                  return (
+                    <div 
+                      key={template.id}
+                      className="card flex-col gap-3"
+                      style={{ 
+                        backgroundColor: '#161B22', 
+                        border: '1px solid #21262D', 
+                        borderRadius: '3px',
+                        padding: '1.25rem',
+                        textAlign: 'left'
+                      }}
+                    >
+                      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: '0.5rem' }}>
+                        <h4 
+                          style={{ 
+                            fontSize: '1rem', 
+                            fontWeight: 600, 
+                            color: '#FFFFFF',
+                            margin: 0,
+                            fontFamily: 'Plus Jakarta Sans, sans-serif'
+                          }}
+                        >
+                          {template.title}
+                        </h4>
+                        <span 
+                          style={{ 
+                            fontSize: '0.7rem', 
+                            padding: '2px 6px', 
+                            borderRadius: '3px',
+                            fontWeight: 600,
+                            textTransform: 'uppercase',
+                            letterSpacing: '0.05em',
+                            backgroundColor: template.is_starter ? 'rgba(91, 143, 185, 0.15)' : 'rgba(16, 185, 129, 0.15)',
+                            color: template.is_starter ? '#5B8FB9' : '#10b981',
+                            border: `1px solid ${template.is_starter ? 'rgba(91,143,185,0.3)' : 'rgba(16,185,129,0.3)'}`,
+                            flexShrink: 0
+                          }}
+                        >
+                          {template.is_starter ? 'Starter' : 'Custom'}
+                        </span>
+                      </div>
 
-        <button 
-          onClick={() => setSelectedFolder('Email')}
-          style={{
-            display: 'flex', alignItems: 'center', gap: '0.5rem', width: '100%',
-            padding: '0.5rem 0.75rem', borderRadius: '6px', background: selectedFolder === 'Email' ? 'var(--bg-tertiary)' : 'transparent',
-            border: 'none', color: 'var(--text-primary)', cursor: 'pointer', textAlign: 'left',
-            fontWeight: selectedFolder === 'Email' ? 600 : 400
-          }}
-        >
-          <Mail size={16} /> Email ({countEmail})
-        </button>
+                      {template.subject && (
+                        <div style={{ fontSize: '0.8rem', color: '#8B949E' }}>
+                          <strong>Subject:</strong> {template.subject}
+                        </div>
+                      )}
 
-        <button 
-          onClick={() => setSelectedFolder('Instagram')}
-          style={{
-            display: 'flex', alignItems: 'center', gap: '0.5rem', width: '100%',
-            padding: '0.5rem 0.75rem', borderRadius: '6px', background: selectedFolder === 'Instagram' ? 'var(--bg-tertiary)' : 'transparent',
-            border: 'none', color: 'var(--text-primary)', cursor: 'pointer', textAlign: 'left',
-            fontWeight: selectedFolder === 'Instagram' ? 600 : 400
-          }}
-        >
-          <Camera size={16} /> Instagram ({countInstagram})
-        </button>
+                      <div 
+                        style={{ 
+                          fontSize: '0.85rem', 
+                          maxHeight: '120px', 
+                          overflowY: 'auto', 
+                          backgroundColor: '#0D1117',
+                          padding: '0.75rem',
+                          borderRadius: '3px',
+                          border: '1px solid #21262D',
+                          whiteSpace: 'pre-wrap',
+                          lineHeight: 1.5,
+                          color: '#C9D1D9'
+                        }}
+                      >
+                        {renderHighlightedContent(template.body)}
+                      </div>
 
-        <button 
-          onClick={() => setSelectedFolder('Facebook')}
-          style={{
-            display: 'flex', alignItems: 'center', gap: '0.5rem', width: '100%',
-            padding: '0.5rem 0.75rem', borderRadius: '6px', background: selectedFolder === 'Facebook' ? 'var(--bg-tertiary)' : 'transparent',
-            border: 'none', color: 'var(--text-primary)', cursor: 'pointer', textAlign: 'left',
-            fontWeight: selectedFolder === 'Facebook' ? 600 : 400
-          }}
-        >
-          <BookOpen size={16} /> Facebook ({countFacebook})
-        </button>
+                      {isTeamView && addedByEmail && (
+                        <div style={{ fontSize: '0.75rem', color: '#8B949E', marginTop: '0.25rem' }}>
+                          Added by: {addedByEmail}
+                        </div>
+                      )}
 
-        <button 
-          onClick={() => setSelectedFolder('WhatsApp')}
-          style={{
-            display: 'flex', alignItems: 'center', gap: '0.5rem', width: '100%',
-            padding: '0.5rem 0.75rem', borderRadius: '6px', background: selectedFolder === 'WhatsApp' ? 'var(--bg-tertiary)' : 'transparent',
-            border: 'none', color: 'var(--text-primary)', cursor: 'pointer', textAlign: 'left',
-            fontWeight: selectedFolder === 'WhatsApp' ? 600 : 400
-          }}
-        >
-          <MessageCircle size={16} /> WhatsApp ({countWhatsApp})
-        </button>
+                      <div className="flex gap-2" style={{ marginTop: 'auto', paddingTop: '0.75rem' }}>
+                        <button 
+                          className="btn btn-secondary btn-sm"
+                          onClick={() => handleCopyBodyOnly(template.body, template.id)}
+                          style={{ 
+                            borderRadius: '3px', 
+                            flex: 1, 
+                            justifyContent: 'center', 
+                            fontSize: '0.8rem',
+                            display: 'flex',
+                            alignItems: 'center',
+                            gap: '4px'
+                          }}
+                        >
+                          <Copy size={12} />
+                          {copiedTemplateId === template.id ? 'Copied!' : 'Copy'}
+                        </button>
+                        
+                        {template.is_starter ? (
+                          <button 
+                            className="btn btn-secondary btn-sm"
+                            onClick={() => handleDuplicate(template)}
+                            style={{ borderRadius: '3px', fontSize: '0.8rem', padding: '0 8px' }}
+                            title="Duplicate to custom templates"
+                          >
+                            Duplicate
+                          </button>
+                        ) : (
+                          <>
+                            <button 
+                              className="btn btn-secondary btn-sm"
+                              onClick={() => handleOpenEdit(template)}
+                              style={{ 
+                                borderRadius: '3px', 
+                                display: 'flex', 
+                                alignItems: 'center', 
+                                gap: '4px',
+                                fontSize: '0.8rem' 
+                              }}
+                            >
+                              <Edit3 size={12} /> Edit
+                            </button>
+                            <button 
+                              className="btn btn-danger btn-sm"
+                              onClick={() => {
+                                if (confirm('Are you sure you want to delete this template?')) {
+                                  onDeleteTemplate(template.id);
+                                }
+                              }}
+                              style={{ borderRadius: '3px', display: 'flex', alignItems: 'center', justifyContent: 'center', width: '32px' }}
+                            >
+                              <Trash2 size={12} />
+                            </button>
+                          </>
+                        )}
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            )}
+          </div>
+        )}
+      </div>
+    );
+  };
 
-        <div style={{ borderTop: '1px solid var(--border-color)', margin: '0.25rem 0' }}></div>
-
-        <button 
-          onClick={() => setSelectedFolder('my-templates')}
-          style={{
-            display: 'flex', alignItems: 'center', gap: '0.5rem', width: '100%',
-            padding: '0.5rem 0.75rem', borderRadius: '6px', background: selectedFolder === 'my-templates' ? 'var(--bg-tertiary)' : 'transparent',
-            border: 'none', color: 'var(--text-primary)', cursor: 'pointer', textAlign: 'left',
-            fontWeight: selectedFolder === 'my-templates' ? 600 : 400
-          }}
-        >
-          <UserCheck size={16} /> My Templates ({countMyTemplates})
-        </button>
+  return (
+    <div className="flex-col gap-4 w-full" style={{ minHeight: 'calc(100vh - 120px)', textAlign: 'left' }}>
+      {/* Header section */}
+      <div className="flex justify-between align-center mb-4" style={{ borderBottom: '1px solid #21262D', paddingBottom: '1rem' }}>
+        <div>
+          <h2 style={{ fontFamily: 'Mattone, sans-serif', fontSize: '1.5rem', fontWeight: 400, color: '#FFFFFF', textTransform: 'uppercase', letterSpacing: '0.05em' }}>
+            Template Library
+          </h2>
+          <p style={{ fontSize: '0.9rem', color: '#8B949E', marginTop: '0.25rem' }}>
+            Build highly personal outreach messages using automated smart tags
+          </p>
+        </div>
+        <div>
+          <button 
+            className="btn btn-primary" 
+            onClick={() => handleOpenAdd('INITIAL TEMPLATES')}
+            disabled={isTemplateLimitReached}
+            style={{ borderRadius: '3px', display: 'flex', alignItems: 'center', gap: '6px' }}
+          >
+            <Plus size={16} />
+            Create Template
+          </button>
+        </div>
       </div>
 
-      {/* Main Content Area */}
-      <div className="flex-1 flex-col gap-4">
-        <div className="flex justify-between align-center mb-4">
-          <div>
-            <h2>Outreach Templates</h2>
-            <p className="color-muted" style={{ fontSize: '0.9rem' }}>
-              Build highly personal outreach messages using automated smart tags
-            </p>
-          </div>
-          <div>
-            <button 
-              className="btn btn-primary" 
-              onClick={handleOpenAdd}
-              disabled={isTemplateLimitReached}
-            >
-              <Plus size={16} />
-              Create Template
-            </button>
-          </div>
-        </div>
-
-        {/* Grid of Templates */}
-        <div className="grid-3">
-          {displayedTemplates.length === 0 ? (
-            <div style={{ gridColumn: '1/-1', padding: '3rem', textAlign: 'center', color: 'var(--text-muted)' }}>
-              No templates found in this folder.
-            </div>
-          ) : (
-            displayedTemplates.map(template => {
-              const addedByEmail = teamProfilesMap[template.user_id];
-              return (
-                <div 
-                  className="card flex-col gap-3" 
-                  key={template.id} 
-                  style={{ textAlign: 'left', cursor: 'pointer' }}
-                  onClick={() => handleOpenEdit(template)}
-                >
-                  <div className="flex justify-between align-center">
-                    <h3 style={{ fontSize: '1.1rem' }}>{template.title}</h3>
-                    <span className={`badge ${template.is_starter ? 'badge-starter' : 'badge-pro'}`}>
-                      {template.is_starter ? 'Starter' : 'Custom'}
-                    </span>
-                  </div>
-                  <div style={{ fontSize: '0.85rem' }}>
-                    <strong>Platform:</strong> <span className="color-muted">{template.platform}</span>
-                  </div>
-                  <div style={{ fontSize: '0.85rem' }}>
-                    <strong>Subject:</strong> <span className="color-muted">{template.subject || 'No Subject'}</span>
-                  </div>
-                  <div 
-                    style={{ 
-                      fontSize: '0.85rem', 
-                      maxHeight: '100px', 
-                      overflowY: 'auto', 
-                      backgroundColor: 'var(--bg-tertiary)',
-                      padding: '0.5rem',
-                      borderRadius: '6px',
-                      whiteSpace: 'pre-wrap'
-                    }}
-                  >
-                    {renderHighlightedContent(template.body)}
-                  </div>
-
-                  {isTeamView && addedByEmail && (
-                    <div style={{ fontSize: '0.75rem', color: 'var(--text-muted)', marginTop: '0.25rem' }}>
-                      Added by: {addedByEmail}
-                    </div>
-                  )}
-
-                  <div className="flex gap-2 mt-4" style={{ marginTop: 'auto' }}>
-                    {template.is_starter ? (
-                      <button 
-                        className="btn btn-secondary btn-sm w-full"
-                        onClick={(e) => { e.stopPropagation(); handleDuplicate(template); }}
-                      >
-                        <Copy size={12} />
-                        Duplicate to My Templates
-                      </button>
-                    ) : (
-                      <>
-                        <button 
-                          className="btn btn-secondary btn-sm w-full"
-                          onClick={(e) => { e.stopPropagation(); handleOpenEdit(template); }}
-                        >
-                          <Edit3 size={12} />
-                          Edit Template
-                        </button>
-                        <button 
-                          className="btn btn-danger btn-sm"
-                          onClick={(e) => { e.stopPropagation(); onDeleteTemplate(template.id); }}
-                        >
-                          <Trash2 size={12} />
-                        </button>
-                      </>
-                    )}
-                  </div>
-                </div>
-              );
-            })
-          )}
-        </div>
+      {/* Accordion list of sections */}
+      <div className="flex-col">
+        {SECTIONS.map(sec => renderSection(sec, groupedTemplates[sec]))}
+        
+        {/* Render fallback uncategorized templates if they exist */}
+        {otherTemplates.length > 0 && renderSection('OTHER TEMPLATES', otherTemplates)}
       </div>
 
       {/* Editor Modal */}
       {showEditor && (
         <div className="modal-backdrop">
-          <div className="modal-content" style={{ maxWidth: '800px', width: '95%' }}>
-            <div className="modal-header">
-              <h3>{editingTemplate ? (editingTemplate.is_starter ? 'View Starter Template' : 'Edit Template') : 'Create New Template'}</h3>
+          <div className="modal-content" style={{ maxWidth: '800px', width: '95%', backgroundColor: '#161B22', border: '1px solid #21262D', borderRadius: '3px' }}>
+            <div className="modal-header" style={{ borderBottom: '1px solid #21262D' }}>
+              <h3 style={{ fontFamily: 'Mattone, sans-serif', textTransform: 'uppercase', letterSpacing: '0.05em', fontSize: '1.1rem', color: '#FFFFFF' }}>
+                {editingTemplate ? (editingTemplate.is_starter ? 'View Starter Template' : 'Edit Template') : 'Create New Template'}
+              </h3>
               <div style={{ display: 'flex', gap: '0.5rem', alignItems: 'center' }}>
                 <button 
                   type="button" 
                   className="btn btn-secondary btn-sm"
-                  onClick={handleCopyBody}
+                  onClick={handleCopyBodyModal}
+                  style={{ borderRadius: '3px' }}
                 >
                   <Copy size={12} />
-                  {copied ? 'Copied!' : 'Copy Body'}
+                  {copiedBody ? 'Copied!' : 'Copy Body'}
                 </button>
-                <button onClick={() => setShowEditor(false)} className="theme-toggle">
+                <button onClick={() => setShowEditor(false)} className="theme-toggle" style={{ color: '#8B949E' }}>
                   <X size={18} />
                 </button>
               </div>
             </div>
             
             {editingTemplate?.is_starter && (
-              <div style={{ background: 'rgba(139,92,246,0.1)', border: '1px solid var(--primary-purple)', color: 'var(--primary-purple)', padding: '0.75rem 1rem', borderRadius: '8px', marginBottom: '1.25rem', fontSize: '0.85rem', fontWeight: 500 }}>
-                This is a starter template — duplicate it to make your own editable copy
+              <div style={{ background: 'rgba(91, 143, 185, 0.1)', border: '1px solid rgba(91, 143, 185, 0.3)', color: '#5B8FB9', padding: '0.75rem 1rem', borderRadius: '3px', marginBottom: '1.25rem', fontSize: '0.85rem', fontWeight: 500 }}>
+                This is a starter template — duplicate it to make your own editable copy.
               </div>
             )}
 
             <form onSubmit={handleSave} className="flex-col gap-3">
               <div className="form-group">
-                <label className="form-label">Template Title *</label>
+                <label className="form-label" style={{ color: '#C9D1D9' }}>Template Title *</label>
                 <input 
                   type="text" 
                   required 
                   disabled={editingTemplate?.is_starter}
                   className="form-input"
-                  placeholder="e.g. Cold Pitch: Marketing Services"
+                  placeholder="e.g. Cold Pitch: Straight Up"
                   value={formState.title}
                   onChange={(e) => setFormState({...formState, title: e.target.value})}
                   onBlur={(e) => handleFieldBlur('title', e.target.value)}
+                  style={{ backgroundColor: '#0D1117', border: '1px solid #21262D', borderRadius: '3px', color: '#FFFFFF' }}
                 />
               </div>
 
               <div className="form-group">
-                <label className="form-label">Platform *</label>
+                <label className="form-label" style={{ color: '#C9D1D9' }}>Section *</label>
                 <select
                   required
                   disabled={editingTemplate?.is_starter}
@@ -448,63 +536,75 @@ export default function Templates({
                     setFormState({ ...formState, platform: val });
                     handleFieldBlur('platform', val);
                   }}
+                  style={{ backgroundColor: '#0D1117', border: '1px solid #21262D', borderRadius: '3px', color: '#FFFFFF', padding: '0.5rem' }}
                 >
-                  <option value="LinkedIn">LinkedIn</option>
-                  <option value="Email">Email</option>
-                  <option value="Instagram">Instagram</option>
-                  <option value="Facebook">Facebook</option>
-                  <option value="WhatsApp">WhatsApp</option>
+                  {SECTIONS.map(sec => (
+                    <option key={sec} value={sec}>{sec}</option>
+                  ))}
+                  {!SECTIONS.includes(formState.platform) && (
+                    <option value={formState.platform}>{formState.platform}</option>
+                  )}
                 </select>
               </div>
 
               <div className="form-group">
-                <label className="form-label">Email Subject</label>
+                <label className="form-label" style={{ color: '#C9D1D9' }}>Email Subject (Optional)</label>
                 <input 
                   type="text" 
                   disabled={editingTemplate?.is_starter}
                   className="form-input"
-                  placeholder="e.g. Quick question for [First Name] re [Company]"
+                  placeholder="e.g. Quick question re: outreach"
                   value={formState.subject}
                   onChange={(e) => setFormState({...formState, subject: e.target.value})}
                   onBlur={(e) => handleFieldBlur('subject', e.target.value)}
+                  style={{ backgroundColor: '#0D1117', border: '1px solid #21262D', borderRadius: '3px', color: '#FFFFFF' }}
                 />
               </div>
 
               {/* Tag Injector Helpers */}
               {!editingTemplate?.is_starter && (
                 <div className="flex gap-2 align-center">
-                  <span style={{ fontSize: '0.8rem', color: 'var(--text-secondary)' }}>Click to insert tag:</span>
+                  <span style={{ fontSize: '0.8rem', color: '#8B949E' }}>Click to insert tag:</span>
                   <button 
                     type="button" 
                     className="btn btn-secondary btn-sm"
-                    onClick={() => insertTag('[First Name]')}
-                    style={{ borderColor: 'var(--primary-purple)' }}
+                    onClick={() => insertTag('[Name]')}
+                    style={{ borderColor: '#21262D', borderRadius: '3px' }}
                   >
-                    <Sparkles size={12} style={{ color: 'var(--primary-purple)' }} />
-                    [First Name]
+                    <Sparkles size={12} style={{ color: '#5B8FB9' }} />
+                    [Name]
                   </button>
                   <button 
                     type="button" 
                     className="btn btn-secondary btn-sm"
-                    onClick={() => insertTag('[Company]')}
-                    style={{ borderColor: 'var(--primary-magenta)' }}
+                    onClick={() => insertTag('[niche]')}
+                    style={{ borderColor: '#21262D', borderRadius: '3px' }}
                   >
-                    <Sparkles size={12} style={{ color: 'var(--primary-magenta)' }} />
-                    [Company]
+                    <Sparkles size={12} style={{ color: '#5B8FB9' }} />
+                    [niche]
+                  </button>
+                  <button 
+                    type="button" 
+                    className="btn btn-secondary btn-sm"
+                    onClick={() => insertTag('[result]')}
+                    style={{ borderColor: '#21262D', borderRadius: '3px' }}
+                  >
+                    <Sparkles size={12} style={{ color: '#5B8FB9' }} />
+                    [result]
                   </button>
                 </div>
               )}
 
               {/* Grid: Editor Left, Live Preview Right */}
-              <div className="template-editor-container">
+              <div className="template-editor-container" style={{ marginTop: '0.5rem' }}>
                 <div className="form-group">
-                  <label className="form-label">Body Template *</label>
+                  <label className="form-label" style={{ color: '#C9D1D9' }}>Body Template *</label>
                   <textarea 
                     className="form-textarea"
                     required
                     disabled={editingTemplate?.is_starter}
-                    style={{ minHeight: '220px', lineHeight: 1.5 }}
-                    placeholder="Hi [First Name], I noticed that your team at [Company]..."
+                    style={{ minHeight: '220px', lineHeight: 1.5, backgroundColor: '#0D1117', border: '1px solid #21262D', borderRadius: '3px', color: '#FFFFFF' }}
+                    placeholder="Hi [Name], came across your work..."
                     value={formState.body}
                     onChange={(e) => setFormState({...formState, body: e.target.value})}
                     onBlur={(e) => handleFieldBlur('body', e.target.value)}
@@ -512,20 +612,22 @@ export default function Templates({
                 </div>
                 
                 <div className="form-group">
-                  <label className="form-label flex align-center gap-1">
+                  <label className="form-label flex align-center gap-1" style={{ color: '#C9D1D9' }}>
                     <Eye size={14} /> Live Highlight Preview
                   </label>
-                  <div className="editor-preview-pane" style={{ minHeight: '220px' }}>
-                    <div style={{ fontSize: '0.8rem', fontWeight: 600, color: 'var(--text-muted)', borderBottom: '1px solid var(--border-color)', paddingBottom: '0.25rem', marginBottom: '0.5rem' }}>
-                      Subject: {formState.subject || <span className="color-muted">(No subject)</span>}
-                    </div>
+                  <div className="editor-preview-pane" style={{ minHeight: '220px', backgroundColor: '#0D1117', border: '1px solid #21262D', borderRadius: '3px', color: '#C9D1D9' }}>
+                    {formState.subject && (
+                      <div style={{ fontSize: '0.8rem', fontWeight: 600, color: '#8B949E', borderBottom: '1px solid #21262D', paddingBottom: '0.25rem', marginBottom: '0.5rem' }}>
+                        Subject: {formState.subject}
+                      </div>
+                    )}
                     {renderHighlightedContent(formState.body)}
                   </div>
                 </div>
               </div>
 
-              <div className="flex justify-between mt-4">
-                <button type="button" onClick={() => setShowEditor(false)} className="btn btn-secondary">
+              <div className="flex justify-between mt-4" style={{ borderTop: '1px solid #21262D', paddingTop: '1rem' }}>
+                <button type="button" onClick={() => setShowEditor(false)} className="btn btn-secondary" style={{ borderRadius: '3px' }}>
                   {editingTemplate?.is_starter ? 'Close' : 'Cancel'}
                 </button>
                 {editingTemplate?.is_starter ? (
@@ -533,12 +635,13 @@ export default function Templates({
                     type="button" 
                     className="btn btn-primary"
                     onClick={() => { handleDuplicate(editingTemplate); setShowEditor(false); }}
+                    style={{ borderRadius: '3px', display: 'flex', alignItems: 'center', gap: '6px' }}
                   >
                     <Copy size={16} />
-                    Duplicate to My Templates
+                    Duplicate Template
                   </button>
                 ) : (
-                  <button type="submit" className="btn btn-primary">
+                  <button type="submit" className="btn btn-primary" style={{ borderRadius: '3px', display: 'flex', alignItems: 'center', gap: '6px' }}>
                     <Check size={16} />
                     Save Template
                   </button>
