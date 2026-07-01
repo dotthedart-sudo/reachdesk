@@ -1010,6 +1010,11 @@ select option {
   z-index: 100;
 }
 
+@keyframes spin {
+  from { transform: rotate(0deg); }
+  to { transform: rotate(360deg); }
+}
+
 .hp-logo {
   font-family: 'Mattone', serif;
   font-size: 0.75rem;
@@ -2355,6 +2360,19 @@ select option {
   .sidebar:hover .sidebar-logo {
     justify-content: flex-start;
     gap: 0.75rem;
+  }
+  .sidebar .sidebar-logo .hp-logo {
+    opacity: 0;
+    max-width: 0;
+    overflow: hidden;
+    white-space: nowrap;
+    transition: opacity 0.2s ease 0s, max-width 0.25s ease;
+    display: inline-block;
+  }
+  .sidebar:hover .sidebar-logo .hp-logo {
+    opacity: 1;
+    max-width: 180px;
+    transition: opacity 0.2s ease 0.05s, max-width 0.25s ease;
   }
 
   /* Center items when collapsed; restore gap on hover */

@@ -404,9 +404,10 @@ function AdminPanelContent({ currentUser }) {
     <div className="flex-col gap-4" style={{ textAlign: 'left' }}>
       <div className="flex justify-between align-center mb-4">
         <div>
-          <h2 style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
+          <h2 style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
             <img src="/reachdesk-logo.svg" alt="ReachDesk CRM" height="32" style={{objectFit: 'contain'}} />
-            System Admin Panel
+            <span className="hp-logo" style={{ color: 'var(--text-primary)' }}>REACHDESK</span>
+            <span style={{ fontSize: '0.85em', color: 'var(--text-muted)', fontWeight: 'normal', marginLeft: '0.25rem' }}>| System Admin Panel</span>
           </h2>
           <p className="color-muted" style={{ fontSize: '0.9rem' }}>
             Monitor users, manage subscriptions, and view system activity.

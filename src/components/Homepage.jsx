@@ -84,9 +84,11 @@ export default function Homepage({ currentUserEmail, brandName = 'ReachDesk' }) 
   return (
     <div className="hp-root">
 
-      {/* ── NAV ── */}
       <nav className="hp-nav">
-        <span className="hp-logo">REACHDESK</span>
+        <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', cursor: 'pointer' }} onClick={() => navigate('/homepage')}>
+          <img src="/reachdesk-logo.svg" alt="ReachDesk CRM" height="28" style={{objectFit: 'contain'}} />
+          <span className="hp-logo">REACHDESK</span>
+        </div>
         <div className="hp-nav-center">
           <a href="#features" onClick={(e) => handleNavClick(e, '#features')} className="hp-nav-link">Features</a>
           <a href="#pricing"  onClick={(e) => handleNavClick(e, '#pricing')}  className="hp-nav-link">Pricing</a>
