@@ -39,7 +39,9 @@ export default function LeadDrawer({
   currentUser,
   templates = [],
   onConvertToClient,
-  isClientView
+  isClientView,
+  onRefresh,
+  statuses = []
 }) {
   const [activeTab, setActiveTab] = useState('contact'); // 'contact' | 'pipeline' | 'notes' | 'activity'
   const [formData, setFormData] = useState({});
@@ -590,19 +592,28 @@ export default function LeadDrawer({
         {activeTab === 'contact' && (
           <div className="flex-col gap-3">
             <div style={{ display: 'flex', gap: '8px', margin: '8px 0 16px 0' }}>
-              <span style={{
-                background: STATUS_COLORS[lead.status]?.bg || '#374151',
-                color: STATUS_COLORS[lead.status]?.text || '#D1D5DB',
-                padding: '3px 12px',
-                borderRadius: '12px',
-                fontSize: '12px',
-                fontWeight: 500
-              }}>
-                {STATUS_LABELS[lead.status] || lead.status}
-              </span>
+              {(() => {
+                const match = statuses.find(s => s.label.toLowerCase() === (lead.status || '').toLowerCase());
+                const bg = match ? `${match.color}22` : '#374151';
+                const text = match ? match.color : '#D1D5DB';
+                const label = match ? match.label : (lead.status || 'Lead');
+                return (
+                  <span style={{
+                    background: bg,
+                    color: text,
+                    padding: '3px 12px',
+                    borderRadius: '12px',
+                    fontSize: '12px',
+                    fontWeight: 500
+                  }}>
+                    {label}
+                  </span>
+                );
+              })()}
               <PriorityDropdown
                 value={formData.priority !== undefined ? formData.priority : lead.priority}
                 onChange={(newVal) => handleDropdownChange('priority', newVal)}
+                onUpdate={onRefresh}
               />
             </div>
             
@@ -630,6 +641,7 @@ export default function LeadDrawer({
                     <PriorityDropdown
                       value={val}
                       onChange={(newVal) => handleDropdownChange('priority', newVal)}
+                      onUpdate={onRefresh}
                     />
                   ) : col.column_type === 'dropdown' ? (
                     <EditableDropdown

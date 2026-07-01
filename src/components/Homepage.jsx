@@ -20,10 +20,38 @@ const InstagramIcon = ({ size = 18 }) => (
 );
 
 const BILLING = {
-  monthly:   { label: 'Monthly',   badge: null,      usdPerMonth: '1.60', usdTotal: '1.60',  pkrPerMonth: 450,  pkrTotal: 450,  months: 1 },
-  threeMonth:{ label: '3 Month',   badge: '-10%',    usdPerMonth: '1.44', usdTotal: '4.32',  pkrPerMonth: 405,  pkrTotal: 1215, months: 3 },
-  sixMonth:  { label: '6 Month',   badge: '-15%',    usdPerMonth: '1.36', usdTotal: '8.16',  pkrPerMonth: 382,  pkrTotal: 2292, months: 6 },
-  yearly:    { label: 'Yearly',    badge: '-20%',    usdPerMonth: '1.28', usdTotal: '15.36', pkrPerMonth: 360,  pkrTotal: 4320, months: 12 },
+  monthly: {
+    label: 'Monthly',
+    badge: null,
+    months: 1,
+    starter: { usdPerMonth: '0.95', usdTotal: '0.95', pkrPerMonth: 275, pkrTotal: 275 },
+    pro:     { usdPerMonth: '3.40', usdTotal: '3.40', pkrPerMonth: 935, pkrTotal: 935 },
+    teams:   { usdPerMonth: '7.00', usdTotal: '7.00', pkrPerMonth: 1925, pkrTotal: 1925 },
+  },
+  quarterly: {
+    label: 'Quarterly',
+    badge: 'Save 10%',
+    months: 3,
+    starter: { usdPerMonth: '0.90', usdTotal: '2.70', pkrPerMonth: 248, pkrTotal: 744 },
+    pro:     { usdPerMonth: '3.06', usdTotal: '9.18', pkrPerMonth: 842, pkrTotal: 2526 },
+    teams:   { usdPerMonth: '6.30', usdTotal: '18.90', pkrPerMonth: 1733, pkrTotal: 5199 },
+  },
+  sixMonth: {
+    label: '6-Month',
+    badge: 'Save 15%',
+    months: 6,
+    starter: { usdPerMonth: '0.85', usdTotal: '5.10', pkrPerMonth: 234, pkrTotal: 1404 },
+    pro:     { usdPerMonth: '2.89', usdTotal: '17.34', pkrPerMonth: 795, pkrTotal: 4770 },
+    teams:   { usdPerMonth: '5.95', usdTotal: '35.70', pkrPerMonth: 1636, pkrTotal: 9816 },
+  },
+  yearly: {
+    label: 'Yearly',
+    badge: 'Best Value',
+    months: 12,
+    starter: { usdPerMonth: '0.80', usdTotal: '9.60', pkrPerMonth: 220, pkrTotal: 2640 },
+    pro:     { usdPerMonth: '2.72', usdTotal: '32.64', pkrPerMonth: 748, pkrTotal: 8976 },
+    teams:   { usdPerMonth: '5.60', usdTotal: '67.20', pkrPerMonth: 1540, pkrTotal: 18480 },
+  }
 };
 
 export default function Homepage({ currentUserEmail, brandName = 'ReachDesk' }) {
@@ -188,23 +216,35 @@ export default function Homepage({ currentUserEmail, brandName = 'ReachDesk' }) 
 
           {/* STARTER — active, Most Popular */}
           <div style={{ background: 'var(--hp-card)', padding: '2.5rem', display: 'flex', flexDirection: 'column', gap: '1.5rem', position: 'relative', borderRight: '0.5px solid var(--hp-border)' }}>
+            {billing !== 'monthly' && (
+              <div style={{
+                position: 'absolute',
+                top: '12px',
+                right: '12px',
+                background: 'rgba(91, 143, 185, 0.1)',
+                color: 'var(--hp-blue)',
+                border: '1px solid var(--hp-blue)',
+                fontSize: '0.65rem',
+                fontWeight: 700,
+                padding: '2px 8px',
+                borderRadius: '3px',
+                letterSpacing: '0.04em',
+                fontFamily: 'Mattone, serif'
+              }}>
+                {billing === 'quarterly' ? 'Save 10%' : billing === 'sixMonth' ? 'Save 15%' : 'Best Value'}
+              </div>
+            )}
             <div style={{ position: 'absolute', top: 0, left: '2.5rem', background: 'var(--hp-blue)', color: '#0D1117', fontFamily: 'Mattone, serif', fontSize: '0.65rem', letterSpacing: '0.08em', textTransform: 'uppercase', padding: '3px 10px', borderRadius: '0 0 3px 3px' }}>
               Most Popular
             </div>
             <div>
               <div className="hp-plan-name" style={{ marginBottom: '0.5rem' }}>Starter</div>
-              <div className="hp-plan-price">
-                <span style={{ fontFamily: "'Mattone', serif" }}>$</span>{BILLING[billing].usdTotal}
-                <span className="hp-plan-mo">/{BILLING[billing].months === 1 ? 'mo' : `${BILLING[billing].months} mo`}</span>
+              <div className="hp-plan-price" style={{ fontFamily: 'Mattone, serif', fontSize: '2.2rem' }}>
+                ${BILLING[billing].starter.usdPerMonth}/mo <span style={{ fontSize: '1rem', color: 'var(--hp-muted)', fontWeight: 400 }}>({`Rs. ${BILLING[billing].starter.pkrPerMonth}/mo`})</span>
               </div>
               <div style={{ fontFamily: 'Mattone, serif', fontSize: '0.72rem', color: 'var(--hp-muted)', letterSpacing: '0.04em', marginTop: '4px' }}>
-                ≈ Rs {BILLING[billing].pkrTotal.toLocaleString()} {BILLING[billing].months > 1 ? 'total' : '/mo'}
+                {billing === 'monthly' ? '$0.95 billed monthly' : `$${BILLING[billing].starter.usdTotal} billed every ${BILLING[billing].months} months`}
               </div>
-              {billing !== 'monthly' && (
-                <div style={{ fontFamily: 'Mattone, serif', fontSize: '0.72rem', color: 'var(--hp-muted)', letterSpacing: '0.04em', marginTop: '2px' }}>
-                  effective: <span style={{ fontFamily: "'Mattone', serif" }}>$</span>{BILLING[billing].usdPerMonth}/mo · ≈ Rs {BILLING[billing].pkrPerMonth}/mo
-                </div>
-              )}
             </div>
             <ul className="hp-feature-list">
               {['600 leads', '20 templates', 'Smart folders', 'CSV import', 'Notes', 'Convert to client'].map(f => (
@@ -216,17 +256,34 @@ export default function Homepage({ currentUserEmail, brandName = 'ReachDesk' }) 
 
           {/* PRO — coming soon / greyed */}
           <div style={{ background: 'var(--hp-card)', padding: '2.5rem', display: 'flex', flexDirection: 'column', gap: '1.5rem', position: 'relative', opacity: 0.45, borderRight: '0.5px solid var(--hp-border)' }}>
+            {billing !== 'monthly' && (
+              <div style={{
+                position: 'absolute',
+                top: '12px',
+                right: '12px',
+                background: 'rgba(91, 143, 185, 0.1)',
+                color: 'var(--hp-blue)',
+                border: '1px solid var(--hp-blue)',
+                fontSize: '0.65rem',
+                fontWeight: 700,
+                padding: '2px 8px',
+                borderRadius: '3px',
+                letterSpacing: '0.04em',
+                fontFamily: 'Mattone, serif'
+              }}>
+                {billing === 'quarterly' ? 'Save 10%' : billing === 'sixMonth' ? 'Save 15%' : 'Best Value'}
+              </div>
+            )}
             <div style={{ position: 'absolute', top: 0, left: '2.5rem', background: 'var(--hp-border)', color: 'var(--hp-muted)', fontFamily: 'Mattone, serif', fontSize: '0.65rem', letterSpacing: '0.08em', textTransform: 'uppercase', padding: '3px 10px', borderRadius: '0 0 3px 3px' }}>
               Coming Soon
             </div>
             <div>
               <div className="hp-plan-name" style={{ marginBottom: '0.5rem' }}>Pro</div>
-              <div className="hp-plan-price">
-                <span style={{ fontFamily: "'Mattone', serif" }}>$</span>3.40
-                <span className="hp-plan-mo">/mo</span>
+              <div className="hp-plan-price" style={{ fontFamily: 'Mattone, serif', fontSize: '2.2rem' }}>
+                ${BILLING[billing].pro.usdPerMonth}/mo <span style={{ fontSize: '1rem', color: 'var(--hp-muted)', fontWeight: 400 }}>({`Rs. ${BILLING[billing].pro.pkrPerMonth}/mo`})</span>
               </div>
               <div style={{ fontFamily: 'Mattone, serif', fontSize: '0.72rem', color: 'var(--hp-muted)', letterSpacing: '0.04em', marginTop: '4px' }}>
-                ≈ Rs 952/mo
+                {billing === 'monthly' ? '$3.40 billed monthly' : `$${BILLING[billing].pro.usdTotal} billed every ${BILLING[billing].months} months`}
               </div>
             </div>
             <ul className="hp-feature-list">
@@ -239,17 +296,34 @@ export default function Homepage({ currentUserEmail, brandName = 'ReachDesk' }) 
 
           {/* TEAMS — coming soon / greyed */}
           <div style={{ background: 'var(--hp-card)', padding: '2.5rem', display: 'flex', flexDirection: 'column', gap: '1.5rem', position: 'relative', opacity: 0.35 }}>
+            {billing !== 'monthly' && (
+              <div style={{
+                position: 'absolute',
+                top: '12px',
+                right: '12px',
+                background: 'rgba(91, 143, 185, 0.1)',
+                color: 'var(--hp-blue)',
+                border: '1px solid var(--hp-blue)',
+                fontSize: '0.65rem',
+                fontWeight: 700,
+                padding: '2px 8px',
+                borderRadius: '3px',
+                letterSpacing: '0.04em',
+                fontFamily: 'Mattone, serif'
+              }}>
+                {billing === 'quarterly' ? 'Save 10%' : billing === 'sixMonth' ? 'Save 15%' : 'Best Value'}
+              </div>
+            )}
             <div style={{ position: 'absolute', top: 0, left: '2.5rem', background: 'var(--hp-border)', color: 'var(--hp-muted)', fontFamily: 'Mattone, serif', fontSize: '0.65rem', letterSpacing: '0.08em', textTransform: 'uppercase', padding: '3px 10px', borderRadius: '0 0 3px 3px' }}>
               Coming Soon
             </div>
             <div>
               <div className="hp-plan-name" style={{ marginBottom: '0.5rem' }}>Teams</div>
-              <div className="hp-plan-price">
-                <span style={{ fontFamily: "'Mattone', serif" }}>$</span>6.98
-                <span className="hp-plan-mo">/mo</span>
+              <div className="hp-plan-price" style={{ fontFamily: 'Mattone, serif', fontSize: '2.2rem' }}>
+                ${BILLING[billing].teams.usdPerMonth}/mo <span style={{ fontSize: '1rem', color: 'var(--hp-muted)', fontWeight: 400 }}>({`Rs. ${BILLING[billing].teams.pkrPerMonth}/mo`})</span>
               </div>
               <div style={{ fontFamily: 'Mattone, serif', fontSize: '0.72rem', color: 'var(--hp-muted)', letterSpacing: '0.04em', marginTop: '4px' }}>
-                ≈ Rs 1,954/mo
+                {billing === 'monthly' ? '$7.00 billed monthly' : `$${BILLING[billing].teams.usdTotal} billed every ${BILLING[billing].months} months`}
               </div>
             </div>
             <ul className="hp-feature-list">

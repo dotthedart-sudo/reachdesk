@@ -920,7 +920,8 @@ export default function CRM({
   // ── Render Helpers ────────────────────────────────────────────────────────
 
   const getStatusStyle = (statusVal) => {
-    const colors = STATUS_COLORS[statusVal] || { bg: '#374151', text: '#D1D5DB' };
+    const match = statuses.find(s => s.label.toLowerCase() === (statusVal || '').toLowerCase());
+    const colors = match ? { bg: `${match.color}22`, text: match.color } : { bg: '#374151', text: '#D1D5DB' };
     return {
       background: colors.bg,
       color: colors.text,
@@ -1422,6 +1423,7 @@ export default function CRM({
                                 value={currentStatus}
                                 onChange={(newVal) => handleDropdownChange(lead.id, 'status', newVal)}
                                 isTableInline={true}
+                                onUpdate={fetchData}
                               />
                             </td>
                           );
@@ -1508,18 +1510,26 @@ export default function CRM({
                         if (col.column_key === 'status') {
                           return (
                             <td key={col.id} style={{ padding: '0.75rem 1rem' }}>
-                              <span style={{
-                                background: STATUS_COLORS[lead.status]?.bg || '#374151',
-                                color: STATUS_COLORS[lead.status]?.text || '#D1D5DB',
-                                padding: '2px 10px',
-                                borderRadius: '12px',
-                                fontSize: '12px',
-                                fontWeight: 500,
-                                whiteSpace: 'nowrap',
-                                display: 'inline-block'
-                              }}>
-                                {STATUS_LABELS[lead.status] || lead.status || '—'}
-                              </span>
+                              {(() => {
+                                const match = statuses.find(s => s.label.toLowerCase() === (lead.status || '').toLowerCase());
+                                const bg = match ? `${match.color}22` : '#374151';
+                                const text = match ? match.color : '#D1D5DB';
+                                const label = match ? match.label : (lead.status || '—');
+                                return (
+                                  <span style={{
+                                    background: bg,
+                                    color: text,
+                                    padding: '2px 10px',
+                                    borderRadius: '12px',
+                                    fontSize: '12px',
+                                    fontWeight: 500,
+                                    whiteSpace: 'nowrap',
+                                    display: 'inline-block'
+                                  }}>
+                                    {label}
+                                  </span>
+                                );
+                              })()}
                             </td>
                           );
                         }
@@ -1530,6 +1540,7 @@ export default function CRM({
                               <PriorityDropdown
                                 value={lead.priority}
                                 onChange={(val) => handleDropdownChange(lead.id, 'priority', val)}
+                                onUpdate={fetchData}
                               />
                             </td>
                           );
@@ -1790,6 +1801,7 @@ export default function CRM({
                   <GroupedStatusDropdown
                     value={leadForm.status}
                     onChange={val => setLeadForm({...leadForm, status: val})}
+                    onUpdate={fetchData}
                   />
                 </div>
               </div>
@@ -2058,6 +2070,7 @@ export default function CRM({
                   <GroupedStatusDropdown
                     value={leadForm.status}
                     onChange={val => setLeadForm({...leadForm, status: val})}
+                    onUpdate={fetchData}
                   />
                 </div>
               </div>
@@ -2310,6 +2323,8 @@ export default function CRM({
           currentUser={currentUser}
           templates={templates}
           onConvertToClient={setConvertingLead}
+          onRefresh={fetchData}
+          statuses={statuses}
         />
       )}
 

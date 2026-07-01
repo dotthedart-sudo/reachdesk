@@ -56,7 +56,7 @@ export default function AppLayout({
           onClick={() => { navigate('/dashboard'); setIsSidebarOpen(false); }} 
           style={{ cursor: 'pointer' }}
         >
-          {brandName}
+          <img src="/reachdesk-logo.svg" height="28" alt="ReachDesk CRM" />
         </span>
         <div style={{ width: 24 }}></div>
       </div>
@@ -72,7 +72,7 @@ export default function AppLayout({
           {/* Sidebar Logo — text only */}
           <div className="sidebar-logo" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
             <div style={{ display: 'flex', alignItems: 'center' }}>
-              <span className="logo-text nav-label">{brandName}</span>
+              <img src="/reachdesk-logo.svg" height="28" alt="ReachDesk CRM" />
             </div>
             <button 
               className="hamburger-btn mobile-only-close" 
@@ -141,11 +141,14 @@ export default function AppLayout({
               </Link>
             </li>
 
-            <li>
-              <Link to="/settings" className={`sidebar-item ${pathname === '/settings' ? 'active' : ''}`}>
-                <Settings size={18} /><span className="nav-label">Configuration</span>
-              </Link>
-            </li>
+            {/* Configuration — hidden for Starter plan */}
+            {(profile?.plan ?? '').toLowerCase() !== 'starter' && (
+              <li>
+                <Link to="/settings" className={`sidebar-item ${pathname === '/settings' ? 'active' : ''}`}>
+                  <Settings size={18} /><span className="nav-label">Configuration</span>
+                </Link>
+              </li>
+            )}
 
             <li>
               <Link to="/upgrade" className={`sidebar-item ${pathname === '/upgrade' ? 'active' : ''}`}>
@@ -209,11 +212,13 @@ export default function AppLayout({
               </Link>
             </li>
 
-            <li>
-              <Link to="/settings" onClick={() => setIsSidebarOpen(false)} className="mobile-menu-item">
-                Configuration
-              </Link>
-            </li>
+            {(profile?.plan ?? '').toLowerCase() !== 'starter' && (
+              <li>
+                <Link to="/settings" onClick={() => setIsSidebarOpen(false)} className="mobile-menu-item">
+                  Configuration
+                </Link>
+              </li>
+            )}
 
             <li>
               <Link to="/upgrade" onClick={() => setIsSidebarOpen(false)} className="mobile-menu-item">

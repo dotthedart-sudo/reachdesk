@@ -6,7 +6,7 @@ self.addEventListener('push', (event) => {
   } catch (e) {
     console.error('[Service Worker] Failed to parse push payload:', e);
   }
-  const title = 'ReachDesk CRM';
+  const title = data.title || 'ReachDesk CRM';
   const options = {
     body: data.body || 'You have a new notification',
     icon: '/android-chrome-192x192.png',

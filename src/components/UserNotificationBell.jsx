@@ -13,6 +13,27 @@ export default function UserNotificationBell({ profile, onRefreshProfile }) {
   // Tracks which reminder IDs we've already fired a browser Notification for
   const notifiedIds = useRef(new Set());
 
+  // Load notified IDs from localStorage on mount
+  useEffect(() => {
+    try {
+      const saved = localStorage.getItem('reachdesk_notified_reminders');
+      if (saved) {
+        const ids = JSON.parse(saved);
+        ids.forEach(id => notifiedIds.current.add(id));
+      }
+    } catch (e) {
+      console.warn('[Bell] Error loading notified reminders from localStorage:', e);
+    }
+  }, []);
+
+  const saveNotifiedReminders = (newIds) => {
+    try {
+      localStorage.setItem('reachdesk_notified_reminders', JSON.stringify(Array.from(newIds)));
+    } catch (e) {
+      console.warn('[Bell] Error saving notified reminders to localStorage:', e);
+    }
+  };
+
   const isAdmin = profile?.role === 'admin' || profile?.email === 'dotthedart@gmail.com';
 
   const fetchNotifications = async () => {
@@ -48,11 +69,16 @@ export default function UserNotificationBell({ profile, onRefreshProfile }) {
       if (!error) {
         setDueReminders(data || []);
 
-        // Fire a browser Notification for each newly-due reminder not yet notified
-        if ('Notification' in window && Notification.permission === 'granted') {
-          (data || []).forEach((rem) => {
-            if (!notifiedIds.current.has(rem.id)) {
-              notifiedIds.current.add(rem.id);
+        let hasNewNotification = false;
+        const currentNotified = new Set(notifiedIds.current);
+
+        (data || []).forEach((rem) => {
+          if (!currentNotified.has(rem.id)) {
+            currentNotified.add(rem.id);
+            hasNewNotification = true;
+
+            // 1. Local browser notification fallback
+            if ('Notification' in window && Notification.permission === 'granted') {
               try {
                 new Notification('ReachDesk — Follow-up Due', {
                   body: `Follow up with ${rem.lead_name || 'Lead'} — Reminder #${rem.reminder_number}`,
@@ -63,7 +89,23 @@ export default function UserNotificationBell({ profile, onRefreshProfile }) {
                 console.warn('[Bell] Browser Notification failed:', notifErr);
               }
             }
-          });
+
+            // 2. Global Web Push notification (sent to all logged in devices/browsers)
+            supabase.functions.invoke('send-push-notification', {
+              body: {
+                target_user_id: profile.id,
+                title: 'ReachDesk — Follow-up Due',
+                body: `Follow up with ${rem.lead_name || 'Lead'} — Reminder #${rem.reminder_number}`,
+                url: `/dashboard`,
+                tag: `reminder-${rem.id}`
+              }
+            }).catch(err => console.warn('[Push] Follow-up reminder push failed:', err));
+          }
+        });
+
+        if (hasNewNotification) {
+          notifiedIds.current = currentNotified;
+          saveNotifiedReminders(currentNotified);
         }
       }
     } catch (err) {

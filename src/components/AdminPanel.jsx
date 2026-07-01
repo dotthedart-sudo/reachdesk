@@ -3,7 +3,8 @@ import { useNavigate, useLocation } from 'react-router-dom';
 import { supabase } from '../lib/supabase';
 import { useAppContext } from '../App';
 import { 
-  Users, CheckCircle, ShieldAlert, Award, Zap, Bell, Clock, Eye, Trash2, RotateCcw, X, CreditCard, Check 
+  Users, CheckCircle, ShieldAlert, Award, Zap, Bell, Clock, Eye, Trash2, RotateCcw, X, CreditCard, Check,
+  ChevronDown, ChevronUp, Calendar, Search
 } from 'lucide-react';
 
 class AdminErrorBoundary extends React.Component {
@@ -309,6 +310,83 @@ function AdminPanelContent({ currentUser }) {
     }
   };
 
+  // ── Time filter helper ──
+  const filterByTime = (user) => {
+    if (timeFilter === 'all_time') return true;
+    const now = new Date();
+    const created = new Date(user.created_at);
+    if (timeFilter === 'today') {
+      return created.toDateString() === now.toDateString();
+    }
+    if (timeFilter === 'yesterday') {
+      const y = new Date(now); y.setDate(y.getDate() - 1);
+      return created.toDateString() === y.toDateString();
+    }
+    if (timeFilter === 'this_week') {
+      const startOfWeek = new Date(now);
+      startOfWeek.setDate(now.getDate() - now.getDay());
+      startOfWeek.setHours(0, 0, 0, 0);
+      return created >= startOfWeek;
+    }
+    if (timeFilter === 'this_month') {
+      return created.getMonth() === now.getMonth() && created.getFullYear() === now.getFullYear();
+    }
+    if (timeFilter === 'last_6mo') {
+      const cutoff = new Date(now); cutoff.setMonth(cutoff.getMonth() - 6);
+      return created >= cutoff;
+    }
+    if (timeFilter === 'this_year') {
+      return created.getFullYear() === now.getFullYear();
+    }
+    return true;
+  };
+
+  // ── Trial info helper ──
+  const getTrialInfo = (user) => {
+    const now = Date.now();
+    const plan = (user.plan ?? '').toLowerCase();
+    const status = (user.subscription_status ?? '').toLowerCase();
+    const isPaid = ['starter', 'pro', 'teams', 'enterprise'].includes(plan) && plan !== 'trial';
+    if (isPaid) return { label: 'Paid', color: '#3b82f6', badge: 'paid', daysLeft: null };
+    const trialStart = user.created_at ? new Date(user.created_at) : null;
+    const trialEnd = trialStart ? new Date(trialStart.getTime() + 7 * 24 * 60 * 60 * 1000) : null;
+    if (!trialEnd) return { label: 'Unknown', color: 'var(--text-muted)', badge: 'unknown', daysLeft: null };
+    const msLeft = trialEnd.getTime() - now;
+    const daysLeft = Math.ceil(msLeft / (1000 * 60 * 60 * 24));
+    if (daysLeft <= 0) return { label: 'Expired', color: '#ef4444', badge: 'expired', daysLeft: 0, trialStart, trialEnd };
+    if (daysLeft <= 2) return { label: `${daysLeft}d left`, color: '#f59e0b', badge: 'expiring', daysLeft, trialStart, trialEnd };
+    return { label: `${daysLeft}d left`, color: '#10b981', badge: 'active', daysLeft, trialStart, trialEnd };
+  };
+
+  // ── Expand / load per-user stats ──
+  const handleToggleExpand = async (user) => {
+    const uid = user.id;
+    if (expandedUserId === uid) { setExpandedUserId(null); return; }
+    setExpandedUserId(uid);
+    if (userStats[uid]) return; // already loaded
+    setStatsLoadingUserId(uid);
+    try {
+      const [{ count: leadsCount }, { count: stagesCount }] = await Promise.all([
+        supabase.from('leads').select('id', { count: 'exact', head: true }).eq('user_id', uid),
+        supabase.from('custom_statuses').select('id', { count: 'exact', head: true }).eq('user_id', uid),
+      ]);
+      const lastActivity = user.updated_at ?? user.created_at;
+      setUserStats(prev => ({
+        ...prev,
+        [uid]: {
+          leads: leadsCount ?? 0,
+          stages: stagesCount ?? 0,
+          lastActivity,
+          plan: user.plan ?? 'trial',
+        }
+      }));
+    } catch (err) {
+      console.error('Failed to load user stats:', err);
+    } finally {
+      setStatsLoadingUserId(null);
+    }
+  };
+
   if (authLoading) {
     return (
       <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', minHeight: '300px', gap: '1rem' }}>
@@ -402,173 +480,257 @@ function AdminPanelContent({ currentUser }) {
           </div>
         );
       })() : (
-        /* User Directory */
+        /* ── User Directory ── */
         <div className="flex-col gap-3">
-          {/* Folder Filter */}
-          <div style={{ display: 'flex', gap: '0.5rem', flexWrap: 'wrap', marginBottom: '0.5rem' }}>
-            {[
-              { key: 'all',     label: 'All Users',     icon: null },
-              { key: 'trial',   label: 'Trial Users',   icon: null },
-              { key: 'paid',    label: 'Paid Users',    icon: null },
-              { key: 'expired', label: 'Expired Users', icon: null },
-            ].map(folder => (
-              <button
-                key={folder.key}
-                onClick={() => setUserFolder(folder.key)}
-                className={`btn btn-sm ${userFolder === folder.key ? 'btn-primary' : 'btn-secondary'}`}
+
+          {/* Controls Row: Time Filter + Search */}
+          <div style={{ display: 'flex', gap: '0.75rem', alignItems: 'center', flexWrap: 'wrap', marginBottom: '0.25rem' }}>
+            {/* Time filter */}
+            <div style={{ position: 'relative' }}>
+              <Calendar size={14} style={{ position: 'absolute', left: '10px', top: '50%', transform: 'translateY(-50%)', color: 'var(--text-muted)', pointerEvents: 'none' }} />
+              <select
+                value={timeFilter}
+                onChange={e => setTimeFilter(e.target.value)}
+                style={{
+                  paddingLeft: '30px', paddingRight: '2rem', paddingTop: '0.45rem', paddingBottom: '0.45rem',
+                  background: 'var(--bg-secondary)', border: '1px solid var(--border-color)',
+                  borderRadius: '8px', color: 'var(--text-primary)', fontSize: '0.85rem',
+                  cursor: 'pointer', outline: 'none', appearance: 'none', minWidth: '160px'
+                }}
               >
-                {folder.label}
-                <span style={{ marginLeft: '4px', opacity: 0.7, fontSize: '0.75rem' }}>
-                  ({userList.filter(u => {
-                    if (folder.key === 'all') return true;
-                    const now = Date.now();
-                    const plan = (u.plan ?? '').toLowerCase();
-                    const status = (u.subscription_status ?? '').toLowerCase();
-                    const trialEnds = u.trial_ends_at ? new Date(u.trial_ends_at).getTime() : null;
-                    const planExpires = u.plan_expires_at ? new Date(u.plan_expires_at).getTime() : null;
-                    if (folder.key === 'trial') return plan === 'trial' || status === 'trial' || (trialEnds && trialEnds > now && !planExpires);
-                    if (folder.key === 'paid') return (plan === 'starter' || plan === 'pro' || plan === 'teams' || plan === 'enterprise') && planExpires && planExpires > now;
-                    if (folder.key === 'expired') return planExpires && planExpires < now;
-                    return false;
-                  }).length})
-                </span>
-              </button>
-            ))}
+                <option value="today">Today</option>
+                <option value="yesterday">Yesterday</option>
+                <option value="this_week">This Week</option>
+                <option value="this_month">This Month</option>
+                <option value="last_6mo">Last 6 Months</option>
+                <option value="this_year">This Year</option>
+                <option value="all_time">All Time</option>
+              </select>
+              <ChevronDown size={12} style={{ position: 'absolute', right: '8px', top: '50%', transform: 'translateY(-50%)', color: 'var(--text-muted)', pointerEvents: 'none' }} />
+            </div>
+
+            {/* Search */}
+            <div style={{ position: 'relative', flex: 1, minWidth: '200px' }}>
+              <Search size={14} style={{ position: 'absolute', left: '10px', top: '50%', transform: 'translateY(-50%)', color: 'var(--text-muted)', pointerEvents: 'none' }} />
+              <input
+                type="text"
+                placeholder="Search by email or name…"
+                value={searchQuery}
+                onChange={e => setSearchQuery(e.target.value)}
+                style={{
+                  width: '100%', paddingLeft: '32px', paddingRight: '0.75rem',
+                  paddingTop: '0.45rem', paddingBottom: '0.45rem',
+                  background: 'var(--bg-secondary)', border: '1px solid var(--border-color)',
+                  borderRadius: '8px', color: 'var(--text-primary)', fontSize: '0.85rem', outline: 'none',
+                  boxSizing: 'border-box'
+                }}
+              />
+            </div>
+
+            {/* User count */}
+            <span style={{ fontSize: '0.8rem', color: 'var(--text-muted)', whiteSpace: 'nowrap' }}>
+              {userList.filter(u => filterByTime(u) && (
+                !searchQuery.trim() ||
+                (u.email ?? '').toLowerCase().includes(searchQuery.toLowerCase()) ||
+                (u.full_name ?? '').toLowerCase().includes(searchQuery.toLowerCase())
+              )).length} users
+            </span>
           </div>
 
+          {/* Table */}
           <div className="card" style={{ padding: 0, overflowX: 'auto' }}>
-          <table className="w-full" style={{ borderCollapse: 'collapse' }}>
-            <thead>
-              <tr style={{ borderBottom: '1px solid var(--border-color)', textAlign: 'left', background: 'var(--bg-tertiary)' }}>
-                <th style={{ padding: '0.75rem 1rem' }}>User Email</th>
-                <th style={{ padding: '0.75rem 1rem' }}>Plan</th>
-                <th style={{ padding: '0.75rem 1rem' }}>Status</th>
-                <th style={{ padding: '0.75rem 1rem' }}>Expiry</th>
-                <th style={{ padding: '0.75rem 1rem', textAlign: 'right' }}>Actions</th>
-              </tr>
-            </thead>
-            <tbody>
-              {userList.filter(user => {
-                const now = Date.now();
-                const plan = (user.plan ?? '').toLowerCase();
-                const status = (user.subscription_status ?? '').toLowerCase();
-                const trialEnds = user.trial_ends_at ? new Date(user.trial_ends_at).getTime() : null;
-                const planExpires = user.plan_expires_at ? new Date(user.plan_expires_at).getTime() : null;
-                if (userFolder === 'all') return true;
-                if (userFolder === 'trial') return plan === 'trial' || status === 'trial' || (trialEnds && trialEnds > now && !planExpires);
-                if (userFolder === 'paid') return (plan === 'starter' || plan === 'pro' || plan === 'teams' || plan === 'enterprise') && planExpires && planExpires > now;
-                if (userFolder === 'expired') return planExpires && planExpires < now;
-                return false;
-              }).map(user => {
-                const isHighlighted = highlightEmail && user.email === highlightEmail;
-                return (
-                <tr
-                  key={user.id}
-                  ref={isHighlighted ? highlightRef : null}
-                  style={{
-                    borderBottom: '1px solid var(--border-color)',
-                    background: isHighlighted ? 'rgba(245, 158, 11, 0.12)' : 'transparent',
-                    outline: isHighlighted ? '2px solid rgba(245, 158, 11, 0.5)' : 'none',
-                    transition: 'background 0.3s ease'
-                  }}
-                >
-                  <td style={{ padding: '0.75rem 1rem' }}>
-                    <div style={{ fontWeight: 600 }}>{user.email ?? '—'}</div>
-                    {user.payment_pending && (
-                      <span className="badge badge-pending" style={{ fontSize: '0.7rem', marginTop: '0.2rem' }}>Payment Pending</span>
-                    )}
-                    {isHighlighted && (
-                      <span style={{ display: 'inline-block', fontSize: '0.68rem', color: '#f59e0b', fontWeight: 700, marginLeft: '6px' }}>◄ New Signup</span>
-                    )}
-                  </td>
-                  <td style={{ padding: '0.75rem 1rem' }}>
-                    <span className={`badge ${
-                      (user.plan ?? '') === 'enterprise' ? 'badge-approved' :
-                      (user.plan ?? '') === 'pro' || (user.plan ?? '') === 'teams' ? 'badge-starter' :
-                      'badge-pending'
-                    }`} style={{ textTransform: 'capitalize' }}>
-                      {user.plan ?? 'trial'}
-                    </span>
-                  </td>
-                  <td style={{ padding: '0.75rem 1rem' }}>
-                    <span
-                      className={`badge ${
-                        (user.status ?? '') === 'approved' ? 'badge-approved' :
-                        (user.status ?? '') === 'denied' ? 'badge-pending' : 'badge-starter'
-                      }`}
-                      style={(user.status ?? '') === 'denied' ? { backgroundColor: 'rgba(239,68,68,0.1)', color: '#ef4444', borderColor: 'rgba(239,68,68,0.2)' } : {}}
-                    >
-                      {user.status ?? '—'}
-                    </span>
-                  </td>
-                  <td style={{ padding: '0.75rem 1rem', fontSize: '0.85rem' }}>
-                    {(() => {
-                      const isTrial = (user.plan ?? '') === 'trial' || (user.status ?? '') === 'trial';
-                      if (isTrial) {
-                        const dateStr = user.trial_ends_at 
-                          ? new Date(user.trial_ends_at).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })
-                          : '—';
-                        return (
-                          <span style={{ color: '#f59e0b', fontWeight: 600 }}>
-                            Trial — {dateStr}
-                          </span>
-                        );
-                      }
-                      
-                      if ((user.plan ?? '') === 'enterprise') {
-                        return (
-                          <span style={{ color: '#8b5cf6', fontWeight: 600 }}>
-                            Lifetime
-                          </span>
-                        );
-                      }
-                      
-                      if (user.plan_expires_at) {
-                        const dateStr = new Date(user.plan_expires_at).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
-                        const now = Date.now();
-                        const expiry = new Date(user.plan_expires_at).getTime();
-                        const daysLeft = (expiry - now) / (1000 * 60 * 60 * 24);
-                        
-                        let color = '#10b981'; // green
-                        if (daysLeft < 0) {
-                          color = '#ef4444'; // red
-                        } else if (daysLeft < 30) {
-                          color = '#f59e0b'; // orange
-                        }
-                        
-                        return (
-                          <span style={{ color, fontWeight: 600 }}>
-                            {dateStr}
-                          </span>
-                        );
-                      }
-                      
-                      return <span style={{ color: 'var(--text-muted)' }}>—</span>;
-                    })()}
-                  </td>
-                  <td style={{ padding: '0.75rem 1rem', textAlign: 'right' }}>
-                    <div style={{ display: 'flex', gap: '0.5rem', justifyContent: 'flex-end' }}>
-                      <button onClick={() => handleViewStats(user)} className="btn btn-secondary btn-sm">
-                        <Eye size={12} /> View
-                      </button>
-                      {(user.status ?? '') === 'denied' ? (
-                        <button onClick={() => handleRestoreUser(user.id)} className="btn btn-secondary btn-sm" style={{ color: 'var(--success-color)' }}>
-                          <RotateCcw size={12} /> Restore
-                        </button>
-                      ) : (
-                        (user.email ?? '') !== 'dotthedart@gmail.com' && (
-                          <button onClick={() => handleDeleteUser(user.id)} className="btn btn-danger btn-sm">
-                            <Trash2 size={12} /> Delete
-                          </button>
-                        )
-                      )}
-                    </div>
-                  </td>
+            <table className="w-full" style={{ borderCollapse: 'collapse' }}>
+              <thead>
+                <tr style={{ borderBottom: '1px solid var(--border-color)', textAlign: 'left', background: 'var(--bg-tertiary)' }}>
+                  <th style={{ padding: '0.75rem 1rem', width: '28px' }}></th>
+                  <th style={{ padding: '0.75rem 1rem' }}>User</th>
+                  <th style={{ padding: '0.75rem 1rem' }}>Signed Up</th>
+                  <th style={{ padding: '0.75rem 1rem' }}>Trial Status</th>
+                  <th style={{ padding: '0.75rem 1rem' }}>Plan</th>
+                  <th style={{ padding: '0.75rem 1rem', textAlign: 'right' }}>Actions</th>
                 </tr>
-                );
-              })}
-            </tbody>
-          </table>
+              </thead>
+              <tbody>
+                {userList
+                  .filter(user =>
+                    filterByTime(user) && (
+                      !searchQuery.trim() ||
+                      (user.email ?? '').toLowerCase().includes(searchQuery.toLowerCase()) ||
+                      (user.full_name ?? '').toLowerCase().includes(searchQuery.toLowerCase())
+                    )
+                  )
+                  .sort((a, b) => new Date(b.created_at) - new Date(a.created_at))
+                  .map(user => {
+                    const isHighlighted = highlightEmail && user.email === highlightEmail;
+                    const isExpanded = expandedUserId === user.id;
+                    const trial = getTrialInfo(user);
+                    const stats = userStats[user.id];
+                    const isStatsLoading = statsLoadingUserId === user.id;
+
+                    // Trial badge styling
+                    const badgeStyle = {
+                      display: 'inline-flex', alignItems: 'center', gap: '4px',
+                      padding: '2px 8px', borderRadius: '20px', fontSize: '0.72rem', fontWeight: 700,
+                      background:
+                        trial.badge === 'paid'     ? 'rgba(59,130,246,0.12)' :
+                        trial.badge === 'active'   ? 'rgba(16,185,129,0.12)' :
+                        trial.badge === 'expiring' ? 'rgba(245,158,11,0.12)' :
+                        trial.badge === 'expired'  ? 'rgba(239,68,68,0.12)'  : 'rgba(100,116,139,0.12)',
+                      color: trial.color,
+                      border: `1px solid ${trial.color}33`,
+                    };
+
+                    return (
+                      <React.Fragment key={user.id}>
+                        {/* Main row */}
+                        <tr
+                          ref={isHighlighted ? highlightRef : null}
+                          style={{
+                            borderBottom: isExpanded ? 'none' : '1px solid var(--border-color)',
+                            background: isHighlighted ? 'rgba(245, 158, 11, 0.08)' : 'transparent',
+                            cursor: 'pointer',
+                            transition: 'background 0.15s ease',
+                          }}
+                          onClick={() => handleToggleExpand(user)}
+                          onMouseEnter={e => { if (!isHighlighted) e.currentTarget.style.background = 'var(--bg-secondary)'; }}
+                          onMouseLeave={e => { if (!isHighlighted) e.currentTarget.style.background = 'transparent'; }}
+                        >
+                          {/* Expand toggle */}
+                          <td style={{ padding: '0.75rem 0.5rem 0.75rem 1rem', color: 'var(--text-muted)' }}>
+                            {isExpanded ? <ChevronUp size={14} /> : <ChevronDown size={14} />}
+                          </td>
+
+                          {/* User Email */}
+                          <td style={{ padding: '0.75rem 1rem' }}>
+                            <div style={{ fontWeight: 600, fontSize: '0.9rem' }}>{user.email ?? '—'}</div>
+                            {user.full_name && (
+                              <div style={{ fontSize: '0.75rem', color: 'var(--text-muted)', marginTop: '1px' }}>{user.full_name}</div>
+                            )}
+                            {isHighlighted && (
+                              <span style={{ display: 'inline-block', fontSize: '0.68rem', color: '#f59e0b', fontWeight: 700, marginTop: '2px' }}>◄ New Signup</span>
+                            )}
+                            {user.payment_pending && (
+                              <span className="badge badge-pending" style={{ fontSize: '0.68rem', marginTop: '2px' }}>Payment Pending</span>
+                            )}
+                          </td>
+
+                          {/* Signed Up */}
+                          <td style={{ padding: '0.75rem 1rem', fontSize: '0.82rem', color: 'var(--text-muted)' }}>
+                            {user.created_at
+                              ? new Date(user.created_at).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })
+                              : '—'}
+                          </td>
+
+                          {/* Trial Status Badge */}
+                          <td style={{ padding: '0.75rem 1rem' }}>
+                            <span style={badgeStyle}>
+                              <span style={{ width: '6px', height: '6px', borderRadius: '50%', background: trial.color, flexShrink: 0 }} />
+                              {trial.label}
+                            </span>
+                            {trial.trialEnd && trial.badge !== 'paid' && (
+                              <div style={{ fontSize: '0.72rem', color: 'var(--text-muted)', marginTop: '3px' }}>
+                                Ends {trial.trialEnd.toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}
+                              </div>
+                            )}
+                          </td>
+
+                          {/* Plan */}
+                          <td style={{ padding: '0.75rem 1rem' }}>
+                            <span className={`badge ${
+                              (user.plan ?? '') === 'enterprise' ? 'badge-approved' :
+                              (user.plan ?? '') === 'pro' || (user.plan ?? '') === 'teams' ? 'badge-starter' :
+                              'badge-pending'
+                            }`} style={{ textTransform: 'capitalize' }}>
+                              {user.plan ?? 'trial'}
+                            </span>
+                          </td>
+
+                          {/* Actions */}
+                          <td style={{ padding: '0.75rem 1rem', textAlign: 'right' }} onClick={e => e.stopPropagation()}>
+                            <div style={{ display: 'flex', gap: '0.4rem', justifyContent: 'flex-end' }}>
+                              <button onClick={() => handleViewStats(user)} className="btn btn-secondary btn-sm" title="View full stats">
+                                <Eye size={12} /> Stats
+                              </button>
+                              {(user.status ?? '') === 'denied' ? (
+                                <button onClick={() => handleRestoreUser(user.id)} className="btn btn-secondary btn-sm" style={{ color: 'var(--success-color)' }}>
+                                  <RotateCcw size={12} /> Restore
+                                </button>
+                              ) : (
+                                (user.email ?? '') !== 'dotthedart@gmail.com' && (
+                                  <button onClick={() => handleDeleteUser(user.id)} className="btn btn-danger btn-sm">
+                                    <Trash2 size={12} /> Delete
+                                  </button>
+                                )
+                              )}
+                            </div>
+                          </td>
+                        </tr>
+
+                        {/* Expanded stats row */}
+                        {isExpanded && (
+                          <tr style={{ borderBottom: '1px solid var(--border-color)' }}>
+                            <td colSpan={6} style={{ padding: 0 }}>
+                              <div style={{
+                                background: 'var(--bg-tertiary)',
+                                borderTop: '1px solid var(--border-color)',
+                                padding: '1rem 1.25rem',
+                                display: 'grid',
+                                gridTemplateColumns: 'repeat(auto-fit, minmax(160px, 1fr))',
+                                gap: '1rem',
+                              }}>
+                                {isStatsLoading ? (
+                                  <div style={{ gridColumn: '1 / -1', color: 'var(--text-muted)', fontSize: '0.85rem', padding: '0.5rem 0' }}>
+                                    Loading usage stats…
+                                  </div>
+                                ) : stats ? (
+                                  <>
+                                    <div style={{ display: 'flex', flexDirection: 'column', gap: '2px' }}>
+                                      <span style={{ fontSize: '0.72rem', textTransform: 'uppercase', letterSpacing: '0.05em', color: 'var(--text-muted)', fontWeight: 600 }}>Total Leads</span>
+                                      <span style={{ fontSize: '1.4rem', fontWeight: 700, color: 'var(--text-primary)' }}>{stats.leads}</span>
+                                    </div>
+                                    <div style={{ display: 'flex', flexDirection: 'column', gap: '2px' }}>
+                                      <span style={{ fontSize: '0.72rem', textTransform: 'uppercase', letterSpacing: '0.05em', color: 'var(--text-muted)', fontWeight: 600 }}>Pipeline Stages</span>
+                                      <span style={{ fontSize: '1.4rem', fontWeight: 700, color: 'var(--text-primary)' }}>{stats.stages}</span>
+                                    </div>
+                                    <div style={{ display: 'flex', flexDirection: 'column', gap: '2px' }}>
+                                      <span style={{ fontSize: '0.72rem', textTransform: 'uppercase', letterSpacing: '0.05em', color: 'var(--text-muted)', fontWeight: 600 }}>Plan Type</span>
+                                      <span style={{ fontSize: '0.95rem', fontWeight: 600, color: 'var(--text-primary)', textTransform: 'capitalize' }}>{stats.plan}</span>
+                                    </div>
+                                    <div style={{ display: 'flex', flexDirection: 'column', gap: '2px' }}>
+                                      <span style={{ fontSize: '0.72rem', textTransform: 'uppercase', letterSpacing: '0.05em', color: 'var(--text-muted)', fontWeight: 600 }}>Last Activity</span>
+                                      <span style={{ fontSize: '0.85rem', color: 'var(--text-primary)' }}>
+                                        {stats.lastActivity
+                                          ? new Date(stats.lastActivity).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })
+                                          : '—'}
+                                      </span>
+                                    </div>
+                                    <div style={{ display: 'flex', flexDirection: 'column', gap: '2px' }}>
+                                      <span style={{ fontSize: '0.72rem', textTransform: 'uppercase', letterSpacing: '0.05em', color: 'var(--text-muted)', fontWeight: 600 }}>Trial Start</span>
+                                      <span style={{ fontSize: '0.85rem', color: 'var(--text-primary)' }}>
+                                        {user.created_at ? new Date(user.created_at).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' }) : '—'}
+                                      </span>
+                                    </div>
+                                    {trial.trialEnd && (
+                                      <div style={{ display: 'flex', flexDirection: 'column', gap: '2px' }}>
+                                        <span style={{ fontSize: '0.72rem', textTransform: 'uppercase', letterSpacing: '0.05em', color: 'var(--text-muted)', fontWeight: 600 }}>Trial End</span>
+                                        <span style={{ fontSize: '0.85rem', color: trial.color, fontWeight: 600 }}>
+                                          {trial.trialEnd.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}
+                                        </span>
+                                      </div>
+                                    )}
+                                  </>
+                                ) : (
+                                  <div style={{ gridColumn: '1 / -1', color: 'var(--text-muted)', fontSize: '0.85rem' }}>No stats available.</div>
+                                )}
+                              </div>
+                            </td>
+                          </tr>
+                        )}
+                      </React.Fragment>
+                    );
+                  })}
+              </tbody>
+            </table>
           </div>
         </div>
       )}
