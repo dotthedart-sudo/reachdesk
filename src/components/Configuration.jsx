@@ -951,8 +951,8 @@ export default function Configuration({
           zIndex: 100000,
           padding: '1rem'
         }}>
-          <div className="card flex-col gap-4" style={{ maxWidth: '450px', width: '100%', background: '#161B22', border: '1px solid #21262D', borderRadius: '3px', padding: '1.5rem' }}>
-            <h3 style={{ fontSize: '1.2rem', margin: 0, color: '#FFFFFF', fontFamily: 'Mattone, sans-serif' }}>Cancel Subscription?</h3>
+          <div className="card flex-col gap-4" style={{ maxWidth: '450px', width: '100%', background: 'var(--bg-card)', border: '1px solid var(--border)', borderRadius: '3px', padding: '1.5rem' }}>
+            <h3 style={{ fontSize: '1.2rem', margin: 0, color: 'var(--text-primary)', fontFamily: 'Mattone, sans-serif' }}>Cancel Subscription?</h3>
             
             <p style={{ fontSize: '0.9rem', color: 'var(--text-secondary)', lineHeight: '1.4', margin: 0 }}>
               Your Starter plan will remain active until {currentUser?.plan_expires_at ? new Date(currentUser.plan_expires_at).toLocaleDateString() : currentUser?.trial_ends_at ? new Date(currentUser.trial_ends_at).toLocaleDateString() : 'the end of the current billing period'}. After that, your account will be downgraded. You will not be charged again.

@@ -249,8 +249,8 @@ export default function Templates({
         key={sectionName} 
         style={{ 
           marginBottom: '1rem', 
-          backgroundColor: '#0D1117', 
-          border: '1px solid #21262D', 
+          backgroundColor: 'var(--bg-page)', 
+          border: '1px solid var(--border)', 
           borderRadius: '3px' 
         }}
       >
@@ -264,11 +264,11 @@ export default function Templates({
             padding: '1rem', 
             cursor: 'pointer',
             userSelect: 'none',
-            borderBottom: isExpanded ? '1px solid #21262D' : 'none'
+            borderBottom: isExpanded ? '1px solid var(--border)' : 'none'
           }}
         >
           <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', flex: 1 }}>
-            {isExpanded ? <ChevronDown size={18} style={{ color: '#5B8FB9' }} /> : <ChevronRight size={18} style={{ color: '#8B949E' }} />}
+            {isExpanded ? <ChevronDown size={18} style={{ color: 'var(--accent-blue)' }} /> : <ChevronRight size={18} style={{ color: 'var(--text-muted)' }} />}
             <span 
               style={{ 
                 fontFamily: 'Mattone, sans-serif', 
@@ -276,7 +276,7 @@ export default function Templates({
                 letterSpacing: '0.05em', 
                 fontSize: '0.95rem',
                 fontWeight: 600,
-                color: '#FFFFFF' 
+                color: 'var(--text-primary)' 
               }}
             >
               {sectionName}
@@ -284,7 +284,7 @@ export default function Templates({
             <span 
               style={{ 
                 backgroundColor: 'rgba(91, 143, 185, 0.1)', 
-                color: '#5B8FB9', 
+                color: 'var(--accent-blue)', 
                 fontSize: '0.75rem', 
                 padding: '2px 8px', 
                 borderRadius: '10px', 
@@ -303,7 +303,7 @@ export default function Templates({
             }}
             className="btn btn-secondary btn-sm"
             style={{ 
-              borderColor: '#21262D', 
+              borderColor: 'var(--border)', 
               borderRadius: '3px',
               padding: '4px 10px',
               display: 'flex',
@@ -318,9 +318,9 @@ export default function Templates({
 
         {/* Collapsible Content */}
         {isExpanded && (
-          <div style={{ padding: '1rem', backgroundColor: '#0D1117' }}>
+          <div style={{ padding: '1rem', backgroundColor: 'var(--bg-page)' }}>
             {list.length === 0 ? (
-              <div style={{ padding: '2rem', textAlign: 'center', color: '#8B949E', fontSize: '0.9rem' }}>
+              <div style={{ padding: '2rem', textAlign: 'center', color: 'var(--text-muted)', fontSize: '0.9rem' }}>
                 No templates in this section. Click "Add Template" to create one.
               </div>
             ) : (
@@ -338,8 +338,8 @@ export default function Templates({
                       key={template.id}
                       className="card flex-col gap-3"
                       style={{ 
-                        backgroundColor: '#161B22', 
-                        border: '1px solid #21262D', 
+                        backgroundColor: 'var(--bg-card)', 
+                        border: '1px solid var(--border)', 
                         borderRadius: '3px',
                         padding: '1.25rem',
                         textAlign: 'left'
@@ -350,7 +350,7 @@ export default function Templates({
                           style={{ 
                             fontSize: '1rem', 
                             fontWeight: 600, 
-                            color: '#FFFFFF',
+                            color: 'var(--text-primary)',
                             margin: 0,
                             fontFamily: 'Plus Jakarta Sans, sans-serif'
                           }}
@@ -376,7 +376,7 @@ export default function Templates({
                       </div>
 
                       {template.subject && (
-                        <div style={{ fontSize: '0.8rem', color: '#8B949E' }}>
+                        <div style={{ fontSize: '0.8rem', color: 'var(--text-muted)' }}>
                           <strong>Subject:</strong> {template.subject}
                         </div>
                       )}
@@ -386,20 +386,20 @@ export default function Templates({
                           fontSize: '0.85rem', 
                           maxHeight: '120px', 
                           overflowY: 'auto', 
-                          backgroundColor: '#0D1117',
+                          backgroundColor: 'var(--bg-page)',
                           padding: '0.75rem',
                           borderRadius: '3px',
-                          border: '1px solid #21262D',
+                          border: '1px solid var(--border)',
                           whiteSpace: 'pre-wrap',
                           lineHeight: 1.5,
-                          color: '#C9D1D9'
+                          color: 'var(--text-secondary)'
                         }}
                       >
                         {renderHighlightedContent(template.body)}
                       </div>
 
                       {isTeamView && addedByEmail && (
-                        <div style={{ fontSize: '0.75rem', color: '#8B949E', marginTop: '0.25rem' }}>
+                        <div style={{ fontSize: '0.75rem', color: 'var(--text-muted)', marginTop: '0.25rem' }}>
                           Added by: {addedByEmail}
                         </div>
                       )}
@@ -474,12 +474,12 @@ export default function Templates({
   return (
     <div className="flex-col gap-4 w-full" style={{ minHeight: 'calc(100vh - 120px)', textAlign: 'left' }}>
       {/* Header section */}
-      <div className="flex justify-between align-center mb-4" style={{ borderBottom: '1px solid #21262D', paddingBottom: '1rem' }}>
+      <div className="flex justify-between align-center mb-4" style={{ borderBottom: '1px solid var(--border)', paddingBottom: '1rem' }}>
         <div>
-          <h2 style={{ fontFamily: 'Mattone, sans-serif', fontSize: '1.5rem', fontWeight: 400, color: '#FFFFFF', textTransform: 'uppercase', letterSpacing: '0.05em' }}>
+          <h2 style={{ fontFamily: 'Mattone, sans-serif', fontSize: '1.5rem', fontWeight: 400, color: 'var(--text-primary)', textTransform: 'uppercase', letterSpacing: '0.05em' }}>
             Template Library
           </h2>
-          <p style={{ fontSize: '0.9rem', color: '#8B949E', marginTop: '0.25rem' }}>
+          <p style={{ fontSize: '0.9rem', color: 'var(--text-muted)', marginTop: '0.25rem' }}>
             Build highly personal outreach messages using automated smart tags
           </p>
         </div>
@@ -507,9 +507,9 @@ export default function Templates({
       {/* Editor Modal */}
       {showEditor && (
         <div className="modal-backdrop">
-          <div className="modal-content" style={{ maxWidth: '800px', width: '95%', backgroundColor: '#161B22', border: '1px solid #21262D', borderRadius: '3px' }}>
-            <div className="modal-header" style={{ borderBottom: '1px solid #21262D' }}>
-              <h3 style={{ fontFamily: 'Mattone, sans-serif', textTransform: 'uppercase', letterSpacing: '0.05em', fontSize: '1.1rem', color: '#FFFFFF' }}>
+          <div className="modal-content" style={{ maxWidth: '800px', width: '95%', backgroundColor: 'var(--bg-card)', border: '1px solid var(--border)', borderRadius: '3px' }}>
+            <div className="modal-header" style={{ borderBottom: '1px solid var(--border)' }}>
+              <h3 style={{ fontFamily: 'Mattone, sans-serif', textTransform: 'uppercase', letterSpacing: '0.05em', fontSize: '1.1rem', color: 'var(--text-primary)' }}>
                 {editingTemplate ? (editingTemplate.is_starter ? 'View Starter Template' : 'Edit Template') : 'Create New Template'}
               </h3>
               <div style={{ display: 'flex', gap: '0.5rem', alignItems: 'center' }}>
@@ -522,7 +522,7 @@ export default function Templates({
                   <Copy size={12} />
                   {copiedBody ? 'Copied!' : 'Copy Body'}
                 </button>
-                <button onClick={() => setShowEditor(false)} className="theme-toggle" style={{ color: '#8B949E' }}>
+                <button onClick={() => setShowEditor(false)} className="theme-toggle" style={{ color: 'var(--text-muted)' }}>
                   <X size={18} />
                 </button>
               </div>
@@ -536,7 +536,7 @@ export default function Templates({
 
             <form onSubmit={handleSave} className="flex-col gap-3">
               <div className="form-group">
-                <label className="form-label" style={{ color: '#C9D1D9' }}>Template Title *</label>
+                <label className="form-label" style={{ color: 'var(--text-secondary)' }}>Template Title *</label>
                 <input 
                   type="text" 
                   required 
@@ -546,12 +546,12 @@ export default function Templates({
                   value={formState.title}
                   onChange={(e) => setFormState({...formState, title: e.target.value})}
                   onBlur={(e) => handleFieldBlur('title', e.target.value)}
-                  style={{ backgroundColor: '#0D1117', border: '1px solid #21262D', borderRadius: '3px', color: '#FFFFFF' }}
+                  style={{ backgroundColor: 'var(--bg-page)', border: '1px solid var(--border)', borderRadius: '3px', color: 'var(--text-primary)' }}
                 />
               </div>
 
               <div className="form-group">
-                <label className="form-label" style={{ color: '#C9D1D9' }}>Section *</label>
+                <label className="form-label" style={{ color: 'var(--text-secondary)' }}>Section *</label>
                 <select
                   required
                   disabled={editingTemplate?.is_starter}
@@ -562,7 +562,7 @@ export default function Templates({
                     setFormState({ ...formState, platform: val });
                     handleFieldBlur('platform', val);
                   }}
-                  style={{ backgroundColor: '#0D1117', border: '1px solid #21262D', borderRadius: '3px', color: '#FFFFFF', padding: '0.5rem' }}
+                  style={{ backgroundColor: 'var(--bg-page)', border: '1px solid var(--border)', borderRadius: '3px', color: 'var(--text-primary)', padding: '0.5rem' }}
                 >
                   {SECTIONS.map(sec => (
                     <option key={sec} value={sec}>{sec}</option>
@@ -574,7 +574,7 @@ export default function Templates({
               </div>
 
               <div className="form-group">
-                <label className="form-label" style={{ color: '#C9D1D9' }}>Email Subject (Optional)</label>
+                <label className="form-label" style={{ color: 'var(--text-secondary)' }}>Email Subject (Optional)</label>
                 <input 
                   type="text" 
                   disabled={editingTemplate?.is_starter}
@@ -583,39 +583,39 @@ export default function Templates({
                   value={formState.subject}
                   onChange={(e) => setFormState({...formState, subject: e.target.value})}
                   onBlur={(e) => handleFieldBlur('subject', e.target.value)}
-                  style={{ backgroundColor: '#0D1117', border: '1px solid #21262D', borderRadius: '3px', color: '#FFFFFF' }}
+                  style={{ backgroundColor: 'var(--bg-page)', border: '1px solid var(--border)', borderRadius: '3px', color: 'var(--text-primary)' }}
                 />
               </div>
 
               {/* Tag Injector Helpers */}
               {!editingTemplate?.is_starter && (
                 <div className="flex gap-2 align-center">
-                  <span style={{ fontSize: '0.8rem', color: '#8B949E' }}>Click to insert tag:</span>
+                  <span style={{ fontSize: '0.8rem', color: 'var(--text-muted)' }}>Click to insert tag:</span>
                   <button 
                     type="button" 
                     className="btn btn-secondary btn-sm"
                     onClick={() => insertTag('[Name]')}
-                    style={{ borderColor: '#21262D', borderRadius: '3px' }}
+                    style={{ borderColor: 'var(--border)', borderRadius: '3px' }}
                   >
-                    <Sparkles size={12} style={{ color: '#5B8FB9' }} />
+                    <Sparkles size={12} style={{ color: 'var(--accent-blue)' }} />
                     [Name]
                   </button>
                   <button 
                     type="button" 
                     className="btn btn-secondary btn-sm"
                     onClick={() => insertTag('[niche]')}
-                    style={{ borderColor: '#21262D', borderRadius: '3px' }}
+                    style={{ borderColor: 'var(--border)', borderRadius: '3px' }}
                   >
-                    <Sparkles size={12} style={{ color: '#5B8FB9' }} />
+                    <Sparkles size={12} style={{ color: 'var(--accent-blue)' }} />
                     [niche]
                   </button>
                   <button 
                     type="button" 
                     className="btn btn-secondary btn-sm"
                     onClick={() => insertTag('[result]')}
-                    style={{ borderColor: '#21262D', borderRadius: '3px' }}
+                    style={{ borderColor: 'var(--border)', borderRadius: '3px' }}
                   >
-                    <Sparkles size={12} style={{ color: '#5B8FB9' }} />
+                    <Sparkles size={12} style={{ color: 'var(--accent-blue)' }} />
                     [result]
                   </button>
                 </div>
@@ -624,12 +624,12 @@ export default function Templates({
               {/* Grid: Editor Left, Live Preview Right */}
               <div className="template-editor-container" style={{ marginTop: '0.5rem' }}>
                 <div className="form-group">
-                  <label className="form-label" style={{ color: '#C9D1D9' }}>Body Template *</label>
+                  <label className="form-label" style={{ color: 'var(--text-secondary)' }}>Body Template *</label>
                   <textarea 
                     className="form-textarea"
                     required
                     disabled={editingTemplate?.is_starter}
-                    style={{ minHeight: '220px', lineHeight: 1.5, backgroundColor: '#0D1117', border: '1px solid #21262D', borderRadius: '3px', color: '#FFFFFF' }}
+                    style={{ minHeight: '220px', lineHeight: 1.5, backgroundColor: 'var(--bg-page)', border: '1px solid var(--border)', borderRadius: '3px', color: 'var(--text-primary)' }}
                     placeholder="Hi [Name], came across your work..."
                     value={formState.body}
                     onChange={(e) => setFormState({...formState, body: e.target.value})}
@@ -638,12 +638,12 @@ export default function Templates({
                 </div>
                 
                 <div className="form-group">
-                  <label className="form-label flex align-center gap-1" style={{ color: '#C9D1D9' }}>
+                  <label className="form-label flex align-center gap-1" style={{ color: 'var(--text-secondary)' }}>
                     <Eye size={14} /> Live Highlight Preview
                   </label>
-                  <div className="editor-preview-pane" style={{ minHeight: '220px', backgroundColor: '#0D1117', border: '1px solid #21262D', borderRadius: '3px', color: '#C9D1D9' }}>
+                  <div className="editor-preview-pane" style={{ minHeight: '220px', backgroundColor: 'var(--bg-page)', border: '1px solid var(--border)', borderRadius: '3px', color: 'var(--text-secondary)' }}>
                     {formState.subject && (
-                      <div style={{ fontSize: '0.8rem', fontWeight: 600, color: '#8B949E', borderBottom: '1px solid #21262D', paddingBottom: '0.25rem', marginBottom: '0.5rem' }}>
+                      <div style={{ fontSize: '0.8rem', fontWeight: 600, color: 'var(--text-muted)', borderBottom: '1px solid var(--border)', paddingBottom: '0.25rem', marginBottom: '0.5rem' }}>
                         Subject: {formState.subject}
                       </div>
                     )}
@@ -652,7 +652,7 @@ export default function Templates({
                 </div>
               </div>
 
-              <div className="flex justify-between mt-4" style={{ borderTop: '1px solid #21262D', paddingTop: '1rem' }}>
+              <div className="flex justify-between mt-4" style={{ borderTop: '1px solid var(--border)', paddingTop: '1rem' }}>
                 <button type="button" onClick={() => setShowEditor(false)} className="btn btn-secondary" style={{ borderRadius: '3px' }}>
                   {editingTemplate?.is_starter ? 'Close' : 'Cancel'}
                 </button>
@@ -683,9 +683,9 @@ export default function Templates({
           position: 'fixed',
           bottom: '24px',
           right: '24px',
-          backgroundColor: '#161b22',
-          border: '1px solid #30363d',
-          boxShadow: '0 8px 24px rgba(0,0,0,0.5)',
+          backgroundColor: 'var(--bg-card)',
+          border: '1px solid var(--border-strong)',
+          boxShadow: '0 8px 24px rgba(0,0,0,0.25)',
           borderRadius: '8px',
           padding: '1rem',
           zIndex: 9999,
@@ -697,10 +697,10 @@ export default function Templates({
           fontFamily: 'sans-serif'
         }}>
           <div style={{ display: 'flex', justifyContent: 'space-between', gap: '1rem', alignItems: 'center' }}>
-            <span style={{ fontSize: '0.85rem', color: '#c9d1d9', lineHeight: '1.4', textAlign: 'left' }}>
+            <span style={{ fontSize: '0.85rem', color: 'var(--text-secondary)', lineHeight: '1.4', textAlign: 'left' }}>
               {toastMessage}
             </span>
-            <button onClick={() => setShowToast(false)} style={{ background: 'none', border: 'none', color: '#8b949e', cursor: 'pointer', display: 'flex' }}>
+            <button onClick={() => setShowToast(false)} style={{ background: 'none', border: 'none', color: 'var(--text-muted)', cursor: 'pointer', display: 'flex' }}>
               <X size={16} />
             </button>
           </div>
