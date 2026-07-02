@@ -91,6 +91,34 @@ export const detectDomainIcon = (url) => {
   return { icon: Globe, color: '#6B7280' };
 };
 
+export const detectPlatformLabel = (url) => {
+  if (!url) return 'Website';
+  try {
+    const cleanUrl = url.startsWith('http') ? url : `https://${url}`;
+    const host = new URL(cleanUrl).hostname.toLowerCase();
+    if (host.includes('linkedin.com')) return 'LinkedIn';
+    if (host.includes('instagram.com')) return 'Instagram';
+    if (host.includes('twitter.com') || host.includes('x.com')) return 'Twitter';
+    if (host.includes('reddit.com')) return 'Reddit';
+    if (host.includes('yelp.com')) return 'Yelp';
+    if (host.includes('google.com') && (host.includes('maps') || url.includes('/maps'))) return 'Google Maps';
+    if (host.includes('tiktok.com')) return 'TikTok';
+    if (host.includes('facebook.com')) return 'Facebook';
+    if (host.includes('youtube.com') || host.includes('youtu.be')) return 'YouTube';
+    if (host.includes('pinterest.com')) return 'Pinterest';
+    if (host.includes('snapchat.com')) return 'Snapchat';
+    if (host.includes('t.me') || host.includes('telegram.org')) return 'Telegram';
+    if (host.includes('behance.net')) return 'Behance';
+    if (host.includes('dribbble.com')) return 'Dribbble';
+    if (host.includes('github.com')) return 'GitHub';
+    if (host.includes('fiverr.com')) return 'Fiverr';
+    if (host.includes('upwork.com')) return 'Upwork';
+    if (host.includes('tripadvisor.com')) return 'TripAdvisor';
+    if (host.includes('google.com') && (url.includes('review') || url.includes('g.page'))) return 'Google Reviews';
+  } catch {}
+  return 'Website';
+};
+
 // ── Phone popup — used standalone in table cells ───────────────────────────────
 export const PhonePopup = ({ phone }) => {
   const [open, setOpen] = useState(false);
@@ -177,7 +205,10 @@ export const ReachIcons = ({ lead, columnDefs = [] }) => {
 
   const tryAdd = (platform, url, isCustom = false) => {
     if (url) {
-      const cleanUrl = url.startsWith('http') ? url : `https://${url}`;
+      let cleanUrl = url;
+      if (platform !== 'email' && !url.startsWith('http://') && !url.startsWith('https://') && !url.startsWith('mailto:')) {
+        cleanUrl = `https://${url}`;
+      }
       if (!addedUrls.has(cleanUrl)) {
         links.push({ platform, url: cleanUrl, isCustom });
         addedUrls.add(cleanUrl);
@@ -185,11 +216,14 @@ export const ReachIcons = ({ lead, columnDefs = [] }) => {
     }
   };
 
-  // Standard fields from PLATFORM_MAP keys (linkedin, instagram, twitter, website)
+  // Standard fields from PLATFORM_MAP keys (linkedin, instagram, twitter, website, email)
   tryAdd('linkedin', lead.linkedin_url);
   tryAdd('instagram', lead.instagram_url);
   tryAdd('twitter', lead.twitter_url);
   tryAdd('website', lead.website);
+  if (lead.email) {
+    tryAdd('email', `mailto:${lead.email}`);
+  }
 
   // 2. Add custom_fields of type 'link'
   if (lead.custom_fields && columnDefs && columnDefs.length > 0) {
@@ -199,6 +233,15 @@ export const ReachIcons = ({ lead, columnDefs = [] }) => {
         if (val) {
           tryAdd(col.column_label || col.column_key, val, true);
         }
+      }
+    });
+  }
+
+  // 3. Add links from custom_fields.links array
+  if (lead.custom_fields && Array.isArray(lead.custom_fields.links)) {
+    lead.custom_fields.links.forEach(item => {
+      if (item && item.url) {
+        tryAdd(item.label || 'Website', item.url, true);
       }
     });
   }

@@ -16,7 +16,7 @@ import CSVImporter from './CRM/CSVImporter';
 import CSVImportModal from './CRM/CSVImportModal';
 import ConvertModal from './CRM/ConvertModal';
 import GroupedStatusDropdown from './CRM/GroupedStatusDropdown';
-import { ReachIcons, PhonePopup } from './icons/PlatformIcons';
+import { ReachIcons, PhonePopup, detectDomainIcon, detectPlatformLabel } from './icons/PlatformIcons';
 import { handleLeadReminderTrigger } from '../lib/reminders';
 import PriorityDropdown from './CRM/PriorityDropdown';
 
@@ -124,61 +124,59 @@ export default function CRM({
   };
   const [columnDefs, setColumnDefs] = useState([]);
   const [selectedLead, setSelectedLead] = useState(null);
-  const [newFieldName, setNewFieldName] = useState('');
-  const [newFieldType, setNewFieldType] = useState('text');
+  const [pastedLink, setPastedLink] = useState('');
 
-  const handleAddNewCustomField = async (label, type) => {
-    if (!label.trim()) return;
-    const key = 'custom_' + label.toLowerCase().replace(/[^a-z0-9]/g, '_');
-    
-    if (columnDefs.some(c => c.column_key === key)) {
-      alert('A field with this name already exists.');
-      return;
-    }
-
-    const newCol = {
-      user_id: currentUser.id,
-      table_view: view === 'pipeline' ? 'pipeline' : 'contact_details',
-      column_key: key,
-      column_label: label.trim(),
-      column_type: type,
-      is_visible: true,
-      is_default: false,
-      sort_order: columnDefs.length,
-      dropdown_options: type === 'dropdown' ? [
-        { label: 'Option 1', color: '#3b82f6' },
-        { label: 'Option 2', color: '#10b981' }
-      ] : []
-    };
-
-    try {
-      const { data, error } = await supabase
-        .from('column_definitions')
-        .insert(newCol)
-        .select()
-        .single();
-
-      if (error) throw error;
-
-      setColumnDefs(prev => [...prev, data]);
-      setLeadForm(prev => ({
-        ...prev,
-        custom_fields: {
-          ...(prev.custom_fields || {}),
-          [key]: ''
+  const handleAddPastedLink = (e) => {
+    if (e.key === 'Enter' || e.key === 'Tab') {
+      e.preventDefault();
+      const val = pastedLink.trim();
+      if (!val) return;
+      
+      const label = detectPlatformLabel(val);
+      const cleanUrl = val.startsWith('http') ? val : `https://${val}`;
+      
+      setLeadForm(prev => {
+        const currentLinks = prev.links || [];
+        if (currentLinks.some(l => l.url === cleanUrl)) {
+          alert('This link is already in the list.');
+          return prev;
         }
-      }));
-    } catch (err) {
-      console.error('Error adding custom column:', err);
+        return {
+          ...prev,
+          links: [...currentLinks, { url: cleanUrl, label }]
+        };
+      });
+      setPastedLink('');
     }
   };
 
-  const handleRemoveCustomFieldVal = (key) => {
-    setLeadForm(prev => {
-      const copy = { ...(prev.custom_fields || {}) };
-      delete copy[key];
-      return { ...prev, custom_fields: copy };
-    });
+  const handleFolderChange = (value) => {
+    if (!value) {
+      setLeadForm(prev => ({ ...prev, folder_id: '' }));
+    } else if (value.startsWith('sys:')) {
+      const sysType = value.split(':')[1];
+      if (sysType === 'hot') {
+        setLeadForm(prev => ({ ...prev, folder_id: '', priority: 'Hot' }));
+      } else if (sysType === 'warm') {
+        setLeadForm(prev => ({ ...prev, folder_id: '', priority: 'Warm' }));
+      } else if (sysType === 'cold') {
+        setLeadForm(prev => ({ ...prev, folder_id: '', priority: 'Cold' }));
+      } else if (sysType === 'calendly') {
+        setLeadForm(prev => ({ ...prev, folder_id: '', status: 'calendly_sent' }));
+      } else if (sysType === 'clients') {
+        setLeadForm(prev => ({ ...prev, folder_id: '', status: 'client' }));
+      }
+    } else if (value.startsWith('manual:')) {
+      const folderId = value.split(':')[1];
+      setLeadForm(prev => ({ ...prev, folder_id: folderId }));
+    }
+  };
+
+  const getFolderSelectValue = () => {
+    if (leadForm.folder_id) {
+      return `manual:${leadForm.folder_id}`;
+    }
+    return '';
   };
   const [showColumnManager, setShowColumnManager] = useState(false);
   const [showCSVImporter, setShowCSVImporter] = useState(false);
@@ -208,9 +206,9 @@ export default function CRM({
   // Form states
   const [leadForm, setLeadForm] = useState({
     name: '', email: '', phone: '', company: '', niche: '',
-    linkedin_url: '', instagram_url: '', twitter_url: '', website: '',
     priority: 'Warm', status: 'lead', notes: '', folder_id: '',
     template_used: '',
+    links: [],
     custom_fields: {}
   });
   const [folderForm, setFolderForm] = useState({ name: '', color: '#3b82f6' });
@@ -570,13 +568,12 @@ export default function CRM({
     }
     setLeadForm({
       name: '', email: '', phone: '', company: '', niche: '',
-      linkedin_url: '', instagram_url: '', twitter_url: '', website: '',
       priority: 'Warm', status: 'lead', notes: '', folder_id: selectedFolderId || '',
       template_used: '',
+      links: [],
       custom_fields: {}
     });
-    setNewFieldName('');
-    setNewFieldType('text');
+    setPastedLink('');
     setShowAddLeadModal(true);
   };
 
@@ -590,10 +587,15 @@ export default function CRM({
       const first_name = parts[0] || '';
       const last_name = parts.slice(1).join(' ') || null;
 
-      let finalWebsite = leadForm.website ? leadForm.website.trim() : null;
-      if (finalWebsite && !/^https?:\/\//i.test(finalWebsite)) {
-        finalWebsite = `https://${finalWebsite}`;
-      }
+      const linkedin = (leadForm.links || []).find(l => l.label === 'LinkedIn')?.url || null;
+      const instagram = (leadForm.links || []).find(l => l.label === 'Instagram')?.url || null;
+      const twitter = (leadForm.links || []).find(l => l.label === 'Twitter')?.url || null;
+      const website = (leadForm.links || []).find(l => l.label === 'Website')?.url || null;
+
+      const finalCustomFields = {
+        ...(leadForm.custom_fields || {}),
+        links: leadForm.links || []
+      };
 
       const { data, error } = await supabase.from('leads')
         .insert({
@@ -603,17 +605,17 @@ export default function CRM({
           phone: leadForm.phone || null,
           company: leadForm.company || null,
           niche: leadForm.niche || null,
-          linkedin_url: leadForm.linkedin_url || null,
-          instagram_url: leadForm.instagram_url || null,
-          twitter_url: leadForm.twitter_url || null,
-          website: finalWebsite,
+          linkedin_url: linkedin,
+          instagram_url: instagram,
+          twitter_url: twitter,
+          website: website,
           priority: leadForm.priority || 'Warm',
           status: leadForm.status || 'lead',
           notes: leadForm.notes || null,
           user_id: currentUser.id,
           folder_id: leadForm.folder_id || null,
           template_used: leadForm.template_used || null,
-          custom_fields: leadForm.custom_fields || {}
+          custom_fields: finalCustomFields
         })
         .select()
         .single();
@@ -654,25 +656,29 @@ export default function CRM({
   // Open Edit Lead
   const handleOpenEditLead = (lead) => {
     setActiveLead(lead);
+    const existingLinks = lead.custom_fields?.links ? [...lead.custom_fields.links] : [];
+    if (existingLinks.length === 0) {
+      if (lead.linkedin_url) existingLinks.push({ url: lead.linkedin_url, label: 'LinkedIn' });
+      if (lead.instagram_url) existingLinks.push({ url: lead.instagram_url, label: 'Instagram' });
+      if (lead.twitter_url) existingLinks.push({ url: lead.twitter_url, label: 'Twitter' });
+      if (lead.website) existingLinks.push({ url: lead.website, label: 'Website' });
+    }
+
     setLeadForm({
       name: `${lead.first_name || ''} ${lead.last_name || ''}`.trim(),
       email: lead.email || '',
       phone: lead.phone || '',
       company: lead.company || '',
       niche: lead.niche || '',
-      linkedin_url: lead.linkedin_url || '',
-      instagram_url: lead.instagram_url || '',
-      twitter_url: lead.twitter_url || '',
-      website: lead.website || '',
       priority: lead.priority || 'Warm',
       status: lead.status || 'lead',
       notes: lead.notes || '',
       folder_id: lead.folder_id || '',
       template_used: lead.template_used || '',
+      links: existingLinks,
       custom_fields: lead.custom_fields || {}
     });
-    setNewFieldName('');
-    setNewFieldType('text');
+    setPastedLink('');
     setShowEditLeadModal(true);
   };
 
@@ -684,10 +690,15 @@ export default function CRM({
       const first_name = parts[0] || '';
       const last_name = parts.slice(1).join(' ') || null;
 
-      let finalWebsite = leadForm.website ? leadForm.website.trim() : null;
-      if (finalWebsite && !/^https?:\/\//i.test(finalWebsite)) {
-        finalWebsite = `https://${finalWebsite}`;
-      }
+      const linkedin = (leadForm.links || []).find(l => l.label === 'LinkedIn')?.url || null;
+      const instagram = (leadForm.links || []).find(l => l.label === 'Instagram')?.url || null;
+      const twitter = (leadForm.links || []).find(l => l.label === 'Twitter')?.url || null;
+      const website = (leadForm.links || []).find(l => l.label === 'Website')?.url || null;
+
+      const finalCustomFields = {
+        ...(leadForm.custom_fields || {}),
+        links: leadForm.links || []
+      };
 
       const { data, error } = await supabase.from('leads')
         .update({
@@ -697,16 +708,16 @@ export default function CRM({
           phone: leadForm.phone || null,
           company: leadForm.company || null,
           niche: leadForm.niche || null,
-          linkedin_url: leadForm.linkedin_url || null,
-          instagram_url: leadForm.instagram_url || null,
-          twitter_url: leadForm.twitter_url || null,
-          website: finalWebsite,
+          linkedin_url: linkedin,
+          instagram_url: instagram,
+          twitter_url: twitter,
+          website: website,
           priority: leadForm.priority || 'Warm',
           status: leadForm.status || 'lead',
           notes: leadForm.notes || null,
           folder_id: leadForm.folder_id || null,
           template_used: leadForm.template_used || null,
-          custom_fields: leadForm.custom_fields || {}
+          custom_fields: finalCustomFields
         })
         .eq('id', activeLead.id)
         .select()
@@ -2037,55 +2048,78 @@ export default function CRM({
                 </div>
               </div>
 
-              {/* Row 4: LinkedIn URL | Instagram URL */}
-              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1rem' }}>
-                <div className="form-group">
-                  <label className="form-label">LinkedIn Profile URL</label>
-                  <input
-                    type="url"
-                    placeholder="https://linkedin.com/in/..."
-                    value={leadForm.linkedin_url}
-                    onChange={e => setLeadForm({...leadForm, linkedin_url: e.target.value})}
-                    className="form-input"
-                  />
+              {/* Links Section */}
+              <div className="form-group" style={{ marginTop: '0.5rem', marginBottom: '1rem' }}>
+                <label className="form-label">Links — paste any URL</label>
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem', marginBottom: '0.5rem' }}>
+                  {(leadForm.links || []).map((link, idx) => {
+                    const detected = detectDomainIcon(link.url);
+                    const IconComp = detected.icon;
+                    return (
+                      <div
+                        key={idx}
+                        style={{
+                          display: 'flex',
+                          alignItems: 'center',
+                          gap: '0.5rem',
+                          background: 'rgba(255, 255, 255, 0.02)',
+                          padding: '0.4rem 0.6rem',
+                          borderRadius: '6px',
+                          border: '1px solid var(--border)'
+                        }}
+                      >
+                        <IconComp size={15} color={detected.color} style={{ flexShrink: 0 }} />
+                        <span
+                          style={{
+                            fontSize: '0.82rem',
+                            color: 'var(--text-secondary)',
+                            flex: 1,
+                            overflow: 'hidden',
+                            textOverflow: 'ellipsis',
+                            whiteSpace: 'nowrap'
+                          }}
+                          title={link.url}
+                        >
+                          {link.url}
+                        </span>
+                        <button
+                          type="button"
+                          onClick={() => {
+                            setLeadForm(prev => ({
+                              ...prev,
+                              links: prev.links.filter((_, i) => i !== idx)
+                            }));
+                          }}
+                          style={{
+                            background: 'none',
+                            border: 'none',
+                            color: 'var(--status-hot, #ef4444)',
+                            cursor: 'pointer',
+                            fontSize: '0.9rem',
+                            padding: '0 4px',
+                            display: 'flex',
+                            alignItems: 'center'
+                          }}
+                          title="Remove link"
+                        >
+                          ×
+                        </button>
+                      </div>
+                    );
+                  })}
                 </div>
-                <div className="form-group">
-                  <label className="form-label">Instagram URL</label>
-                  <input
-                    type="url"
-                    placeholder="https://instagram.com/..."
-                    value={leadForm.instagram_url}
-                    onChange={e => setLeadForm({...leadForm, instagram_url: e.target.value})}
-                    className="form-input"
-                  />
-                </div>
+                <input
+                  type="text"
+                  placeholder="+ Paste any link and press Enter..."
+                  value={pastedLink}
+                  onChange={e => setPastedLink(e.target.value)}
+                  onKeyDown={handleAddPastedLink}
+                  className="form-input"
+                  style={{ borderStyle: 'dashed', borderColor: 'var(--border)' }}
+                />
               </div>
 
-              {/* Row 5: Twitter / X URL | Website */}
-              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1rem' }}>
-                <div className="form-group">
-                  <label className="form-label">Twitter / X URL</label>
-                  <input
-                    type="url"
-                    placeholder="https://twitter.com/..."
-                    value={leadForm.twitter_url}
-                    onChange={e => setLeadForm({...leadForm, twitter_url: e.target.value})}
-                    className="form-input"
-                  />
-                </div>
-                <div className="form-group">
-                  <label className="form-label">Website</label>
-                  <input
-                    type="url"
-                    placeholder="https://..."
-                    value={leadForm.website}
-                    onChange={e => setLeadForm({...leadForm, website: e.target.value})}
-                    className="form-input"
-                  />
-                </div>
-              </div>
-
-              {/* Row 6: Priority | Status */}
+              {/* Row 5: Priority | Status */}
               <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1rem' }}>
                 <div className="form-group">
                   <label className="form-label">Priority</label>
@@ -2109,21 +2143,40 @@ export default function CRM({
                 </div>
               </div>
 
-              {/* Row 7: Template Used / Assign to Folder */}
-              <div style={{ display: 'grid', gridTemplateColumns: folders.length > 0 ? '1fr 1fr' : '1fr', gap: '1rem' }}>
-                {folders.length > 0 && (
-                  <div className="form-group">
-                    <label className="form-label">Assign to Folder</label>
-                    <select
-                      value={leadForm.folder_id}
-                      onChange={e => setLeadForm({...leadForm, folder_id: e.target.value})}
-                      className="form-select"
-                    >
-                      <option value="">(No Folder / All Leads)</option>
-                      {folders.map(f => <option key={f.id} value={f.id}>{f.name}</option>)}
-                    </select>
-                  </div>
-                )}
+              {/* Row 6: Assign to Folder | Template Used */}
+              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1rem' }}>
+                <div className="form-group">
+                  <label className="form-label">Assign to Folder</label>
+                  <select
+                    value={getFolderSelectValue()}
+                    onChange={e => handleFolderChange(e.target.value)}
+                    className="form-select"
+                  >
+                    <option value="">(No Folder / All Leads)</option>
+                    <optgroup label="System Folders">
+                      <option value="sys:hot">🔴 Hot</option>
+                      <option value="sys:warm">🟡 Warm</option>
+                      <option value="sys:cold">⚫ Cold</option>
+                      <option value="sys:calendly">📅 Calendly Sent</option>
+                      <option value="sys:clients">💼 Clients</option>
+                    </optgroup>
+                    {folders.length > 0 && (
+                      <optgroup label="Manual Folders">
+                        {folders.map(f => <option key={f.id} value={`manual:${f.id}`}>{f.name}</option>)}
+                      </optgroup>
+                    )}
+                    <optgroup label="Smart Folders">
+                      {userFolders.map(uf => (
+                        <option key={uf.id} value={`smart:${uf.id}`} disabled>
+                          {uf.name} (rule-based)
+                        </option>
+                      ))}
+                      {plan === 'starter' && userFolders.length === 0 && (
+                        <option value="" disabled>🔒 Upgrade to Pro to use Smart Folders</option>
+                      )}
+                    </optgroup>
+                  </select>
+                </div>
                 <div className="form-group">
                   <label className="form-label">Template Used</label>
                   <select
@@ -2137,7 +2190,7 @@ export default function CRM({
                 </div>
               </div>
 
-              {/* Row 8: Notes textarea (full width) */}
+              {/* Row 7: Notes textarea (full width) */}
               <div className="form-group">
                 <label className="form-label">Notes</label>
                 <textarea
@@ -2406,55 +2459,82 @@ export default function CRM({
                 </div>
               </div>
 
-              {/* Row 4: LinkedIn URL | Instagram URL */}
-              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1rem' }}>
-                <div className="form-group">
-                  <label className="form-label">LinkedIn Profile URL</label>
-                  <input
-                    type="url"
-                    placeholder="https://linkedin.com/in/..."
-                    value={leadForm.linkedin_url}
-                    onChange={e => setLeadForm({...leadForm, linkedin_url: e.target.value})}
-                    className="form-input"
-                  />
+              {/* Row 4: Links section */}
+              <div className="form-group" style={{ marginTop: '1rem', marginBottom: '1rem' }}>
+                <label className="form-label">Links — paste any URL</label>
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem', marginBottom: '0.5rem' }}>
+                  {(leadForm.links || []).map((link, idx) => {
+                    const detected = detectDomainIcon(link.url);
+                    const IconComp = detected.icon;
+                    return (
+                      <div 
+                        key={idx}
+                        style={{
+                          display: 'flex',
+                          alignItems: 'center',
+                          gap: '0.5rem',
+                          background: 'rgba(255, 255, 255, 0.02)',
+                          padding: '0.4rem 0.6rem',
+                          borderRadius: '6px',
+                          border: '1px solid var(--border)'
+                        }}
+                      >
+                        <IconComp size={15} color={detected.color} style={{ flexShrink: 0 }} />
+                        <span 
+                          style={{
+                            fontSize: '0.82rem',
+                            color: 'var(--text-secondary)',
+                            flex: 1,
+                            overflow: 'hidden',
+                            textOverflow: 'ellipsis',
+                            whiteSpace: 'nowrap'
+                          }}
+                          title={link.url}
+                        >
+                          {link.url}
+                        </span>
+                        <button
+                          type="button"
+                          onClick={() => {
+                            setLeadForm(prev => ({
+                              ...prev,
+                              links: prev.links.filter((_, i) => i !== idx)
+                            }));
+                          }}
+                          style={{
+                            background: 'none',
+                            border: 'none',
+                            color: 'var(--status-hot, #ef4444)',
+                            cursor: 'pointer',
+                            fontSize: '0.9rem',
+                            padding: '0 4px',
+                            display: 'flex',
+                            alignItems: 'center'
+                          }}
+                          title="Remove link"
+                        >
+                          ×
+                        </button>
+                      </div>
+                    );
+                  })}
                 </div>
-                <div className="form-group">
-                  <label className="form-label">Instagram URL</label>
-                  <input
-                    type="url"
-                    placeholder="https://instagram.com/..."
-                    value={leadForm.instagram_url}
-                    onChange={e => setLeadForm({...leadForm, instagram_url: e.target.value})}
-                    className="form-input"
-                  />
-                </div>
+                
+                <input
+                  type="text"
+                  placeholder="+ Paste any link..."
+                  value={pastedLink}
+                  onChange={e => setPastedLink(e.target.value)}
+                  onKeyDown={handleAddPastedLink}
+                  className="form-input"
+                  style={{
+                    borderStyle: 'dashed',
+                    borderColor: 'var(--border)'
+                  }}
+                />
               </div>
 
-              {/* Row 5: Twitter / X URL | Website */}
-              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1rem' }}>
-                <div className="form-group">
-                  <label className="form-label">Twitter / X URL</label>
-                  <input
-                    type="url"
-                    placeholder="https://twitter.com/..."
-                    value={leadForm.twitter_url}
-                    onChange={e => setLeadForm({...leadForm, twitter_url: e.target.value})}
-                    className="form-input"
-                  />
-                </div>
-                <div className="form-group">
-                  <label className="form-label">Website</label>
-                  <input
-                    type="url"
-                    placeholder="https://..."
-                    value={leadForm.website}
-                    onChange={e => setLeadForm({...leadForm, website: e.target.value})}
-                    className="form-input"
-                  />
-                </div>
-              </div>
-
-              {/* Row 6: Priority | Status */}
+              {/* Row 5: Priority | Status */}
               <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1rem' }}>
                 <div className="form-group">
                   <label className="form-label">Priority</label>
@@ -2478,21 +2558,41 @@ export default function CRM({
                 </div>
               </div>
 
-              {/* Row 7: Template Used / Assign to Folder */}
-              <div style={{ display: 'grid', gridTemplateColumns: folders.length > 0 ? '1fr 1fr' : '1fr', gap: '1rem' }}>
-                {folders.length > 0 && (
-                  <div className="form-group">
-                    <label className="form-label">Assign to Folder</label>
-                    <select
-                      value={leadForm.folder_id}
-                      onChange={e => setLeadForm({...leadForm, folder_id: e.target.value})}
-                      className="form-select"
-                    >
-                      <option value="">(No Folder / All Leads)</option>
-                      {folders.map(f => <option key={f.id} value={f.id}>{f.name}</option>)}
-                    </select>
-                  </div>
-                )}
+              {/* Row 6: Template Used / Assign to Folder */}
+              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1rem' }}>
+                <div className="form-group">
+                  <label className="form-label">Assign to Folder</label>
+                  <select
+                    value={getFolderSelectValue()}
+                    onChange={e => handleFolderChange(e.target.value)}
+                    className="form-select"
+                  >
+                    <option value="">(No Folder / All Leads)</option>
+                    
+                    <optgroup label="System Folders">
+                      <option value="sys:hot">Hot</option>
+                      <option value="sys:warm">Warm</option>
+                      <option value="sys:cold">Cold</option>
+                      <option value="sys:calendly">Calendly Sent</option>
+                      <option value="sys:clients">Clients</option>
+                    </optgroup>
+                    
+                    <optgroup label="Manual Folders">
+                      {folders.map(f => <option key={f.id} value={`manual:${f.id}`}>{f.name}</option>)}
+                    </optgroup>
+                    
+                    <optgroup label="Smart Folders">
+                      {userFolders.map(uf => (
+                        <option key={uf.id} value={`smart:${uf.id}`} disabled={true}>
+                          {uf.name} (Smart - Rule Based)
+                        </option>
+                      ))}
+                      {plan === 'starter' && (
+                        <option value="" disabled={true}>🔒 Smart Folders (Pro Only)</option>
+                      )}
+                    </optgroup>
+                  </select>
+                </div>
                 <div className="form-group">
                   <label className="form-label">Template Used</label>
                   <select
@@ -2506,7 +2606,7 @@ export default function CRM({
                 </div>
               </div>
 
-              {/* Row 8: Notes textarea (full width) */}
+              {/* Row 7: Notes textarea (full width) */}
               <div className="form-group">
                 <label className="form-label">Notes</label>
                 <textarea
@@ -2515,92 +2615,6 @@ export default function CRM({
                   className="form-textarea"
                   style={{ minHeight: '80px' }}
                 />
-              </div>
-
-              {/* Custom Fields Section */}
-              <div style={{ borderTop: '0.5px solid var(--border)', marginTop: '1.5rem', paddingTop: '1rem' }}>
-                <span style={{ fontSize: '0.75rem', letterSpacing: '0.1em', textTransform: 'uppercase', color: 'var(--text-muted)', fontWeight: 600 }}>Custom Fields</span>
-              </div>
-
-              {/* Render existing custom fields */}
-              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1rem', marginTop: '0.75rem' }}>
-                {columnDefs.filter(c => !c.is_default && c.table_view === (view === 'pipeline' ? 'pipeline' : 'contact_details')).map(col => {
-                  const val = leadForm.custom_fields?.[col.column_key] || '';
-                  return (
-                    <div key={col.id} className="form-group" style={{ position: 'relative' }}>
-                      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '0.25rem' }}>
-                        <label className="form-label" style={{ marginBottom: 0 }}>{col.column_label}</label>
-                        <button
-                          type="button"
-                          onClick={() => handleRemoveCustomFieldVal(col.column_key)}
-                          style={{
-                            background: 'none',
-                            border: 'none',
-                            color: 'var(--status-hot, #ef4444)',
-                            cursor: 'pointer',
-                            fontSize: '0.85rem',
-                            padding: 0,
-                            display: 'flex',
-                            alignItems: 'center'
-                          }}
-                          title="Clear value"
-                        >
-                          ×
-                        </button>
-                      </div>
-                      <input
-                        type={col.column_type === 'number' ? 'number' : col.column_type === 'link' ? 'url' : 'text'}
-                        value={val}
-                        onChange={e => setLeadForm(prev => ({
-                          ...prev,
-                          custom_fields: {
-                            ...(prev.custom_fields || {}),
-                            [col.column_key]: e.target.value
-                          }
-                        }))}
-                        className="form-input"
-                        placeholder={`Enter ${col.column_label.toLowerCase()}...`}
-                      />
-                    </div>
-                  );
-                })}
-              </div>
-
-              {/* Add Custom Field Inline Form */}
-              <div style={{ display: 'flex', gap: '0.75rem', alignItems: 'flex-end', marginTop: '1rem', background: 'rgba(255, 255, 255, 0.02)', padding: '0.75rem', borderRadius: '8px', border: '1px dashed var(--border)' }}>
-                <div style={{ flex: 2 }}>
-                  <label className="form-label" style={{ color: 'var(--text-secondary)' }}>New Field Name</label>
-                  <input
-                    type="text"
-                    value={newFieldName}
-                    onChange={e => setNewFieldName(e.target.value)}
-                    placeholder="e.g. TikTok, Skype..."
-                    className="form-input"
-                  />
-                </div>
-                <div style={{ flex: 1.5 }}>
-                  <label className="form-label" style={{ color: 'var(--text-secondary)' }}>Type</label>
-                  <select
-                    value={newFieldType}
-                    onChange={e => setNewFieldType(e.target.value)}
-                    className="form-select"
-                  >
-                    <option value="text">Text</option>
-                    <option value="link">Link</option>
-                    <option value="number">Number</option>
-                  </select>
-                </div>
-                <button
-                  type="button"
-                  onClick={() => {
-                    handleAddNewCustomField(newFieldName, newFieldType);
-                    setNewFieldName('');
-                  }}
-                  className="btn btn-secondary"
-                  style={{ height: '38px', whiteSpace: 'nowrap', display: 'flex', alignItems: 'center', gap: '4px' }}
-                >
-                  <Plus size={14} /> Add Field
-                </button>
               </div>
 
               <div className="flex justify-between mt-4">
