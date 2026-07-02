@@ -1,4 +1,4 @@
-// Push notification push event — show the notification
+// Push notification handler — all options required for lock screen display
 self.addEventListener('push', (event) => {
   let data = {};
   try {
@@ -6,30 +6,42 @@ self.addEventListener('push', (event) => {
   } catch (e) {
     console.error('[Service Worker] Failed to parse push payload:', e);
   }
+
   const title = data.title || 'ReachDesk CRM';
   const options = {
     body: data.body || 'You have a new notification',
     icon: '/android-chrome-192x192.png',
-    badge: '/android-chrome-192x192.png',
-    tag: data.tag || 'reachdesk',
-    data: { url: data.url || '/dashboard' },
-    requireInteraction: true,
+    badge: '/favicon-32x32.png',
+    tag: data.tag || 'reachdesk-notification',
+    renotify: true,
+    requireInteraction: false,
+    vibrate: [200, 100, 200],
+    data: { url: data.url || 'https://reachdesk.esemdot.com' },
   };
+
   event.waitUntil(self.registration.showNotification(title, options));
 });
 
 // Notification click — open or focus the app at the correct URL
 self.addEventListener('notificationclick', (event) => {
   event.notification.close();
-  const targetUrl = event.notification.data?.url || '/dashboard';
+  const targetUrl = event.notification.data?.url || 'https://reachdesk.esemdot.com';
   event.waitUntil(
     clients.matchAll({ type: 'window', includeUncontrolled: true }).then((clientList) => {
+      // Try to focus an already-open tab first
       for (const client of clientList) {
-        if (client.url.includes(self.location.origin) && 'focus' in client) {
+        if (client.url === targetUrl && 'focus' in client) {
+          return client.focus();
+        }
+      }
+      // Focus any open ReachDesk tab (in case URL differs but same origin)
+      for (const client of clientList) {
+        if (client.url.includes('reachdesk.esemdot.com') && 'focus' in client) {
           client.navigate(targetUrl);
           return client.focus();
         }
       }
+      // No existing tab — open a new one
       if (clients.openWindow) {
         return clients.openWindow(targetUrl);
       }
@@ -37,9 +49,9 @@ self.addEventListener('notificationclick', (event) => {
   );
 });
 
-// App update listeners
-self.addEventListener('install', e => self.skipWaiting());
-self.addEventListener('activate', e => e.waitUntil(clients.claim()));
+// App lifecycle listeners
+self.addEventListener('install', (e) => self.skipWaiting());
+self.addEventListener('activate', (e) => e.waitUntil(clients.claim()));
 
 self.addEventListener('message', (event) => {
   if (event.data && event.data.type === 'SKIP_WAITING') {
