@@ -1,12 +1,12 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { useSearchParams } from 'react-router-dom';
+import { useSearchParams, useNavigate } from 'react-router-dom';
 import { supabase } from '../lib/supabase';
 import { getTeamIds, PLAN_LIMITS } from '../lib/utils';
 import {
   Search, Plus, Download, Upload, Trash2, Edit3, X,
   Filter, CheckSquare, Square, Folder, FolderPlus,
   MoreVertical, Check, ThumbsUp, ThumbsDown, SkipForward, AlertCircle, ChevronDown,
-  Settings as Gear, MessageCircle, Zap, ExternalLink
+  Settings as Gear, MessageCircle, Zap, ExternalLink, Lock
 } from 'lucide-react';
 
 import EditableDropdown from './CRM/EditableDropdown';
@@ -19,6 +19,17 @@ import GroupedStatusDropdown from './CRM/GroupedStatusDropdown';
 import { ReachIcons, PhonePopup } from './icons/PlatformIcons';
 import { handleLeadReminderTrigger } from '../lib/reminders';
 import PriorityDropdown from './CRM/PriorityDropdown';
+
+const PRESET_COLORS = [
+  '#ef4444', // Red
+  '#f59e0b', // Amber/Yellow
+  '#10b981', // Emerald/Green
+  '#3b82f6', // Blue
+  '#8b5cf6', // Violet/Purple
+  '#ec4899', // Pink
+  '#6366f1', // Indigo
+  '#6b7280'  // Slate/Gray
+];
 
 const STATUS_COLORS = {
   'lead':           { bg: '#8B949E22', text: '#8B949E' },
@@ -50,6 +61,7 @@ export default function CRM({
   isTeamView = false, 
   onRefreshReminders 
 }) {
+  const navigate = useNavigate();
   const [leads, setLeads] = useState([]);
   const [folders, setFolders] = useState([]);
   const [userFolders, setUserFolders] = useState([]);
@@ -63,6 +75,13 @@ export default function CRM({
   const [searchQuery, setSearchQuery] = useState('');
   const [statusFilter, setStatusFilter] = useState('');
   const [selectedIds, setSelectedIds] = useState([]);
+  
+  // Smart Folder modal and filters state
+  const [showSmartFolderModal, setShowSmartFolderModal] = useState(false);
+  const [smartFolderForm, setSmartFolderForm] = useState({ name: '', rules: [{ field: 'Status', operator: 'is', value: '' }] });
+  const [priorityFilter, setPriorityFilter] = useState('');
+  const [showLimitModal, setShowLimitModal] = useState(false);
+  const [limitModalMessage, setLimitModalMessage] = useState('');
 
   // Pagination state
   const [currentPage, setCurrentPage] = useState(1);
@@ -105,6 +124,62 @@ export default function CRM({
   };
   const [columnDefs, setColumnDefs] = useState([]);
   const [selectedLead, setSelectedLead] = useState(null);
+  const [newFieldName, setNewFieldName] = useState('');
+  const [newFieldType, setNewFieldType] = useState('text');
+
+  const handleAddNewCustomField = async (label, type) => {
+    if (!label.trim()) return;
+    const key = 'custom_' + label.toLowerCase().replace(/[^a-z0-9]/g, '_');
+    
+    if (columnDefs.some(c => c.column_key === key)) {
+      alert('A field with this name already exists.');
+      return;
+    }
+
+    const newCol = {
+      user_id: currentUser.id,
+      table_view: view === 'pipeline' ? 'pipeline' : 'contact_details',
+      column_key: key,
+      column_label: label.trim(),
+      column_type: type,
+      is_visible: true,
+      is_default: false,
+      sort_order: columnDefs.length,
+      dropdown_options: type === 'dropdown' ? [
+        { label: 'Option 1', color: '#3b82f6' },
+        { label: 'Option 2', color: '#10b981' }
+      ] : []
+    };
+
+    try {
+      const { data, error } = await supabase
+        .from('column_definitions')
+        .insert(newCol)
+        .select()
+        .single();
+
+      if (error) throw error;
+
+      setColumnDefs(prev => [...prev, data]);
+      setLeadForm(prev => ({
+        ...prev,
+        custom_fields: {
+          ...(prev.custom_fields || {}),
+          [key]: ''
+        }
+      }));
+    } catch (err) {
+      console.error('Error adding custom column:', err);
+    }
+  };
+
+  const handleRemoveCustomFieldVal = (key) => {
+    setLeadForm(prev => {
+      const copy = { ...(prev.custom_fields || {}) };
+      delete copy[key];
+      return { ...prev, custom_fields: copy };
+    });
+  };
   const [showColumnManager, setShowColumnManager] = useState(false);
   const [showCSVImporter, setShowCSVImporter] = useState(false);
 
@@ -135,7 +210,8 @@ export default function CRM({
     name: '', email: '', phone: '', company: '', niche: '',
     linkedin_url: '', instagram_url: '', twitter_url: '', website: '',
     priority: 'Warm', status: 'lead', notes: '', folder_id: '',
-    template_used: ''
+    template_used: '',
+    custom_fields: {}
   });
   const [folderForm, setFolderForm] = useState({ name: '', color: '#3b82f6' });
   const [importText, setImportText] = useState('');
@@ -160,7 +236,22 @@ export default function CRM({
       const { data: fData } = await supabase.from('folders')
         .select('*').eq('user_id', currentUser.id).order('sort_order', { ascending: true });
       setFolders(fData || []);
-      setUserFolders([]);
+
+      // Fetch Smart Folders (for Pro/Teams/Trial)
+      if (plan !== 'starter') {
+        const { data: ufData, error: ufErr } = await supabase
+          .from('user_folders')
+          .select('*')
+          .eq('user_id', currentUser.id)
+          .order('created_at', { ascending: true });
+        if (!ufErr) {
+          setUserFolders(ufData || []);
+        } else {
+          console.error('Error fetching user_folders:', ufErr);
+        }
+      } else {
+        setUserFolders([]);
+      }
 
 
       // Fetch Custom Statuses (dynamic pipeline)
@@ -412,31 +503,80 @@ export default function CRM({
     setCurrentPage(1);
   }, [searchQuery, statusFilter, selectedFolderId]);
 
+  // Auto-open lead from follow-up reminder action
+  useEffect(() => {
+    const checkAutoOpen = async () => {
+      const stored = sessionStorage.getItem('reachdesk_auto_open_lead');
+      if (stored && currentUser) {
+        sessionStorage.removeItem('reachdesk_auto_open_lead');
+        try {
+          const { leadId, preselectStatus } = JSON.parse(stored);
+          if (leadId) {
+            const { data: lead, error } = await supabase
+              .from('leads')
+              .select('*')
+              .eq('id', leadId)
+              .maybeSingle();
+
+            if (!error && lead) {
+              const modifiedLead = { ...lead, status: preselectStatus };
+              setSelectedLead(modifiedLead);
+            }
+          }
+        } catch (e) {
+          console.error('[CRM] Error parsing auto-open lead:', e);
+        }
+      }
+    };
+
+    checkAutoOpen();
+
+    window.addEventListener('reachdesk_trigger_auto_open', checkAutoOpen);
+    return () => {
+      window.removeEventListener('reachdesk_trigger_auto_open', checkAutoOpen);
+    };
+  }, [currentUser]);
+
   // Lead warnings & locks
   const totalLeadsCount = leads.length;
-  const showStarterWarning = plan === 'starter' && totalLeadsCount >= 550 && totalLeadsCount < 600;
-  const showProWarning = plan === 'pro' && totalLeadsCount >= 2300 && totalLeadsCount < 2500;
-  
-  const isLeadLimitReached = 
-    (plan === 'starter' && totalLeadsCount >= 600) ||
-    (plan === 'pro' && totalLeadsCount >= 2500);
+  const leadLimit = limits.leads;
+  const isLeadLimitReached = leadLimit !== Infinity && totalLeadsCount >= leadLimit;
+
+  // Show warnings when approaching the limit
+  const limitThreshold = leadLimit === 50 ? 5 : leadLimit === 600 ? 50 : leadLimit === 2500 ? 200 : leadLimit === 10000 ? 500 : 0;
+  const showLimitWarning = leadLimit !== Infinity && totalLeadsCount >= (leadLimit - limitThreshold) && totalLeadsCount < leadLimit;
 
   const remainingLeads = (() => {
-    if (plan === 'starter') return Math.max(0, 600 - totalLeadsCount);
-    if (plan === 'pro') return Math.max(0, 2500 - totalLeadsCount);
+    if (leadLimit !== Infinity) return Math.max(0, leadLimit - totalLeadsCount);
     return null;
   })();
 
   const leadLimitTooltip = 'Lead limit reached. Delete leads or upgrade.';
 
   const handleOpenAddLead = () => {
-    if (isLeadLimitReached) return; // button is disabled, guard anyway
+    if (isLeadLimitReached) {
+      const planName = plan.charAt(0).toUpperCase() + plan.slice(1);
+      const limitFormatted = leadLimit.toLocaleString();
+      let nextPlan = '';
+      let nextLimit = '';
+      if (plan === 'trial') { nextPlan = 'Starter'; nextLimit = '600'; }
+      else if (plan === 'starter') { nextPlan = 'Pro'; nextLimit = '2,500'; }
+      else if (plan === 'pro') { nextPlan = 'Teams'; nextLimit = '10,000'; }
+      else if (plan === 'teams') { nextPlan = 'Enterprise'; nextLimit = 'unlimited'; }
+      
+      setLimitModalMessage(`You've reached your ${planName} plan limit of ${limitFormatted} leads. ${nextPlan ? `Upgrade to ${nextPlan} for ${nextLimit} leads.` : ''}`);
+      setShowLimitModal(true);
+      return;
+    }
     setLeadForm({
       name: '', email: '', phone: '', company: '', niche: '',
       linkedin_url: '', instagram_url: '', twitter_url: '', website: '',
       priority: 'Warm', status: 'lead', notes: '', folder_id: selectedFolderId || '',
-      template_used: ''
+      template_used: '',
+      custom_fields: {}
     });
+    setNewFieldName('');
+    setNewFieldType('text');
     setShowAddLeadModal(true);
   };
 
@@ -450,6 +590,11 @@ export default function CRM({
       const first_name = parts[0] || '';
       const last_name = parts.slice(1).join(' ') || null;
 
+      let finalWebsite = leadForm.website ? leadForm.website.trim() : null;
+      if (finalWebsite && !/^https?:\/\//i.test(finalWebsite)) {
+        finalWebsite = `https://${finalWebsite}`;
+      }
+
       const { data, error } = await supabase.from('leads')
         .insert({
           first_name,
@@ -461,13 +606,14 @@ export default function CRM({
           linkedin_url: leadForm.linkedin_url || null,
           instagram_url: leadForm.instagram_url || null,
           twitter_url: leadForm.twitter_url || null,
-          website: leadForm.website || null,
+          website: finalWebsite,
           priority: leadForm.priority || 'Warm',
           status: leadForm.status || 'lead',
           notes: leadForm.notes || null,
           user_id: currentUser.id,
           folder_id: leadForm.folder_id || null,
-          template_used: leadForm.template_used || null
+          template_used: leadForm.template_used || null,
+          custom_fields: leadForm.custom_fields || {}
         })
         .select()
         .single();
@@ -522,8 +668,11 @@ export default function CRM({
       status: lead.status || 'lead',
       notes: lead.notes || '',
       folder_id: lead.folder_id || '',
-      template_used: lead.template_used || ''
+      template_used: lead.template_used || '',
+      custom_fields: lead.custom_fields || {}
     });
+    setNewFieldName('');
+    setNewFieldType('text');
     setShowEditLeadModal(true);
   };
 
@@ -534,6 +683,11 @@ export default function CRM({
       const parts = (leadForm.name || '').trim().split(' ');
       const first_name = parts[0] || '';
       const last_name = parts.slice(1).join(' ') || null;
+
+      let finalWebsite = leadForm.website ? leadForm.website.trim() : null;
+      if (finalWebsite && !/^https?:\/\//i.test(finalWebsite)) {
+        finalWebsite = `https://${finalWebsite}`;
+      }
 
       const { data, error } = await supabase.from('leads')
         .update({
@@ -546,12 +700,13 @@ export default function CRM({
           linkedin_url: leadForm.linkedin_url || null,
           instagram_url: leadForm.instagram_url || null,
           twitter_url: leadForm.twitter_url || null,
-          website: leadForm.website || null,
+          website: finalWebsite,
           priority: leadForm.priority || 'Warm',
           status: leadForm.status || 'lead',
           notes: leadForm.notes || null,
           folder_id: leadForm.folder_id || null,
-          template_used: leadForm.template_used || null
+          template_used: leadForm.template_used || null,
+          custom_fields: leadForm.custom_fields || {}
         })
         .eq('id', activeLead.id)
         .select()
@@ -750,6 +905,67 @@ export default function CRM({
     } catch (err) {
       console.error('Error deleting folder:', err);
     }
+  };
+
+  const handleDeleteSmartFolder = async (folderId) => {
+    if (!confirm('Delete this smart folder?')) return;
+    try {
+      await supabase.from('user_folders').delete().eq('id', folderId);
+      setUserFolders(prev => prev.filter(uf => uf.id !== folderId));
+      if (selectedFolderId === folderId) setSelectedFolderId(null);
+    } catch (err) {
+      console.error('Error deleting smart folder:', err);
+    }
+  };
+
+  const matchRule = (lead, rule) => {
+    const { field, operator, value } = rule;
+    if (!field) return true;
+    
+    let leadValue = '';
+    if (field === 'Status') {
+      leadValue = lead.status || '';
+    } else if (field === 'Priority') {
+      leadValue = lead.priority || '';
+    } else if (field === 'Tag') {
+      leadValue = lead.niche || lead.tags || lead.tag || '';
+    }
+
+    const leadStr = String(leadValue).toLowerCase();
+    const ruleStr = String(value).toLowerCase();
+
+    let isMatch = leadStr === ruleStr;
+    if (field === 'Status') {
+      isMatch = leadStr === ruleStr || 
+        (STATUS_LABELS[leadValue] || '').toLowerCase() === ruleStr ||
+        Object.entries(STATUS_LABELS).some(([key, val]) => key.toLowerCase() === leadStr && val.toLowerCase() === ruleStr);
+    } else if (field === 'Priority') {
+      isMatch = leadStr === ruleStr || matchesPriority(leadValue, value);
+    }
+
+    if (operator === 'is') {
+      return isMatch;
+    } else if (operator === 'is not') {
+      return !isMatch;
+    }
+    return true;
+  };
+
+  const matchesPriority = (leadPriority, filterValue) => {
+    if (!filterValue || filterValue === 'All') return true;
+    if (!leadPriority) return false;
+    
+    const norm = leadPriority.toLowerCase();
+    if (filterValue === 'High') {
+      return norm.includes('hot') || norm.includes('high');
+    }
+    if (filterValue === 'Medium') {
+      return norm.includes('warm') || norm.includes('medium');
+    }
+    if (filterValue === 'Low') {
+      return norm.includes('cold') || norm.includes('low');
+    }
+    return false;
   };
 
   const handleRenameFolder = async (folderId, newName) => {
@@ -955,17 +1171,28 @@ export default function CRM({
     } else if (selectedFolderId === 'clients') {
       folderMatch = l.status === 'client';
     } else {
-      // Manual folder: match by folder_id
-      if (folders.find(f => f.id === selectedFolderId)) {
+      // Smart folder check
+      const smartFolder = userFolders.find(uf => uf.id === selectedFolderId);
+      if (smartFolder) {
+        const config = smartFolder.filter_config || {};
+        const rules = config.rules || [];
+        folderMatch = rules.length === 0 || rules.every(rule => matchRule(l, rule));
+      } else if (folders.find(f => f.id === selectedFolderId)) {
         folderMatch = l.folder_id === selectedFolderId;
       } else {
         folderMatch = true; // Unknown folder ID — show all rather than hide all
       }
     }
 
-    const statusMatch = !statusFilter || l.status === statusFilter;
+    // Status filter matches case-insensitively (supports code and labels)
+    const statusMatch = !statusFilter || 
+      (l.status || '').toLowerCase() === statusFilter.toLowerCase() ||
+      (STATUS_LABELS[l.status] || '').toLowerCase() === statusFilter.toLowerCase();
 
-    return searchMatch && folderMatch && statusMatch;
+    // Priority filter matches via helper
+    const priorityMatch = matchesPriority(l.priority, priorityFilter);
+
+    return searchMatch && folderMatch && statusMatch && priorityMatch;
   });
 
   const filteredClients = clients.filter(c => {
@@ -1043,29 +1270,71 @@ export default function CRM({
             <div style={{ borderTop: '0.5px solid var(--border)', margin: '0.5rem 0' }}></div>
 
             <h4 style={{ fontSize: '0.65rem', letterSpacing: '0.1em', textTransform: 'uppercase', color: 'var(--text-muted)', fontWeight: 600, marginTop: '24px', marginBottom: '6px', paddingLeft: '8px' }}>Smart Folders</h4>
-            {userFolders.map(uf => (
-              <button
-                key={uf.id}
-                onClick={() => handleSelectFolder(uf.id)}
-                className={`folder-item ${selectedFolderId === uf.id ? 'active' : ''}`}
-                style={{
-                  display: 'flex', alignItems: 'center', gap: '0.5rem', width: '100%',
-                  padding: '0.5rem 0.75rem', borderRadius: '6px', background: 'transparent',
-                  border: 'none', color: 'var(--text-primary)', cursor: 'pointer', textAlign: 'left',
-                  fontWeight: selectedFolderId === uf.id ? 600 : 400
+            {userFolders.map(uf => {
+              const count = leads.filter(l => {
+                const config = uf.filter_config || {};
+                const rules = config.rules || [];
+                if (rules.length === 0) return true;
+                return rules.every(rule => matchRule(l, rule));
+              }).length;
+
+              return (
+                <div key={uf.id} className="group-hover flex justify-between align-center" style={{ width: '100%' }}>
+                  <button
+                    onClick={() => handleSelectFolder(uf.id)}
+                    className={`folder-item ${selectedFolderId === uf.id ? 'active' : ''}`}
+                    style={{
+                      display: 'flex', alignItems: 'center', gap: '0.5rem', flex: 1,
+                      padding: '0.5rem 0.75rem', borderRadius: '6px', background: 'transparent',
+                      border: 'none', color: 'var(--text-primary)', cursor: 'pointer', textAlign: 'left',
+                      fontWeight: selectedFolderId === uf.id ? 600 : 400
+                    }}
+                  >
+                    <Folder size={16} style={{ color: 'var(--accent-blue)' }} />
+                    <span style={{ textOverflow: 'ellipsis', overflow: 'hidden', whiteSpace: 'nowrap', maxWidth: '100px' }}>{uf.name}</span>
+                    <span style={{ fontSize: '0.75rem', color: 'var(--text-muted)' }}>({count})</span>
+                  </button>
+                  <div className="flex gap-1">
+                    <button 
+                      onClick={() => handleDeleteSmartFolder(uf.id)}
+                      className="btn-icon delete-btn" 
+                      style={{ padding: '0.2rem', color: 'var(--danger-color)', display: 'none' }}
+                      title="Delete Smart Folder"
+                    >
+                      <Trash2 size={12} />
+                    </button>
+                  </div>
+                </div>
+              );
+            })}
+            {plan === 'starter' ? (
+              <div 
+                style={{ 
+                  display: 'flex', 
+                  alignItems: 'center', 
+                  gap: '0.35rem', 
+                  color: 'var(--text-muted)', 
+                  fontSize: '0.75rem', 
+                  marginTop: '0.5rem', 
+                  paddingLeft: '8px'
                 }}
+                title="Available on Pro plan"
               >
-                <Folder size={16} style={{ color: 'var(--accent-blue)' }} />
-                <span style={{ textOverflow: 'ellipsis', overflow: 'hidden', whiteSpace: 'nowrap' }}>{uf.name}</span>
+                <Lock size={12} />
+                <span>Available on Pro plan</span>
+              </div>
+            ) : (
+              <button 
+                onClick={() => {
+                  setSmartFolderForm({ name: '', rules: [{ field: 'Status', operator: 'is', value: '' }] });
+                  setShowSmartFolderModal(true);
+                }}
+                className="btn btn-secondary btn-sm"
+                style={{ marginTop: '0.25rem', fontSize: '0.75rem', justifyContent: 'center' }}
+              >
+                <FolderPlus size={14} /> + Smart Folder
               </button>
-            ))}
-            <button 
-              onClick={() => alert('Smart Folder UI Modal to be implemented')}
-              className="btn btn-secondary btn-sm"
-              style={{ marginTop: '0.25rem', fontSize: '0.75rem', justifyContent: 'center' }}
-            >
-              <FolderPlus size={14} /> + Smart Folder
-            </button>
+            )}
 
             <div style={{ borderTop: '0.5px solid var(--border)', margin: '0.5rem 0' }}></div>
 
@@ -1147,12 +1416,7 @@ export default function CRM({
           </button>
         </div>
         {/* Warning Banners */}
-        {showStarterWarning && (
-          <div className="auth-error-banner" style={{ background: 'rgba(245, 158, 11, 0.1)', color: '#f59e0b', border: '1px solid rgba(245, 158, 11, 0.3)' }}>
-            <AlertCircle size={16} /> You have {remainingLeads} leads remaining in your plan. Delete unused leads or upgrade to add more.
-          </div>
-        )}
-        {showProWarning && (
+        {showLimitWarning && (
           <div className="auth-error-banner" style={{ background: 'rgba(245, 158, 11, 0.1)', color: '#f59e0b', border: '1px solid rgba(245, 158, 11, 0.3)' }}>
             <AlertCircle size={16} /> You have {remainingLeads} leads remaining in your plan. Delete unused leads or upgrade to add more.
           </div>
@@ -1175,18 +1439,6 @@ export default function CRM({
                 style={{ paddingLeft: '2.5rem' }}
               />
             </div>
-            
-            <select
-              value={statusFilter}
-              onChange={e => setStatusFilter(e.target.value)}
-              className="form-select"
-              style={{ width: '150px' }}
-            >
-              <option value="">All Statuses</option>
-              {Object.entries(STATUS_LABELS).map(([val, lbl]) => (
-                <option key={val} value={val}>{lbl}</option>
-              ))}
-            </select>
           </div>
 
           <div className="flex gap-2">
@@ -1224,6 +1476,57 @@ export default function CRM({
             </button>
           </div>
         </div>
+
+        {/* 🔍 Filter Bar Row */}
+        {view !== 'clients' && (
+          <div className="flex gap-4 align-center" style={{ marginTop: '0.75rem', marginBottom: '0.75rem', padding: '0.5rem 0.75rem', background: 'var(--bg-secondary)', borderRadius: '8px', flexWrap: 'wrap', border: '1px solid var(--border-color)' }}>
+            <div className="flex gap-2 align-center">
+              <span style={{ fontSize: '0.8rem', fontWeight: 600, color: 'var(--text-secondary)' }}>Status:</span>
+              <select
+                value={statusFilter}
+                onChange={e => setStatusFilter(e.target.value)}
+                className="form-select"
+                style={{ minWidth: '150px', fontSize: '0.8rem', padding: '0.35rem 0.5rem', height: 'auto' }}
+              >
+                <option value="">All</option>
+                {statuses.length > 0 ? (
+                  statuses.map(s => (
+                    <option key={s.id || s.label} value={s.label}>{s.label}</option>
+                  ))
+                ) : (
+                  Object.entries(STATUS_LABELS).map(([val, lbl]) => (
+                    <option key={val} value={val}>{lbl}</option>
+                  ))
+                )}
+              </select>
+            </div>
+
+            <div className="flex gap-2 align-center">
+              <span style={{ fontSize: '0.8rem', fontWeight: 600, color: 'var(--text-secondary)' }}>Priority:</span>
+              <select
+                value={priorityFilter}
+                onChange={e => setPriorityFilter(e.target.value)}
+                className="form-select"
+                style={{ minWidth: '120px', fontSize: '0.8rem', padding: '0.35rem 0.5rem', height: 'auto' }}
+              >
+                <option value="">All</option>
+                <option value="High">High</option>
+                <option value="Medium">Medium</option>
+                <option value="Low">Low</option>
+              </select>
+            </div>
+
+            {(statusFilter || priorityFilter) && (
+              <button
+                onClick={() => { setStatusFilter(''); setPriorityFilter(''); }}
+                className="btn btn-secondary btn-sm"
+                style={{ fontSize: '0.75rem', padding: '0.25rem 0.5rem', height: 'auto' }}
+              >
+                Clear Filters
+              </button>
+            )}
+          </div>
+        )}
 
         {/* Bulk Actions Menu Overlay */}
         {selectedIds.length > 0 && (
@@ -1502,7 +1805,7 @@ export default function CRM({
                         if (col.column_key === 'platform' || col.column_type === 'reach' || col.column_type === 'system') {
                           return (
                             <td key={col.id} style={{ padding: '0.75rem 1rem' }} onClick={(e) => e.stopPropagation()}>
-                              <ReachIcons lead={lead} />
+                              <ReachIcons lead={lead} columnDefs={columnDefs} />
                             </td>
                           );
                         }
@@ -1845,6 +2148,92 @@ export default function CRM({
                 />
               </div>
 
+              {/* Custom Fields Section */}
+              <div style={{ borderTop: '0.5px solid var(--border)', marginTop: '1.5rem', paddingTop: '1rem' }}>
+                <span style={{ fontSize: '0.75rem', letterSpacing: '0.1em', textTransform: 'uppercase', color: 'var(--text-muted)', fontWeight: 600 }}>Custom Fields</span>
+              </div>
+
+              {/* Render existing custom fields */}
+              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1rem', marginTop: '0.75rem' }}>
+                {columnDefs.filter(c => !c.is_default && c.table_view === (view === 'pipeline' ? 'pipeline' : 'contact_details')).map(col => {
+                  const val = leadForm.custom_fields?.[col.column_key] || '';
+                  return (
+                    <div key={col.id} className="form-group" style={{ position: 'relative' }}>
+                      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '0.25rem' }}>
+                        <label className="form-label" style={{ marginBottom: 0 }}>{col.column_label}</label>
+                        <button
+                          type="button"
+                          onClick={() => handleRemoveCustomFieldVal(col.column_key)}
+                          style={{
+                            background: 'none',
+                            border: 'none',
+                            color: 'var(--status-hot, #ef4444)',
+                            cursor: 'pointer',
+                            fontSize: '0.85rem',
+                            padding: 0,
+                            display: 'flex',
+                            alignItems: 'center'
+                          }}
+                          title="Clear value"
+                        >
+                          ×
+                        </button>
+                      </div>
+                      <input
+                        type={col.column_type === 'number' ? 'number' : col.column_type === 'link' ? 'url' : 'text'}
+                        value={val}
+                        onChange={e => setLeadForm(prev => ({
+                          ...prev,
+                          custom_fields: {
+                            ...(prev.custom_fields || {}),
+                            [col.column_key]: e.target.value
+                          }
+                        }))}
+                        className="form-input"
+                        placeholder={`Enter ${col.column_label.toLowerCase()}...`}
+                      />
+                    </div>
+                  );
+                })}
+              </div>
+
+              {/* Add Custom Field Inline Form */}
+              <div style={{ display: 'flex', gap: '0.75rem', alignItems: 'flex-end', marginTop: '1rem', background: 'rgba(255, 255, 255, 0.02)', padding: '0.75rem', borderRadius: '8px', border: '1px dashed var(--border)' }}>
+                <div style={{ flex: 2 }}>
+                  <label className="form-label" style={{ color: 'var(--text-secondary)' }}>New Field Name</label>
+                  <input
+                    type="text"
+                    value={newFieldName}
+                    onChange={e => setNewFieldName(e.target.value)}
+                    placeholder="e.g. TikTok, Skype..."
+                    className="form-input"
+                  />
+                </div>
+                <div style={{ flex: 1.5 }}>
+                  <label className="form-label" style={{ color: 'var(--text-secondary)' }}>Type</label>
+                  <select
+                    value={newFieldType}
+                    onChange={e => setNewFieldType(e.target.value)}
+                    className="form-select"
+                  >
+                    <option value="text">Text</option>
+                    <option value="link">Link</option>
+                    <option value="number">Number</option>
+                  </select>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => {
+                    handleAddNewCustomField(newFieldName, newFieldType);
+                    setNewFieldName('');
+                  }}
+                  className="btn btn-secondary"
+                  style={{ height: '38px', whiteSpace: 'nowrap', display: 'flex', alignItems: 'center', gap: '4px' }}
+                >
+                  <Plus size={14} /> Add Field
+                </button>
+              </div>
+
               <div className="flex justify-between mt-4">
                 <button
                   type="button"
@@ -1871,6 +2260,20 @@ export default function CRM({
       <button 
         className="floating-quick-add-btn" 
         onClick={() => {
+          if (isLeadLimitReached) {
+            const planName = plan.charAt(0).toUpperCase() + plan.slice(1);
+            const limitFormatted = leadLimit.toLocaleString();
+            let nextPlan = '';
+            let nextLimit = '';
+            if (plan === 'trial') { nextPlan = 'Starter'; nextLimit = '600'; }
+            else if (plan === 'starter') { nextPlan = 'Pro'; nextLimit = '2,500'; }
+            else if (plan === 'pro') { nextPlan = 'Teams'; nextLimit = '10,000'; }
+            else if (plan === 'teams') { nextPlan = 'Enterprise'; nextLimit = 'unlimited'; }
+            
+            setLimitModalMessage(`You've reached your ${planName} plan limit of ${limitFormatted} leads. ${nextPlan ? `Upgrade to ${nextPlan} for ${nextLimit} leads.` : ''}`);
+            setShowLimitModal(true);
+            return;
+          }
           setQuickAddForm({ first_name: '', platform: 'LinkedIn', priority: 'Warm' });
           setShowQuickAddModal(true);
         }}
@@ -2114,6 +2517,92 @@ export default function CRM({
                 />
               </div>
 
+              {/* Custom Fields Section */}
+              <div style={{ borderTop: '0.5px solid var(--border)', marginTop: '1.5rem', paddingTop: '1rem' }}>
+                <span style={{ fontSize: '0.75rem', letterSpacing: '0.1em', textTransform: 'uppercase', color: 'var(--text-muted)', fontWeight: 600 }}>Custom Fields</span>
+              </div>
+
+              {/* Render existing custom fields */}
+              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1rem', marginTop: '0.75rem' }}>
+                {columnDefs.filter(c => !c.is_default && c.table_view === (view === 'pipeline' ? 'pipeline' : 'contact_details')).map(col => {
+                  const val = leadForm.custom_fields?.[col.column_key] || '';
+                  return (
+                    <div key={col.id} className="form-group" style={{ position: 'relative' }}>
+                      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '0.25rem' }}>
+                        <label className="form-label" style={{ marginBottom: 0 }}>{col.column_label}</label>
+                        <button
+                          type="button"
+                          onClick={() => handleRemoveCustomFieldVal(col.column_key)}
+                          style={{
+                            background: 'none',
+                            border: 'none',
+                            color: 'var(--status-hot, #ef4444)',
+                            cursor: 'pointer',
+                            fontSize: '0.85rem',
+                            padding: 0,
+                            display: 'flex',
+                            alignItems: 'center'
+                          }}
+                          title="Clear value"
+                        >
+                          ×
+                        </button>
+                      </div>
+                      <input
+                        type={col.column_type === 'number' ? 'number' : col.column_type === 'link' ? 'url' : 'text'}
+                        value={val}
+                        onChange={e => setLeadForm(prev => ({
+                          ...prev,
+                          custom_fields: {
+                            ...(prev.custom_fields || {}),
+                            [col.column_key]: e.target.value
+                          }
+                        }))}
+                        className="form-input"
+                        placeholder={`Enter ${col.column_label.toLowerCase()}...`}
+                      />
+                    </div>
+                  );
+                })}
+              </div>
+
+              {/* Add Custom Field Inline Form */}
+              <div style={{ display: 'flex', gap: '0.75rem', alignItems: 'flex-end', marginTop: '1rem', background: 'rgba(255, 255, 255, 0.02)', padding: '0.75rem', borderRadius: '8px', border: '1px dashed var(--border)' }}>
+                <div style={{ flex: 2 }}>
+                  <label className="form-label" style={{ color: 'var(--text-secondary)' }}>New Field Name</label>
+                  <input
+                    type="text"
+                    value={newFieldName}
+                    onChange={e => setNewFieldName(e.target.value)}
+                    placeholder="e.g. TikTok, Skype..."
+                    className="form-input"
+                  />
+                </div>
+                <div style={{ flex: 1.5 }}>
+                  <label className="form-label" style={{ color: 'var(--text-secondary)' }}>Type</label>
+                  <select
+                    value={newFieldType}
+                    onChange={e => setNewFieldType(e.target.value)}
+                    className="form-select"
+                  >
+                    <option value="text">Text</option>
+                    <option value="link">Link</option>
+                    <option value="number">Number</option>
+                  </select>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => {
+                    handleAddNewCustomField(newFieldName, newFieldType);
+                    setNewFieldName('');
+                  }}
+                  className="btn btn-secondary"
+                  style={{ height: '38px', whiteSpace: 'nowrap', display: 'flex', alignItems: 'center', gap: '4px' }}
+                >
+                  <Plus size={14} /> Add Field
+                </button>
+              </div>
+
               <div className="flex justify-between mt-4">
                 <button
                   type="button"
@@ -2350,6 +2839,220 @@ export default function CRM({
             fetchData();
           }}
         />
+      )}
+
+      {/* 📁 Create Smart Folder Modal */}
+      {showSmartFolderModal && (
+        <div className="modal-backdrop">
+          <div className="modal-content" style={{ maxWidth: '600px', width: '90%' }}>
+            <div className="modal-header">
+              <h3>Create Smart Folder</h3>
+              <button onClick={() => setShowSmartFolderModal(false)} className="theme-toggle"><X size={18} /></button>
+            </div>
+            <form onSubmit={async (e) => {
+              e.preventDefault();
+              if (!smartFolderForm.name.trim()) return;
+              try {
+                const newFolder = {
+                  user_id: currentUser.id,
+                  name: smartFolderForm.name,
+                  filter_config: {
+                    rules: smartFolderForm.rules
+                  }
+                };
+                const { data, error } = await supabase
+                  .from('user_folders')
+                  .insert(newFolder)
+                  .select()
+                  .single();
+                if (error) throw error;
+                setUserFolders(prev => [...prev, data]);
+                setShowSmartFolderModal(false);
+                setSmartFolderForm({ name: '', rules: [{ field: 'Status', operator: 'is', value: '' }] });
+                handleSelectFolder(data.id);
+              } catch (err) {
+                console.error('Error creating smart folder:', err);
+                alert('Failed to create smart folder: ' + err.message);
+              }
+            }} className="flex-col gap-3">
+              <div className="form-group">
+                <label className="form-label">Folder Name *</label>
+                <input 
+                  type="text" 
+                  required 
+                  value={smartFolderForm.name} 
+                  onChange={e => setSmartFolderForm({...smartFolderForm, name: e.target.value})} 
+                  className="form-input" 
+                  placeholder="e.g. Hot LinkedIn Leads" 
+                />
+              </div>
+              
+              <div className="form-group">
+                <label className="form-label">Rules (All rules must match - AND logic)</label>
+                <div className="flex-col gap-2" style={{ marginTop: '0.5rem', marginBottom: '0.5rem' }}>
+                  {smartFolderForm.rules.map((rule, idx) => (
+                    <div key={idx} className="flex gap-2 align-center" style={{ flexWrap: 'wrap', marginBottom: '0.5rem' }}>
+                      <select
+                        value={rule.field}
+                        onChange={e => {
+                          const newRules = [...smartFolderForm.rules];
+                          newRules[idx].field = e.target.value;
+                          newRules[idx].value = ''; // Reset value
+                          setSmartFolderForm({...smartFolderForm, rules: newRules});
+                        }}
+                        className="form-select"
+                        style={{ flex: 1, minWidth: '120px' }}
+                      >
+                        <option value="Status">Status</option>
+                        <option value="Priority">Priority</option>
+                        <option value="Tag">Tag</option>
+                      </select>
+
+                      <select
+                        value={rule.operator}
+                        onChange={e => {
+                          const newRules = [...smartFolderForm.rules];
+                          newRules[idx].operator = e.target.value;
+                          setSmartFolderForm({...smartFolderForm, rules: newRules});
+                        }}
+                        className="form-select"
+                        style={{ flex: 1, minWidth: '100px' }}
+                      >
+                        <option value="is">is</option>
+                        <option value="is not">is not</option>
+                      </select>
+
+                      {rule.field === 'Status' ? (
+                        <select
+                          value={rule.value}
+                          onChange={e => {
+                            const newRules = [...smartFolderForm.rules];
+                            newRules[idx].value = e.target.value;
+                            setSmartFolderForm({...smartFolderForm, rules: newRules});
+                          }}
+                          className="form-select"
+                          style={{ flex: 1.5, minWidth: '150px' }}
+                          required
+                        >
+                          <option value="">-- Select Status --</option>
+                          {statuses.length > 0 ? (
+                            statuses.map(s => (
+                              <option key={s.id || s.label} value={s.label}>{s.label}</option>
+                            ))
+                          ) : (
+                            Object.entries(STATUS_LABELS).map(([val, lbl]) => (
+                              <option key={val} value={val}>{lbl}</option>
+                            ))
+                          )}
+                        </select>
+                      ) : rule.field === 'Priority' ? (
+                        <select
+                          value={rule.value}
+                          onChange={e => {
+                            const newRules = [...smartFolderForm.rules];
+                            newRules[idx].value = e.target.value;
+                            setSmartFolderForm({...smartFolderForm, rules: newRules});
+                          }}
+                          className="form-select"
+                          style={{ flex: 1.5, minWidth: '120px' }}
+                          required
+                        >
+                          <option value="">-- Select Priority --</option>
+                          <option value="Hot">Hot</option>
+                          <option value="Warm">Warm</option>
+                          <option value="Cold">Cold</option>
+                        </select>
+                      ) : (
+                        <input
+                          type="text"
+                          value={rule.value}
+                          onChange={e => {
+                            const newRules = [...smartFolderForm.rules];
+                            newRules[idx].value = e.target.value;
+                            setSmartFolderForm({...smartFolderForm, rules: newRules});
+                          }}
+                          placeholder="Value..."
+                          className="form-input"
+                          style={{ flex: 1.5, minWidth: '150px' }}
+                          required
+                        />
+                      )}
+
+                      <button
+                        type="button"
+                        onClick={() => {
+                          const newRules = smartFolderForm.rules.filter((_, rIdx) => rIdx !== idx);
+                          setSmartFolderForm({...smartFolderForm, rules: newRules});
+                        }}
+                        className="btn btn-secondary btn-icon"
+                        style={{ padding: '0.35rem', color: 'var(--danger-color)' }}
+                        disabled={smartFolderForm.rules.length <= 1}
+                      >
+                        <Trash2 size={14} />
+                      </button>
+                    </div>
+                  ))}
+                </div>
+                
+                <button
+                  type="button"
+                  onClick={() => {
+                    setSmartFolderForm({
+                      ...smartFolderForm,
+                      rules: [...smartFolderForm.rules, { field: 'Status', operator: 'is', value: '' }]
+                    });
+                  }}
+                  className="btn btn-secondary btn-sm"
+                  style={{ display: 'flex', alignSelf: 'flex-start' }}
+                >
+                  <Plus size={14} /> Add Rule
+                </button>
+              </div>
+
+              <div className="flex justify-between mt-4">
+                <button 
+                  type="button" 
+                  onClick={() => setShowSmartFolderModal(false)} 
+                  className="btn btn-secondary"
+                >
+                  Cancel
+                </button>
+                <button type="submit" className="btn btn-primary">Create Smart Folder</button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {/* ⚠️ Lead Limits Modal */}
+      {showLimitModal && (
+        <div className="modal-backdrop" style={{ zIndex: 1200 }}>
+          <div className="modal-content" style={{ maxWidth: '400px', textAlign: 'center', padding: '2rem' }}>
+            <div className="paywall-icon" style={{ background: 'rgba(239, 68, 68, 0.1)', color: '#ef4444', margin: '0 auto 1.5rem', width: '60px', height: '60px', borderRadius: '50%', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+              <Lock size={30} />
+            </div>
+            <h3 style={{ fontSize: '1.25rem', fontWeight: 700, marginBottom: '1rem', color: 'var(--text-primary)' }}>Limit Reached</h3>
+            <p style={{ fontSize: '0.9rem', color: 'var(--text-secondary)', marginBottom: '1.5rem', lineHeight: '1.5' }}>
+              {limitModalMessage}
+            </p>
+            <div className="flex-col gap-2">
+              <button 
+                onClick={() => { setShowLimitModal(false); navigate('/upgrade'); }}
+                className="btn btn-primary w-full"
+                style={{ justifyContent: 'center' }}
+              >
+                Upgrade Now
+              </button>
+              <button 
+                onClick={() => setShowLimitModal(false)}
+                className="btn btn-secondary w-full"
+                style={{ justifyContent: 'center' }}
+              >
+                Cancel
+              </button>
+            </div>
+          </div>
+        </div>
       )}
     </div>
   );

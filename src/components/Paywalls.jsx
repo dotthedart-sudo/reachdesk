@@ -124,7 +124,7 @@ const PLANS = [
   {
     id: 'starter',
     name: 'Starter',
-    tagline: '600 leads · 1 user · 20 templates',
+    tagline: '600 leads · 1 user · 10 templates',
     features: CORE_FEATURES,
     comingSoon: false,
     isEnterprise: false,

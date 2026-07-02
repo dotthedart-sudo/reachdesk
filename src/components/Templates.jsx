@@ -1,4 +1,5 @@
 import React, { useState } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { 
   Plus, 
   Copy, 
@@ -10,7 +11,8 @@ import {
   Eye,
   ChevronDown,
   ChevronRight,
-  ClipboardList
+  ClipboardList,
+  Lock
 } from 'lucide-react';
 import { PLAN_LIMITS } from '../lib/utils';
 
@@ -31,6 +33,9 @@ export default function Templates({
   teamProfilesMap = {},
   isTeamView = false
 }) {
+  const navigate = useNavigate();
+  const [showToast, setShowToast] = useState(false);
+  const [toastMessage, setToastMessage] = useState('');
   const [expandedSections, setExpandedSections] = useState({});
   const [showEditor, setShowEditor] = useState(false);
   const [editingTemplate, setEditingTemplate] = useState(null);
@@ -69,7 +74,14 @@ export default function Templates({
 
   const handleOpenAdd = (sectionName) => {
     if (isTemplateLimitReached) {
-      alert(`Template limit reached! Your ${currentUser.plan} plan allows up to ${templateLimit} templates. Please upgrade your plan or delete some templates.`);
+      const planName = currentUser.plan ? currentUser.plan.charAt(0).toUpperCase() + currentUser.plan.slice(1) : 'Trial';
+      let nextPlan = '';
+      let nextLimit = '';
+      if (planKey === 'trial') { nextPlan = 'Starter'; nextLimit = '10 templates'; }
+      else if (planKey === 'starter') { nextPlan = 'Pro'; nextLimit = 'unlimited templates'; }
+      
+      setToastMessage(`You've reached your ${planName} plan limit of ${templateLimit} templates.${nextPlan ? ` Upgrade to ${nextPlan} for ${nextLimit}.` : ''}`);
+      setShowToast(true);
       return;
     }
     const defaultPlatform = SECTIONS.includes(sectionName) ? sectionName : 'INITIAL TEMPLATES';
@@ -116,7 +128,14 @@ export default function Templates({
       }
     } else {
       if (isTemplateLimitReached) {
-        alert(`Template limit reached! Your ${currentUser.plan} plan allows up to ${templateLimit} templates. Please upgrade your plan.`);
+        const planName = currentUser.plan ? currentUser.plan.charAt(0).toUpperCase() + currentUser.plan.slice(1) : 'Trial';
+        let nextPlan = '';
+        let nextLimit = '';
+        if (planKey === 'trial') { nextPlan = 'Starter'; nextLimit = '10 templates'; }
+        else if (planKey === 'starter') { nextPlan = 'Pro'; nextLimit = 'unlimited templates'; }
+        
+        setToastMessage(`You've reached your ${planName} plan limit of ${templateLimit} templates.${nextPlan ? ` Upgrade to ${nextPlan} for ${nextLimit}.` : ''}`);
+        setShowToast(true);
         return;
       }
       onAddTemplate({
@@ -129,7 +148,14 @@ export default function Templates({
 
   const handleDuplicate = async (template) => {
     if (isTemplateLimitReached) {
-      alert(`Template limit reached! Your ${currentUser.plan} plan allows up to ${templateLimit} templates. Please upgrade your plan.`);
+      const planName = currentUser.plan ? currentUser.plan.charAt(0).toUpperCase() + currentUser.plan.slice(1) : 'Trial';
+      let nextPlan = '';
+      let nextLimit = '';
+      if (planKey === 'trial') { nextPlan = 'Starter'; nextLimit = '10 templates'; }
+      else if (planKey === 'starter') { nextPlan = 'Pro'; nextLimit = 'unlimited templates'; }
+      
+      setToastMessage(`You've reached your ${planName} plan limit of ${templateLimit} templates.${nextPlan ? ` Upgrade to ${nextPlan} for ${nextLimit}.` : ''}`);
+      setShowToast(true);
       return;
     }
     const newTemplate = await onAddTemplate({
@@ -649,6 +675,42 @@ export default function Templates({
               </div>
             </form>
           </div>
+        </div>
+      )}
+      
+      {showToast && (
+        <div style={{
+          position: 'fixed',
+          bottom: '24px',
+          right: '24px',
+          backgroundColor: '#161b22',
+          border: '1px solid #30363d',
+          boxShadow: '0 8px 24px rgba(0,0,0,0.5)',
+          borderRadius: '8px',
+          padding: '1rem',
+          zIndex: 9999,
+          display: 'flex',
+          flexDirection: 'column',
+          gap: '0.75rem',
+          maxWidth: '350px',
+          animation: 'slideIn 0.2s ease',
+          fontFamily: 'sans-serif'
+        }}>
+          <div style={{ display: 'flex', justifyContent: 'space-between', gap: '1rem', alignItems: 'center' }}>
+            <span style={{ fontSize: '0.85rem', color: '#c9d1d9', lineHeight: '1.4', textAlign: 'left' }}>
+              {toastMessage}
+            </span>
+            <button onClick={() => setShowToast(false)} style={{ background: 'none', border: 'none', color: '#8b949e', cursor: 'pointer', display: 'flex' }}>
+              <X size={16} />
+            </button>
+          </div>
+          <button
+            onClick={() => { setShowToast(false); navigate('/upgrade'); }}
+            className="btn btn-primary btn-sm"
+            style={{ alignSelf: 'flex-start', justifyContent: 'center', borderRadius: '3px' }}
+          >
+            Upgrade Now
+          </button>
         </div>
       )}
     </div>

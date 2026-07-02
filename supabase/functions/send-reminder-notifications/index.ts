@@ -57,7 +57,8 @@ serve(async (req) => {
     // 3. For each due reminder, invoke the send-push-notification edge function
     const results = await Promise.allSettled(
       remindersToNotify.map(async (rem) => {
-        const bodyText = `Follow up with ${rem.lead_name || 'Lead'} — Reminder #${rem.reminder_number}`;
+        const leadName = rem.lead_name || 'Lead';
+        const bodyText = `Did ${leadName} reply? Tap to update status and stop reminders.`;
         
         // Invoke send-push-notification function
         const { error: invokeError } = await supabase.functions.invoke('send-push-notification', {
@@ -65,7 +66,7 @@ serve(async (req) => {
             target_user_id: rem.user_id,
             title: 'ReachDesk CRM Reminder',
             body: bodyText,
-            url: '/dashboard',
+            url: `/dashboard?reminderId=${rem.id}`,
           },
         });
 

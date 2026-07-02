@@ -9,6 +9,7 @@ export default function UserNotificationBell({ profile, onRefreshProfile }) {
   const [dueReminders, setDueReminders] = useState([]);
   const [adminNotifs, setAdminNotifs] = useState([]);
   const [isOpen, setIsOpen] = useState(false);
+  const [activeReminderForModal, setActiveReminderForModal] = useState(null);
   const dropdownRef = useRef(null);
   // Tracks which reminder IDs we've already fired a browser Notification for
   const notifiedIds = useRef(new Set());
@@ -33,6 +34,24 @@ export default function UserNotificationBell({ profile, onRefreshProfile }) {
       console.warn('[Bell] Error saving notified reminders to localStorage:', e);
     }
   };
+
+  // Check for reminderId in query parameters (when notification is clicked)
+  useEffect(() => {
+    const params = new URLSearchParams(window.location.search);
+    const reminderId = params.get('reminderId');
+    if (reminderId && profile?.id) {
+      supabase
+        .from('follow_up_reminders')
+        .select('*')
+        .eq('id', reminderId)
+        .single()
+        .then(({ data, error }) => {
+          if (!error && data && data.status === 'pending') {
+            setActiveReminderForModal(data);
+          }
+        });
+    }
+  }, [window.location.search, profile?.id]);
 
   const isAdmin = profile?.role === 'admin' || profile?.email === 'dotthedart@gmail.com';
 
@@ -77,11 +96,14 @@ export default function UserNotificationBell({ profile, onRefreshProfile }) {
             currentNotified.add(rem.id);
             hasNewNotification = true;
 
+            // Trigger the in-app modal automatically if the app is open
+            setActiveReminderForModal(rem);
+
             // 1. Local browser notification fallback
             if ('Notification' in window && Notification.permission === 'granted') {
               try {
                 new Notification('ReachDesk — Follow-up Due', {
-                  body: `Follow up with ${rem.lead_name || 'Lead'} — Reminder #${rem.reminder_number}`,
+                  body: `Did ${rem.lead_name || 'Lead'} reply? Tap to update status and stop reminders.`,
                   icon: '/android-chrome-192x192.png',
                   tag: `reminder-${rem.id}`,
                 });
@@ -95,8 +117,8 @@ export default function UserNotificationBell({ profile, onRefreshProfile }) {
               body: {
                 target_user_id: profile.id,
                 title: 'ReachDesk — Follow-up Due',
-                body: `Follow up with ${rem.lead_name || 'Lead'} — Reminder #${rem.reminder_number}`,
-                url: `/dashboard`,
+                body: `Did ${rem.lead_name || 'Lead'} reply? Tap to update status and stop reminders.`,
+                url: `/dashboard?reminderId=${rem.id}`,
                 tag: `reminder-${rem.id}`
               }
             }).catch(err => console.warn('[Push] Follow-up reminder push failed:', err));
@@ -260,6 +282,39 @@ export default function UserNotificationBell({ profile, onRefreshProfile }) {
       if (onRefreshProfile) onRefreshProfile();
     } catch (err) {
       console.error('Error marking all as read:', err);
+    }
+  };
+
+  const handleYesReplied = async (reminder) => {
+    try {
+      // 1. Dismiss all pending reminders for this lead
+      const { error } = await supabase
+        .from('follow_up_reminders')
+        .update({ status: 'dismissed', updated_at: new Date().toISOString() })
+        .eq('lead_id', reminder.lead_id)
+        .eq('status', 'pending');
+
+      if (error) throw error;
+
+      // 2. Remove from local active reminders list
+      setDueReminders(prev => prev.filter(r => r.lead_id !== reminder.lead_id));
+
+      // 3. Set sessionStorage for CRM auto-open
+      sessionStorage.setItem('reachdesk_auto_open_lead', JSON.stringify({
+        leadId: reminder.lead_id,
+        preselectStatus: 'Positive Reply'
+      }));
+
+      // 4. Navigate to CRM
+      navigate('/crm');
+
+      // 5. Dispatch event
+      window.dispatchEvent(new Event('reachdesk_trigger_auto_open'));
+
+      // 6. Dismiss modal
+      setActiveReminderForModal(null);
+    } catch (err) {
+      console.error('Error handling Yes Replied:', err);
     }
   };
 
@@ -530,6 +585,90 @@ export default function UserNotificationBell({ profile, onRefreshProfile }) {
                 ))}
               </>
             )}
+          </div>
+        </div>
+      )}
+
+      {/* Follow-up Reminder Modal */}
+      {activeReminderForModal && (
+        <div style={{
+          position: 'fixed',
+          inset: 0,
+          backgroundColor: 'rgba(0, 0, 0, 0.75)',
+          backdropFilter: 'blur(4px)',
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'center',
+          zIndex: 99999
+        }}>
+          <div style={{
+            background: 'var(--bg-card, #0D1117)',
+            border: '1px solid var(--border-color, #30363D)',
+            borderRadius: '16px',
+            padding: '2rem',
+            width: '400px',
+            maxWidth: '90%',
+            boxShadow: '0 20px 40px rgba(0, 0, 0, 0.6)',
+            color: 'var(--text-primary, #F0F6FC)',
+            display: 'flex',
+            flexDirection: 'column',
+            gap: '1.5rem',
+            animation: 'scaleUp 0.2s ease-out'
+          }}>
+            <h3 style={{ margin: 0, fontSize: '1.25rem', fontWeight: 700, display: 'flex', alignItems: 'center', gap: '8px' }}>
+              <Clock size={20} style={{ color: 'var(--accent-blue, #5B8FB9)' }} />
+              Follow-up Reminder
+            </h3>
+            
+            <p style={{ margin: 0, fontSize: '1rem', lineHeight: 1.5 }}>
+              Did <strong style={{ color: 'var(--accent-blue, #5B8FB9)' }}>{activeReminderForModal.lead_name}</strong> reply?
+            </p>
+            
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '0.75rem', marginTop: '0.5rem' }}>
+              <button
+                type="button"
+                onClick={() => handleYesReplied(activeReminderForModal)}
+                style={{
+                  padding: '0.75rem 1rem',
+                  background: 'var(--primary-purple, #8b5cf6)',
+                  color: '#fff',
+                  border: 'none',
+                  borderRadius: '8px',
+                  fontWeight: 600,
+                  fontSize: '0.9rem',
+                  cursor: 'pointer',
+                  transition: 'background 0.2s',
+                  outline: 'none'
+                }}
+                onMouseOver={e => e.currentTarget.style.background = '#7c3aed'}
+                onMouseOut={e => e.currentTarget.style.background = 'var(--primary-purple, #8b5cf6)'}
+              >
+                Yes, They Replied
+              </button>
+              
+              <button
+                type="button"
+                onClick={() => {
+                  setActiveReminderForModal(null);
+                }}
+                style={{
+                  padding: '0.75rem 1rem',
+                  background: 'transparent',
+                  color: 'var(--text-secondary, #8B949E)',
+                  border: '1px solid var(--border-color, #30363D)',
+                  borderRadius: '8px',
+                  fontWeight: 600,
+                  fontSize: '0.9rem',
+                  cursor: 'pointer',
+                  transition: 'background 0.2s',
+                  outline: 'none'
+                }}
+                onMouseOver={e => e.currentTarget.style.background = 'rgba(255,255,255,0.05)'}
+                onMouseOut={e => e.currentTarget.style.background = 'transparent'}
+              >
+                Not Yet
+              </button>
+            </div>
           </div>
         </div>
       )}

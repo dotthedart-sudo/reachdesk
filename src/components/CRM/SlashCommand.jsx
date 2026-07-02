@@ -3,7 +3,7 @@ import Suggestion from '@tiptap/suggestion';
 import { ReactRenderer } from '@tiptap/react';
 import tippy from 'tippy.js';
 import { SlashCommandList } from './SlashCommandList';
-import { Type, CheckSquare, ChevronRight, Table as TableIcon } from 'lucide-react';
+import { Type, CheckSquare, ChevronRight, Heading1, Heading2, Heading3, List, ListOrdered, Minus, Quote } from 'lucide-react';
 
 export const SlashCommand = Extension.create({
   name: 'slashCommand',
@@ -31,6 +31,9 @@ export const SlashCommand = Extension.create({
 
 export const getSuggestionOptions = () => {
   return {
+    allow: ({ editor }) => {
+      return !editor.isPasting;
+    },
     items: ({ query }) => {
       const allItems = [
         {
@@ -42,6 +45,30 @@ export const getSuggestionOptions = () => {
           },
         },
         {
+          title: 'Heading 1',
+          description: 'Big section heading.',
+          icon: Heading1,
+          command: ({ editor, range }) => {
+            editor.chain().focus().deleteRange(range).setNode('heading', { level: 1 }).run();
+          },
+        },
+        {
+          title: 'Heading 2',
+          description: 'Medium section heading.',
+          icon: Heading2,
+          command: ({ editor, range }) => {
+            editor.chain().focus().deleteRange(range).setNode('heading', { level: 2 }).run();
+          },
+        },
+        {
+          title: 'Heading 3',
+          description: 'Small section heading.',
+          icon: Heading3,
+          command: ({ editor, range }) => {
+            editor.chain().focus().deleteRange(range).setNode('heading', { level: 3 }).run();
+          },
+        },
+        {
           title: 'To-do list',
           description: 'Track tasks with a to-do list.',
           icon: CheckSquare,
@@ -50,19 +77,43 @@ export const getSuggestionOptions = () => {
           },
         },
         {
+          title: 'Bullet list',
+          description: 'Create a simple bulleted list.',
+          icon: List,
+          command: ({ editor, range }) => {
+            editor.chain().focus().deleteRange(range).toggleBulletList().run();
+          },
+        },
+        {
+          title: 'Numbered list',
+          description: 'Create a list with numbering.',
+          icon: ListOrdered,
+          command: ({ editor, range }) => {
+            editor.chain().focus().deleteRange(range).toggleOrderedList().run();
+          },
+        },
+        {
+          title: 'Divider',
+          description: 'Insert a horizontal divider line.',
+          icon: Minus,
+          command: ({ editor, range }) => {
+            editor.chain().focus().deleteRange(range).setHorizontalRule().run();
+          },
+        },
+        {
+          title: 'Quote',
+          description: 'Capture a quote or blockquote.',
+          icon: Quote,
+          command: ({ editor, range }) => {
+            editor.chain().focus().deleteRange(range).toggleBlockquote().run();
+          },
+        },
+        {
           title: 'Toggle list',
           description: 'Toggles can hide and show content inside.',
           icon: ChevronRight,
           command: ({ editor, range }) => {
             editor.chain().focus().deleteRange(range).setToggleBlock().run();
-          },
-        },
-        {
-          title: 'Database',
-          description: 'Add a typed database table.',
-          icon: TableIcon,
-          command: ({ editor, range }) => {
-            editor.chain().focus().deleteRange(range).setDatabaseBlock().run();
           },
         },
       ];

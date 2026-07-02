@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { supabase } from '../lib/supabase';
+import { PLAN_LIMITS } from '../lib/utils';
 import { 
   Settings, Save, CreditCard, GitBranch, Plus, 
   Trash2, ChevronUp, ChevronDown, AlertCircle, Users, Mail, UserMinus, User, Upload 
@@ -20,6 +21,7 @@ export default function Configuration({
   onSaveSettings,
   currentUser,
   leadsCount,
+  templatesCount = 0,
   onRefreshStatuses,
   onRefreshProfile
 }) {
@@ -857,6 +859,54 @@ export default function Configuration({
             </span>
           </div>
         </div>
+
+        {/* Usage Progress Section */}
+        {(() => {
+          const planKey = (currentUser?.plan || 'trial').toLowerCase();
+          const limits = PLAN_LIMITS[planKey] || PLAN_LIMITS.trial;
+          const maxLeads = limits.leads;
+          const maxTemplates = limits.templates;
+
+          return (
+            <div style={{ borderTop: '1px solid var(--border-color)', paddingTop: '0.75rem', marginTop: '0.5rem', display: 'flex', flexDirection: 'column', gap: '0.75rem' }}>
+              {/* Leads Usage */}
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '0.25rem' }}>
+                <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.85rem' }}>
+                  <span style={{ color: 'var(--text-muted)' }}>Leads</span>
+                  <span style={{ fontWeight: 600, color: 'var(--text-primary)' }}>
+                    {leadsCount} / {maxLeads === Infinity ? 'Unlimited' : maxLeads}
+                  </span>
+                </div>
+                <div style={{ height: '8px', background: 'var(--border-color)', borderRadius: '4px', overflow: 'hidden' }}>
+                  <div style={{
+                    height: '100%',
+                    background: 'var(--accent-blue)',
+                    width: `${maxLeads === Infinity ? 0 : Math.min(100, (leadsCount / maxLeads) * 100)}%`,
+                    borderRadius: '4px'
+                  }} />
+                </div>
+              </div>
+
+              {/* Templates Usage */}
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '0.25rem' }}>
+                <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.85rem' }}>
+                  <span style={{ color: 'var(--text-muted)' }}>Templates</span>
+                  <span style={{ fontWeight: 600, color: 'var(--text-primary)' }}>
+                    {templatesCount} / {maxTemplates === Infinity ? 'Unlimited' : maxTemplates}
+                  </span>
+                </div>
+                <div style={{ height: '8px', background: 'var(--border-color)', borderRadius: '4px', overflow: 'hidden' }}>
+                  <div style={{
+                    height: '100%',
+                    background: 'var(--accent-blue)',
+                    width: `${maxTemplates === Infinity ? 0 : Math.min(100, (templatesCount / maxTemplates) * 100)}%`,
+                    borderRadius: '4px'
+                  }} />
+                </div>
+              </div>
+            </div>
+          );
+        })()}
 
         <div style={{ marginTop: '0.5rem', display: 'flex', flexDirection: 'column', gap: '0.5rem', alignItems: 'flex-start' }}>
           <button

@@ -1,5 +1,6 @@
 import { supabase } from '../lib/supabase';
 import { splitFullName, normalizePriority } from './csvMapping';
+import { PLAN_LIMITS, getTeamIds } from '../lib/utils';
 
 interface ImportBatchOptions {
   data: any[][];
@@ -34,6 +35,27 @@ export async function processImportBatch({
   if (totalRows === 0) {
     onComplete(0, 0, 0);
     return;
+  }
+
+  // Enforce leads limit
+  let currentCount = 0;
+  let leadLimit = Infinity;
+  let plan = 'trial';
+  let limitReached = false;
+  try {
+    const teamIds = await getTeamIds(userId);
+    const { data: p } = await supabase.from('user_profiles').select('plan').eq('id', userId).maybeSingle();
+    plan = (p?.plan || 'trial').toLowerCase();
+    leadLimit = (PLAN_LIMITS[plan] || PLAN_LIMITS.trial).leads;
+
+    // Get current lead count
+    const { count } = await supabase
+      .from('leads')
+      .select('id', { count: 'exact', head: true })
+      .in('user_id', teamIds);
+    currentCount = count || 0;
+  } catch (err) {
+    console.error('Error checking lead limits during import:', err);
   }
 
   // 1. Pre-fetch existing leads to handle duplicates efficiently
@@ -119,7 +141,15 @@ export async function processImportBatch({
           updateData.push(leadObj);
         }
       } else {
-        insertData.push(leadObj);
+        if (leadLimit !== Infinity && currentCount >= leadLimit) {
+          limitReached = true;
+          skippedCount++;
+        } else {
+          insertData.push(leadObj);
+          if (leadLimit !== Infinity) {
+            currentCount++;
+          }
+        }
       }
     }
 
@@ -175,6 +205,11 @@ export async function processImportBatch({
     });
   } catch (err) {
     console.error('Failed to log import to csv_imports:', err);
+  }
+
+  if (limitReached) {
+    const planName = plan.charAt(0).toUpperCase() + plan.slice(1);
+    alert(`You've reached your ${planName} plan limit of ${leadLimit} leads. Only leads up to the limit were imported.`);
   }
 
   onComplete(importedCount, skippedCount, errorCount);

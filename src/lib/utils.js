@@ -1,13 +1,13 @@
 import { supabase } from './supabase';
 
 export const PLAN_LIMITS = {
-  trial:   { leads: Infinity, templates: Infinity, users: Infinity,
+  trial:   { leads: 50,       templates: 5,        users: Infinity,
              folders: true,  notes: true,  bulkImport: true,  copyAnalytics: true  },
-  starter: { leads: 150,      templates: 20,       users: 1,
+  starter: { leads: 600,      templates: 10,       users: 1,
              folders: true,  notes: true,  bulkImport: false, copyAnalytics: true  },
-  pro:     { leads: 1000,     templates: Infinity, users: 1,
+  pro:     { leads: 2500,     templates: Infinity, users: 1,
              folders: true,  notes: true,  bulkImport: true,  copyAnalytics: true  },
-  teams:   { leads: Infinity, templates: Infinity, users: 3,
+  teams:   { leads: 10000,    templates: Infinity, users: 3,
              folders: true,  notes: true,  bulkImport: true,  copyAnalytics: true  },
   enterprise: { leads: Infinity, templates: Infinity, users: Infinity,
              folders: true,  notes: true,  bulkImport: true,  copyAnalytics: true  }

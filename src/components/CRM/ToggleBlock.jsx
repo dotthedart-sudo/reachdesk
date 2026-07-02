@@ -12,9 +12,18 @@ const ToggleNodeView = (props) => {
       data-type="toggle-block"
       style={{ display: 'flex', margin: '0.5rem 0', alignItems: 'flex-start' }}
     >
+      <style>{`
+        .toggle-block.is-closed .toggle-content > :not(:first-child) {
+          display: none !important;
+        }
+      `}</style>
       <button
         contentEditable={false}
-        onClick={() => props.updateAttributes({ open: !isOpen })}
+        onClick={(e) => {
+          e.preventDefault();
+          e.stopPropagation();
+          props.updateAttributes({ open: !isOpen });
+        }}
         style={{
           background: 'transparent',
           border: 'none',
@@ -52,12 +61,17 @@ export const ToggleBlock = Node.create({
   group: 'block',
   content: 'block+',
   defining: true,
+  isolating: true,
 
   addAttributes() {
     return {
       open: {
         default: true,
-        parseHTML: element => element.getAttribute('data-open') === 'true',
+        parseHTML: element => {
+          const hasAttr = element.hasAttribute('data-open');
+          if (!hasAttr) return true;
+          return element.getAttribute('data-open') === 'true';
+        },
         renderHTML: attributes => {
           return {
             'data-open': attributes.open,
@@ -81,6 +95,37 @@ export const ToggleBlock = Node.create({
 
   addNodeView() {
     return ReactNodeViewRenderer(ToggleNodeView);
+  },
+
+  addKeyboardShortcuts() {
+    return {
+      Enter: () => {
+        const { state, dispatch } = this.editor.view;
+        const { $from } = state.selection;
+
+        let toggleDepth = -1;
+        for (let d = $from.depth; d > 0; d--) {
+          if ($from.node(d).type.name === 'toggleBlock') {
+            toggleDepth = d;
+            break;
+          }
+        }
+
+        if (toggleDepth === -1) {
+          return false;
+        }
+
+        try {
+          const depthToSplit = $from.depth - toggleDepth;
+          if (dispatch) {
+            dispatch(state.tr.split($from.pos, depthToSplit));
+          }
+          return true;
+        } catch (e) {
+          return false;
+        }
+      }
+    };
   },
 
   addCommands() {

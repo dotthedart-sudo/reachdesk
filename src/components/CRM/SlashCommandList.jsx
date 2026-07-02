@@ -1,5 +1,4 @@
 import React, { useState, useEffect, forwardRef, useImperativeHandle } from 'react';
-import { Type, CheckSquare, ChevronRight, Table } from 'lucide-react';
 
 export const SlashCommandList = forwardRef((props, ref) => {
   const [selectedIndex, setSelectedIndex] = useState(0);

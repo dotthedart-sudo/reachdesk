@@ -154,6 +154,22 @@ export default function NoteEditor({ currentUser }) {
     }
   };
 
+  const handleFolderChange = async (newFolderId) => {
+    setEditorFolderId(newFolderId);
+    if (!note) return;
+    try {
+      const { data, error } = await supabase.from('notes')
+        .update({ thumbnail_url: newFolderId || null, updated_at: new Date().toISOString() })
+        .eq('id', note.id)
+        .select()
+        .single();
+      if (error) throw error;
+      setNote(data);
+    } catch (err) {
+      console.error('Error saving folder assignment:', err);
+    }
+  };
+
   // Called by RichTextEditor onChange so sidebar preview stays fresh
   const handleRichTextChange = (jsonStr) => {
     setEditorContent(jsonStr);
@@ -362,7 +378,7 @@ export default function NoteEditor({ currentUser }) {
               <Folder size={13} style={{ color: 'var(--text-muted)' }} />
               <select
                 value={editorFolderId}
-                onChange={e => setEditorFolderId(e.target.value)}
+                onChange={e => handleFolderChange(e.target.value)}
                 style={{ background: 'transparent', border: 'none', color: 'var(--text-primary)', fontSize: '0.82rem', cursor: 'pointer', outline: 'none', fontWeight: 500 }}
               >
                 <option value="">Uncategorized</option>

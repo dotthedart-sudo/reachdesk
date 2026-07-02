@@ -880,7 +880,8 @@ function RemindersPage() {
 }
 
 function SettingsPage() {
-  const { profile, brandName, currencySymbol, webhookUrl, bankAccount, bankIban, leads, handleSaveSettings, fetchAllData, fetchProfile } = useAppContext();
+  const { profile, brandName, currencySymbol, webhookUrl, bankAccount, bankIban, leads, templates, handleSaveSettings, fetchAllData, fetchProfile } = useAppContext();
+  const userTemplatesCount = (templates || []).filter(t => t.user_id === profile?.id && !t.is_starter).length;
   return (
     <Configuration
       brandName={brandName}
@@ -891,6 +892,7 @@ function SettingsPage() {
       onSaveSettings={handleSaveSettings}
       currentUser={profile}
       leadsCount={leads.length}
+      templatesCount={userTemplatesCount}
       onRefreshStatuses={fetchAllData}
       onRefreshProfile={fetchProfile}
     />

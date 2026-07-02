@@ -248,7 +248,7 @@ export default function Homepage({ currentUserEmail, brandName = 'ReachDesk' }) 
               </div>
             </div>
             <ul className="hp-feature-list">
-              {['600 leads', '20 templates', 'Smart folders', 'CSV import', 'Notes', 'Convert to client'].map(f => (
+              {['600 leads', '10 templates', 'Smart folders', 'CSV import', 'Notes', 'Convert to client'].map(f => (
                 <li key={f} className="hp-feature-active"><span className="hp-fl-prefix">+</span> {f}</li>
               ))}
             </ul>

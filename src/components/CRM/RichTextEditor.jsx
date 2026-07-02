@@ -1,6 +1,13 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { useEditor, EditorContent } from '@tiptap/react';
 import { StarterKit } from '@tiptap/starter-kit';
+import { Document } from '@tiptap/extension-document';
+import { Paragraph } from '@tiptap/extension-paragraph';
+import { Text } from '@tiptap/extension-text';
+import { Heading } from '@tiptap/extension-heading';
+import { Blockquote } from '@tiptap/extension-blockquote';
+import { HorizontalRule } from '@tiptap/extension-horizontal-rule';
+import { BulletList, OrderedList, ListItem, ListKeymap } from '@tiptap/extension-list';
 import { Underline } from '@tiptap/extension-underline';
 import { Table } from '@tiptap/extension-table';
 import { TableRow } from '@tiptap/extension-table-row';
@@ -63,6 +70,8 @@ export default function RichTextEditor({
 }) {
   const [saveStatus, setSaveStatus] = useState('');
   const [showHistory, setShowHistory] = useState(false);
+  const [showBubbleMenu, setShowBubbleMenu] = useState(false);
+  const [bubbleMenuCoords, setBubbleMenuCoords] = useState({ top: 0, left: 0 });
   const [versions, setVersions] = useState([]);
   const [previewVersion, setPreviewVersion] = useState(null);
   const [versionsLoading, setVersionsLoading] = useState(false);
@@ -125,7 +134,28 @@ export default function RichTextEditor({
 
   const editor = useEditor({
     extensions: [
+      Document,
+      Paragraph,
+      Text,
+      Heading,
+      BulletList,
+      OrderedList,
+      ListItem,
+      TaskList,
+      TaskItem.configure({ nested: false }),
+      Blockquote,
+      HorizontalRule,
+      ListKeymap,
       StarterKit.configure({
+        document: false,
+        paragraph: false,
+        text: false,
+        heading: false,
+        bulletList: false,
+        orderedList: false,
+        listItem: false,
+        blockquote: false,
+        horizontalRule: false,
         link: false,
         underline: false,
       }),
@@ -134,16 +164,20 @@ export default function RichTextEditor({
       TableRow,
       TableCell,
       TableHeader,
-      Link.configure({ openOnClick: false }),
-      TextAlign.configure({ types: ['heading', 'paragraph'] }),
-      TextStyle,
-      FontFamily,
-      Color,
-      Highlight.configure({ multicolor: true }),
-      Placeholder.configure({ placeholder }),
+      Highlight,
+      Placeholder.configure({
+        placeholder: 'Start writing or press "/" for commands...',
+      }),
+      Link.configure({
+        openOnClick: false,
+      }),
       CharacterCount,
-      TaskList,
-      TaskItem.configure({ nested: true }),
+      Color,
+      FontFamily,
+      TextStyle,
+      TextAlign.configure({
+        types: ['heading', 'paragraph'],
+      }),
       SlashCommand.configure({
         suggestion: getSuggestionOptions(),
       }),
@@ -152,6 +186,59 @@ export default function RichTextEditor({
     ],
     content: getParsedContent(content),
     editable: !readOnly,
+    editorProps: {
+      handlePaste: (view, event, slice) => {
+        view.editor.isPasting = true;
+        setTimeout(() => {
+          view.editor.isPasting = false;
+        }, 50);
+        return false;
+      },
+      handleDrop: (view, event, slice, moved) => {
+        view.editor.isPasting = true;
+        setTimeout(() => {
+          view.editor.isPasting = false;
+        }, 50);
+        return false;
+      },
+      handleDOMEvents: {
+        click: (view, event) => {
+          const target = event.target;
+          if (target && target.tagName === 'INPUT' && target.type === 'checkbox') {
+            const taskItem = target.closest('[data-type="taskItem"]');
+            if (taskItem) {
+              const pos = view.posAtDOM(target);
+              if (pos !== undefined) {
+                const $pos = view.state.doc.resolve(pos);
+                let nodePos = pos;
+                let node = view.state.doc.nodeAt(pos);
+                if (!node || node.type.name !== 'taskItem') {
+                  for (let depth = $pos.depth; depth >= 0; depth--) {
+                    const ancestor = $pos.node(depth);
+                    if (ancestor && ancestor.type.name === 'taskItem') {
+                      node = ancestor;
+                      nodePos = $pos.before(depth);
+                      break;
+                    }
+                  }
+                }
+                
+                if (node && node.type.name === 'taskItem') {
+                  view.dispatch(
+                    view.state.tr.setNodeMarkup(nodePos, null, {
+                      ...node.attrs,
+                      checked: !node.attrs.checked,
+                    })
+                  );
+                  return true;
+                }
+              }
+            }
+          }
+          return false;
+        }
+      }
+    },
     onUpdate: ({ editor }) => {
       const jsonStr = JSON.stringify(editor.getJSON());
       if (onChange) {
@@ -178,6 +265,54 @@ export default function RichTextEditor({
       }
     }
   }, [content, editor]);
+
+  // Position selection floating toolbar
+  useEffect(() => {
+    if (!editor) return;
+
+    const updateBubbleMenu = () => {
+      const { selection } = editor.state;
+      if (selection.empty || readOnly) {
+        setShowBubbleMenu(false);
+        return;
+      }
+
+      const domSelection = window.getSelection();
+      if (!domSelection || domSelection.rangeCount === 0) {
+        setShowBubbleMenu(false);
+        return;
+      }
+
+      const range = domSelection.getRangeAt(0);
+      const rect = range.getBoundingClientRect();
+
+      setBubbleMenuCoords({
+        top: rect.top - 8,
+        left: rect.left + rect.width / 2
+      });
+      setShowBubbleMenu(true);
+    };
+
+    const hideBubbleMenu = () => {
+      setShowBubbleMenu(false);
+    };
+
+    editor.on('selectionUpdate', updateBubbleMenu);
+    editor.on('focus', updateBubbleMenu);
+    editor.on('blur', hideBubbleMenu);
+
+    // Reposition on window resize or scroll
+    window.addEventListener('resize', updateBubbleMenu);
+    window.addEventListener('scroll', updateBubbleMenu, true);
+
+    return () => {
+      editor.off('selectionUpdate', updateBubbleMenu);
+      editor.off('focus', updateBubbleMenu);
+      editor.off('blur', hideBubbleMenu);
+      window.removeEventListener('resize', updateBubbleMenu);
+      window.removeEventListener('scroll', updateBubbleMenu, true);
+    };
+  }, [editor, readOnly]);
 
   // Clean up auto-save timeout on unmount
   useEffect(() => {
@@ -342,7 +477,10 @@ export default function RichTextEditor({
         borderRadius: '8px',
         overflow: 'hidden',
         position: 'relative',
-        backgroundColor: editorBg
+        backgroundColor: editorBg,
+        flex: 1,
+        height: '100%',
+        minHeight: 0
       }}
     >
       <style>{`
@@ -790,9 +928,66 @@ export default function RichTextEditor({
       )}
 
       {/* EDITOR WORKSPACE */}
-      <div style={{ position: 'relative', display: 'flex', backgroundColor: editorBg, flex: 1 }}>
-        <div style={{ flex: 1, backgroundColor: editorBg, display: 'flex', flexDirection: 'column' }}>
+      <div style={{ position: 'relative', display: 'flex', backgroundColor: editorBg, flex: 1, overflowY: 'auto', minHeight: 0 }}>
+        <div style={{ flex: 1, backgroundColor: editorBg, display: 'flex', flexDirection: 'column', overflowY: 'auto', minHeight: 0 }}>
           <EditorContent editor={editor} style={{ flex: 1, backgroundColor: editorBg }} />
+          
+          {showBubbleMenu && (
+            <div 
+              style={{
+                position: 'fixed',
+                top: `${bubbleMenuCoords.top}px`,
+                left: `${bubbleMenuCoords.left}px`,
+                transform: 'translate(-50%, -100%)',
+                display: 'flex',
+                background: toolbarBg,
+                border: '1px solid var(--border-color)',
+                borderRadius: '8px',
+                boxShadow: '0 4px 12px rgba(0,0,0,0.15)',
+                padding: '4px',
+                gap: '2px',
+                zIndex: 9999,
+                pointerEvents: 'auto'
+              }}
+            >
+              <button
+                type="button"
+                onClick={() => editor.chain().focus().toggleBold().run()}
+                className={`toolbar-btn ${editor.isActive('bold') ? 'is-active' : ''}`}
+                style={{ width: '28px', height: '28px', display: 'flex', alignItems: 'center', justifyContent: 'center' }}
+                title="Bold"
+              >
+                <Bold size={14} />
+              </button>
+              <button
+                type="button"
+                onClick={() => editor.chain().focus().toggleItalic().run()}
+                className={`toolbar-btn ${editor.isActive('italic') ? 'is-active' : ''}`}
+                style={{ width: '28px', height: '28px', display: 'flex', alignItems: 'center', justifyContent: 'center' }}
+                title="Italic"
+              >
+                <Italic size={14} />
+              </button>
+              <button
+                type="button"
+                onClick={() => editor.chain().focus().toggleUnderline().run()}
+                className={`toolbar-btn ${editor.isActive('underline') ? 'is-active' : ''}`}
+                style={{ width: '28px', height: '28px', display: 'flex', alignItems: 'center', justifyContent: 'center' }}
+                title="Underline"
+              >
+                <UnderlineIcon size={14} />
+              </button>
+              <button
+                type="button"
+                onClick={() => editor.chain().focus().toggleStrike().run()}
+                className={`toolbar-btn ${editor.isActive('strike') ? 'is-active' : ''}`}
+                style={{ width: '28px', height: '28px', display: 'flex', alignItems: 'center', justifyContent: 'center' }}
+                title="Strikethrough"
+              >
+                <Strikethrough size={14} />
+              </button>
+            </div>
+          )}
         </div>
 
         {/* VERSION HISTORY SIDE OVER PANEL */}

@@ -167,6 +167,40 @@ serve(async (req) => {
         `
         await sendEmail("ReachDesk CRM — Payment Confirmed", receiptHtml)
       }
+    } else if (eventType === 'subscription.updated') {
+      const nextBilledAtStr = payload.data?.next_billed_at
+      if (nextBilledAtStr) {
+        const nextBilledAt = new Date(nextBilledAtStr)
+        const now = new Date()
+        const diffMs = nextBilledAt.getTime() - now.getTime()
+        const diffDays = diffMs / (1000 * 60 * 60 * 24)
+
+        if (diffDays > 0 && diffDays <= 7) {
+          const dateStr = nextBilledAt.toLocaleDateString('en-US', {
+            year: 'numeric',
+            month: 'long',
+            day: 'numeric'
+          })
+
+          const reminderHtml = `
+            <div style="background-color: #FFFFFF; color: #1a1a1a; font-family: sans-serif; padding: 30px; border-radius: 3px; max-width: 600px; margin: 0 auto; border: 1px solid #E5E5E5;">
+              <div style="text-align: center; margin-bottom: 20px;">
+                <span style="font-family: Arial, sans-serif; text-transform: uppercase; letter-spacing: 0.08em; font-size: 24px; color: #1a1a1a; font-weight: bold;">ReachDesk</span>
+              </div>
+              <h2 style="color: #5B8FB9; border-bottom: 1px solid #E5E5E5; padding-bottom: 10px; margin-top: 0;">Subscription Renewal</h2>
+              <p>Your Starter plan renews in 7 days on ${dateStr}. Amount: $0.95. No action needed to continue.</p>
+              <div style="text-align: center; margin: 30px 0;">
+                <a href="https://reachdesk.esemdot.com/settings" style="background-color: #5B8FB9; color: #FFFFFF; padding: 12px 24px; text-decoration: none; border-radius: 3px; font-weight: bold; display: inline-block;">Manage Subscription</a>
+              </div>
+              <p>If you have any questions or wish to change your plan details, please reach out to us at <a href="mailto:support@esemdot.com" style="color: #5B8FB9; text-decoration: none;">support@esemdot.com</a>.</p>
+              <p style="color: #666666; font-size: 0.8rem; border-top: 1px solid #E5E5E5; padding-top: 15px; margin-top: 30px;">
+                This is an automated notification from ReachDesk CRM.
+              </p>
+            </div>
+          `
+          await sendEmail("Your ReachDesk CRM renewal is coming up", reminderHtml)
+        }
+      }
     } else if (eventType === 'subscription.canceled') {
       // 1. Update user profile to trial inactive
       const { error: updateError } = await supabaseAdmin
@@ -181,6 +215,19 @@ serve(async (req) => {
         throw new Error(`Failed to update user profile: ${updateError.message}`)
       }
 
+      const endsAtStr = payload.data?.ends_at || payload.data?.current_billing_period?.ends_at
+      const endDate = endsAtStr 
+        ? new Date(endsAtStr).toLocaleDateString('en-US', {
+            year: 'numeric',
+            month: 'long',
+            day: 'numeric'
+          })
+        : new Date().toLocaleDateString('en-US', {
+            year: 'numeric',
+            month: 'long',
+            day: 'numeric'
+          })
+
       // Cancellation Email
       const cancelHtml = `
         <div style="background-color: #0D1117; color: #FFFFFF; font-family: sans-serif; padding: 30px; border-radius: 3px; max-width: 600px; margin: 0 auto; border: 1px solid #21262D;">
@@ -188,8 +235,7 @@ serve(async (req) => {
             <span style="font-family: Arial, sans-serif; text-transform: uppercase; letter-spacing: 0.08em; font-size: 24px; color: #FFFFFF; font-weight: bold;">ReachDesk</span>
           </div>
           <h2 style="color: #E05252; border-bottom: 1px solid #21262D; padding-bottom: 10px;">Subscription Cancelled</h2>
-          <p>Your subscription to ReachDesk CRM has been cancelled. Your account has been reverted to the trial plan, and paid features are now inactive.</p>
-          <p>We're sad to see you go! If this was a mistake or if you decide to come back, you can resubscribe at any time by clicking the button below.</p>
+          <p>Your Starter plan will remain active until ${endDate}. After that, your data will be retained for 30 days before permanent deletion. You can resubscribe anytime to restore full access.</p>
           <div style="text-align: center; margin: 30px 0;">
             <a href="https://reachdesk.esemdot.com/upgrade" style="background-color: #5B8FB9; color: #0D1117; padding: 12px 24px; text-decoration: none; border-radius: 3px; font-weight: bold; display: inline-block;">Resubscribe Now</a>
           </div>

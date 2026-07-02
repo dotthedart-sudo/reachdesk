@@ -1,5 +1,24 @@
 import React, { useState, useRef, useEffect } from 'react';
-import { SiInstagram, SiX, SiWhatsapp } from '@icons-pack/react-simple-icons';
+import { 
+  SiInstagram, 
+  SiX, 
+  SiWhatsapp,
+  SiReddit,
+  SiYelp,
+  SiGooglemaps,
+  SiTiktok,
+  SiFacebook,
+  SiYoutube,
+  SiPinterest,
+  SiSnapchat,
+  SiTelegram,
+  SiBehance,
+  SiDribbble,
+  SiGithub,
+  SiFiverr,
+  SiUpwork,
+  SiTripadvisor
+} from '@icons-pack/react-simple-icons';
 import { Mail, Globe, Phone } from 'lucide-react';
 
 // ── Inline LinkedIn SVG (no extra dependency) ─────────────────────────────────
@@ -9,14 +28,67 @@ const SiLinkedin = ({ size = 24, color = 'currentColor', ...props }) => (
   </svg>
 );
 
+// ── Inline Google Reviews SVG ──────────────────────────────────────────────────
+const SiGooglereviews = ({ size = 24, color = 'currentColor', ...props }) => (
+  <svg role="img" viewBox="0 0 24 24" width={size} height={size} fill={color} {...props}>
+    <path d="M12.24 10.285V14.4h6.887c-.648 2.41-2.519 4.113-5.111 4.113-3.418 0-6.205-2.787-6.205-6.205 0-3.418 2.787-6.205 6.205-6.205 1.566 0 2.98.579 4.07 1.536l3.14-3.14c-1.996-1.854-4.6-2.99-7.21-2.99-6.627 0-12 5.373-12 12s5.373 12 12 12c6.248 0 11.516-4.506 11.96-10.413h-11.96z" />
+  </svg>
+);
+
 // ── Platform map ──────────────────────────────────────────────────────────────
 const PLATFORM_MAP = {
-  linkedin:  { icon: SiLinkedin,  color: '#0A66C2', urlKey: 'linkedin_url' },
-  instagram: { icon: SiInstagram, color: '#E4405F', urlKey: 'instagram_url' },
-  twitter:   { icon: SiX,         color: '#1a1a1a', urlKey: 'twitter_url' },
-  x:         { icon: SiX,         color: '#1a1a1a', urlKey: 'twitter_url' },
-  email:     { icon: Mail,        color: '#6B7280', urlKey: null },
-  website:   { icon: Globe,       color: '#6B7280', urlKey: 'website' },
+  linkedin:  { icon: SiLinkedin,  color: '#0A66C2' },
+  instagram: { icon: SiInstagram, color: '#E4405F' },
+  twitter:   { icon: SiX,         color: '#1a1a1a' },
+  x:         { icon: SiX,         color: '#1a1a1a' },
+  email:     { icon: Mail,        color: '#6B7280' },
+  website:   { icon: Globe,       color: '#6B7280' },
+};
+
+// ── Domain detector for custom link fields ─────────────────────────────────────
+export const detectDomainIcon = (url) => {
+  if (!url) return { icon: Globe, color: '#6B7280' };
+  try {
+    const cleanUrl = url.startsWith('http') ? url : `https://${url}`;
+    const parsed = new URL(cleanUrl);
+    const host = parsed.hostname.toLowerCase();
+    const path = parsed.pathname.toLowerCase();
+
+    if (host.includes('reddit.com')) return { icon: SiReddit, color: '#FF4500' };
+    if (host.includes('yelp.com')) return { icon: SiYelp, color: '#D32323' };
+    if (host.includes('google.com') && (host.includes('maps') || path.includes('maps') || url.includes('/maps'))) return { icon: SiGooglemaps, color: '#4285F4' };
+    if (host.includes('tiktok.com')) return { icon: SiTiktok, color: '#000000' };
+    if (host.includes('facebook.com')) return { icon: SiFacebook, color: '#1877F2' };
+    if (host.includes('youtube.com') || host.includes('youtu.be')) return { icon: SiYoutube, color: '#FF0000' };
+    if (host.includes('pinterest.com')) return { icon: SiPinterest, color: '#E60023' };
+    if (host.includes('snapchat.com')) return { icon: SiSnapchat, color: '#FFFC00' };
+    if (host.includes('t.me') || host.includes('telegram.org')) return { icon: SiTelegram, color: '#26A5E4' };
+    if (host.includes('behance.net') || host.includes('behance.com')) return { icon: SiBehance, color: '#1769FF' };
+    if (host.includes('dribbble.com')) return { icon: SiDribbble, color: '#EA4C89' };
+    if (host.includes('github.com')) return { icon: SiGithub, color: '#181717' };
+    if (host.includes('fiverr.com')) return { icon: SiFiverr, color: '#1DBF73' };
+    if (host.includes('upwork.com')) return { icon: SiUpwork, color: '#14A800' };
+    if (host.includes('google.com') && (path.includes('reviews') || host.includes('review') || url.includes('review') || url.includes('g.page'))) return { icon: SiGooglereviews, color: '#4285F4' };
+    if (host.includes('tripadvisor.com')) return { icon: SiTripadvisor, color: '#34E0A1' };
+  } catch (e) {
+    const lower = url.toLowerCase();
+    if (lower.includes('reddit')) return { icon: SiReddit, color: '#FF4500' };
+    if (lower.includes('yelp')) return { icon: SiYelp, color: '#D32323' };
+    if (lower.includes('maps.google') || lower.includes('google.com/maps')) return { icon: SiGooglemaps, color: '#4285F4' };
+    if (lower.includes('tiktok')) return { icon: SiTiktok, color: '#000000' };
+    if (lower.includes('facebook')) return { icon: SiFacebook, color: '#1877F2' };
+    if (lower.includes('youtube') || lower.includes('youtu.be')) return { icon: SiYoutube, color: '#FF0000' };
+    if (lower.includes('pinterest')) return { icon: SiPinterest, color: '#E60023' };
+    if (lower.includes('snapchat')) return { icon: SiSnapchat, color: '#FFFC00' };
+    if (lower.includes('telegram') || lower.includes('t.me')) return { icon: SiTelegram, color: '#26A5E4' };
+    if (lower.includes('behance')) return { icon: SiBehance, color: '#1769FF' };
+    if (lower.includes('dribbble')) return { icon: SiDribbble, color: '#EA4C89' };
+    if (lower.includes('github')) return { icon: SiGithub, color: '#181717' };
+    if (lower.includes('fiverr')) return { icon: SiFiverr, color: '#1DBF73' };
+    if (lower.includes('upwork')) return { icon: SiUpwork, color: '#14A800' };
+    if (lower.includes('tripadvisor')) return { icon: SiTripadvisor, color: '#34E0A1' };
+  }
+  return { icon: Globe, color: '#6B7280' };
 };
 
 // ── Phone popup — used standalone in table cells ───────────────────────────────
@@ -83,37 +155,10 @@ export const PhonePopup = ({ phone }) => {
   );
 };
 
-// ── Build the icon link list from a lead object ───────────────────────────────
-const getLeadLinks = (lead) => {
-  const links = [];
-  const added = new Set();
-
-  const tryAdd = (platform, url) => {
-    if (url && !added.has(platform)) {
-      links.push({ platform, url });
-      added.add(platform);
-    }
-  };
-
-  tryAdd('linkedin',  lead.linkedin_url);
-  tryAdd('instagram', lead.instagram_url);
-  tryAdd('twitter',   lead.twitter_url);
-  tryAdd(
-    'website',
-    lead.website
-      ? lead.website.startsWith('http') ? lead.website : `https://${lead.website}`
-      : null
-  );
-  if (lead.email) tryAdd('email', `mailto:${lead.email}`);
-
-  return links;
-};
-
 // ── ReachIcons — shown in the "Reach" column of the CRM table ─────────────────
-export const ReachIcons = ({ lead }) => {
+export const ReachIcons = ({ lead, columnDefs = [] }) => {
   const [phoneOpen, setPhoneOpen] = useState(false);
   const phoneRef = useRef();
-  const links = getLeadLinks(lead);
   const hasPhone = !!lead.phone;
   const isWhatsApp = (lead.platform || '').toLowerCase() === 'whatsapp';
   const clean = lead.phone?.replace(/\D/g, '') || '';
@@ -126,26 +171,69 @@ export const ReachIcons = ({ lead }) => {
     return () => document.removeEventListener('mousedown', handler);
   }, []);
 
+  // 1. Gather all social links (standard fields first)
+  const links = [];
+  const addedUrls = new Set();
+
+  const tryAdd = (platform, url, isCustom = false) => {
+    if (url) {
+      const cleanUrl = url.startsWith('http') ? url : `https://${url}`;
+      if (!addedUrls.has(cleanUrl)) {
+        links.push({ platform, url: cleanUrl, isCustom });
+        addedUrls.add(cleanUrl);
+      }
+    }
+  };
+
+  // Standard fields from PLATFORM_MAP keys (linkedin, instagram, twitter, website)
+  tryAdd('linkedin', lead.linkedin_url);
+  tryAdd('instagram', lead.instagram_url);
+  tryAdd('twitter', lead.twitter_url);
+  tryAdd('website', lead.website);
+
+  // 2. Add custom_fields of type 'link'
+  if (lead.custom_fields && columnDefs && columnDefs.length > 0) {
+    columnDefs.forEach(col => {
+      if (col.column_type === 'link' && !col.is_default) {
+        const val = lead.custom_fields[col.column_key];
+        if (val) {
+          tryAdd(col.column_label || col.column_key, val, true);
+        }
+      }
+    });
+  }
+
   if (links.length === 0 && !hasPhone) {
     return <span style={{ color: '#6B7280', fontSize: '0.85rem' }}>—</span>;
   }
-
-  const visible = links.slice(0, 3);
-  const extra = links.length - 3;
 
   return (
     <div
       style={{ display: 'flex', alignItems: 'center', gap: '6px' }}
       onClick={(e) => e.stopPropagation()}
     >
-      {/* Platform icon links */}
-      {visible.map(({ platform, url }) => {
-        const config = PLATFORM_MAP[platform];
-        if (!config) return null;
-        const IconComp = config.icon;
+      {/* Platform and Custom Link icon links in one single row — no truncation */}
+      {links.map(({ platform, url, isCustom }) => {
+        let IconComp = null;
+        let iconColor = '#6B7280';
+
+        if (!isCustom) {
+          const config = PLATFORM_MAP[platform.toLowerCase()];
+          if (config) {
+            IconComp = config.icon;
+            iconColor = config.color;
+          }
+        }
+
+        if (!IconComp) {
+          const config = detectDomainIcon(url);
+          IconComp = config.icon;
+          iconColor = config.color;
+        }
+
         return (
           <a
-            key={platform}
+            key={url}
             href={url}
             target="_blank"
             rel="noopener noreferrer"
@@ -157,12 +245,10 @@ export const ReachIcons = ({ lead }) => {
             onMouseEnter={(e) => (e.currentTarget.style.opacity = '1')}
             onMouseLeave={(e) => (e.currentTarget.style.opacity = '0.85')}
           >
-            <IconComp size={15} color={config.color} />
+            <IconComp size={15} color={iconColor} />
           </a>
         );
       })}
-
-      {extra > 0 && <span style={{ fontSize: '11px', color: '#6B7280' }}>+{extra}</span>}
 
       {/* Phone icon — opens call / WhatsApp popup */}
       {hasPhone && (
