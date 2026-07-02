@@ -2,9 +2,11 @@ import React, { useState } from 'react';
 import { supabase } from '../lib/supabase';
 import { Upload, CheckCircle, AlertCircle, Loader2, ArrowLeft, Landmark } from 'lucide-react';
 
+import { BILLING } from './Paywalls';
+
 // Monthly pricing only
-const MONTHLY_USD = '1.60';
-const MONTHLY_PKR = 450;
+const MONTHLY_USD = BILLING.monthly.starter.usdTotal;
+const MONTHLY_PKR = BILLING.monthly.starter.pkrPerMonth;
 
 const selectedPlan = 'starter';
 

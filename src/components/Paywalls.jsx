@@ -1,8 +1,15 @@
 import React, { useState, useEffect } from 'react';
 import { Lock, ShieldAlert, Check } from 'lucide-react';
 import { supabase } from '../lib/supabase';
+import { useLocalCurrency } from '../utils/useLocalCurrency';
 
 // ─── Unified Pricing Data ──────────────────────────────────────────────────
+// ⚠️  SYNC WARNING: This BILLING object is mirrored for Supabase Edge Functions in:
+//     supabase/functions/_shared/prices.ts  →  export const BILLING + STARTER_MONTHLY_USD
+//
+// Deno edge functions cannot import from React files. When changing any price,
+// PKR amount, or discount badge, also update the corresponding values in prices.ts.
+// Specifically: BILLING.monthly.starter.usdTotal (= STARTER_MONTHLY_USD in prices.ts)
 export const BILLING = {
   monthly: {
     label: 'Monthly',
@@ -10,102 +17,138 @@ export const BILLING = {
     months: 1,
     starter: {
       priceId: 'pri_01kw4zrvsjch1j1hm9vqndq7r2',
-      usdPerMonth: '0.95',
-      usdTotal: '0.95',
-      pkrPerMonth: 275,
-      pkrTotal: 275
+      usdPerMonth: '10.00',
+      usdTotal: '10.00',
+      pkrPerMonth: 450,
+      pkrTotal: 450,
+      bdtPerMonth: 197,
+      bdtTotal: 197,
+      badge: null
     },
     pro: {
       priceId: 'pri_01kw4zwwpdem0gmmxq0jgjvge2',
-      usdPerMonth: '3.40',
-      usdTotal: '3.40',
-      pkrPerMonth: 935,
-      pkrTotal: 935
+      usdPerMonth: '21.50',
+      usdTotal: '21.50',
+      pkrPerMonth: 950,
+      pkrTotal: 950,
+      bdtPerMonth: 421,
+      bdtTotal: 421,
+      badge: null
     },
     teams: {
-      priceId: 'pri_01kw51emf2ehn0s9fmypr7vet1',
-      usdPerMonth: '7.00',
-      usdTotal: '7.00',
-      pkrPerMonth: 1925,
-      pkrTotal: 1925
+      priceId: 'pri_01kwj0es4nckpwbnqhsfptmpbz',
+      usdPerMonth: '44.00',
+      usdTotal: '44.00',
+      pkrPerMonth: 1950,
+      pkrTotal: 1950,
+      bdtPerMonth: 862,
+      bdtTotal: 862,
+      badge: null
     }
   },
   quarterly: {
     label: 'Quarterly',
-    badge: 'Save 10%',
+    badge: 'Save up to 20%',
     months: 3,
     starter: {
       priceId: 'pri_01kwen9hya3s4ff5a345x3fan5',
-      usdPerMonth: '0.90',
-      usdTotal: '2.70',
-      pkrPerMonth: 248,
-      pkrTotal: 744
+      usdPerMonth: '8.00',
+      usdTotal: '24.00',
+      pkrPerMonth: 360,
+      pkrTotal: 1080,
+      bdtPerMonth: 157.33,
+      bdtTotal: 472,
+      badge: 'Save 20%'
     },
     pro: {
-      priceId: 'PENDING_PRO_QUARTERLY',
-      usdPerMonth: '3.06',
-      usdTotal: '9.18',
-      pkrPerMonth: 842,
-      pkrTotal: 2526
+      priceId: 'pri_01kwj03nqwt1x8wwcdsm7k0gf7',
+      usdPerMonth: '18.92',
+      usdTotal: '56.76',
+      pkrPerMonth: 836,
+      pkrTotal: 2508,
+      bdtPerMonth: 370.33,
+      bdtTotal: 1111,
+      badge: 'Save 12%'
     },
     teams: {
-      priceId: 'PENDING_TEAMS_QUARTERLY',
-      usdPerMonth: '6.30',
-      usdTotal: '18.90',
-      pkrPerMonth: 1733,
-      pkrTotal: 5199
+      priceId: 'pri_01kwj0gqjqzgnsn9rg8wyygctw',
+      usdPerMonth: '39.60',
+      usdTotal: '118.80',
+      pkrPerMonth: 1755,
+      pkrTotal: 5265,
+      bdtPerMonth: 776,
+      bdtTotal: 2328,
+      badge: 'Save 10%'
     }
   },
   sixMonth: {
     label: '6-Month',
-    badge: 'Save 15%',
+    badge: 'Save up to 25%',
     months: 6,
     starter: {
       priceId: 'pri_01kwenc72ad2fnfjks4qxcv8gt',
-      usdPerMonth: '0.85',
-      usdTotal: '5.10',
-      pkrPerMonth: 234,
-      pkrTotal: 1404
+      usdPerMonth: '7.50',
+      usdTotal: '45.00',
+      pkrPerMonth: 337.5,
+      pkrTotal: 2025,
+      bdtPerMonth: 147.67,
+      bdtTotal: 886,
+      badge: 'Save 25%'
     },
     pro: {
-      priceId: 'PENDING_PRO_6MONTH',
-      usdPerMonth: '2.89',
-      usdTotal: '17.34',
-      pkrPerMonth: 795,
-      pkrTotal: 4770
+      priceId: 'pri_01kwj06cdf68mjc2dv20gzb1n0',
+      usdPerMonth: '17.63',
+      usdTotal: '105.78',
+      pkrPerMonth: 779,
+      pkrTotal: 4674,
+      bdtPerMonth: 345,
+      bdtTotal: 2070,
+      badge: 'Save 18%'
     },
     teams: {
-      priceId: 'PENDING_TEAMS_6MONTH',
-      usdPerMonth: '5.95',
-      usdTotal: '35.70',
-      pkrPerMonth: 1636,
-      pkrTotal: 9816
+      priceId: 'pri_01kwj0jmf5y3mh4djdy33c008k',
+      usdPerMonth: '37.40',
+      usdTotal: '224.40',
+      pkrPerMonth: 1657.5,
+      pkrTotal: 9945,
+      bdtPerMonth: 732.83,
+      bdtTotal: 4397,
+      badge: 'Save 15%'
     }
   },
   yearly: {
     label: 'Yearly',
-    badge: 'Best Value',
+    badge: 'Save up to 30%',
     months: 12,
     starter: {
       priceId: 'pri_01kwenh9cqccsbym0m1w6tg3gs',
-      usdPerMonth: '0.80',
-      usdTotal: '9.60',
-      pkrPerMonth: 220,
-      pkrTotal: 2640
+      usdPerMonth: '7.00',
+      usdTotal: '84.00',
+      pkrPerMonth: 315,
+      pkrTotal: 3780,
+      bdtPerMonth: 137.75,
+      bdtTotal: 1653,
+      badge: 'Save 30%'
     },
     pro: {
-      priceId: 'PENDING_PRO_YEARLY',
-      usdPerMonth: '2.72',
-      usdTotal: '32.64',
-      pkrPerMonth: 748,
-      pkrTotal: 8976
+      priceId: 'pri_01kwj0cex7n1rdaww8fv33afbm',
+      usdPerMonth: '16.125',
+      usdTotal: '193.50',
+      pkrPerMonth: 712.5,
+      pkrTotal: 8550,
+      bdtPerMonth: 315.5,
+      bdtTotal: 3786,
+      badge: 'Save 25%'
     },
     teams: {
-      priceId: 'PENDING_TEAMS_YEARLY',
-      usdPerMonth: '5.60',
-      usdTotal: '67.20',
-      pkrPerMonth: 1540,
-      pkrTotal: 18480
+      priceId: 'pri_01kwj0me8wdfc1mr801971n74y',
+      usdPerMonth: '35.20',
+      usdTotal: '422.40',
+      pkrPerMonth: 1560,
+      pkrTotal: 18720,
+      bdtPerMonth: 689.83,
+      bdtTotal: 8278,
+      badge: 'Save 20%'
     }
   }
 };
@@ -204,6 +247,7 @@ const PLAN_LEVELS = {
 
 function PlanCard({ plan, billing, isSelected, onSelect, handlePaddleCheckout, profile }) {
   const { id, name, tagline, features, comingSoon, isEnterprise } = plan;
+  const { formatLocalPrice, country } = useLocalCurrency();
 
   const hasPricing = !isEnterprise && BILLING[billing] && BILLING[billing][id];
   const pricing = hasPricing ? BILLING[billing][id] : null;
@@ -286,7 +330,7 @@ function PlanCard({ plan, billing, isSelected, onSelect, handlePaddleCheckout, p
       )}
 
       {/* Discount Badge */}
-      {cardStatus !== 'current' && !isEnterprise && billing !== 'monthly' && (
+      {cardStatus !== 'current' && !isEnterprise && billing !== 'monthly' && pricing?.badge && (
         <div style={{
           position: 'absolute',
           top: '12px',
@@ -299,8 +343,46 @@ function PlanCard({ plan, billing, isSelected, onSelect, handlePaddleCheckout, p
           padding: '2px 8px',
           borderRadius: '3px',
           letterSpacing: '0.04em',
+          display: 'flex',
+          flexDirection: 'column',
+          alignItems: 'flex-end',
+          gap: '2px'
         }}>
-          {billing === 'quarterly' ? 'Save 10%' : billing === 'sixMonth' ? 'Save 15%' : 'Best Value'}
+          <div>{pricing.badge}</div>
+          {(() => {
+            const monthlyPrice = parseFloat(BILLING.monthly[id].usdPerMonth);
+            const currentPrice = parseFloat(pricing.usdPerMonth);
+            const savings = monthlyPrice - currentPrice;
+
+            if (country === 'BD' && BILLING.monthly[id].bdtPerMonth && pricing.bdtPerMonth) {
+              const bdtSavings = BILLING.monthly[id].bdtPerMonth - pricing.bdtPerMonth;
+              if (bdtSavings > 0) {
+                return (
+                  <div style={{ fontSize: '0.55rem', fontWeight: 500, opacity: 0.85 }}>
+                    Save ≈ BDT {bdtSavings.toFixed(0)}/mo
+                  </div>
+                );
+              }
+            }
+
+            if (country === 'PK' && BILLING.monthly[id].pkrPerMonth && pricing.pkrPerMonth) {
+              const pkrSavings = BILLING.monthly[id].pkrPerMonth - pricing.pkrPerMonth;
+              if (pkrSavings > 0) {
+                return (
+                  <div style={{ fontSize: '0.55rem', fontWeight: 500, opacity: 0.85 }}>
+                    Save ≈ Rs {pkrSavings}/mo
+                  </div>
+                );
+              }
+            }
+
+            const formattedSavings = formatLocalPrice(savings);
+            return formattedSavings ? (
+              <div style={{ fontSize: '0.55rem', fontWeight: 500, opacity: 0.85 }}>
+                Save {formattedSavings}/mo
+              </div>
+            ) : null;
+          })()}
         </div>
       )}
 
@@ -321,10 +403,50 @@ function PlanCard({ plan, billing, isSelected, onSelect, handlePaddleCheckout, p
         ) : pricing ? (
           <>
             <div style={{ fontSize: '1.5rem', fontWeight: 700, color: 'var(--text-primary)', fontFamily: "'Mattone', sans-serif" }}>
-              ${pricing.usdPerMonth}/mo <span style={{ fontSize: '0.9rem', fontWeight: 400, color: 'var(--text-muted)' }}>({`Rs. ${pricing.pkrPerMonth}/mo`})</span>
+              {(() => {
+                if (country === 'PK') {
+                  return `Rs ${pricing.pkrPerMonth}/mo`;
+                }
+                if (country === 'BD') {
+                  return `৳${pricing.bdtPerMonth.toFixed(2)}/mo`;
+                }
+                return `$${pricing.usdPerMonth}/mo`;
+              })()}
+              {(() => {
+                if (country === 'PK' || country === 'BD') return null;
+                const formatted = formatLocalPrice(pricing.usdPerMonth);
+                return formatted ? (
+                  <div style={{ fontSize: '0.75rem', fontWeight: 500, color: 'var(--text-muted)', marginTop: '0.15rem' }}>
+                    {formatted}/mo
+                  </div>
+                ) : null;
+              })()}
             </div>
             <div style={{ fontSize: '0.72rem', color: 'var(--text-muted)', marginTop: '0.35rem' }}>
-              {billing === 'monthly' ? `$${pricing.usdTotal} billed monthly` : `$${pricing.usdTotal} billed every ${BILLING[billing].months} months`}
+              {(() => {
+                if (country === 'PK') {
+                  return billing === 'monthly'
+                    ? `Rs ${pricing.pkrTotal} billed monthly`
+                    : `Rs ${pricing.pkrTotal} billed every ${BILLING[billing].months} months`;
+                }
+                if (country === 'BD') {
+                  return billing === 'monthly'
+                    ? `৳${pricing.bdtTotal.toFixed(0)} billed monthly`
+                    : `৳${pricing.bdtTotal.toFixed(0)} billed every ${BILLING[billing].months} months`;
+                }
+                return billing === 'monthly'
+                  ? `$${pricing.usdTotal} billed monthly`
+                  : `$${pricing.usdTotal} billed every ${BILLING[billing].months} months`;
+              })()}
+              {(() => {
+                if (country === 'PK' || country === 'BD') return null;
+                const formatted = formatLocalPrice(pricing.usdTotal);
+                return formatted ? (
+                  <div style={{ fontSize: '0.65rem', color: 'var(--text-muted)', marginTop: '0.1rem' }}>
+                    {formatted} total
+                  </div>
+                ) : null;
+              })()}
             </div>
           </>
         ) : null}

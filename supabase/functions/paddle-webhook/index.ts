@@ -1,5 +1,8 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts"
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.7.1"
+// ⚠️  SYNC WARNING: STARTER_MONTHLY_USD is mirrored in src/components/Paywalls.jsx
+//     (BILLING.monthly.starter.usdTotal). Keep both files in sync when prices change.
+import { STARTER_MONTHLY_USD } from '../_shared/prices.ts'
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
@@ -122,7 +125,7 @@ serve(async (req) => {
       } else {
         // Receipt Email (recurring renewal)
         const planName = payload.data?.items?.[0]?.price?.product?.name || 'Starter Plan'
-        const grandTotal = payload.data?.details?.totals?.grand_total || payload.data?.totals?.grand_total || '0.95'
+        const grandTotal = payload.data?.details?.totals?.grand_total || payload.data?.totals?.grand_total || STARTER_MONTHLY_USD
         const formattedTotal = `$${grandTotal}`
         const paymentDate = payload.data?.occurred_at 
           ? new Date(payload.data.occurred_at).toLocaleDateString()
@@ -188,7 +191,7 @@ serve(async (req) => {
                 <span style="font-family: Arial, sans-serif; text-transform: uppercase; letter-spacing: 0.08em; font-size: 24px; color: #1a1a1a; font-weight: bold;">ReachDesk</span>
               </div>
               <h2 style="color: #5B8FB9; border-bottom: 1px solid #E5E5E5; padding-bottom: 10px; margin-top: 0;">Subscription Renewal</h2>
-              <p>Your Starter plan renews in 7 days on ${dateStr}. Amount: $0.95. No action needed to continue.</p>
+              <p>Your Starter plan renews in 7 days on ${dateStr}. Amount: $${STARTER_MONTHLY_USD}. No action needed to continue.</p>
               <div style="text-align: center; margin: 30px 0;">
                 <a href="https://reachdesk.esemdot.com/settings" style="background-color: #5B8FB9; color: #FFFFFF; padding: 12px 24px; text-decoration: none; border-radius: 3px; font-weight: bold; display: inline-block;">Manage Subscription</a>
               </div>
