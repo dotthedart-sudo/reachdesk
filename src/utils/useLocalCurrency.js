@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 
-const CACHE_KEY = 'reachdesk_local_currency_data_mock_pk';
+const CACHE_KEY = 'reachdesk_local_currency_data_v2';
 const TIMEOUT_MS = 3000;
 
 async function fetchWithTimeout(url, timeoutMs = TIMEOUT_MS) {
@@ -40,8 +40,11 @@ export function useLocalCurrency() {
     async function detectAndFetchRates() {
       try {
         // 1. Fetch visitor's currency and country code
-        const currency = 'PKR';
-        const country = 'PK';
+        const geoResponse = await fetchWithTimeout('https://ipapi.co/json/');
+        const geoData = await geoResponse.json();
+        
+        const currency = geoData.currency;
+        const country = geoData.country_code;
 
         if (!currency || currency === 'USD' || currency === 'PKR' || currency === 'BDT' || country === 'US' || country === 'PK' || country === 'BD') {
           const result = { currency: currency || null, rate: null, enabled: false, country: country || null };
