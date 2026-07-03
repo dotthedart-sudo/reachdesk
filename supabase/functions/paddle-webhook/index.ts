@@ -41,6 +41,19 @@ serve(async (req) => {
       )
     }
 
+    const getFormattedAmount = (amount: any, currencyCode: string = 'USD') => {
+      const numericAmount = parseFloat(amount);
+      if (isNaN(numericAmount)) return `$${amount}`;
+      
+      if (currencyCode === 'PKR') {
+        return `Rs ${numericAmount.toLocaleString()}`;
+      }
+      if (currencyCode === 'BDT') {
+        return `৳${numericAmount.toLocaleString()}`;
+      }
+      return `$${numericAmount.toFixed(2)}`;
+    };
+
     const sendEmail = async (subject: string, htmlContent: string) => {
       const emailResponse = await fetch('https://api.resend.com/emails', {
         method: 'POST',
@@ -102,6 +115,8 @@ serve(async (req) => {
       }
 
       const isFirstPayment = !profile || profile.plan_status !== 'active'
+      const rawProductName = payload.data?.items?.[0]?.price?.product?.name || 'Starter Plan'
+      const planName = rawProductName.toLowerCase().endsWith('plan') ? rawProductName : `${rawProductName} Plan`
 
       if (isFirstPayment) {
         // Welcome Email
@@ -111,7 +126,7 @@ serve(async (req) => {
               <span style="font-family: Arial, sans-serif; text-transform: uppercase; letter-spacing: 0.08em; font-size: 24px; color: #FFFFFF; font-weight: bold;">ReachDesk</span>
             </div>
             <h2 style="color: #5B8FB9; border-bottom: 1px solid #21262D; padding-bottom: 10px;">Welcome to ReachDesk CRM!</h2>
-            <p>Your Starter plan is now active. You have successfully upgraded your account and can now access all advanced CRM tools, email templates, and configurations.</p>
+            <p>Your ${planName} is now active. You have successfully upgraded your account and can now access all advanced CRM tools, email templates, and configurations.</p>
             <div style="text-align: center; margin: 30px 0;">
               <a href="https://reachdesk.esemdot.com" style="background-color: #5B8FB9; color: #0D1117; padding: 12px 24px; text-decoration: none; border-radius: 3px; font-weight: bold; display: inline-block;">Log In to Your Workspace</a>
             </div>
@@ -124,9 +139,9 @@ serve(async (req) => {
         await sendEmail("You're in — Welcome to ReachDesk CRM!", welcomeHtml)
       } else {
         // Receipt Email (recurring renewal)
-        const planName = payload.data?.items?.[0]?.price?.product?.name || 'Starter Plan'
         const grandTotal = payload.data?.details?.totals?.grand_total || payload.data?.totals?.grand_total || STARTER_MONTHLY_USD
-        const formattedTotal = `$${grandTotal}`
+        const currencyCode = payload.data?.currency_code || payload.data?.next_transaction?.currency_code || payload.data?.items?.[0]?.price?.unit_price?.currency_code || 'USD'
+        const formattedTotal = getFormattedAmount(grandTotal, currencyCode)
         const paymentDate = payload.data?.occurred_at 
           ? new Date(payload.data.occurred_at).toLocaleDateString()
           : new Date().toLocaleDateString()
@@ -185,13 +200,30 @@ serve(async (req) => {
             day: 'numeric'
           })
 
+          const rawProductName = payload.data?.items?.[0]?.price?.product?.name 
+            || payload.data?.subscription?.items?.[0]?.price?.product?.name 
+            || 'Starter Plan'
+          const planName = rawProductName.toLowerCase().endsWith('plan') ? rawProductName : `${rawProductName} Plan`
+
+          const nextBilledAmount = payload.data?.next_transaction?.totals?.grand_total 
+            || payload.data?.recurring_transaction_details?.totals?.grand_total 
+            || payload.data?.items?.[0]?.price?.unit_price?.amount 
+            || STARTER_MONTHLY_USD
+
+          const currencyCode = payload.data?.currency_code 
+            || payload.data?.next_transaction?.currency_code 
+            || payload.data?.items?.[0]?.price?.unit_price?.currency_code 
+            || 'USD'
+
+          const formattedAmount = getFormattedAmount(nextBilledAmount, currencyCode)
+
           const reminderHtml = `
             <div style="background-color: #FFFFFF; color: #1a1a1a; font-family: sans-serif; padding: 30px; border-radius: 3px; max-width: 600px; margin: 0 auto; border: 1px solid #E5E5E5;">
               <div style="text-align: center; margin-bottom: 20px;">
                 <span style="font-family: Arial, sans-serif; text-transform: uppercase; letter-spacing: 0.08em; font-size: 24px; color: #1a1a1a; font-weight: bold;">ReachDesk</span>
               </div>
               <h2 style="color: #5B8FB9; border-bottom: 1px solid #E5E5E5; padding-bottom: 10px; margin-top: 0;">Subscription Renewal</h2>
-              <p>Your Starter plan renews in 7 days on ${dateStr}. Amount: $${STARTER_MONTHLY_USD}. No action needed to continue.</p>
+              <p>Your ${planName} renews in 7 days on ${dateStr}. Amount: ${formattedAmount}. No action needed to continue.</p>
               <div style="text-align: center; margin: 30px 0;">
                 <a href="https://reachdesk.esemdot.com/settings" style="background-color: #5B8FB9; color: #FFFFFF; padding: 12px 24px; text-decoration: none; border-radius: 3px; font-weight: bold; display: inline-block;">Manage Subscription</a>
               </div>
@@ -231,6 +263,11 @@ serve(async (req) => {
             day: 'numeric'
           })
 
+      const rawProductName = payload.data?.items?.[0]?.price?.product?.name 
+        || payload.data?.subscription?.items?.[0]?.price?.product?.name 
+        || 'Starter Plan'
+      const planName = rawProductName.toLowerCase().endsWith('plan') ? rawProductName : `${rawProductName} Plan`
+
       // Cancellation Email
       const cancelHtml = `
         <div style="background-color: #0D1117; color: #FFFFFF; font-family: sans-serif; padding: 30px; border-radius: 3px; max-width: 600px; margin: 0 auto; border: 1px solid #21262D;">
@@ -238,7 +275,7 @@ serve(async (req) => {
             <span style="font-family: Arial, sans-serif; text-transform: uppercase; letter-spacing: 0.08em; font-size: 24px; color: #FFFFFF; font-weight: bold;">ReachDesk</span>
           </div>
           <h2 style="color: #E05252; border-bottom: 1px solid #21262D; padding-bottom: 10px;">Subscription Cancelled</h2>
-          <p>Your Starter plan will remain active until ${endDate}. After that, your data will be retained for 30 days before permanent deletion. You can resubscribe anytime to restore full access.</p>
+          <p>Your ${planName} will remain active until ${endDate}. After that, your data will be retained for 30 days before permanent deletion. You can resubscribe anytime to restore full access.</p>
           <div style="text-align: center; margin: 30px 0;">
             <a href="https://reachdesk.esemdot.com/upgrade" style="background-color: #5B8FB9; color: #0D1117; padding: 12px 24px; text-decoration: none; border-radius: 3px; font-weight: bold; display: inline-block;">Resubscribe Now</a>
           </div>
