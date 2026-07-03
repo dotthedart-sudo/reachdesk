@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react';
 import { supabase } from '../lib/supabase';
 
-const CACHE_KEY = 'reachdesk_local_currency_data_mock_pk';
+const CACHE_KEY = 'reachdesk_local_currency_data_v3';
 const TIMEOUT_MS = 3000;
 
 async function fetchWithTimeout(url, timeoutMs = TIMEOUT_MS) {
@@ -40,8 +40,12 @@ export function useLocalCurrency() {
 
     async function detectAndFetchRates() {
       try {
-        const currency = 'PKR';
-        const country = 'PK';
+        // 1. Fetch visitor's currency and country code via Edge Function to prevent CORS issues
+        const { data, error: invokeError } = await supabase.functions.invoke('detect-location');
+        if (invokeError) throw new Error(`detect-location failed: ${invokeError.message}`);
+        
+        const currency = data?.currency;
+        const country = data?.country_code;
 
         if (!currency || currency === 'USD' || country === 'US') {
           const result = { currency: currency || null, rate: null, enabled: false, country: country || null };
