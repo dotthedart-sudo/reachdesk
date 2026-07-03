@@ -1514,9 +1514,14 @@ select option {
   min-height: 100vh;
   background-color: var(--bg-primary);
   background-image: 
-    radial-gradient(at 0% 0%, rgba(139, 92, 246, 0.12) 0px, transparent 50%),
-    radial-gradient(at 100% 100%, rgba(217, 70, 239, 0.12) 0px, transparent 50%);
+    radial-gradient(at 0% 0%, rgba(91, 143, 185, 0.15) 0px, transparent 50%),
+    radial-gradient(at 100% 100%, rgba(91, 143, 185, 0.08) 0px, transparent 50%);
   overflow-x: hidden;
+}
+:root.light .landing-container {
+  background-image: 
+    radial-gradient(at 0% 0%, rgba(62, 123, 184, 0.08) 0px, transparent 50%),
+    radial-gradient(at 100% 100%, rgba(62, 123, 184, 0.05) 0px, transparent 50%);
 }
 
 .landing-nav {
@@ -1535,7 +1540,7 @@ select option {
 /* Light mode: white navbar */
 :root.light .landing-nav {
   background: rgba(255, 255, 255, 0.97);
-  box-shadow: 0 1px 8px rgba(109, 40, 217, 0.06);
+  box-shadow: 0 1px 8px rgba(62, 123, 184, 0.06);
 }
 
 .landing-nav-logo {
@@ -1958,7 +1963,7 @@ select option {
 /* Light mode: white auth card */
 :root.light .auth-card {
   background: #ffffff;
-  box-shadow: 0 8px 40px rgba(109, 40, 217, 0.12);
+  box-shadow: 0 8px 40px rgba(62, 123, 184, 0.12);
   border-color: #e5e7eb;
 }
 

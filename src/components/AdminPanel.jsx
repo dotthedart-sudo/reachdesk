@@ -479,261 +479,306 @@ function AdminPanelContent({ currentUser }) {
             )}
           </div>
         );
-      })() : (
-        /* ── User Directory ── */
-        <div className="flex-col gap-3">
+      })() : (() => {
+        const filteredUsers = userList.filter(user =>
+          filterByTime(user) && (
+            !searchQuery.trim() ||
+            (user.email ?? '').toLowerCase().includes(searchQuery.toLowerCase()) ||
+            (user.full_name ?? '').toLowerCase().includes(searchQuery.toLowerCase())
+          )
+        );
 
-          {/* Controls Row: Time Filter + Search */}
-          <div style={{ display: 'flex', gap: '0.75rem', alignItems: 'center', flexWrap: 'wrap', marginBottom: '0.25rem' }}>
-            {/* Time filter */}
-            <div style={{ position: 'relative' }}>
-              <Calendar size={14} style={{ position: 'absolute', left: '10px', top: '50%', transform: 'translateY(-50%)', color: 'var(--text-muted)', pointerEvents: 'none' }} />
-              <select
-                value={timeFilter}
-                onChange={e => setTimeFilter(e.target.value)}
-                style={{
-                  paddingLeft: '30px', paddingRight: '2rem', paddingTop: '0.45rem', paddingBottom: '0.45rem',
-                  background: 'var(--bg-secondary)', border: '1px solid var(--border-color)',
-                  borderRadius: '8px', color: 'var(--text-primary)', fontSize: '0.85rem',
-                  cursor: 'pointer', outline: 'none', appearance: 'none', minWidth: '160px'
-                }}
-              >
-                <option value="today">Today</option>
-                <option value="yesterday">Yesterday</option>
-                <option value="this_week">This Week</option>
-                <option value="this_month">This Month</option>
-                <option value="last_6mo">Last 6 Months</option>
-                <option value="this_year">This Year</option>
-                <option value="all_time">All Time</option>
-              </select>
-              <ChevronDown size={12} style={{ position: 'absolute', right: '8px', top: '50%', transform: 'translateY(-50%)', color: 'var(--text-muted)', pointerEvents: 'none' }} />
+        // Group by referral source
+        const referralBreakdown = filteredUsers.reduce((acc, u) => {
+          const source = u.referral_source || 'Unspecified';
+          acc[source] = (acc[source] || 0) + 1;
+          return acc;
+        }, {});
+
+        const totalFilteredSignups = filteredUsers.length;
+
+        return (
+          /* ── User Directory ── */
+          <div className="flex-col gap-3">
+
+            {/* Referral Breakdown Card */}
+            <div className="card" style={{ padding: '1.25rem', marginBottom: '0.5rem', background: 'var(--bg-secondary)', border: '1px solid var(--border-color)', borderRadius: '0' }}>
+              <h3 style={{ fontSize: '0.85rem', fontWeight: 700, textTransform: 'uppercase', color: 'var(--text-muted)', marginBottom: '1rem', letterSpacing: '0.05em' }}>
+                Traffic & Referral Signups Breakdown ({timeFilter.replace('_', ' ')})
+              </h3>
+              {totalFilteredSignups === 0 ? (
+                <div className="color-muted" style={{ fontSize: '0.85rem' }}>No signups in this period.</div>
+              ) : (
+                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))', gap: '1rem' }}>
+                  {Object.entries(referralBreakdown)
+                    .sort((a, b) => b[1] - a[1])
+                    .map(([source, count]) => {
+                      const percentage = Math.round((count / totalFilteredSignups) * 100);
+                      return (
+                        <div key={source} style={{ background: 'var(--bg-tertiary)', border: '1px solid var(--border-color)', padding: '0.75rem 1rem', borderRadius: '0', display: 'flex', flexDirection: 'column', gap: '0.35rem' }}>
+                          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', fontSize: '0.85rem' }}>
+                            <span style={{ fontWeight: 600, color: 'var(--text-primary)' }}>{source}</span>
+                            <span style={{ color: 'var(--primary-purple)', fontWeight: 700 }}>
+                              {count} <span style={{ fontSize: '0.75rem', fontWeight: 'normal', color: 'var(--text-muted)' }}>({percentage}%)</span>
+                            </span>
+                          </div>
+                          <div style={{ width: '100%', height: '4px', background: 'rgba(255,255,255,0.05)', overflow: 'hidden' }}>
+                            <div style={{ width: `${percentage}%`, height: '100%', background: 'var(--primary-purple)' }} />
+                          </div>
+                        </div>
+                      );
+                    })}
+                </div>
+              )}
             </div>
 
-            {/* Search */}
-            <div style={{ position: 'relative', flex: 1, minWidth: '200px' }}>
-              <Search size={14} style={{ position: 'absolute', left: '10px', top: '50%', transform: 'translateY(-50%)', color: 'var(--text-muted)', pointerEvents: 'none' }} />
-              <input
-                type="text"
-                placeholder="Search by email or name…"
-                value={searchQuery}
-                onChange={e => setSearchQuery(e.target.value)}
-                style={{
-                  width: '100%', paddingLeft: '32px', paddingRight: '0.75rem',
-                  paddingTop: '0.45rem', paddingBottom: '0.45rem',
-                  background: 'var(--bg-secondary)', border: '1px solid var(--border-color)',
-                  borderRadius: '8px', color: 'var(--text-primary)', fontSize: '0.85rem', outline: 'none',
-                  boxSizing: 'border-box'
-                }}
-              />
+            {/* Controls Row: Time Filter + Search */}
+            <div style={{ display: 'flex', gap: '0.75rem', alignItems: 'center', flexWrap: 'wrap', marginBottom: '0.25rem' }}>
+              {/* Time filter */}
+              <div style={{ position: 'relative' }}>
+                <Calendar size={14} style={{ position: 'absolute', left: '10px', top: '50%', transform: 'translateY(-50%)', color: 'var(--text-muted)', pointerEvents: 'none' }} />
+                <select
+                  value={timeFilter}
+                  onChange={e => setTimeFilter(e.target.value)}
+                  style={{
+                    paddingLeft: '30px', paddingRight: '2rem', paddingTop: '0.45rem', paddingBottom: '0.45rem',
+                    background: 'var(--bg-secondary)', border: '1px solid var(--border-color)',
+                    borderRadius: '8px', color: 'var(--text-primary)', fontSize: '0.85rem',
+                    cursor: 'pointer', outline: 'none', appearance: 'none', minWidth: '160px'
+                  }}
+                >
+                  <option value="today">Today</option>
+                  <option value="yesterday">Yesterday</option>
+                  <option value="this_week">This Week</option>
+                  <option value="this_month">This Month</option>
+                  <option value="last_6mo">Last 6 Months</option>
+                  <option value="this_year">This Year</option>
+                  <option value="all_time">All Time</option>
+                </select>
+                <ChevronDown size={12} style={{ position: 'absolute', right: '8px', top: '50%', transform: 'translateY(-50%)', color: 'var(--text-muted)', pointerEvents: 'none' }} />
+              </div>
+
+              {/* Search */}
+              <div style={{ position: 'relative', flex: 1, minWidth: '200px' }}>
+                <Search size={14} style={{ position: 'absolute', left: '10px', top: '50%', transform: 'translateY(-50%)', color: 'var(--text-muted)', pointerEvents: 'none' }} />
+                <input
+                  type="text"
+                  placeholder="Search by email or name…"
+                  value={searchQuery}
+                  onChange={e => setSearchQuery(e.target.value)}
+                  style={{
+                    width: '100%', paddingLeft: '32px', paddingRight: '0.75rem',
+                    paddingTop: '0.45rem', paddingBottom: '0.45rem',
+                    background: 'var(--bg-secondary)', border: '1px solid var(--border-color)',
+                    borderRadius: '8px', color: 'var(--text-primary)', fontSize: '0.85rem', outline: 'none',
+                    boxSizing: 'border-box'
+                  }}
+                />
+              </div>
+
+              {/* User count */}
+              <span style={{ fontSize: '0.8rem', color: 'var(--text-muted)', whiteSpace: 'nowrap' }}>
+                {totalFilteredSignups} users
+              </span>
             </div>
 
-            {/* User count */}
-            <span style={{ fontSize: '0.8rem', color: 'var(--text-muted)', whiteSpace: 'nowrap' }}>
-              {userList.filter(u => filterByTime(u) && (
-                !searchQuery.trim() ||
-                (u.email ?? '').toLowerCase().includes(searchQuery.toLowerCase()) ||
-                (u.full_name ?? '').toLowerCase().includes(searchQuery.toLowerCase())
-              )).length} users
-            </span>
-          </div>
+            {/* Table */}
+            <div className="card" style={{ padding: 0, overflowX: 'auto' }}>
+              <table className="w-full" style={{ borderCollapse: 'collapse' }}>
+                <thead>
+                  <tr style={{ borderBottom: '1px solid var(--border-color)', textAlign: 'left', background: 'var(--bg-tertiary)' }}>
+                    <th style={{ padding: '0.75rem 1rem', width: '28px' }}></th>
+                    <th style={{ padding: '0.75rem 1rem' }}>User</th>
+                    <th style={{ padding: '0.75rem 1rem' }}>Heard About Us</th>
+                    <th style={{ padding: '0.75rem 1rem' }}>Signed Up</th>
+                    <th style={{ padding: '0.75rem 1rem' }}>Trial Status</th>
+                    <th style={{ padding: '0.75rem 1rem' }}>Plan</th>
+                    <th style={{ padding: '0.75rem 1rem', textAlign: 'right' }}>Actions</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {filteredUsers
+                    .sort((a, b) => new Date(b.created_at) - new Date(a.created_at))
+                    .map(user => {
+                      const isHighlighted = highlightEmail && user.email === highlightEmail;
+                      const isExpanded = expandedUserId === user.id;
+                      const trial = getTrialInfo(user);
+                      const stats = userStats[user.id];
+                      const isStatsLoading = statsLoadingUserId === user.id;
 
-          {/* Table */}
-          <div className="card" style={{ padding: 0, overflowX: 'auto' }}>
-            <table className="w-full" style={{ borderCollapse: 'collapse' }}>
-              <thead>
-                <tr style={{ borderBottom: '1px solid var(--border-color)', textAlign: 'left', background: 'var(--bg-tertiary)' }}>
-                  <th style={{ padding: '0.75rem 1rem', width: '28px' }}></th>
-                  <th style={{ padding: '0.75rem 1rem' }}>User</th>
-                  <th style={{ padding: '0.75rem 1rem' }}>Signed Up</th>
-                  <th style={{ padding: '0.75rem 1rem' }}>Trial Status</th>
-                  <th style={{ padding: '0.75rem 1rem' }}>Plan</th>
-                  <th style={{ padding: '0.75rem 1rem', textAlign: 'right' }}>Actions</th>
-                </tr>
-              </thead>
-              <tbody>
-                {userList
-                  .filter(user =>
-                    filterByTime(user) && (
-                      !searchQuery.trim() ||
-                      (user.email ?? '').toLowerCase().includes(searchQuery.toLowerCase()) ||
-                      (user.full_name ?? '').toLowerCase().includes(searchQuery.toLowerCase())
-                    )
-                  )
-                  .sort((a, b) => new Date(b.created_at) - new Date(a.created_at))
-                  .map(user => {
-                    const isHighlighted = highlightEmail && user.email === highlightEmail;
-                    const isExpanded = expandedUserId === user.id;
-                    const trial = getTrialInfo(user);
-                    const stats = userStats[user.id];
-                    const isStatsLoading = statsLoadingUserId === user.id;
+                      // Trial badge styling
+                      const badgeStyle = {
+                        display: 'inline-flex', alignItems: 'center', gap: '4px',
+                        padding: '2px 8px', borderRadius: '20px', fontSize: '0.72rem', fontWeight: 700,
+                        background:
+                          trial.badge === 'paid'     ? 'rgba(59,130,246,0.12)' :
+                          trial.badge === 'active'   ? 'rgba(16,185,129,0.12)' :
+                          trial.badge === 'expiring' ? 'rgba(245,158,11,0.12)' :
+                          trial.badge === 'expired'  ? 'rgba(239,68,68,0.12)'  : 'rgba(100,116,139,0.12)',
+                        color: trial.color,
+                        border: `1px solid ${trial.color}33`,
+                      };
 
-                    // Trial badge styling
-                    const badgeStyle = {
-                      display: 'inline-flex', alignItems: 'center', gap: '4px',
-                      padding: '2px 8px', borderRadius: '20px', fontSize: '0.72rem', fontWeight: 700,
-                      background:
-                        trial.badge === 'paid'     ? 'rgba(59,130,246,0.12)' :
-                        trial.badge === 'active'   ? 'rgba(16,185,129,0.12)' :
-                        trial.badge === 'expiring' ? 'rgba(245,158,11,0.12)' :
-                        trial.badge === 'expired'  ? 'rgba(239,68,68,0.12)'  : 'rgba(100,116,139,0.12)',
-                      color: trial.color,
-                      border: `1px solid ${trial.color}33`,
-                    };
+                      return (
+                        <React.Fragment key={user.id}>
+                          {/* Main row */}
+                          <tr
+                            ref={isHighlighted ? highlightRef : null}
+                            style={{
+                              borderBottom: isExpanded ? 'none' : '1px solid var(--border-color)',
+                              background: isHighlighted ? 'rgba(245, 158, 11, 0.08)' : 'transparent',
+                              cursor: 'pointer',
+                              transition: 'background 0.15s ease',
+                            }}
+                            onClick={() => handleToggleExpand(user)}
+                            onMouseEnter={e => { if (!isHighlighted) e.currentTarget.style.background = 'var(--bg-secondary)'; }}
+                            onMouseLeave={e => { if (!isHighlighted) e.currentTarget.style.background = 'transparent'; }}
+                          >
+                            {/* Expand toggle */}
+                            <td style={{ padding: '0.75rem 0.5rem 0.75rem 1rem', color: 'var(--text-muted)' }}>
+                              {isExpanded ? <ChevronUp size={14} /> : <ChevronDown size={14} />}
+                            </td>
 
-                    return (
-                      <React.Fragment key={user.id}>
-                        {/* Main row */}
-                        <tr
-                          ref={isHighlighted ? highlightRef : null}
-                          style={{
-                            borderBottom: isExpanded ? 'none' : '1px solid var(--border-color)',
-                            background: isHighlighted ? 'rgba(245, 158, 11, 0.08)' : 'transparent',
-                            cursor: 'pointer',
-                            transition: 'background 0.15s ease',
-                          }}
-                          onClick={() => handleToggleExpand(user)}
-                          onMouseEnter={e => { if (!isHighlighted) e.currentTarget.style.background = 'var(--bg-secondary)'; }}
-                          onMouseLeave={e => { if (!isHighlighted) e.currentTarget.style.background = 'transparent'; }}
-                        >
-                          {/* Expand toggle */}
-                          <td style={{ padding: '0.75rem 0.5rem 0.75rem 1rem', color: 'var(--text-muted)' }}>
-                            {isExpanded ? <ChevronUp size={14} /> : <ChevronDown size={14} />}
-                          </td>
-
-                          {/* User Email */}
-                          <td style={{ padding: '0.75rem 1rem' }}>
-                            <div style={{ fontWeight: 600, fontSize: '0.9rem' }}>{user.email ?? '—'}</div>
-                            {user.full_name && (
-                              <div style={{ fontSize: '0.75rem', color: 'var(--text-muted)', marginTop: '1px' }}>{user.full_name}</div>
-                            )}
-                            {isHighlighted && (
-                              <span style={{ display: 'inline-block', fontSize: '0.68rem', color: '#f59e0b', fontWeight: 700, marginTop: '2px' }}>◄ New Signup</span>
-                            )}
-                            {user.payment_pending && (
-                              <span className="badge badge-pending" style={{ fontSize: '0.68rem', marginTop: '2px' }}>Payment Pending</span>
-                            )}
-                          </td>
-
-                          {/* Signed Up */}
-                          <td style={{ padding: '0.75rem 1rem', fontSize: '0.82rem', color: 'var(--text-muted)' }}>
-                            {user.created_at
-                              ? new Date(user.created_at).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })
-                              : '—'}
-                          </td>
-
-                          {/* Trial Status Badge */}
-                          <td style={{ padding: '0.75rem 1rem' }}>
-                            <span style={badgeStyle}>
-                              <span style={{ width: '6px', height: '6px', borderRadius: '50%', background: trial.color, flexShrink: 0 }} />
-                              {trial.label}
-                            </span>
-                            {trial.trialEnd && trial.badge !== 'paid' && (
-                              <div style={{ fontSize: '0.72rem', color: 'var(--text-muted)', marginTop: '3px' }}>
-                                Ends {trial.trialEnd.toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}
-                              </div>
-                            )}
-                          </td>
-
-                          {/* Plan */}
-                          <td style={{ padding: '0.75rem 1rem' }}>
-                            <span className={`badge ${
-                              (user.plan ?? '') === 'enterprise' ? 'badge-approved' :
-                              (user.plan ?? '') === 'pro' || (user.plan ?? '') === 'teams' ? 'badge-starter' :
-                              'badge-pending'
-                            }`} style={{ textTransform: 'capitalize' }}>
-                              {user.plan ?? 'trial'}
-                            </span>
-                          </td>
-
-                          {/* Actions */}
-                          <td style={{ padding: '0.75rem 1rem', textAlign: 'right' }} onClick={e => e.stopPropagation()}>
-                            <div style={{ display: 'flex', gap: '0.4rem', justifyContent: 'flex-end' }}>
-                              <button onClick={() => handleViewStats(user)} className="btn btn-secondary btn-sm" title="View full stats">
-                                <Eye size={12} /> Stats
-                              </button>
-                              {(user.status ?? '') === 'denied' ? (
-                                <button onClick={() => handleRestoreUser(user.id)} className="btn btn-secondary btn-sm" style={{ color: 'var(--success-color)' }}>
-                                  <RotateCcw size={12} /> Restore
-                                </button>
-                              ) : (
-                                (user.email ?? '') !== 'dotthedart@gmail.com' && (
-                                  <button onClick={() => handleDeleteUser(user.id)} className="btn btn-danger btn-sm">
-                                    <Trash2 size={12} /> Delete
-                                  </button>
-                                )
+                            {/* User Email */}
+                            <td style={{ padding: '0.75rem 1rem' }}>
+                              <div style={{ fontWeight: 600, fontSize: '0.9rem' }}>{user.email ?? '—'}</div>
+                              {user.full_name && (
+                                <div style={{ fontSize: '0.75rem', color: 'var(--text-muted)', marginTop: '1px' }}>{user.full_name}</div>
                               )}
-                            </div>
-                          </td>
-                        </tr>
+                              {isHighlighted && (
+                                <span style={{ display: 'inline-block', fontSize: '0.68rem', color: '#f59e0b', fontWeight: 700, marginTop: '2px' }}>◄ New Signup</span>
+                              )}
+                              {user.payment_pending && (
+                                <span className="badge badge-pending" style={{ fontSize: '0.68rem', marginTop: '2px' }}>Payment Pending</span>
+                              )}
+                            </td>
 
-                        {/* Expanded stats row */}
-                        {isExpanded && (
-                          <tr style={{ borderBottom: '1px solid var(--border-color)' }}>
-                            <td colSpan={6} style={{ padding: 0 }}>
-                              <div style={{
-                                background: 'var(--bg-tertiary)',
-                                borderTop: '1px solid var(--border-color)',
-                                padding: '1rem 1.25rem',
-                                display: 'grid',
-                                gridTemplateColumns: 'repeat(auto-fit, minmax(160px, 1fr))',
-                                gap: '1rem',
-                              }}>
-                                {isStatsLoading ? (
-                                  <div style={{ gridColumn: '1 / -1', color: 'var(--text-muted)', fontSize: '0.85rem', padding: '0.5rem 0' }}>
-                                    Loading usage stats…
-                                  </div>
-                                ) : stats ? (
-                                  <>
-                                    <div style={{ display: 'flex', flexDirection: 'column', gap: '2px' }}>
-                                      <span style={{ fontSize: '0.72rem', textTransform: 'uppercase', letterSpacing: '0.05em', color: 'var(--text-muted)', fontWeight: 600 }}>Total Leads</span>
-                                      <span style={{ fontSize: '1.4rem', fontWeight: 700, color: 'var(--text-primary)' }}>{stats.leads}</span>
-                                    </div>
-                                    <div style={{ display: 'flex', flexDirection: 'column', gap: '2px' }}>
-                                      <span style={{ fontSize: '0.72rem', textTransform: 'uppercase', letterSpacing: '0.05em', color: 'var(--text-muted)', fontWeight: 600 }}>Pipeline Stages</span>
-                                      <span style={{ fontSize: '1.4rem', fontWeight: 700, color: 'var(--text-primary)' }}>{stats.stages}</span>
-                                    </div>
-                                    <div style={{ display: 'flex', flexDirection: 'column', gap: '2px' }}>
-                                      <span style={{ fontSize: '0.72rem', textTransform: 'uppercase', letterSpacing: '0.05em', color: 'var(--text-muted)', fontWeight: 600 }}>Plan Type</span>
-                                      <span style={{ fontSize: '0.95rem', fontWeight: 600, color: 'var(--text-primary)', textTransform: 'capitalize' }}>{stats.plan}</span>
-                                    </div>
-                                    <div style={{ display: 'flex', flexDirection: 'column', gap: '2px' }}>
-                                      <span style={{ fontSize: '0.72rem', textTransform: 'uppercase', letterSpacing: '0.05em', color: 'var(--text-muted)', fontWeight: 600 }}>Last Activity</span>
-                                      <span style={{ fontSize: '0.85rem', color: 'var(--text-primary)' }}>
-                                        {stats.lastActivity
-                                          ? new Date(stats.lastActivity).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })
-                                          : '—'}
-                                      </span>
-                                    </div>
-                                    <div style={{ display: 'flex', flexDirection: 'column', gap: '2px' }}>
-                                      <span style={{ fontSize: '0.72rem', textTransform: 'uppercase', letterSpacing: '0.05em', color: 'var(--text-muted)', fontWeight: 600 }}>Trial Start</span>
-                                      <span style={{ fontSize: '0.85rem', color: 'var(--text-primary)' }}>
-                                        {user.created_at ? new Date(user.created_at).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' }) : '—'}
-                                      </span>
-                                    </div>
-                                    {trial.trialEnd && (
-                                      <div style={{ display: 'flex', flexDirection: 'column', gap: '2px' }}>
-                                        <span style={{ fontSize: '0.72rem', textTransform: 'uppercase', letterSpacing: '0.05em', color: 'var(--text-muted)', fontWeight: 600 }}>Trial End</span>
-                                        <span style={{ fontSize: '0.85rem', color: trial.color, fontWeight: 600 }}>
-                                          {trial.trialEnd.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}
-                                        </span>
-                                      </div>
-                                    )}
-                                  </>
+                            {/* Heard About Us */}
+                            <td style={{ padding: '0.75rem 1rem', fontSize: '0.85rem' }}>
+                              {user.referral_source || <span className="color-muted" style={{ fontStyle: 'italic', fontSize: '0.8rem' }}>None</span>}
+                            </td>
+
+                            {/* Signed Up */}
+                            <td style={{ padding: '0.75rem 1rem', fontSize: '0.82rem', color: 'var(--text-muted)' }}>
+                              {user.created_at
+                                ? new Date(user.created_at).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })
+                                : '—'}
+                            </td>
+
+                            {/* Trial Status Badge */}
+                            <td style={{ padding: '0.75rem 1rem' }}>
+                              <span style={badgeStyle}>
+                                <span style={{ width: '6px', height: '6px', borderRadius: '50%', background: trial.color, flexShrink: 0 }} />
+                                {trial.label}
+                              </span>
+                              {trial.trialEnd && trial.badge !== 'paid' && (
+                                <div style={{ fontSize: '0.72rem', color: 'var(--text-muted)', marginTop: '3px' }}>
+                                  Ends {trial.trialEnd.toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}
+                                </div>
+                              )}
+                            </td>
+
+                            {/* Plan */}
+                            <td style={{ padding: '0.75rem 1rem' }}>
+                              <span className={`badge ${
+                                (user.plan ?? '') === 'enterprise' ? 'badge-approved' :
+                                (user.plan ?? '') === 'pro' || (user.plan ?? '') === 'teams' ? 'badge-starter' :
+                                'badge-pending'
+                              }`} style={{ textTransform: 'capitalize' }}>
+                                {user.plan ?? 'trial'}
+                              </span>
+                            </td>
+
+                            {/* Actions */}
+                            <td style={{ padding: '0.75rem 1rem', textAlign: 'right' }} onClick={e => e.stopPropagation()}>
+                              <div style={{ display: 'flex', gap: '0.4rem', justifyContent: 'flex-end' }}>
+                                <button onClick={() => handleViewStats(user)} className="btn btn-secondary btn-sm" title="View full stats">
+                                  <Eye size={12} /> Stats
+                                </button>
+                                {(user.status ?? '') === 'denied' ? (
+                                  <button onClick={() => handleRestoreUser(user.id)} className="btn btn-secondary btn-sm" style={{ color: 'var(--success-color)' }}>
+                                    <RotateCcw size={12} /> Restore
+                                  </button>
                                 ) : (
-                                  <div style={{ gridColumn: '1 / -1', color: 'var(--text-muted)', fontSize: '0.85rem' }}>No stats available.</div>
+                                  (user.email ?? '') !== 'dotthedart@gmail.com' && (
+                                    <button onClick={() => handleDeleteUser(user.id)} className="btn btn-danger btn-sm">
+                                      <Trash2 size={12} /> Delete
+                                    </button>
+                                  )
                                 )}
                               </div>
                             </td>
                           </tr>
-                        )}
-                      </React.Fragment>
-                    );
-                  })}
-              </tbody>
-            </table>
+
+                          {/* Expanded stats row */}
+                          {isExpanded && (
+                            <tr style={{ borderBottom: '1px solid var(--border-color)' }}>
+                              <td colSpan={7} style={{ padding: 0 }}>
+                                <div style={{
+                                  background: 'var(--bg-tertiary)',
+                                  borderTop: '1px solid var(--border-color)',
+                                  padding: '1rem 1.25rem',
+                                  display: 'grid',
+                                  gridTemplateColumns: 'repeat(auto-fit, minmax(160px, 1fr))',
+                                  gap: '1rem',
+                                }}>
+                                  {isStatsLoading ? (
+                                    <div style={{ gridColumn: '1 / -1', color: 'var(--text-muted)', fontSize: '0.85rem', padding: '0.5rem 0' }}>
+                                      Loading usage stats…
+                                    </div>
+                                  ) : stats ? (
+                                    <>
+                                      <div style={{ display: 'flex', flexDirection: 'column', gap: '2px' }}>
+                                        <span style={{ fontSize: '0.72rem', textTransform: 'uppercase', letterSpacing: '0.05em', color: 'var(--text-muted)', fontWeight: 600 }}>Total Leads</span>
+                                        <span style={{ fontSize: '1.4rem', fontWeight: 700, color: 'var(--text-primary)' }}>{stats.leads}</span>
+                                      </div>
+                                      <div style={{ display: 'flex', flexDirection: 'column', gap: '2px' }}>
+                                        <span style={{ fontSize: '0.72rem', textTransform: 'uppercase', letterSpacing: '0.05em', color: 'var(--text-muted)', fontWeight: 600 }}>Pipeline Stages</span>
+                                        <span style={{ fontSize: '1.4rem', fontWeight: 700, color: 'var(--text-primary)' }}>{stats.stages}</span>
+                                      </div>
+                                      <div style={{ display: 'flex', flexDirection: 'column', gap: '2px' }}>
+                                        <span style={{ fontSize: '0.72rem', textTransform: 'uppercase', letterSpacing: '0.05em', color: 'var(--text-muted)', fontWeight: 600 }}>Plan Type</span>
+                                        <span style={{ fontSize: '0.95rem', fontWeight: 600, color: 'var(--text-primary)', textTransform: 'capitalize' }}>{stats.plan}</span>
+                                      </div>
+                                      <div style={{ display: 'flex', flexDirection: 'column', gap: '2px' }}>
+                                        <span style={{ fontSize: '0.72rem', textTransform: 'uppercase', letterSpacing: '0.05em', color: 'var(--text-muted)', fontWeight: 600 }}>Last Activity</span>
+                                        <span style={{ fontSize: '0.85rem', color: 'var(--text-primary)' }}>
+                                          {stats.lastActivity
+                                            ? new Date(stats.lastActivity).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })
+                                            : '—'}
+                                        </span>
+                                      </div>
+                                      <div style={{ display: 'flex', flexDirection: 'column', gap: '2px' }}>
+                                        <span style={{ fontSize: '0.72rem', textTransform: 'uppercase', letterSpacing: '0.05em', color: 'var(--text-muted)', fontWeight: 600 }}>Trial Start</span>
+                                        <span style={{ fontSize: '0.85rem', color: 'var(--text-primary)' }}>
+                                          {user.created_at ? new Date(user.created_at).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' }) : '—'}
+                                        </span>
+                                      </div>
+                                      {trial.trialEnd && (
+                                        <div style={{ display: 'flex', flexDirection: 'column', gap: '2px' }}>
+                                          <span style={{ fontSize: '0.72rem', textTransform: 'uppercase', letterSpacing: '0.05em', color: 'var(--text-muted)', fontWeight: 600 }}>Trial End</span>
+                                          <span style={{ fontSize: '0.85rem', color: trial.color, fontWeight: 600 }}>
+                                            {trial.trialEnd.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}
+                                          </span>
+                                        </div>
+                                      )}
+                                    </>
+                                  ) : (
+                                    <div style={{ gridColumn: '1 / -1', color: 'var(--text-muted)', fontSize: '0.85rem' }}>No stats available.</div>
+                                  )}
+                                </div>
+                              </td>
+                            </tr>
+                          )}
+                        </React.Fragment>
+                      );
+                    })}
+                </tbody>
+              </table>
+            </div>
           </div>
-        </div>
-      )}
+        );
+      })()}
 
       {/* Read-Only View Stats Modal */}
       {statsUser && (

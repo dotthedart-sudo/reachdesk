@@ -5,7 +5,7 @@ import { getTeamIds, PLAN_LIMITS } from '../lib/utils';
 import {
   Search, Plus, Download, Upload, Trash2, Edit3, X,
   Filter, CheckSquare, Square, Folder, FolderPlus,
-  MoreVertical, Check, ThumbsUp, ThumbsDown, SkipForward, AlertCircle, ChevronDown,
+  MoreVertical, Check, ThumbsUp, ThumbsDown, SkipForward, AlertCircle, ChevronDown, FileText,
   Settings as Gear, MessageCircle, Zap, ExternalLink, Lock
 } from 'lucide-react';
 
@@ -19,6 +19,7 @@ import GroupedStatusDropdown from './CRM/GroupedStatusDropdown';
 import { ReachIcons, PhonePopup, detectDomainIcon, detectPlatformLabel } from './icons/PlatformIcons';
 import { handleLeadReminderTrigger } from '../lib/reminders';
 import PriorityDropdown from './CRM/PriorityDropdown';
+import { exportLeads, exportNotes } from '../utils/exportUtils';
 
 const PRESET_COLORS = [
   '#ef4444', // Red
@@ -213,6 +214,36 @@ export default function CRM({
   });
   const [folderForm, setFolderForm] = useState({ name: '', color: '#3b82f6' });
   const [importText, setImportText] = useState('');
+  const [showExportDropdown, setShowExportDropdown] = useState(false);
+  const [exporting, setExporting] = useState(null);
+
+  const handleExportLeadsClick = async () => {
+    if (exporting) return;
+    setExporting('leads');
+    setShowExportDropdown(false);
+    try {
+      await exportLeads(currentUser.id);
+    } catch (err) {
+      console.error('Export leads error:', err);
+      alert('Failed to export leads: ' + err.message);
+    } finally {
+      setExporting(null);
+    }
+  };
+
+  const handleExportNotesClick = async () => {
+    if (exporting) return;
+    setExporting('notes');
+    setShowExportDropdown(false);
+    try {
+      await exportNotes(currentUser.id);
+    } catch (err) {
+      console.error('Export notes error:', err);
+      alert('Failed to export notes: ' + err.message);
+    } finally {
+      setExporting(null);
+    }
+  };
 
   const [showQuickClean, setShowQuickClean] = useState(false);
   const [showBulkStatusMenu, setShowBulkStatusMenu] = useState(false);
@@ -1475,6 +1506,22 @@ export default function CRM({
             >
               <Upload size={16} /> Import CSV
             </button>
+
+            <div style={{ position: 'relative' }}>
+              <button onClick={() => setShowExportDropdown(!showExportDropdown)} className="btn btn-secondary" disabled={!!exporting}>
+                <Download size={16} /> Export Data <ChevronDown size={14} />
+              </button>
+              {showExportDropdown && (
+                <div className="dropdown-menu" style={{ position: 'absolute', right: 0, top: '100%', background: 'var(--bg-tertiary)', border: '1px solid var(--border-color)', borderRadius: '8px', zIndex: 100, display: 'flex', flexDirection: 'column', width: '180px', boxShadow: 'var(--glow-shadow)', padding: '0.25rem' }}>
+                  <button onClick={handleExportLeadsClick} className="dropdown-item" style={{ display: 'flex', alignItems: 'center', gap: '8px', background: 'transparent', border: 'none', padding: '0.5rem 0.75rem', textAlign: 'left', cursor: 'pointer', color: 'var(--text-primary)', width: '100%' }}>
+                    <Download size={14} /> Export Leads (CSV)
+                  </button>
+                  <button onClick={handleExportNotesClick} className="dropdown-item" style={{ display: 'flex', alignItems: 'center', gap: '8px', background: 'transparent', border: 'none', padding: '0.5rem 0.75rem', textAlign: 'left', cursor: 'pointer', color: 'var(--text-primary)', width: '100%' }}>
+                    <FileText size={14} /> Export Notes (TXT)
+                  </button>
+                </div>
+              )}
+            </div>
 
             <button
               onClick={handleOpenAddLead}

@@ -512,7 +512,7 @@ function AppProvider({ children }) {
     setSubStatus('active');
   };
 
-  const handleRegisterUser = async (email, password, plan, fullName, avatarFile) => {
+  const handleRegisterUser = async (email, password, plan, fullName, avatarFile, referralSource, marketingConsent) => {
     const displayName = fullName ? fullName.trim().split(' ')[0] : '';
     const { data, error } = await supabase.auth.signUp({
       email,
@@ -567,7 +567,9 @@ function AppProvider({ children }) {
       team_id: teamId,
       team_role: teamId ? 'member' : 'owner',
       full_name: fullName,
-      avatar_url: avatarUrl
+      avatar_url: avatarUrl,
+      referral_source: referralSource || null,
+      marketing_consent: marketingConsent || false
     });
     if (profileErr) throw profileErr;
 

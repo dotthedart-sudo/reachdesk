@@ -4,8 +4,10 @@ import { supabase } from '../lib/supabase';
 import { PLAN_LIMITS } from '../lib/utils';
 import { 
   Settings, Save, CreditCard, GitBranch, Plus, 
-  Trash2, ChevronUp, ChevronDown, AlertCircle, Users, Mail, UserMinus, User, Upload 
+  Trash2, ChevronUp, ChevronDown, AlertCircle, Users, Mail, UserMinus, User, Upload,
+  Download, FileText
 } from 'lucide-react';
+import { exportLeads, exportNotes } from '../utils/exportUtils';
 
 const PRESET_COLORS = [
   '#6b7280', '#3b82f6', '#f59e0b', '#10b981', '#8b5cf6',
@@ -46,6 +48,34 @@ export default function Configuration({
   const [profileSuccess, setProfileSuccess] = useState('');
   const [profileError, setProfileError] = useState('');
   const [profileSaving, setProfileSaving] = useState(false);
+
+  const [exporting, setExporting] = useState(null); // 'leads' | 'notes' | null
+
+  const handleExportLeadsClick = async () => {
+    if (exporting) return;
+    setExporting('leads');
+    try {
+      await exportLeads(currentUser.id);
+    } catch (err) {
+      console.error('Export leads error:', err);
+      alert('Failed to export leads: ' + err.message);
+    } finally {
+      setExporting(null);
+    }
+  };
+
+  const handleExportNotesClick = async () => {
+    if (exporting) return;
+    setExporting('notes');
+    try {
+      await exportNotes(currentUser.id);
+    } catch (err) {
+      console.error('Export notes error:', err);
+      alert('Failed to export notes: ' + err.message);
+    } finally {
+      setExporting(null);
+    }
+  };
 
   // Statuses states
   const [statuses, setStatuses] = useState([]);
@@ -522,6 +552,39 @@ export default function Configuration({
           </div>
         </div>
       </form>
+
+      {/* SECTION 0.5: Data Export backup */}
+      <div className="card flex-col gap-3" style={{ marginBottom: '1.5rem' }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', borderBottom: '1px solid var(--border-color)', paddingBottom: '0.5rem', marginBottom: '0.5rem' }}>
+          <Download size={18} style={{ color: 'var(--primary-purple)' }} />
+          <h3 style={{ fontSize: '1.1rem' }}>Data Export (Backup)</h3>
+        </div>
+        <p style={{ color: 'var(--text-secondary)', fontSize: '0.85rem', lineHeight: 1.5, margin: 0 }}>
+          Download a proactive backup of your freelance data at any time. Leads are exported as a CSV spreadsheet, and notes are exported as a structured plain text document.
+        </p>
+        <div style={{ display: 'flex', gap: '1rem', marginTop: '0.5rem' }}>
+          <button
+            type="button"
+            className="btn btn-secondary"
+            onClick={handleExportLeadsClick}
+            disabled={exporting === 'leads'}
+            style={{ display: 'flex', alignItems: 'center', gap: '6px' }}
+          >
+            <Download size={14} />
+            {exporting === 'leads' ? 'Exporting...' : 'Export Leads (CSV)'}
+          </button>
+          <button
+            type="button"
+            className="btn btn-secondary"
+            onClick={handleExportNotesClick}
+            disabled={exporting === 'notes'}
+            style={{ display: 'flex', alignItems: 'center', gap: '6px' }}
+          >
+            <FileText size={14} />
+            {exporting === 'notes' ? 'Exporting...' : 'Export Notes (TXT)'}
+          </button>
+        </div>
+      </div>
 
       {/* SECTION 1: Business specifications */}
       <form onSubmit={handleSubmitSettings} className="flex-col gap-4">
