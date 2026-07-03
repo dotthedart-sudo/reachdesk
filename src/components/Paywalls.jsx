@@ -247,7 +247,19 @@ const PLAN_LEVELS = {
 
 function PlanCard({ plan, billing, isSelected, onSelect, handlePaddleCheckout, profile }) {
   const { id, name, tagline, features, comingSoon, isEnterprise } = plan;
-  const { formatLocalPrice, country } = useLocalCurrency();
+  const { formatLocalPrice, country, rate } = useLocalCurrency();
+
+  const getUsdEquivalent = (localAmount) => {
+    const activeRate = rate || (country === 'PK' ? 278 : 123);
+    const converted = parseFloat(localAmount) / activeRate;
+    return `$${converted.toFixed(2)}/mo`;
+  };
+
+  const getUsdEquivalentTotal = (localTotal) => {
+    const activeRate = rate || (country === 'PK' ? 278 : 123);
+    const converted = parseFloat(localTotal) / activeRate;
+    return `$${converted.toFixed(2)} total`;
+  };
 
   const hasPricing = !isEnterprise && BILLING[billing] && BILLING[billing][id];
   const pricing = hasPricing ? BILLING[billing][id] : null;
@@ -358,9 +370,14 @@ function PlanCard({ plan, billing, isSelected, onSelect, handlePaddleCheckout, p
               const bdtSavings = BILLING.monthly[id].bdtPerMonth - pricing.bdtPerMonth;
               if (bdtSavings > 0) {
                 return (
-                  <div style={{ fontSize: '0.55rem', fontWeight: 500, opacity: 0.85 }}>
-                    Save ≈ BDT {bdtSavings.toFixed(0)}/mo
-                  </div>
+                  <>
+                    <div>Save ≈ BDT {bdtSavings.toFixed(0)}/mo</div>
+                    {savings > 0 && (
+                      <div style={{ fontSize: '0.55rem', fontWeight: 500, opacity: 0.8 }}>
+                        Save ${savings.toFixed(2)}/mo
+                      </div>
+                    )}
+                  </>
                 );
               }
             }
@@ -369,18 +386,30 @@ function PlanCard({ plan, billing, isSelected, onSelect, handlePaddleCheckout, p
               const pkrSavings = BILLING.monthly[id].pkrPerMonth - pricing.pkrPerMonth;
               if (pkrSavings > 0) {
                 return (
-                  <div style={{ fontSize: '0.55rem', fontWeight: 500, opacity: 0.85 }}>
-                    Save ≈ Rs {pkrSavings}/mo
-                  </div>
+                  <>
+                    <div>Save ≈ Rs {pkrSavings}/mo</div>
+                    {savings > 0 && (
+                      <div style={{ fontSize: '0.55rem', fontWeight: 500, opacity: 0.8 }}>
+                        Save ${savings.toFixed(2)}/mo
+                      </div>
+                    )}
+                  </>
                 );
               }
             }
 
             const formattedSavings = formatLocalPrice(savings);
             return formattedSavings ? (
-              <div style={{ fontSize: '0.55rem', fontWeight: 500, opacity: 0.85 }}>
-                Save {formattedSavings}/mo
-              </div>
+              <>
+                <div>Save {formattedSavings}/mo</div>
+                {savings > 0 && (
+                  <div style={{ fontSize: '0.55rem', fontWeight: 500, opacity: 0.8 }}>
+                    Save ${savings.toFixed(2)}/mo
+                  </div>
+                )}
+              </>
+            ) : savings > 0 ? (
+              <div>Save ${savings.toFixed(2)}/mo</div>
             ) : null;
           })()}
         </div>
@@ -413,7 +442,20 @@ function PlanCard({ plan, billing, isSelected, onSelect, handlePaddleCheckout, p
                 return `$${pricing.usdPerMonth}/mo`;
               })()}
               {(() => {
-                if (country === 'PK' || country === 'BD') return null;
+                if (country === 'PK') {
+                  return (
+                    <div style={{ fontSize: '0.75rem', fontWeight: 500, color: 'var(--text-muted)', marginTop: '0.15rem' }}>
+                      {getUsdEquivalent(pricing.pkrPerMonth)}
+                    </div>
+                  );
+                }
+                if (country === 'BD') {
+                  return (
+                    <div style={{ fontSize: '0.75rem', fontWeight: 500, color: 'var(--text-muted)', marginTop: '0.15rem' }}>
+                      {getUsdEquivalent(pricing.bdtPerMonth)}
+                    </div>
+                  );
+                }
                 const formatted = formatLocalPrice(pricing.usdPerMonth);
                 return formatted ? (
                   <div style={{ fontSize: '0.75rem', fontWeight: 500, color: 'var(--text-muted)', marginTop: '0.15rem' }}>
@@ -439,7 +481,20 @@ function PlanCard({ plan, billing, isSelected, onSelect, handlePaddleCheckout, p
                   : `$${pricing.usdTotal} billed every ${BILLING[billing].months} months`;
               })()}
               {(() => {
-                if (country === 'PK' || country === 'BD') return null;
+                if (country === 'PK') {
+                  return (
+                    <div style={{ fontSize: '0.65rem', color: 'var(--text-muted)', marginTop: '0.1rem' }}>
+                      {getUsdEquivalentTotal(pricing.pkrTotal)}
+                    </div>
+                  );
+                }
+                if (country === 'BD') {
+                  return (
+                    <div style={{ fontSize: '0.65rem', color: 'var(--text-muted)', marginTop: '0.1rem' }}>
+                      {getUsdEquivalentTotal(pricing.bdtTotal)}
+                    </div>
+                  );
+                }
                 const formatted = formatLocalPrice(pricing.usdTotal);
                 return formatted ? (
                   <div style={{ fontSize: '0.65rem', color: 'var(--text-muted)', marginTop: '0.1rem' }}>

@@ -25,7 +25,19 @@ const InstagramIcon = ({ size = 18 }) => (
 
 export default function Homepage({ currentUserEmail, brandName = 'ReachDesk' }) {
   const { theme, toggleTheme } = useAppContext() || {};
-  const { formatLocalPrice, country } = useLocalCurrency();
+  const { formatLocalPrice, country, rate } = useLocalCurrency();
+
+  const getUsdEquivalent = (localAmount) => {
+    const activeRate = rate || (country === 'PK' ? 278 : 123);
+    const converted = parseFloat(localAmount) / activeRate;
+    return `$${converted.toFixed(2)}/mo`;
+  };
+
+  const getUsdEquivalentTotal = (localTotal) => {
+    const activeRate = rate || (country === 'PK' ? 278 : 123);
+    const converted = parseFloat(localTotal) / activeRate;
+    return `$${converted.toFixed(2)} total`;
+  };
   const isLoggedIn = !!currentUserEmail;
   const navigate = useNavigate();
   const [billing, setBilling] = useState('monthly');
@@ -112,14 +124,26 @@ export default function Homepage({ currentUserEmail, brandName = 'ReachDesk' }) 
           <span className="hp-stat-number">
             {(() => {
               if (country === 'BD') return `৳${BILLING.monthly.starter.bdtPerMonth}`;
-              if (country === 'US') return `$${BILLING.monthly.starter.usdPerMonth}`;
-              if (!country || country === 'PK') return `Rs ${BILLING.monthly.starter.pkrPerMonth}`;
+              if (country === 'PK') return `Rs ${BILLING.monthly.starter.pkrPerMonth}`;
               return `$${BILLING.monthly.starter.usdPerMonth}`;
             })()}
           </span>
           <span className="hp-stat-label">Starting price / mo</span>
           {(() => {
-            if (country === 'BD' || country === 'PK' || country === 'US') return null;
+            if (country === 'PK') {
+              return (
+                <span style={{ fontSize: '0.75rem', color: 'var(--hp-muted)', marginTop: '4px' }}>
+                  {getUsdEquivalent(BILLING.monthly.starter.pkrPerMonth)}
+                </span>
+              );
+            }
+            if (country === 'BD') {
+              return (
+                <span style={{ fontSize: '0.75rem', color: 'var(--hp-muted)', marginTop: '4px' }}>
+                  {getUsdEquivalent(BILLING.monthly.starter.bdtPerMonth)}
+                </span>
+              );
+            }
             const formatted = formatLocalPrice(BILLING.monthly.starter.usdPerMonth);
             return formatted ? (
               <span style={{ fontSize: '0.75rem', color: 'var(--hp-muted)', marginTop: '4px' }}>
@@ -232,9 +256,14 @@ export default function Homepage({ currentUserEmail, brandName = 'ReachDesk' }) 
                     const bdtSavings = BILLING.monthly.starter.bdtPerMonth - BILLING[billing].starter.bdtPerMonth;
                     if (bdtSavings > 0) {
                       return (
-                        <div style={{ fontSize: '0.55rem', fontWeight: 500, opacity: 0.85 }}>
-                          Save ≈ BDT {bdtSavings.toFixed(0)}/mo
-                        </div>
+                        <>
+                          <div>Save ≈ BDT {bdtSavings.toFixed(0)}/mo</div>
+                          {savings > 0 && (
+                            <div style={{ fontSize: '0.55rem', fontWeight: 500, opacity: 0.85 }}>
+                              Save ${savings.toFixed(2)}/mo
+                            </div>
+                          )}
+                        </>
                       );
                     }
                   }
@@ -243,18 +272,30 @@ export default function Homepage({ currentUserEmail, brandName = 'ReachDesk' }) 
                     const pkrSavings = BILLING.monthly.starter.pkrPerMonth - BILLING[billing].starter.pkrPerMonth;
                     if (pkrSavings > 0) {
                       return (
-                        <div style={{ fontSize: '0.55rem', fontWeight: 500, opacity: 0.85 }}>
-                          Save ≈ Rs {pkrSavings}/mo
-                        </div>
+                        <>
+                          <div>Save ≈ Rs {pkrSavings}/mo</div>
+                          {savings > 0 && (
+                            <div style={{ fontSize: '0.55rem', fontWeight: 500, opacity: 0.85 }}>
+                              Save ${savings.toFixed(2)}/mo
+                            </div>
+                          )}
+                        </>
                       );
                     }
                   }
 
                   const formattedSavings = formatLocalPrice(savings);
                   return formattedSavings ? (
-                    <div style={{ fontSize: '0.55rem', fontWeight: 500, opacity: 0.85 }}>
-                      Save {formattedSavings}/mo
-                    </div>
+                    <>
+                      <div>Save {formattedSavings}/mo</div>
+                      {savings > 0 && (
+                        <div style={{ fontSize: '0.55rem', fontWeight: 500, opacity: 0.85 }}>
+                          Save ${savings.toFixed(2)}/mo
+                        </div>
+                      )}
+                    </>
+                  ) : savings > 0 ? (
+                    <div>Save ${savings.toFixed(2)}/mo</div>
                   ) : null;
                 })()}
               </div>
@@ -273,7 +314,20 @@ export default function Homepage({ currentUserEmail, brandName = 'ReachDesk' }) 
                   })()}
                 </div>
                 {(() => {
-                  if (country === 'PK' || country === 'BD') return null;
+                  if (country === 'PK') {
+                    return (
+                      <div style={{ fontSize: '1rem', color: 'var(--hp-muted)', fontWeight: 400, marginTop: '2px' }}>
+                        {getUsdEquivalent(BILLING[billing].starter.pkrPerMonth)}
+                      </div>
+                    );
+                  }
+                  if (country === 'BD') {
+                    return (
+                      <div style={{ fontSize: '1rem', color: 'var(--hp-muted)', fontWeight: 400, marginTop: '2px' }}>
+                        {getUsdEquivalent(BILLING[billing].starter.bdtPerMonth)}
+                      </div>
+                    );
+                  }
                   const formatted = formatLocalPrice(BILLING[billing].starter.usdPerMonth);
                   return formatted ? (
                     <div style={{ fontSize: '1rem', color: 'var(--hp-muted)', fontWeight: 400, marginTop: '2px' }}>
@@ -301,7 +355,20 @@ export default function Homepage({ currentUserEmail, brandName = 'ReachDesk' }) 
                   })()}
                 </div>
                 {(() => {
-                  if (country === 'PK' || country === 'BD') return null;
+                  if (country === 'PK') {
+                    return (
+                      <div style={{ fontSize: '0.65rem', color: 'var(--hp-muted)', marginTop: '2px' }}>
+                        {getUsdEquivalentTotal(BILLING[billing].starter.pkrTotal)}
+                      </div>
+                    );
+                  }
+                  if (country === 'BD') {
+                    return (
+                      <div style={{ fontSize: '0.65rem', color: 'var(--hp-muted)', marginTop: '2px' }}>
+                        {getUsdEquivalentTotal(BILLING[billing].starter.bdtTotal)}
+                      </div>
+                    );
+                  }
                   const formatted = formatLocalPrice(BILLING[billing].starter.usdTotal);
                   return formatted ? (
                     <div style={{ fontSize: '0.65rem', color: 'var(--hp-muted)', marginTop: '2px' }}>
@@ -350,9 +417,14 @@ export default function Homepage({ currentUserEmail, brandName = 'ReachDesk' }) 
                     const bdtSavings = BILLING.monthly.pro.bdtPerMonth - BILLING[billing].pro.bdtPerMonth;
                     if (bdtSavings > 0) {
                       return (
-                        <div style={{ fontSize: '0.55rem', fontWeight: 500, opacity: 0.85 }}>
-                          Save ≈ BDT {bdtSavings.toFixed(0)}/mo
-                        </div>
+                        <>
+                          <div>Save ≈ BDT {bdtSavings.toFixed(0)}/mo</div>
+                          {savings > 0 && (
+                            <div style={{ fontSize: '0.55rem', fontWeight: 500, opacity: 0.85 }}>
+                              Save ${savings.toFixed(2)}/mo
+                            </div>
+                          )}
+                        </>
                       );
                     }
                   }
@@ -361,18 +433,30 @@ export default function Homepage({ currentUserEmail, brandName = 'ReachDesk' }) 
                     const pkrSavings = BILLING.monthly.pro.pkrPerMonth - BILLING[billing].pro.pkrPerMonth;
                     if (pkrSavings > 0) {
                       return (
-                        <div style={{ fontSize: '0.55rem', fontWeight: 500, opacity: 0.85 }}>
-                          Save ≈ Rs {pkrSavings}/mo
-                        </div>
+                        <>
+                          <div>Save ≈ Rs {pkrSavings}/mo</div>
+                          {savings > 0 && (
+                            <div style={{ fontSize: '0.55rem', fontWeight: 500, opacity: 0.85 }}>
+                              Save ${savings.toFixed(2)}/mo
+                            </div>
+                          )}
+                        </>
                       );
                     }
                   }
 
                   const formattedSavings = formatLocalPrice(savings);
                   return formattedSavings ? (
-                    <div style={{ fontSize: '0.55rem', fontWeight: 500, opacity: 0.85 }}>
-                      Save {formattedSavings}/mo
-                    </div>
+                    <>
+                      <div>Save {formattedSavings}/mo</div>
+                      {savings > 0 && (
+                        <div style={{ fontSize: '0.55rem', fontWeight: 500, opacity: 0.85 }}>
+                          Save ${savings.toFixed(2)}/mo
+                        </div>
+                      )}
+                    </>
+                  ) : savings > 0 ? (
+                    <div>Save ${savings.toFixed(2)}/mo</div>
                   ) : null;
                 })()}
               </div>
@@ -391,7 +475,20 @@ export default function Homepage({ currentUserEmail, brandName = 'ReachDesk' }) 
                   })()}
                 </div>
                 {(() => {
-                  if (country === 'PK' || country === 'BD') return null;
+                  if (country === 'PK') {
+                    return (
+                      <div style={{ fontSize: '1rem', color: 'var(--hp-muted)', fontWeight: 400, marginTop: '2px' }}>
+                        {getUsdEquivalent(BILLING[billing].pro.pkrPerMonth)}
+                      </div>
+                    );
+                  }
+                  if (country === 'BD') {
+                    return (
+                      <div style={{ fontSize: '1rem', color: 'var(--hp-muted)', fontWeight: 400, marginTop: '2px' }}>
+                        {getUsdEquivalent(BILLING[billing].pro.bdtPerMonth)}
+                      </div>
+                    );
+                  }
                   const formatted = formatLocalPrice(BILLING[billing].pro.usdPerMonth);
                   return formatted ? (
                     <div style={{ fontSize: '1rem', color: 'var(--hp-muted)', fontWeight: 400, marginTop: '2px' }}>
@@ -419,7 +516,20 @@ export default function Homepage({ currentUserEmail, brandName = 'ReachDesk' }) 
                   })()}
                 </div>
                 {(() => {
-                  if (country === 'PK' || country === 'BD') return null;
+                  if (country === 'PK') {
+                    return (
+                      <div style={{ fontSize: '0.65rem', color: 'var(--hp-muted)', marginTop: '2px' }}>
+                        {getUsdEquivalentTotal(BILLING[billing].pro.pkrTotal)}
+                      </div>
+                    );
+                  }
+                  if (country === 'BD') {
+                    return (
+                      <div style={{ fontSize: '0.65rem', color: 'var(--hp-muted)', marginTop: '2px' }}>
+                        {getUsdEquivalentTotal(BILLING[billing].pro.bdtTotal)}
+                      </div>
+                    );
+                  }
                   const formatted = formatLocalPrice(BILLING[billing].pro.usdTotal);
                   return formatted ? (
                     <div style={{ fontSize: '0.65rem', color: 'var(--hp-muted)', marginTop: '2px' }}>
@@ -468,9 +578,14 @@ export default function Homepage({ currentUserEmail, brandName = 'ReachDesk' }) 
                     const bdtSavings = BILLING.monthly.teams.bdtPerMonth - BILLING[billing].teams.bdtPerMonth;
                     if (bdtSavings > 0) {
                       return (
-                        <div style={{ fontSize: '0.55rem', fontWeight: 500, opacity: 0.85 }}>
-                          Save ≈ BDT {bdtSavings.toFixed(0)}/mo
-                        </div>
+                        <>
+                          <div>Save ≈ BDT {bdtSavings.toFixed(0)}/mo</div>
+                          {savings > 0 && (
+                            <div style={{ fontSize: '0.55rem', fontWeight: 500, opacity: 0.85 }}>
+                              Save ${savings.toFixed(2)}/mo
+                            </div>
+                          )}
+                        </>
                       );
                     }
                   }
@@ -479,18 +594,30 @@ export default function Homepage({ currentUserEmail, brandName = 'ReachDesk' }) 
                     const pkrSavings = BILLING.monthly.teams.pkrPerMonth - BILLING[billing].teams.pkrPerMonth;
                     if (pkrSavings > 0) {
                       return (
-                        <div style={{ fontSize: '0.55rem', fontWeight: 500, opacity: 0.85 }}>
-                          Save ≈ Rs {pkrSavings}/mo
-                        </div>
+                        <>
+                          <div>Save ≈ Rs {pkrSavings}/mo</div>
+                          {savings > 0 && (
+                            <div style={{ fontSize: '0.55rem', fontWeight: 500, opacity: 0.85 }}>
+                              Save ${savings.toFixed(2)}/mo
+                            </div>
+                          )}
+                        </>
                       );
                     }
                   }
 
                   const formattedSavings = formatLocalPrice(savings);
                   return formattedSavings ? (
-                    <div style={{ fontSize: '0.55rem', fontWeight: 500, opacity: 0.85 }}>
-                      Save {formattedSavings}/mo
-                    </div>
+                    <>
+                      <div>Save {formattedSavings}/mo</div>
+                      {savings > 0 && (
+                        <div style={{ fontSize: '0.55rem', fontWeight: 500, opacity: 0.85 }}>
+                          Save ${savings.toFixed(2)}/mo
+                        </div>
+                      )}
+                    </>
+                  ) : savings > 0 ? (
+                    <div>Save ${savings.toFixed(2)}/mo</div>
                   ) : null;
                 })()}
               </div>
@@ -509,7 +636,20 @@ export default function Homepage({ currentUserEmail, brandName = 'ReachDesk' }) 
                   })()}
                 </div>
                 {(() => {
-                  if (country === 'PK' || country === 'BD') return null;
+                  if (country === 'PK') {
+                    return (
+                      <div style={{ fontSize: '1rem', color: 'var(--hp-muted)', fontWeight: 400, marginTop: '2px' }}>
+                        {getUsdEquivalent(BILLING[billing].teams.pkrPerMonth)}
+                      </div>
+                    );
+                  }
+                  if (country === 'BD') {
+                    return (
+                      <div style={{ fontSize: '1rem', color: 'var(--hp-muted)', fontWeight: 400, marginTop: '2px' }}>
+                        {getUsdEquivalent(BILLING[billing].teams.bdtPerMonth)}
+                      </div>
+                    );
+                  }
                   const formatted = formatLocalPrice(BILLING[billing].teams.usdPerMonth);
                   return formatted ? (
                     <div style={{ fontSize: '1rem', color: 'var(--hp-muted)', fontWeight: 400, marginTop: '2px' }}>
@@ -529,7 +669,7 @@ export default function Homepage({ currentUserEmail, brandName = 'ReachDesk' }) 
                     if (country === 'BD') {
                       return billing === 'monthly'
                         ? `৳${BILLING.monthly.teams.bdtTotal.toFixed(0)} billed monthly`
-                        : `৳${BILLING[billing].teams.bdtTotal.toFixed(0)} billed every ${BILLING[billing].months} months`;
+                        : `৳${BILLING[billing].monthly.teams.bdtTotal.toFixed(0)} billed every ${BILLING[billing].months} months`;
                     }
                     return billing === 'monthly'
                       ? `$${BILLING.monthly.teams.usdTotal} billed monthly`
@@ -537,7 +677,20 @@ export default function Homepage({ currentUserEmail, brandName = 'ReachDesk' }) 
                   })()}
                 </div>
                 {(() => {
-                  if (country === 'PK' || country === 'BD') return null;
+                  if (country === 'PK') {
+                    return (
+                      <div style={{ fontSize: '0.65rem', color: 'var(--hp-muted)', marginTop: '2px' }}>
+                        {getUsdEquivalentTotal(BILLING[billing].teams.pkrTotal)}
+                      </div>
+                    );
+                  }
+                  if (country === 'BD') {
+                    return (
+                      <div style={{ fontSize: '0.65rem', color: 'var(--hp-muted)', marginTop: '2px' }}>
+                        {getUsdEquivalentTotal(BILLING[billing].teams.bdtTotal)}
+                      </div>
+                    );
+                  }
                   const formatted = formatLocalPrice(BILLING[billing].teams.usdTotal);
                   return formatted ? (
                     <div style={{ fontSize: '0.65rem', color: 'var(--hp-muted)', marginTop: '2px' }}>
