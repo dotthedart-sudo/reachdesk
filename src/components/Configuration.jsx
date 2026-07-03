@@ -169,7 +169,7 @@ export default function Configuration({
 
       if (profileAvatarFile) {
         const fileExt = profileAvatarFile.name.split('.').pop();
-        const fileName = `${currentUser.id}-${Date.now()}.${fileExt}`;
+        const fileName = `${currentUser.id}/${Date.now()}.${fileExt}`;
         const { error: uploadErr } = await supabase.storage
           .from('avatars')
           .upload(fileName, profileAvatarFile, {

@@ -1,4 +1,5 @@
 import { useState, useEffect } from 'react';
+import { supabase } from '../lib/supabase';
 
 const CACHE_KEY = 'reachdesk_local_currency_data_v2';
 const TIMEOUT_MS = 3000;
@@ -39,12 +40,12 @@ export function useLocalCurrency() {
 
     async function detectAndFetchRates() {
       try {
-        // 1. Fetch visitor's currency and country code
-        const geoResponse = await fetchWithTimeout('https://ipapi.co/json/');
-        const geoData = await geoResponse.json();
+        // 1. Fetch visitor's currency and country code via Edge Function to prevent CORS issues
+        const { data, error: invokeError } = await supabase.functions.invoke('detect-location');
+        if (invokeError) throw new Error(`detect-location failed: ${invokeError.message}`);
         
-        const currency = geoData.currency;
-        const country = geoData.country_code;
+        const currency = data?.currency;
+        const country = data?.country_code;
 
         if (!currency || currency === 'USD' || currency === 'PKR' || currency === 'BDT' || country === 'US' || country === 'PK' || country === 'BD') {
           const result = { currency: currency || null, rate: null, enabled: false, country: country || null };
