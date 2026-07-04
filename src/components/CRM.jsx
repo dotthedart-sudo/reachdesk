@@ -2,6 +2,7 @@ import React, { useState, useEffect, useRef } from 'react';
 import { useSearchParams, useNavigate } from 'react-router-dom';
 import { supabase } from '../lib/supabase';
 import { getTeamIds, PLAN_LIMITS } from '../lib/utils';
+import { LeadLimitModal, LeadLimitToast, getRemainingLeadQuota, shouldShowCountdownToast, prepareBulkImport, BulkImportLimitModal, getPlanLeadLimit } from '../lib/leadLimits';
 import {
   Search, Plus, Download, Upload, Trash2, Edit3, X,
   Filter, CheckSquare, Square, Folder, FolderPlus,
@@ -67,7 +68,17 @@ export default function CRM({
   const [folders, setFolders] = useState([]);
   const [userFolders, setUserFolders] = useState([]);
   const [clients, setClients] = useState([]);
-  const [statuses, setStatuses] = useState([]);
+  const [statuses, setStatuses] = useState([
+    { label: 'Lead', color: '#3b82f6' },
+    { label: 'Contacted', color: '#f59e0b' },
+    { label: 'Waiting', color: '#10b981' },
+    { label: 'Positive Reply', color: '#8b5cf6' },
+    { label: 'Booked', color: '#ec4899' },
+    { label: 'Proposal Sent', color: '#06b6d4' },
+    { label: 'No Show / Rescheduled', color: '#ef4444' },
+    { label: 'Not Interested', color: '#6b7280' },
+    { label: 'Client', color: '#10b981' }
+  ]);
   const [templates, setTemplates] = useState([]);
   const [loading, setLoading] = useState(true);
 
@@ -83,6 +94,9 @@ export default function CRM({
   const [priorityFilter, setPriorityFilter] = useState('');
   const [showLimitModal, setShowLimitModal] = useState(false);
   const [limitModalMessage, setLimitModalMessage] = useState('');
+  const [showLeadLimitBlockModal, setShowLeadLimitBlockModal] = useState(false);
+  const [toastRemaining, setToastRemaining] = useState(null);
+  const [importResult, setImportResult] = useState(null);
 
   // Pagination state
   const [currentPage, setCurrentPage] = useState(1);
@@ -261,47 +275,47 @@ export default function CRM({
     try {
       const teamIds = await getTeamIds(currentUser.id);
 
-      // Fetch Folders (all plans)
-      const { data: fData } = await supabase.from('folders')
-        .select('*').eq('user_id', currentUser.id).order('sort_order', { ascending: true });
-      setFolders(fData || []);
+      const [
+        foldersRes,
+        smartFoldersRes,
+        statusesRes,
+        templatesRes,
+        columnsRes,
+        leadsRes,
+        clientsRes
+      ] = await Promise.all([
+        supabase.from('folders').select('*').eq('user_id', currentUser.id).order('sort_order', { ascending: true }),
+        plan !== 'starter'
+          ? supabase.from('user_folders').select('*').eq('user_id', currentUser.id).order('created_at', { ascending: true })
+          : Promise.resolve({ data: [] }),
+        supabase.from('custom_statuses').select('*').eq('user_id', currentUser.id).order('sort_order', { ascending: true }),
+        supabase.from('templates').select('id, title').or(`user_id.eq.${currentUser.id},user_id.is.null`),
+        supabase.from('column_definitions').select('*').eq('user_id', currentUser.id).order('sort_order', { ascending: true }),
+        supabase.from('leads').select('*').in('user_id', teamIds).order('created_at', { ascending: false }),
+        supabase.from('leads').select('*').in('user_id', teamIds).eq('status', 'client').order('created_at', { ascending: false })
+      ]);
 
-      // Fetch Smart Folders (for Pro/Teams/Trial)
-      if (plan !== 'starter') {
-        const { data: ufData, error: ufErr } = await supabase
-          .from('user_folders')
-          .select('*')
-          .eq('user_id', currentUser.id)
-          .order('created_at', { ascending: true });
-        if (!ufErr) {
-          setUserFolders(ufData || []);
-        } else {
-          console.error('Error fetching user_folders:', ufErr);
-        }
-      } else {
-        setUserFolders([]);
+      if (leadsRes.error) throw leadsRes.error;
+      if (columnsRes.error) throw columnsRes.error;
+
+      const fData = foldersRes.data || [];
+      const ufData = smartFoldersRes.data || [];
+      const sData = statusesRes.data || [];
+      const tData = templatesRes.data || [];
+      const cols = columnsRes.data || [];
+      const lData = leadsRes.data || [];
+      const cData = clientsRes.data || [];
+
+      setFolders(fData);
+      setUserFolders(ufData);
+      
+      if (sData.length > 0) {
+        setStatuses(sData);
       }
-
-
-      // Fetch Custom Statuses (dynamic pipeline)
-      const { data: sData } = await supabase.from('custom_statuses')
-        .select('*').eq('user_id', currentUser.id).order('sort_order', { ascending: true });
-      setStatuses(sData || []);
-
-      // Fetch Templates (for Reply Prompt template selector)
-      const { data: tData } = await supabase.from('templates')
-        .select('id, title')
-        .or(`user_id.eq.${currentUser.id},user_id.is.null`);
-      setTemplates(tData || []);
-
-      // Fetch Column Definitions
-      const { data: cols, error: colsErr } = await supabase
-        .from('column_definitions')
-        .select('*')
-        .eq('user_id', currentUser.id)
-        .order('sort_order', { ascending: true });
-
-      if (colsErr) throw colsErr;
+      
+      setTemplates(tData);
+      setLeads(lData);
+      setClients(cData);
 
       if (!cols || cols.length === 0) {
         const defaultDefs = [
@@ -445,22 +459,6 @@ export default function CRM({
           setColumnDefs(dedupedCols);
         }
       }
-
-      // Fetch Leads (Scoped to Team)
-      const { data: lData, error: lErr } = await supabase.from('leads')
-        .select('*').in('user_id', teamIds).order('created_at', { ascending: false });
-      if (lErr) throw lErr;
-      setLeads(lData || []);
-
-      // Fetch Clients
-      const { data: cData, error: cErr } = await supabase.from('leads')
-        .select('*').in('user_id', teamIds)
-        .eq('status', 'client')
-        .order('created_at', { ascending: false });
-      if (!cErr) {
-        setClients(cData || []);
-      }
-
     } catch (err) {
       console.error('Error fetching CRM data:', err);
     } finally {
@@ -568,7 +566,7 @@ export default function CRM({
 
   // Lead warnings & locks
   const totalLeadsCount = leads.length;
-  const leadLimit = limits.leads;
+  const leadLimit = getPlanLeadLimit(plan, currentUser.billing_cycle) || Infinity;
   const isLeadLimitReached = leadLimit !== Infinity && totalLeadsCount >= leadLimit;
 
   // Show warnings when approaching the limit
@@ -654,8 +652,22 @@ export default function CRM({
       if (error) throw error;
       setLeads(prev => [data, ...prev]);
       setShowAddLeadModal(false);
+
+      // Check remaining quota for countdown toast
+      try {
+        const remaining = await getRemainingLeadQuota(currentUser.id);
+        if (shouldShowCountdownToast(remaining)) {
+          setToastRemaining(remaining);
+        }
+      } catch (quotaErr) {
+        console.error('Error fetching remaining lead quota:', quotaErr);
+      }
     } catch (err) {
-      console.error('Error adding lead:', err);
+      if (err?.message?.includes('Lead limit reached')) {
+        setShowLeadLimitBlockModal(true);
+      } else {
+        console.error('Error adding lead:', err);
+      }
     }
   };
 
@@ -679,8 +691,22 @@ export default function CRM({
       setLeads(prev => [data, ...prev]);
       setShowQuickAddModal(false);
       setQuickAddForm({ first_name: '', priority: 'Warm' });
+
+      // Check remaining quota for countdown toast
+      try {
+        const remaining = await getRemainingLeadQuota(currentUser.id);
+        if (shouldShowCountdownToast(remaining)) {
+          setToastRemaining(remaining);
+        }
+      } catch (quotaErr) {
+        console.error('Error fetching remaining lead quota:', quotaErr);
+      }
     } catch (err) {
-      console.error('Error quick adding lead:', err);
+      if (err?.message?.includes('Lead limit reached')) {
+        setShowLeadLimitBlockModal(true);
+      } else {
+        console.error('Error quick adding lead:', err);
+      }
     }
   };
 
@@ -1164,12 +1190,24 @@ export default function CRM({
     }
 
     try {
-      const { data, error } = await supabase.from('leads').insert(importedLeads).select();
-      if (error) throw error;
-      setLeads(prev => [...(data || []), ...prev]);
+      const { toImport, skippedCount } = await prepareBulkImport(currentUser.id, importedLeads);
+
+      let data = [];
+      if (toImport.length > 0) {
+        const { data: insertedData, error } = await supabase.from('leads').insert(toImport).select();
+        if (error) throw error;
+        data = insertedData || [];
+        setLeads(prev => [...data, ...prev]);
+      }
+
       setShowImportModal(false);
       setImportText('');
-      alert(`Imported ${data.length} leads successfully!`);
+
+      if (skippedCount > 0) {
+        setImportResult({ imported: toImport.length, skipped: skippedCount });
+      } else {
+        alert(`Imported ${data.length} leads successfully!`);
+      }
     } catch (err) {
       console.error('Error importing leads:', err);
     }
@@ -3115,6 +3153,34 @@ export default function CRM({
           </div>
         </div>
       )}
+
+      <LeadLimitModal
+        open={showLeadLimitBlockModal}
+        plan={plan}
+        limit={leadLimit || 0}
+        onCleanup={() => { setShowLeadLimitBlockModal(false); navigate('/leads'); }}
+        onUpgrade={() => { setShowLeadLimitBlockModal(false); navigate('/upgrade'); }}
+        onClose={() => setShowLeadLimitBlockModal(false)}
+      />
+
+      {toastRemaining !== null && (
+        <LeadLimitToast
+          remaining={toastRemaining}
+          onUpgrade={() => { setToastRemaining(null); navigate('/upgrade'); }}
+          onCleanup={() => { setToastRemaining(null); navigate('/leads'); }}
+          onDismiss={() => setToastRemaining(null)}
+        />
+      )}
+
+      <BulkImportLimitModal
+        open={!!importResult}
+        importedCount={importResult?.imported ?? 0}
+        skippedCount={importResult?.skipped ?? 0}
+        plan={plan}
+        onCleanup={() => { setImportResult(null); navigate('/leads'); }}
+        onUpgrade={() => { setImportResult(null); navigate('/upgrade'); }}
+        onClose={() => setImportResult(null)}
+      />
     </div>
   );
 }

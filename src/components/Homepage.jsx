@@ -72,6 +72,7 @@ export default function Homepage({ currentUserEmail, brandName = 'ReachDesk' }) 
         </div>
         <div className="hp-nav-center">
           <a href="#features" onClick={(e) => handleNavClick(e, '#features')} className="hp-nav-link">Features</a>
+          <Link to="/get-started" className="hp-nav-link" style={{ textDecoration: 'none' }}>Get Started</Link>
           <a href="#pricing"  onClick={(e) => handleNavClick(e, '#pricing')}  className="hp-nav-link">Pricing</a>
           <button onClick={handleLoginClick} className="hp-nav-link hp-nav-link-btn">Log in</button>
         </div>

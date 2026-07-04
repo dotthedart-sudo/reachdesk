@@ -30,6 +30,7 @@ const ResetPassword = lazy(() => import('./components/ResetPassword'));
 const TermsOfService = lazy(() => import('./components/LegalPages').then(m => ({ default: m.TermsOfService })));
 const PrivacyPolicy = lazy(() => import('./components/LegalPages').then(m => ({ default: m.PrivacyPolicy })));
 const RefundPolicy = lazy(() => import('./components/LegalPages').then(m => ({ default: m.RefundPolicy })));
+const GetStarted = lazy(() => import('./components/GetStarted'));
 import UserNotificationBell from './components/UserNotificationBell';
 
 // App Context
@@ -643,9 +644,11 @@ function AppProvider({ children }) {
       title: template.title,
       content: JSON.stringify({ subject: template.subject || '', body: template.body || '' }),
       platform: template.platform,
-      is_starter: false
+      is_starter: false,
+      tags: template.tags || []
     };
     const { data, error } = await supabase.from('templates').insert({ ...serialized, user_id: session.user.id }).select().single();
+    if (error) throw error;
     if (!error && data) {
       const parsedData = {
         ...data,
@@ -665,6 +668,7 @@ function AppProvider({ children }) {
     if (fields.title !== undefined) serializedFields.title = fields.title;
     if (fields.platform !== undefined) serializedFields.platform = fields.platform;
     if (fields.is_starter !== undefined) serializedFields.is_starter = fields.is_starter;
+    if (fields.tags !== undefined) serializedFields.tags = fields.tags;
     if (fields.subject !== undefined || fields.body !== undefined) {
       const existing = templates.find(t => t.id === id) || {};
       const subject = fields.subject !== undefined ? fields.subject : (existing.subject || '');
@@ -1039,6 +1043,7 @@ function AppRoutes() {
         <Route path="/terms" element={<TermsOfService />} />
         <Route path="/privacy" element={<PrivacyPolicy />} />
         <Route path="/refund" element={<RefundPolicy />} />
+        <Route path="/get-started" element={<GetStarted />} />
 
         {/* Upgrade/Paywall route */}
         <Route path="/upgrade" element={<UpgradeRoutePage />} />

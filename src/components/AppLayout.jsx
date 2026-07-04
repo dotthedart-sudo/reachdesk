@@ -9,6 +9,8 @@ import {
 import { PLAN_LIMITS } from '../lib/utils';
 import UpgradeLockModal from './UpgradeLockModal';
 import MobileNav from './MobileNav';
+import { useLeadLimitStatus, LeadLimitTopBar } from '../lib/leadLimits';
+import { exportLeads } from '../utils/exportUtils';
 
 export default function AppLayout({
   profile,
@@ -24,6 +26,18 @@ export default function AppLayout({
   const { pathname } = useLocation();
   const navigate = useNavigate();
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
+
+  const limitStatus = useLeadLimitStatus(profile?.id);
+
+  const handleExportLeads = async () => {
+    if (!profile?.id) return;
+    try {
+      await exportLeads(profile.id);
+    } catch (err) {
+      console.error('Failed to export leads:', err);
+      alert(err.message || 'Export failed.');
+    }
+  };
 
   const isAdmin = profile?.role === 'admin' || profile?.email === 'dotthedart@gmail.com';
   const planLimits = PLAN_LIMITS[(profile?.plan || 'trial').toLowerCase()] || PLAN_LIMITS.trial;
@@ -44,7 +58,14 @@ export default function AppLayout({
   };
 
   return (
-    <div className="app-container">
+    <>
+      <LeadLimitTopBar
+        status={limitStatus}
+        onExport={handleExportLeads}
+        onCleanup={() => navigate('/leads')}
+        onUpgrade={() => navigate('/upgrade')}
+      />
+      <div className="app-container">
       {/* Mobile Top Bar */}
       <div className="mobile-top-bar">
         <button 
@@ -329,7 +350,8 @@ export default function AppLayout({
       
       {/* Mobile Bottom Navigation */}
       <MobileNav onOpenMenu={() => setIsSidebarOpen(prev => !prev)} />
-    </div>
+      </div>
+    </>
   );
 }
 

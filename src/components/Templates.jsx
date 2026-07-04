@@ -15,6 +15,7 @@ import {
   Lock
 } from 'lucide-react';
 import { PLAN_LIMITS } from '../lib/utils';
+import { NEXT_PLAN, PLAN_LIMITS as LIMITS_NEW } from '../lib/leadLimits';
 
 const SECTIONS = [
   'INITIAL TEMPLATES',
@@ -36,7 +37,9 @@ export default function Templates({
   const navigate = useNavigate();
   const [showToast, setShowToast] = useState(false);
   const [toastMessage, setToastMessage] = useState('');
-  const [expandedSections, setExpandedSections] = useState({});
+  const [showTemplateLimitBlockModal, setShowTemplateLimitBlockModal] = useState(false);
+  const [expandedSections, setExpandedSections] = useState({ 'MY TEMPLATES': true });
+  const [selectedTag, setSelectedTag] = useState('All');
   const [showEditor, setShowEditor] = useState(false);
   const [editingTemplate, setEditingTemplate] = useState(null);
   
@@ -45,7 +48,8 @@ export default function Templates({
     title: '',
     subject: '',
     body: '',
-    platform: 'INITIAL TEMPLATES'
+    platform: 'INITIAL TEMPLATES',
+    tagsInput: ''
   });
 
   const [copiedTemplateId, setCopiedTemplateId] = useState(null);
@@ -60,7 +64,7 @@ export default function Templates({
   const allowedTemplates = templates.filter(t => t.is_starter || t.user_id === currentUser.id);
 
   const planKey = (currentUser.plan || 'trial').toLowerCase();
-  const templateLimit = (PLAN_LIMITS[planKey] || PLAN_LIMITS.trial).templates;
+  const templateLimit = (LIMITS_NEW[planKey] || LIMITS_NEW.trial).templates ?? Infinity;
   const userTemplates = allowedTemplates.filter(t => t.user_id && !t.is_starter);
   const isTemplateLimitReached = templateLimit !== Infinity && userTemplates.length >= templateLimit;
 
@@ -85,7 +89,7 @@ export default function Templates({
       return;
     }
     const defaultPlatform = SECTIONS.includes(sectionName) ? sectionName : 'INITIAL TEMPLATES';
-    setFormState({ title: '', subject: '', body: '', platform: defaultPlatform });
+    setFormState({ title: '', subject: '', body: '', platform: defaultPlatform, tagsInput: '' });
     setEditingTemplate(null);
     setShowEditor(true);
   };
@@ -96,7 +100,8 @@ export default function Templates({
       title: template.title || '',
       subject: template.subject || '',
       body: template.body || '',
-      platform: template.platform || 'INITIAL TEMPLATES'
+      platform: template.platform || 'INITIAL TEMPLATES',
+      tagsInput: (template.tags || []).join(', ')
     });
     setShowEditor(true);
   };
@@ -104,27 +109,46 @@ export default function Templates({
   const handleFieldBlur = (field, value) => {
     if (!editingTemplate || editingTemplate.is_starter) return;
     
+    let updatePayload = {
+      [field]: value
+    };
+
+    if (field === 'tagsInput') {
+      const tagsArray = value.split(',').map(t => t.trim()).filter(Boolean);
+      updatePayload = {
+        tagsInput: value,
+        tags: tagsArray
+      };
+    }
+
     setFormState(prev => ({
       ...prev,
-      [field]: value
+      ...updatePayload
     }));
 
     onUpdateTemplate(editingTemplate.id, {
       ...formState,
-      [field]: value
+      ...updatePayload
     });
   };
 
-  const handleSave = (e) => {
+  const handleSave = async (e) => {
     e.preventDefault();
     if (!formState.title || !formState.body) {
       alert("Title and Body are required.");
       return;
     }
 
+    const tags = formState.tagsInput
+      ? formState.tagsInput.split(',').map(t => t.trim()).filter(Boolean)
+      : [];
+
     if (editingTemplate) {
       if (!editingTemplate.is_starter) {
-        onUpdateTemplate(editingTemplate.id, formState);
+        onUpdateTemplate(editingTemplate.id, {
+          ...formState,
+          tags
+        });
       }
     } else {
       if (isTemplateLimitReached) {
@@ -138,10 +162,21 @@ export default function Templates({
         setShowToast(true);
         return;
       }
-      onAddTemplate({
-        ...formState,
-        is_starter: false
-      });
+      try {
+        await onAddTemplate({
+          ...formState,
+          tags,
+          is_starter: false
+        });
+      } catch (err) {
+        if (err?.message?.includes('Template limit reached')) {
+          setShowTemplateLimitBlockModal(true);
+          return;
+        } else {
+          console.error(err);
+          alert(err.message || 'Failed to add template.');
+        }
+      }
     }
     setShowEditor(false);
   };
@@ -158,17 +193,27 @@ export default function Templates({
       setShowToast(true);
       return;
     }
-    const newTemplate = await onAddTemplate({
-      title: `${template.title} (Copy)`,
-      subject: template.subject || '',
-      body: template.body || '',
-      platform: template.platform || 'INITIAL TEMPLATES',
-      is_starter: false
-    });
-    
-    alert(`Template duplicated! You can now find it in My Templates.`);
-    if (newTemplate) {
-      handleOpenEdit(newTemplate);
+    try {
+      const newTemplate = await onAddTemplate({
+        title: `${template.title} (Copy)`,
+        subject: template.subject || '',
+        body: template.body || '',
+        platform: template.platform || 'INITIAL TEMPLATES',
+        tags: template.tags || [],
+        is_starter: false
+      });
+      
+      alert(`Template duplicated! You can now find it in My Templates.`);
+      if (newTemplate) {
+        handleOpenEdit(newTemplate);
+      }
+    } catch (err) {
+      if (err?.message?.includes('Template limit reached')) {
+        setShowTemplateLimitBlockModal(true);
+      } else {
+        console.error(err);
+        alert(err.message || 'Failed to duplicate template.');
+      }
     }
   };
 
@@ -233,14 +278,23 @@ export default function Templates({
     groupedTemplates[sec] = [];
   });
   const otherTemplates = [];
+  const myTemplates = [];
 
   allowedTemplates.forEach(t => {
-    if (SECTIONS.includes(t.platform)) {
+    if (!t.is_starter) {
+      myTemplates.push(t);
+    } else if (SECTIONS.includes(t.platform)) {
       groupedTemplates[t.platform].push(t);
     } else {
       otherTemplates.push(t);
     }
   });
+
+  const allUniqueTags = Array.from(
+    new Set(
+      myTemplates.flatMap(t => t.tags || [])
+    )
+  ).sort();
 
   const renderSection = (sectionName, list) => {
     const isExpanded = !!expandedSections[sectionName];
@@ -471,6 +525,265 @@ export default function Templates({
     );
   };
 
+  const renderMyTemplatesSection = () => {
+    const sectionName = 'MY TEMPLATES';
+    const isExpanded = !!expandedSections[sectionName];
+    const filteredMyTemplates = selectedTag === 'All'
+      ? myTemplates
+      : myTemplates.filter(t => (t.tags || []).includes(selectedTag));
+
+    return (
+      <div 
+        key={sectionName} 
+        style={{ 
+          marginBottom: '1rem', 
+          backgroundColor: 'var(--bg-page)', 
+          border: '1px solid var(--border)', 
+          borderRadius: '3px' 
+        }}
+      >
+        {/* Collapsible Header */}
+        <div 
+          onClick={() => toggleSection(sectionName)}
+          style={{ 
+            display: 'flex', 
+            justifyContent: 'space-between', 
+            alignItems: 'center', 
+            padding: '1rem', 
+            cursor: 'pointer',
+            userSelect: 'none',
+            borderBottom: isExpanded ? '1px solid var(--border)' : 'none'
+          }}
+        >
+          <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', flex: 1 }}>
+            {isExpanded ? <ChevronDown size={18} style={{ color: 'var(--accent-blue)' }} /> : <ChevronRight size={18} style={{ color: 'var(--text-muted)' }} />}
+            <span 
+              style={{ 
+                fontFamily: 'Mattone, sans-serif', 
+                textTransform: 'uppercase', 
+                letterSpacing: '0.05em', 
+                fontSize: '0.95rem',
+                fontWeight: 600,
+                color: 'var(--text-primary)' 
+              }}
+            >
+              {sectionName}
+            </span>
+            <span style={{ fontSize: '0.75rem', color: 'var(--text-muted)', background: 'var(--bg-secondary)', padding: '2px 8px', borderRadius: '10px', fontWeight: 600 }}>
+              {myTemplates.length}
+            </span>
+          </div>
+        </div>
+
+        {/* Collapsible Content */}
+        {isExpanded && (
+          <div style={{ padding: '1rem', backgroundColor: 'var(--bg-page)' }}>
+            {/* Tag Filter Row */}
+            {allUniqueTags.length > 0 && (
+              <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap', marginBottom: '1.25rem', alignItems: 'center' }}>
+                <span style={{ fontSize: '0.8rem', color: 'var(--text-secondary)', fontWeight: 500 }}>Filter by Tag:</span>
+                <button
+                  onClick={() => setSelectedTag('All')}
+                  style={{
+                    fontSize: '0.75rem',
+                    padding: '4px 10px',
+                    borderRadius: '20px',
+                    border: '1px solid ' + (selectedTag === 'All' ? '#5B8FB9' : 'var(--border)'),
+                    backgroundColor: selectedTag === 'All' ? 'rgba(91, 143, 185, 0.15)' : 'transparent',
+                    color: selectedTag === 'All' ? '#5B8FB9' : 'var(--text-secondary)',
+                    fontWeight: selectedTag === 'All' ? 600 : 500,
+                    cursor: 'pointer',
+                    transition: 'all 0.2s'
+                  }}
+                >
+                  All
+                </button>
+                {allUniqueTags.map(tag => {
+                  const isActive = selectedTag === tag;
+                  return (
+                    <button
+                      key={tag}
+                      onClick={() => setSelectedTag(tag)}
+                      style={{
+                        fontSize: '0.75rem',
+                        padding: '4px 10px',
+                        borderRadius: '20px',
+                        border: '1px solid ' + (isActive ? '#5B8FB9' : 'var(--border)'),
+                        backgroundColor: isActive ? 'rgba(91, 143, 185, 0.15)' : 'transparent',
+                        color: isActive ? '#5B8FB9' : 'var(--text-secondary)',
+                        fontWeight: isActive ? 600 : 500,
+                        cursor: 'pointer',
+                        transition: 'all 0.2s'
+                      }}
+                    >
+                      {tag}
+                    </button>
+                  );
+                })}
+              </div>
+            )}
+
+            {filteredMyTemplates.length === 0 ? (
+              <div style={{ padding: '2rem', textAlign: 'center', color: 'var(--text-muted)', fontSize: '0.9rem' }}>
+                {myTemplates.length === 0 
+                  ? 'No custom templates yet. Click "Create Template" to add one!'
+                  : 'No custom templates matching the selected tag.'}
+              </div>
+            ) : (
+              <div 
+                style={{ 
+                  display: 'grid', 
+                  gridTemplateColumns: 'repeat(auto-fill, minmax(280px, 1fr))', 
+                  gap: '1rem' 
+                }}
+              >
+                {filteredMyTemplates.map(template => {
+                  const addedByEmail = teamProfilesMap[template.user_id];
+                  return (
+                    <div 
+                      key={template.id}
+                      className="card flex-col gap-3"
+                      style={{ 
+                        backgroundColor: 'var(--bg-card)', 
+                        border: '1px solid var(--border)', 
+                        borderRadius: '3px',
+                        padding: '1.25rem',
+                        textAlign: 'left'
+                      }}
+                    >
+                      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: '0.5rem' }}>
+                        <div className="flex-col gap-1 w-full" style={{ overflow: 'hidden' }}>
+                          <h4 
+                            style={{ 
+                              fontSize: '1rem', 
+                              fontWeight: 600, 
+                              color: 'var(--text-primary)',
+                              margin: 0,
+                              fontFamily: 'Plus Jakarta Sans, sans-serif'
+                            }}
+                          >
+                            {template.title}
+                          </h4>
+                          {/* Tags chips row */}
+                          {template.tags && template.tags.length > 0 && (
+                            <div style={{ display: 'flex', gap: '4px', flexWrap: 'wrap', marginTop: '0.25rem' }}>
+                              {template.tags.map(tag => (
+                                <span 
+                                  key={tag}
+                                  style={{ 
+                                    fontSize: '0.65rem', 
+                                    padding: '2px 5px', 
+                                    borderRadius: '3px',
+                                    fontWeight: 600,
+                                    textTransform: 'uppercase',
+                                    letterSpacing: '0.05em',
+                                    backgroundColor: 'rgba(139, 148, 158, 0.15)',
+                                    color: '#8b949e',
+                                    border: '1px solid rgba(139, 148, 158, 0.2)'
+                                  }}
+                                >
+                                  {tag}
+                                </span>
+                              ))}
+                            </div>
+                          )}
+                        </div>
+                        <span 
+                          style={{ 
+                            fontSize: '0.7rem', 
+                            padding: '2px 6px', 
+                            borderRadius: '3px',
+                            fontWeight: 600,
+                            textTransform: 'uppercase',
+                            letterSpacing: '0.05em',
+                            backgroundColor: 'rgba(16, 185, 129, 0.15)',
+                            color: '#10b981',
+                            border: '1px solid rgba(16, 185, 129, 0.3)',
+                            flexShrink: 0
+                          }}
+                        >
+                          Custom
+                        </span>
+                      </div>
+
+                      {template.subject && (
+                        <div style={{ fontSize: '0.8rem', color: 'var(--text-muted)' }}>
+                          <strong>Subject:</strong> {template.subject}
+                        </div>
+                      )}
+
+                      <div 
+                        style={{ 
+                          fontSize: '0.85rem', 
+                          color: 'var(--text-secondary)',
+                          lineHeight: '1.5',
+                          backgroundColor: 'var(--bg-page)',
+                          padding: '0.75rem',
+                          borderRadius: '3px',
+                          border: '1px solid var(--border)',
+                          flexGrow: 1,
+                          overflowY: 'auto',
+                          maxHeight: '120px',
+                          whiteSpace: 'pre-wrap',
+                          wordBreak: 'break-word'
+                        }}
+                      >
+                        {renderHighlightedContent(template.body)}
+                      </div>
+
+                      {/* Info footer (e.g. Creator/Shared) */}
+                      {addedByEmail && (
+                        <div style={{ fontSize: '0.75rem', color: 'var(--text-muted)', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                          <span>By: {addedByEmail}</span>
+                        </div>
+                      )}
+
+                      {/* Card Actions */}
+                      <div className="flex gap-2" style={{ borderTop: '1px solid var(--border)', paddingTop: '0.75rem', marginTop: 'auto' }}>
+                        <button 
+                          className="btn btn-secondary btn-sm"
+                          onClick={() => handleCopyBodyOnly(template.body, template.id)}
+                          style={{ borderRadius: '3px', fontSize: '0.8rem', flexGrow: 1, justifyContent: 'center' }}
+                        >
+                          {copiedTemplateId === template.id ? 'Copied!' : 'Copy Body'}
+                        </button>
+                        
+                        <button 
+                          className="btn btn-secondary btn-sm"
+                          onClick={() => handleOpenEdit(template)}
+                          style={{ 
+                            borderRadius: '3px', 
+                            display: 'flex', 
+                            alignItems: 'center', 
+                            gap: '4px',
+                            fontSize: '0.8rem' 
+                          }}
+                        >
+                          <Edit3 size={12} /> Edit
+                        </button>
+                        <button 
+                          className="btn btn-danger btn-sm"
+                          onClick={() => {
+                            if (confirm('Are you sure you want to delete this template?')) {
+                              onDeleteTemplate(template.id);
+                            }
+                          }}
+                          style={{ borderRadius: '3px', display: 'flex', alignItems: 'center', justifyContent: 'center', width: '32px' }}
+                        >
+                          <Trash2 size={12} />
+                        </button>
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            )}
+          </div>
+        )}
+      </div>
+    );
+  };
+
   return (
     <div className="flex-col gap-4 w-full" style={{ minHeight: 'calc(100vh - 120px)', textAlign: 'left' }}>
       {/* Header section */}
@@ -498,6 +811,7 @@ export default function Templates({
 
       {/* Accordion list of sections */}
       <div className="flex-col">
+        {renderMyTemplatesSection()}
         {SECTIONS.map(sec => renderSection(sec, groupedTemplates[sec]))}
         
         {/* Render fallback uncategorized templates if they exist */}
@@ -571,6 +885,20 @@ export default function Templates({
                     <option value={formState.platform}>{formState.platform}</option>
                   )}
                 </select>
+              </div>
+
+              <div className="form-group">
+                <label className="form-label" style={{ color: 'var(--text-secondary)' }}>Tags (comma-separated)</label>
+                <input 
+                  type="text" 
+                  disabled={editingTemplate?.is_starter}
+                  className="form-input"
+                  placeholder="e.g. cold outreach, warm lead, follow-up"
+                  value={formState.tagsInput || ''}
+                  onChange={(e) => setFormState({...formState, tagsInput: e.target.value})}
+                  onBlur={(e) => handleFieldBlur('tagsInput', e.target.value)}
+                  style={{ backgroundColor: 'var(--bg-page)', border: '1px solid var(--border)', borderRadius: '3px', color: 'var(--text-primary)' }}
+                />
               </div>
 
               <div className="form-group">
@@ -711,6 +1039,81 @@ export default function Templates({
           >
             Upgrade Now
           </button>
+        </div>
+      )}
+
+      {showTemplateLimitBlockModal && (
+        <div
+          style={{
+            position: 'fixed',
+            inset: 0,
+            background: 'rgba(0,0,0,0.6)',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            zIndex: 2000,
+          }}
+          onClick={() => setShowTemplateLimitBlockModal(false)}
+        >
+          <div
+            onClick={(e) => e.stopPropagation()}
+            style={{
+              background: '#0D1117',
+              border: '1px solid #21262D',
+              borderRadius: 3,
+              padding: 32,
+              maxWidth: 420,
+              width: '90%',
+              fontFamily: 'Inter, sans-serif',
+              textAlign: 'center',
+            }}
+          >
+            <div style={{ color: '#E05252', fontSize: 15, fontWeight: 700, marginBottom: 8, textTransform: 'uppercase', letterSpacing: '0.06em' }}>
+              Template limit reached
+            </div>
+            <p style={{ color: '#E6EDF3', fontSize: 14.5, lineHeight: 1.6, marginBottom: 24 }}>
+              You've hit your plan's limit of {templateLimit} templates. You won't be able to add more until you
+              do a quick cleanup or upgrade to <strong>{NEXT_PLAN[planKey] ?? 'a higher plan'}</strong>.
+            </p>
+            <div style={{ display: 'flex', gap: 10, justifyContent: 'center' }}>
+              <button
+                onClick={() => {
+                  setShowTemplateLimitBlockModal(false);
+                  navigate('/templates');
+                }}
+                style={{
+                  background: 'transparent',
+                  color: '#E6EDF3',
+                  border: '1px solid #21262D',
+                  borderRadius: 3,
+                  padding: '10px 18px',
+                  fontSize: 13.5,
+                  fontWeight: 600,
+                  cursor: 'pointer',
+                }}
+              >
+                Quick cleanup
+              </button>
+              <button
+                onClick={() => {
+                  setShowTemplateLimitBlockModal(false);
+                  navigate('/upgrade');
+                }}
+                style={{
+                  background: '#5B8FB9',
+                  color: '#0D1117',
+                  border: 'none',
+                  borderRadius: 3,
+                  padding: '10px 18px',
+                  fontSize: 13.5,
+                  fontWeight: 600,
+                  cursor: 'pointer',
+                }}
+              >
+                Upgrade to {NEXT_PLAN[planKey] ?? 'a higher plan'}
+              </button>
+            </div>
+          </div>
         </div>
       )}
     </div>
