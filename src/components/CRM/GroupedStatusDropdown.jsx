@@ -16,15 +16,15 @@ const PRESET_COLORS = [
 ];
 
 const DEFAULT_STATUSES = [
-  { label: 'Lead', color: '#8B949E' },
-  { label: 'Contacted', color: '#5B8FB9' },
-  { label: 'Positive Reply', color: '#7FB5A0' },
-  { label: 'Not Interested', color: '#E05252' },
-  { label: 'Call Booked', color: '#E8A838' },
-  { label: 'Calendly Sent', color: '#6B9FD4' },
-  { label: 'Client', color: '#4ADE80' },
-  { label: 'Follow Up', color: '#F97316' },
-  { label: 'No Show', color: '#6B7280' }
+  { label: 'Lead', color: '#3b82f6' },
+  { label: 'Contacted', color: '#f59e0b' },
+  { label: 'Waiting', color: '#10b981' },
+  { label: 'Positive Reply', color: '#8b5cf6' },
+  { label: 'Booked', color: '#ec4899' },
+  { label: 'Proposal Sent', color: '#06b6d4' },
+  { label: 'No Show / Rescheduled', color: '#ef4444' },
+  { label: 'Not Interested', color: '#6b7280' },
+  { label: 'Client', color: '#10b981' }
 ];
 
 const seedingPromises = {};
@@ -473,7 +473,7 @@ export default function GroupedStatusDropdown({ value, onChange, isTableInline =
         /* Editable Management Mode */
         <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-            <span style={{ fontSize: '0.78rem', fontWeight: 700, color: '#fff' }}>Manage Statuses</span>
+            <span style={{ fontSize: '0.78rem', fontWeight: 700, color: 'var(--text-primary)' }}>Manage Statuses</span>
             <div style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
               <button
                 type="button"
@@ -525,7 +525,7 @@ export default function GroupedStatusDropdown({ value, onChange, isTableInline =
                       style={{
                         background: 'var(--bg-secondary)',
                         border: '1px solid var(--border-color)',
-                        color: '#fff',
+                        color: 'var(--text-primary)',
                         fontSize: '0.78rem',
                         padding: '2px 4px',
                         borderRadius: '3px',
@@ -539,7 +539,7 @@ export default function GroupedStatusDropdown({ value, onChange, isTableInline =
                   <>
                     <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
                       <span style={{ width: '8px', height: '8px', borderRadius: '50%', backgroundColor: opt.color }} />
-                      <span style={{ fontSize: '0.8rem', color: '#fff' }}>{opt.label}</span>
+                      <span style={{ fontSize: '0.8rem', color: 'var(--text-primary)' }}>{opt.label}</span>
                     </div>
                     <div style={{ display: 'flex', gap: '4px' }}>
                       <button type="button" onClick={() => handleStartEdit(idx)} style={{ background: 'none', border: 'none', color: 'var(--text-muted)', cursor: 'pointer', padding: '2px' }}><Pencil size={11} /></button>
@@ -571,7 +571,7 @@ export default function GroupedStatusDropdown({ value, onChange, isTableInline =
                 style={{
                   background: 'var(--bg-secondary)',
                   border: '1px solid var(--border-color)',
-                  color: '#fff',
+                  color: 'var(--text-primary)',
                   fontSize: '0.78rem',
                   padding: '4px 6px',
                   borderRadius: '4px',

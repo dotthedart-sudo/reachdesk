@@ -205,6 +205,8 @@ export default function CRM({
     priority: 'Warm'
   });
   const [showEditLeadModal, setShowEditLeadModal] = useState(false);
+  const [newFieldName, setNewFieldName] = useState('');
+  const [newFieldType, setNewFieldType] = useState('text');
   const [showImportModal, setShowImportModal] = useState(false);
   const [showNewImportModal, setShowNewImportModal] = useState(false);
   const [showFolderModal, setShowFolderModal] = useState(false);
@@ -708,6 +710,42 @@ export default function CRM({
         console.error('Error quick adding lead:', err);
       }
     }
+  };
+
+  const handleAddNewCustomField = async (name, type) => {
+    if (!name.trim()) return;
+    try {
+      const { data, error } = await supabase
+        .from('column_definitions')
+        .insert({
+          user_id: currentUser.id,
+          table_view: view === 'pipeline' ? 'pipeline' : 'contact_details',
+          column_key: name.trim().toLowerCase().replace(/\s+/g, '_'),
+          column_label: name.trim(),
+          column_type: type,
+          is_visible: true,
+          is_default: false,
+          sort_order: columnDefs.length
+        })
+        .select()
+        .single();
+      if (error) throw error;
+      setColumnDefs(prev => [...prev, data]);
+    } catch (err) {
+      console.error('Error adding custom field:', err);
+      alert('Failed to add custom field: ' + err.message);
+    }
+  };
+
+  const handleRemoveCustomFieldVal = (columnKey) => {
+    setLeadForm(prev => {
+      const updatedFields = { ...(prev.custom_fields || {}) };
+      delete updatedFields[columnKey];
+      return {
+        ...prev,
+        custom_fields: updatedFields
+      };
+    });
   };
 
   // Open Edit Lead

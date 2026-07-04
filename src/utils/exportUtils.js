@@ -25,7 +25,7 @@ export function stripHTML(html = '') {
 export async function exportLeads(userId) {
   const { data: leads, error } = await supabase
     .from('leads')
-    .select('full_name,email,phone,company_name,niche,status,priority,custom_fields,notes')
+    .select('full_name,email,phone,company,niche,status,priority,custom_fields,notes')
     .eq('user_id', userId)
     .order('created_at', { ascending: true });
 
@@ -45,7 +45,7 @@ export async function exportLeads(userId) {
       l.full_name,
       l.email,
       l.phone,
-      l.company_name,
+      l.company,
       l.niche,
       l.status,
       l.priority,

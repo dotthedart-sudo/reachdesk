@@ -7,9 +7,8 @@ function LegalContainer({ title, lastUpdated, children }) {
     <div className="landing-container" style={{ minHeight: '100vh', display: 'flex', flexDirection: 'column', background: 'var(--bg-primary)' }}>
       {/* Navigation Bar */}
       <nav className="landing-nav" style={{ justifyContent: 'space-between' }}>
-        <Link to="/homepage" className="landing-nav-logo" style={{ cursor: 'pointer', textDecoration: 'none' }}>
-          <div className="user-avatar" style={{ width: '32px', height: '32px', fontSize: '0.8rem' }}>RD</div>
-          <span className="landing-logo-text">ReachDesk</span>
+        <Link to="/homepage" className="landing-nav-logo" style={{ cursor: 'pointer', textDecoration: 'none', display: 'flex', alignItems: 'center' }}>
+          <span className="landing-logo-text" style={{ fontSize: '1.15rem' }}>ReachDesk</span>
         </Link>
         <Link to="/homepage" className="btn btn-secondary btn-sm" style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', textDecoration: 'none' }}>
           <ArrowLeft size={14} /> Back to Home

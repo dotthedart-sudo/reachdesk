@@ -353,7 +353,7 @@ export default function PriorityDropdown({ value, onChange, onUpdate }) {
                           style={{
                             background: 'var(--bg-secondary)',
                             border: '1px solid var(--border-color)',
-                            color: '#fff',
+                            color: 'var(--text-primary)',
                             fontSize: '0.78rem',
                             padding: '2px 4px',
                             borderRadius: '3px',
@@ -367,7 +367,7 @@ export default function PriorityDropdown({ value, onChange, onUpdate }) {
                       <>
                         <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
                           <span style={{ width: '8px', height: '8px', borderRadius: '50%', backgroundColor: opt.color }} />
-                          <span style={{ fontSize: '0.8rem', color: '#fff' }}>{opt.label}</span>
+                          <span style={{ fontSize: '0.8rem', color: 'var(--text-primary)' }}>{opt.label}</span>
                         </div>
                         <div style={{ display: 'flex', gap: '4px' }}>
                           <button type="button" onClick={() => handleStartEdit(idx)} style={{ background: 'none', border: 'none', color: 'var(--text-muted)', cursor: 'pointer', padding: '2px' }}><Pencil size={11} /></button>
@@ -399,7 +399,7 @@ export default function PriorityDropdown({ value, onChange, onUpdate }) {
                     style={{
                       background: 'var(--bg-secondary)',
                       border: '1px solid var(--border-color)',
-                      color: '#fff',
+                      color: 'var(--text-primary)',
                       fontSize: '0.78rem',
                       padding: '4px 6px',
                       borderRadius: '4px',
