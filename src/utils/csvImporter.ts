@@ -46,7 +46,8 @@ export async function processImportBatch({
     const teamIds = await getTeamIds(userId);
     const { data: p } = await supabase.from('user_profiles').select('plan').eq('id', userId).maybeSingle();
     plan = (p?.plan || 'trial').toLowerCase();
-    leadLimit = (PLAN_LIMITS[plan] || PLAN_LIMITS.trial).leads;
+    const baseLimit = (PLAN_LIMITS[plan] || PLAN_LIMITS.trial).leads;
+    leadLimit = baseLimit === null ? Infinity : baseLimit;
 
     // Get current lead count
     const { count } = await supabase

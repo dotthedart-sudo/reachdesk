@@ -167,7 +167,9 @@ const PLANS = [
   {
     id: 'starter',
     name: 'Starter',
-    tagline: '600 leads · 1 user · 10 templates',
+    tagline: (billing) => billing === 'yearly'
+      ? '2,000 leads · 1 user · 10 templates'
+      : '1,000 leads (2,000 if billed yearly) · 1 user · 10 templates',
     features: CORE_FEATURES,
     comingSoon: false,
     isEnterprise: false,
@@ -175,7 +177,9 @@ const PLANS = [
   {
     id: 'pro',
     name: 'Pro',
-    tagline: '2,500 leads · 1 user · Unlimited templates',
+    tagline: (billing) => billing === 'yearly'
+      ? '10,000 leads · 1 user · Unlimited templates'
+      : '5,000 leads (10,000 if billed yearly) · 1 user · Unlimited templates',
     features: [
       ...CORE_FEATURES,
       { label: 'AI CRM Commands', badge: 'Coming Soon' },
@@ -188,7 +192,7 @@ const PLANS = [
   {
     id: 'teams',
     name: 'Teams',
-    tagline: '10,000 leads · 3 users',
+    tagline: () => 'Unlimited leads · 3 users · Unlimited templates',
     features: [
       ...CORE_FEATURES,
       { label: 'AI CRM Commands', badge: 'Coming Soon' },
@@ -421,7 +425,7 @@ function PlanCard({ plan, billing, isSelected, onSelect, handlePaddleCheckout, p
           {name}
         </div>
         <div style={{ fontSize: '0.8rem', color: 'var(--text-muted)', marginTop: '0.25rem' }}>
-          {tagline}
+          {typeof tagline === 'function' ? tagline(billing) : tagline}
         </div>
       </div>
 

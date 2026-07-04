@@ -380,7 +380,7 @@ export default function Homepage({ currentUserEmail, brandName = 'ReachDesk' }) 
               </div>
             </div>
             <ul className="hp-feature-list">
-              {['600 leads', '10 templates', 'Smart folders', 'CSV import', 'Notes', 'Convert to client'].map(f => (
+              {[billing === 'yearly' ? '2,000 leads' : '1,000 leads (2,000 if billed yearly)', '10 templates', 'Smart folders', 'CSV import', 'Notes', 'Convert to client'].map(f => (
                 <li key={f} className="hp-feature-active"><span className="hp-fl-prefix">+</span> {f}</li>
               ))}
             </ul>
@@ -541,7 +541,7 @@ export default function Homepage({ currentUserEmail, brandName = 'ReachDesk' }) 
               </div>
             </div>
             <ul className="hp-feature-list">
-              {['2500 leads', 'Unlimited templates', 'Smart folders', 'CSV import', 'Notes', 'Convert to client', 'AI Commands', 'MCP Connect'].map(f => (
+              {[billing === 'yearly' ? '10,000 leads' : '5,000 leads (10,000 if billed yearly)', 'Unlimited templates', 'Smart folders', 'CSV import', 'Notes', 'Convert to client', 'AI Commands', 'MCP Connect'].map(f => (
                 <li key={f} className="hp-feature-active"><span className="hp-fl-prefix">+</span> {f}</li>
               ))}
             </ul>

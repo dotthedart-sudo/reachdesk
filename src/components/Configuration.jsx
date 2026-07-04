@@ -677,14 +677,14 @@ export default function Configuration({
                 <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.85rem' }}>
                   <span style={{ color: 'var(--text-muted)' }}>Leads</span>
                   <span style={{ fontWeight: 600, color: 'var(--text-primary)' }}>
-                    {leadsCount} / {maxLeads === Infinity ? 'Unlimited' : maxLeads}
+                    {leadsCount} / {maxLeads === Infinity || maxLeads === null ? 'Unlimited' : maxLeads}
                   </span>
                 </div>
                 <div style={{ height: '8px', background: 'var(--border-color)', borderRadius: '4px', overflow: 'hidden' }}>
                   <div style={{
                     height: '100%',
                     background: 'var(--accent-blue)',
-                    width: `${maxLeads === Infinity ? 0 : Math.min(100, (leadsCount / maxLeads) * 100)}%`,
+                    width: `${maxLeads === Infinity || maxLeads === null ? 0 : Math.min(100, (leadsCount / maxLeads) * 100)}%`,
                     borderRadius: '4px'
                   }} />
                 </div>
@@ -695,14 +695,14 @@ export default function Configuration({
                 <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.85rem' }}>
                   <span style={{ color: 'var(--text-muted)' }}>Templates</span>
                   <span style={{ fontWeight: 600, color: 'var(--text-primary)' }}>
-                    {templatesCount} / {maxTemplates === Infinity ? 'Unlimited' : maxTemplates}
+                    {templatesCount} / {maxTemplates === Infinity || maxTemplates === null ? 'Unlimited' : maxTemplates}
                   </span>
                 </div>
                 <div style={{ height: '8px', background: 'var(--border-color)', borderRadius: '4px', overflow: 'hidden' }}>
                   <div style={{
                     height: '100%',
                     background: 'var(--accent-blue)',
-                    width: `${maxTemplates === Infinity ? 0 : Math.min(100, (templatesCount / maxTemplates) * 100)}%`,
+                    width: `${maxTemplates === Infinity || maxTemplates === null ? 0 : Math.min(100, (templatesCount / maxTemplates) * 100)}%`,
                     borderRadius: '4px'
                   }} />
                 </div>

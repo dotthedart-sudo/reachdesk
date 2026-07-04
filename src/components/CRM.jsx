@@ -92,8 +92,6 @@ export default function CRM({
   const [showSmartFolderModal, setShowSmartFolderModal] = useState(false);
   const [smartFolderForm, setSmartFolderForm] = useState({ name: '', rules: [{ field: 'Status', operator: 'is', value: '' }] });
   const [priorityFilter, setPriorityFilter] = useState('');
-  const [showLimitModal, setShowLimitModal] = useState(false);
-  const [limitModalMessage, setLimitModalMessage] = useState('');
   const [showLeadLimitBlockModal, setShowLeadLimitBlockModal] = useState(false);
   const [toastRemaining, setToastRemaining] = useState(null);
   const [importResult, setImportResult] = useState(null);
@@ -571,30 +569,11 @@ export default function CRM({
   const leadLimit = getPlanLeadLimit(plan, currentUser.billing_cycle) || Infinity;
   const isLeadLimitReached = leadLimit !== Infinity && totalLeadsCount >= leadLimit;
 
-  // Show warnings when approaching the limit
-  const limitThreshold = leadLimit === 50 ? 5 : leadLimit === 600 ? 50 : leadLimit === 2500 ? 200 : leadLimit === 10000 ? 500 : 0;
-  const showLimitWarning = leadLimit !== Infinity && totalLeadsCount >= (leadLimit - limitThreshold) && totalLeadsCount < leadLimit;
-
-  const remainingLeads = (() => {
-    if (leadLimit !== Infinity) return Math.max(0, leadLimit - totalLeadsCount);
-    return null;
-  })();
-
   const leadLimitTooltip = 'Lead limit reached. Delete leads or upgrade.';
 
   const handleOpenAddLead = () => {
     if (isLeadLimitReached) {
-      const planName = plan.charAt(0).toUpperCase() + plan.slice(1);
-      const limitFormatted = leadLimit.toLocaleString();
-      let nextPlan = '';
-      let nextLimit = '';
-      if (plan === 'trial') { nextPlan = 'Starter'; nextLimit = '600'; }
-      else if (plan === 'starter') { nextPlan = 'Pro'; nextLimit = '2,500'; }
-      else if (plan === 'pro') { nextPlan = 'Teams'; nextLimit = '10,000'; }
-      else if (plan === 'teams') { nextPlan = 'Enterprise'; nextLimit = 'unlimited'; }
-      
-      setLimitModalMessage(`You've reached your ${planName} plan limit of ${limitFormatted} leads. ${nextPlan ? `Upgrade to ${nextPlan} for ${nextLimit} leads.` : ''}`);
-      setShowLimitModal(true);
+      setShowLeadLimitBlockModal(true);
       return;
     }
     setLeadForm({
@@ -1533,13 +1512,6 @@ export default function CRM({
             Pipeline View
           </button>
         </div>
-        {/* Warning Banners */}
-        {showLimitWarning && (
-          <div className="auth-error-banner" style={{ background: 'rgba(245, 158, 11, 0.1)', color: '#f59e0b', border: '1px solid rgba(245, 158, 11, 0.3)' }}>
-            <AlertCircle size={16} /> You have {remainingLeads} leads remaining in your plan. Delete unused leads or upgrade to add more.
-          </div>
-        )}
-
 
         {/* Toolbar */}
         <div className="flex justify-between align-center" style={{ flexWrap: 'wrap', gap: '1rem' }}>
@@ -2457,17 +2429,7 @@ export default function CRM({
         className="floating-quick-add-btn" 
         onClick={() => {
           if (isLeadLimitReached) {
-            const planName = plan.charAt(0).toUpperCase() + plan.slice(1);
-            const limitFormatted = leadLimit.toLocaleString();
-            let nextPlan = '';
-            let nextLimit = '';
-            if (plan === 'trial') { nextPlan = 'Starter'; nextLimit = '600'; }
-            else if (plan === 'starter') { nextPlan = 'Pro'; nextLimit = '2,500'; }
-            else if (plan === 'pro') { nextPlan = 'Teams'; nextLimit = '10,000'; }
-            else if (plan === 'teams') { nextPlan = 'Enterprise'; nextLimit = 'unlimited'; }
-            
-            setLimitModalMessage(`You've reached your ${planName} plan limit of ${limitFormatted} leads. ${nextPlan ? `Upgrade to ${nextPlan} for ${nextLimit} leads.` : ''}`);
-            setShowLimitModal(true);
+            setShowLeadLimitBlockModal(true);
             return;
           }
           setQuickAddForm({ first_name: '', platform: 'LinkedIn', priority: 'Warm' });
@@ -3181,36 +3143,7 @@ export default function CRM({
         </div>
       )}
 
-      {/* ⚠️ Lead Limits Modal */}
-      {showLimitModal && (
-        <div className="modal-backdrop" style={{ zIndex: 1200 }}>
-          <div className="modal-content" style={{ maxWidth: '400px', textAlign: 'center', padding: '2rem' }}>
-            <div className="paywall-icon" style={{ background: 'rgba(239, 68, 68, 0.1)', color: '#ef4444', margin: '0 auto 1.5rem', width: '60px', height: '60px', borderRadius: '50%', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-              <Lock size={30} />
-            </div>
-            <h3 style={{ fontSize: '1.25rem', fontWeight: 700, marginBottom: '1rem', color: 'var(--text-primary)' }}>Limit Reached</h3>
-            <p style={{ fontSize: '0.9rem', color: 'var(--text-secondary)', marginBottom: '1.5rem', lineHeight: '1.5' }}>
-              {limitModalMessage}
-            </p>
-            <div className="flex-col gap-2">
-              <button 
-                onClick={() => { setShowLimitModal(false); navigate('/upgrade'); }}
-                className="btn btn-primary w-full"
-                style={{ justifyContent: 'center' }}
-              >
-                Upgrade Now
-              </button>
-              <button 
-                onClick={() => setShowLimitModal(false)}
-                className="btn btn-secondary w-full"
-                style={{ justifyContent: 'center' }}
-              >
-                Cancel
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
+
 
       <LeadLimitModal
         open={showLeadLimitBlockModal}
