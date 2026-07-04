@@ -1664,8 +1664,28 @@ export default function CRM({
 
         {/* Bulk Actions Menu Overlay */}
         {selectedIds.length > 0 && (
-          <div className="flex justify-between align-center" style={{ padding: '0.75rem 1rem', background: 'var(--bg-card)', border: '0.5px solid var(--border-strong)', borderRadius: '6px' }}>
-            <span style={{ fontWeight: 600 }}>{selectedIds.length} leads selected</span>
+          <div className="flex justify-between align-center" style={{ padding: '0.75rem 1rem', background: 'var(--bg-card)', border: '0.5px solid var(--border-strong)', borderRadius: '6px', gap: '1rem', flexWrap: 'wrap' }}>
+            <div className="flex align-center gap-3">
+              <span style={{ fontWeight: 600 }}>{selectedIds.length} leads selected</span>
+              {selectedIds.length === paginatedList.length && activeList.length > paginatedList.length && (
+                <button 
+                  onClick={() => setSelectedIds(activeList.map(l => l.id))} 
+                  className="btn btn-secondary btn-sm"
+                  style={{ border: '1px dashed var(--border-strong)', padding: '0.2rem 0.6rem', color: 'var(--accent-blue, #58A6FF)', fontWeight: 600, background: 'rgba(56, 139, 253, 0.05)' }}
+                >
+                  Select all {activeList.length} leads in this view
+                </button>
+              )}
+              {selectedIds.length === activeList.length && activeList.length > paginatedList.length && (
+                <button 
+                  onClick={() => setSelectedIds(paginatedList.map(l => l.id))} 
+                  className="btn btn-secondary btn-sm"
+                  style={{ border: '1px dashed var(--border-strong)', padding: '0.2rem 0.6rem', color: 'var(--accent-blue, #58A6FF)', fontWeight: 600, background: 'rgba(56, 139, 253, 0.05)' }}
+                >
+                  Clear selection (keep current page only)
+                </button>
+              )}
+            </div>
             <div className="flex gap-2">
               {/* Change Status Dropdown */}
               <div style={{ position: 'relative' }}>
@@ -1715,10 +1735,10 @@ export default function CRM({
                 <th style={{ padding: '0.75rem 1rem', width: '40px' }}>
                   <button 
                     type="button"
-                    onClick={() => handleSelectAll(activeList)}
+                    onClick={() => handleSelectAll(paginatedList)}
                     style={{ background: 'transparent', border: 'none', cursor: 'pointer', color: 'var(--text-primary)', padding: 0 }}
                   >
-                    {activeList.length > 0 && activeList.every(l => selectedIds.includes(l.id)) ? (
+                    {paginatedList.length > 0 && paginatedList.every(l => selectedIds.includes(l.id)) ? (
                       <CheckSquare size={16} />
                     ) : (
                       <Square size={16} />
