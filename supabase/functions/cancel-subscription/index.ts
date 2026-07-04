@@ -21,6 +21,28 @@ serve(async (req) => {
       )
     }
 
+    if (typeof subscription_id === 'string' && subscription_id.startsWith('sub_test')) {
+      console.log(`[Cancel] Test mode bypass for subscription_id: ${subscription_id}`);
+      const supabaseUrl = Deno.env.get('SUPABASE_URL') ?? ''
+      const supabaseServiceRoleKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? ''
+      const supabaseAdmin = createClient(supabaseUrl, supabaseServiceRoleKey)
+
+      const { error: dbError } = await supabaseAdmin
+        .from('user_profiles')
+        .update({ plan_status: 'cancelling' })
+        .eq('paddle_subscription_id', subscription_id)
+
+      if (dbError) {
+        console.error(`[Cancel] DB Update error: ${dbError.message}`)
+        throw new Error(`Failed to update user profile in database: ${dbError.message}`)
+      }
+
+      return new Response(
+        JSON.stringify({ success: true, message: 'Subscription successfully scheduled for cancellation (Test Mode).' }),
+        { headers: { ...corsHeaders, 'Content-Type': 'application/json' }, status: 200 }
+      )
+    }
+
     const paddleApiKey = Deno.env.get('PADDLE_API_KEY')
     if (!paddleApiKey) {
       throw new Error('PADDLE_API_KEY environment variable is not set')

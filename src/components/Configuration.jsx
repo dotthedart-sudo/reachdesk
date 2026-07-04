@@ -3,8 +3,8 @@ import { useNavigate } from 'react-router-dom';
 import { supabase } from '../lib/supabase';
 import { PLAN_LIMITS } from '../lib/utils';
 import { 
-  Settings, Save, CreditCard, GitBranch, Plus, 
-  Trash2, ChevronUp, ChevronDown, AlertCircle, Users, Mail, UserMinus, User, Upload,
+  Settings, Save, CreditCard, 
+  AlertCircle, Users, Mail, UserMinus, User, Upload,
   Download, FileText
 } from 'lucide-react';
 import { exportLeads, exportNotes } from '../utils/exportUtils';
@@ -77,11 +77,6 @@ export default function Configuration({
     }
   };
 
-  // Statuses states
-  const [statuses, setStatuses] = useState([]);
-  const [statusesLoading, setStatusesLoading] = useState(true);
-  const [stagesMsg, setStagesMsg] = useState('');
-
   // Team states
   const [teamMembers, setTeamMembers] = useState([]);
   const [teamInvitations, setTeamInvitations] = useState([]);
@@ -89,26 +84,6 @@ export default function Configuration({
   const [inviteEmail, setInviteEmail] = useState('');
   const [teamError, setTeamError] = useState('');
   const [teamSuccess, setTeamSuccess] = useState('');
-
-  // Load Statuses from Supabase
-  const loadStatuses = async () => {
-    setStatusesLoading(true);
-    try {
-      const { data, error } = await supabase
-        .from('custom_statuses')
-        .select('*')
-        .eq('user_id', currentUser.id)
-        .order('sort_order', { ascending: true });
-
-      if (error) throw error;
-      setStatuses(data || []);
-    } catch (err) {
-      console.error('Error fetching custom statuses:', err);
-    } finally {
-      setStatusesLoading(false);
-    }
-  };
-
   // Load Team Members
   const loadTeam = async () => {
     if (!currentUser.team_id) {
@@ -144,7 +119,6 @@ export default function Configuration({
 
   useEffect(() => {
     if (currentUser) {
-      loadStatuses();
       loadTeam();
       setProfileName(currentUser.full_name || '');
       setProfileAvatarUrl(currentUser.avatar_url || '');
@@ -246,124 +220,6 @@ export default function Configuration({
     onSaveSettings(localBrand, localCurrency, localWebhook, localBankAccount, localBankIban);
   };
 
-  // ── Pipeline Status CRUD Helpers ──────────────────────────────────────────
-
-  const handleAddStage = async () => {
-    try {
-      const { data, error } = await supabase
-        .from('custom_statuses')
-        .insert({
-          user_id: currentUser.id,
-          label: 'New Stage',
-          color: '#6b7280',
-          sort_order: statuses.length
-        })
-        .select()
-        .single();
-
-      if (error) throw error;
-      setStatuses(prev => [...prev, data]);
-      if (onRefreshStatuses) onRefreshStatuses();
-    } catch (err) {
-      console.error('Error adding pipeline stage:', err);
-    }
-  };
-
-  const handleUpdateStage = async (id, updates) => {
-    try {
-      const { data, error } = await supabase
-        .from('custom_statuses')
-        .update(updates)
-        .eq('id', id)
-        .eq('user_id', currentUser.id)
-        .select()
-        .single();
-
-      if (error) throw error;
-      setStatuses(prev => prev.map(s => s.id === id ? data : s));
-      if (onRefreshStatuses) onRefreshStatuses();
-    } catch (err) {
-      console.error('Error updating pipeline stage:', err);
-    }
-  };
-
-  const handleDeleteStage = async (id, label) => {
-    try {
-      // Check usage first
-      const { count, error: countErr } = await supabase
-        .from('leads')
-        .select('id', { count: 'exact', head: true })
-        .eq('user_id', currentUser.id)
-        .eq('status', label);
-
-      if (countErr) throw countErr;
-
-      if (count && count > 0) {
-        if (!confirm(`Warning: ${count} lead(s) are currently in the "${label}" stage. Deleting this stage will move all those leads to the default "Lead" stage. Do you want to proceed?`)) {
-          return;
-        }
-
-        // Migrate leads
-        const { error: updateErr } = await supabase
-          .from('leads')
-          .update({ status: 'Lead' })
-          .eq('user_id', currentUser.id)
-          .eq('status', label);
-
-        if (updateErr) throw updateErr;
-      }
-
-      const { error: deleteErr } = await supabase
-        .from('custom_statuses')
-        .delete()
-        .eq('id', id)
-        .eq('user_id', currentUser.id);
-
-      if (deleteErr) throw deleteErr;
-
-      setStatuses(prev => prev.filter(s => s.id !== id));
-      if (onRefreshStatuses) onRefreshStatuses();
-      setStagesMsg('success:Stage deleted successfully!');
-      setTimeout(() => setStagesMsg(''), 3000);
-    } catch (err) {
-      console.error('Error deleting pipeline stage:', err);
-      setStagesMsg('error:Failed to delete stage.');
-    }
-  };
-
-  const handleMoveUp = async (index) => {
-    if (index === 0) return;
-    const s1 = statuses[index - 1];
-    const s2 = statuses[index];
-
-    try {
-      await Promise.all([
-        supabase.from('custom_statuses').update({ sort_order: index }).eq('id', s1.id),
-        supabase.from('custom_statuses').update({ sort_order: index - 1 }).eq('id', s2.id)
-      ]);
-      loadStatuses();
-      if (onRefreshStatuses) onRefreshStatuses();
-    } catch (err) {
-      console.error('Error reordering stages:', err);
-    }
-  };
-
-  const handleMoveDown = async (index) => {
-    if (index === statuses.length - 1) return;
-    const s1 = statuses[index];
-    const s2 = statuses[index + 1];
-
-    try {
-      await Promise.all([
-        supabase.from('custom_statuses').update({ sort_order: index + 1 }).eq('id', s1.id),
-        supabase.from('custom_statuses').update({ sort_order: index }).eq('id', s2.id)
-      ]);
-      loadStatuses();
-      if (onRefreshStatuses) onRefreshStatuses();
-    } catch (err) {
-      console.error('Error reordering stages:', err);
-    }
-  };
 
   // ── Team Invitation Helpers ────────────────────────────────────────────────
 
@@ -665,122 +521,6 @@ export default function Configuration({
         </div>
       </form>
 
-      {/* SECTION 2: Pipeline Stages CRUD */}
-      <div className="card flex-col gap-3">
-        <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', borderBottom: '1px solid var(--border-color)', paddingBottom: '0.5rem', marginBottom: '0.25rem' }}>
-          <GitBranch size={18} style={{ color: '#10b981' }} />
-          <h3 style={{ fontSize: '1.1rem' }}>Pipeline Stages Editor</h3>
-        </div>
-        <p style={{ fontSize: '0.85rem', color: 'var(--text-muted)' }}>
-          Create and color-code pipeline stages for CRM. Leads inside deleted stages will fallback to "Lead" status.
-        </p>
-
-        {stagesMsg && (
-          <div style={{
-            display: 'flex', alignItems: 'center', gap: '0.5rem', padding: '0.6rem 1rem',
-            background: stagesMsg.startsWith('error:') ? 'rgba(239,68,68,0.08)' : 'rgba(16,185,129,0.08)',
-            border: `1px solid ${stagesMsg.startsWith('error:') ? 'rgba(239,68,68,0.3)' : 'rgba(16,185,129,0.3)'}`,
-            borderRadius: '8px', fontSize: '0.85rem', color: stagesMsg.startsWith('error:') ? '#ef4444' : '#10b981',
-          }}>
-            <AlertCircle size={15} />
-            {stagesMsg.replace(/^(error:|success:)/, '')}
-          </div>
-        )}
-
-        {statusesLoading ? (
-          <div>Loading stages...</div>
-        ) : (
-          <div className="flex-col gap-2">
-            {statuses.map((stage, idx) => (
-              <div
-                key={stage.id}
-                style={{
-                  display: 'flex', alignItems: 'center', gap: '0.75rem',
-                  padding: '0.6rem 0.9rem', background: 'var(--bg-tertiary)',
-                  borderRadius: '8px', border: '1px solid var(--border-color)',
-                }}
-              >
-                {/* Order Up/Down */}
-                <div className="flex-col" style={{ gap: '1px' }}>
-                  <button
-                    type="button"
-                    onClick={() => handleMoveUp(idx)}
-                    disabled={idx === 0}
-                    style={{ background: 'none', border: 'none', cursor: idx === 0 ? 'not-allowed' : 'pointer', color: 'var(--text-secondary)' }}
-                  >
-                    <ChevronUp size={14} />
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => handleMoveDown(idx)}
-                    disabled={idx === statuses.length - 1}
-                    style={{ background: 'none', border: 'none', cursor: idx === statuses.length - 1 ? 'not-allowed' : 'pointer', color: 'var(--text-secondary)' }}
-                  >
-                    <ChevronDown size={14} />
-                  </button>
-                </div>
-
-                {/* Color Dot Input */}
-                <div style={{ position: 'relative', flexShrink: 0 }}>
-                  <div style={{ width: '22px', height: '22px', borderRadius: '50%', background: stage.color, border: '2px solid rgba(255,255,255,0.15)', cursor: 'pointer', position: 'relative', overflow: 'hidden' }}>
-                    <input
-                      type="color"
-                      value={stage.color}
-                      onChange={e => handleUpdateStage(stage.id, { color: e.target.value })}
-                      style={{ opacity: 0, position: 'absolute', inset: 0, width: '100%', height: '100%', cursor: 'pointer' }}
-                    />
-                  </div>
-                </div>
-
-                {/* Color Presets */}
-                <div style={{ display: 'flex', gap: '4px' }}>
-                  {PRESET_COLORS.slice(0, 6).map(c => (
-                    <button
-                      key={c}
-                      type="button"
-                      onClick={() => handleUpdateStage(stage.id, { color: c })}
-                      style={{
-                        width: '14px', height: '14px', borderRadius: '50%',
-                        background: c, border: stage.color === c ? '2px solid white' : '1px solid rgba(255,255,255,0.15)',
-                        cursor: 'pointer'
-                      }}
-                    />
-                  ))}
-                </div>
-
-                {/* Label input */}
-                <input
-                  type="text"
-                  className="form-input"
-                  value={stage.label}
-                  onChange={e => handleUpdateStage(stage.id, { label: e.target.value })}
-                  style={{ flex: 1, padding: '0.35rem 0.65rem', fontSize: '0.88rem' }}
-                  placeholder="Stage name"
-                />
-
-                {/* Delete button */}
-                <button
-                  type="button"
-                  onClick={() => handleDeleteStage(stage.id, stage.label)}
-                  style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--danger-color)' }}
-                >
-                  <Trash2 size={15} />
-                </button>
-              </div>
-            ))}
-          </div>
-        )}
-
-        <div style={{ display: 'flex', justifyContent: 'flex-start', marginTop: '0.5rem' }}>
-          <button
-            type="button"
-            className="btn btn-secondary btn-sm"
-            onClick={handleAddStage}
-          >
-            <Plus size={15} /> Add Stage
-          </button>
-        </div>
-      </div>
 
       {/* SECTION 3: Team Members invite panel */}
       {isTeamOrEnterprise && currentUser.team_id && (
@@ -1018,7 +758,7 @@ export default function Configuration({
             <h3 style={{ fontSize: '1.2rem', margin: 0, color: 'var(--text-primary)', fontFamily: 'Mattone, sans-serif' }}>Cancel Subscription?</h3>
             
             <p style={{ fontSize: '0.9rem', color: 'var(--text-secondary)', lineHeight: '1.4', margin: 0 }}>
-              Your Starter plan will remain active until {currentUser?.plan_expires_at ? new Date(currentUser.plan_expires_at).toLocaleDateString() : currentUser?.trial_ends_at ? new Date(currentUser.trial_ends_at).toLocaleDateString() : 'the end of the current billing period'}. After that, your account will be downgraded. You will not be charged again.
+              Are you sure? Your plan will remain active until the end of your current billing period, then your data is retained for 30 days.
             </p>
 
             <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '0.75rem', marginTop: '0.5rem' }}>
