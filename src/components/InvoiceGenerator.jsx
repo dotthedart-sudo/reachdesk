@@ -29,18 +29,23 @@ export default function InvoiceGenerator({
   const [showCreateForm, setShowCreateForm] = useState(false);
   const [copiedId, setCopiedId] = useState(null);
 
+  // Resolve bank details and currency: profile DB values take priority over localStorage props
+  const resolvedBankAccount = currentUser?.bank_account || bankAccount || '';
+  const resolvedBankIban = currentUser?.bank_iban || bankIban || '';
+  const resolvedCurrency = currentUser?.default_currency || currencySymbol || 'PKR';
+
   // Invoice Form State
   const [clientName, setClientName] = useState('');
   const [clientEmail, setClientEmail] = useState('');
   const [invoiceNumber, setInvoiceNumber] = useState(`INV-${new Date().getFullYear()}-${Math.floor(1000 + Math.random() * 9000)}`);
   const [issueDate, setIssueDate] = useState(new Date().toISOString().split('T')[0]);
   const [dueDate, setDueDate] = useState('');
-  const [currency, setCurrency] = useState(currencySymbol || 'PKR');
+  const [currency, setCurrency] = useState(resolvedCurrency);
   const [taxPercent, setTaxPercent] = useState(0);
   const [paymentDetails, setPaymentDetails] = useState(() => {
     let details = [];
-    if (bankAccount) details.push(`Bank Account: ${bankAccount}`);
-    if (bankIban) details.push(`IBAN: ${bankIban}`);
+    if (currentUser?.bank_account || bankAccount) details.push(`Bank Account: ${currentUser?.bank_account || bankAccount}`);
+    if (currentUser?.bank_iban || bankIban) details.push(`IBAN: ${currentUser?.bank_iban || bankIban}`);
     return details.join('\n');
   });
   const [notes, setNotes] = useState('Payment due on receipt.');
@@ -50,22 +55,22 @@ export default function InvoiceGenerator({
   const [showDropdown, setShowDropdown] = useState(false);
   const dropdownRef = useRef(null);
 
-  // Update default currency if prop changes
+  // Update default currency if resolved value changes (profile or prop)
   useEffect(() => {
-    if (currencySymbol) {
-      setCurrency(currencySymbol);
+    if (resolvedCurrency) {
+      setCurrency(resolvedCurrency);
     }
-  }, [currencySymbol]);
+  }, [resolvedCurrency]);
 
   // Update payment instructions default when bank details change
   useEffect(() => {
-    if (!paymentDetails && (bankAccount || bankIban)) {
+    if (!paymentDetails && (resolvedBankAccount || resolvedBankIban)) {
       let details = [];
-      if (bankAccount) details.push(`Bank Account: ${bankAccount}`);
-      if (bankIban) details.push(`IBAN: ${bankIban}`);
+      if (resolvedBankAccount) details.push(`Bank Account: ${resolvedBankAccount}`);
+      if (resolvedBankIban) details.push(`IBAN: ${resolvedBankIban}`);
       setPaymentDetails(details.join('\n'));
     }
-  }, [bankAccount, bankIban]);
+  }, [resolvedBankAccount, resolvedBankIban]);
 
   // Fetch leads and folders for dropdown search where user_id = current user
   useEffect(() => {
@@ -206,8 +211,8 @@ export default function InvoiceGenerator({
     setItems([{ description: 'Freelance Services', quantity: 1, rate: 500 }]);
     
     let details = [];
-    if (bankAccount) details.push(`Bank Account: ${bankAccount}`);
-    if (bankIban) details.push(`IBAN: ${bankIban}`);
+    if (resolvedBankAccount) details.push(`Bank Account: ${resolvedBankAccount}`);
+    if (resolvedBankIban) details.push(`IBAN: ${resolvedBankIban}`);
     setPaymentDetails(details.join('\n'));
     
     setNotes('Payment due on receipt.');
