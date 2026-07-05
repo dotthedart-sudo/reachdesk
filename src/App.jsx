@@ -518,7 +518,7 @@ function AppProvider({ children }) {
     try {
       const [inv, rev, l, t] = await Promise.all([
         supabase.from('invoices').select('*').eq('user_id', userId).order('created_at', { ascending: false }),
-        supabase.from('revenue_entries').select('*').in('user_id', ids),
+        supabase.from('revenue_entries').select('*').in('user_id', ids).order('created_at', { ascending: false }),
         supabase.from('leads').select('*').in('user_id', ids),
         supabase.from('templates').select('*').eq('user_id', userId),
       ]);
@@ -543,7 +543,18 @@ function AppProvider({ children }) {
         userEmail: email
       }));
       setInvoices(mappedInvoices);
-      setRevenueLogs(rev.data || []);
+      // Map DB columns → frontend shape
+      const mappedRevenue = (rev.data || []).map(r => ({
+        id: r.id,
+        user_id: r.user_id,
+        amount: r.amount || 0,
+        currency: r.currency || 'USD',
+        source: r.notes || '',           // DB: notes → frontend: source
+        date: r.paid_at ? r.paid_at.split('T')[0] : '',  // DB: paid_at → frontend: date
+        dateAdded: r.created_at ? new Date(r.created_at).toLocaleDateString() : '',
+        userEmail: email
+      }));
+      setRevenueLogs(mappedRevenue);
       setLeads(l.data || []);
 
       const customMapped = (t.data || []).map(tmpl => {
@@ -699,8 +710,31 @@ function AppProvider({ children }) {
     if (!error && data) setInvoices(prev => prev.map(i => i.id === id ? data : i));
   };
   const handleAddRevenueLog = async (log) => {
-    const { data, error } = await supabase.from('revenue_entries').insert({ ...log, user_id: session.user.id }).select().single();
-    if (!error && data) setRevenueLogs(prev => [...prev, data]);
+    // Map frontend fields → DB columns
+    const dbRow = {
+      user_id: session.user.id,
+      amount: log.amount,
+      currency: log.currency,
+      notes: log.source,                        // frontend: source → DB: notes
+      paid_at: log.date ? new Date(log.date).toISOString() : new Date().toISOString()  // frontend: date → DB: paid_at
+    };
+    const { data, error } = await supabase.from('revenue_entries').insert(dbRow).select().single();
+    if (!error && data) {
+      // Map response back to frontend shape
+      const mapped = {
+        id: data.id,
+        user_id: data.user_id,
+        amount: data.amount || 0,
+        currency: data.currency || 'USD',
+        source: data.notes || '',
+        date: data.paid_at ? data.paid_at.split('T')[0] : log.date || '',
+        dateAdded: data.created_at ? new Date(data.created_at).toLocaleDateString() : log.dateAdded || '',
+        userEmail: log.userEmail || session.user.email
+      };
+      setRevenueLogs(prev => [...prev, mapped]);
+    } else if (error) {
+      console.error('Error adding revenue log:', error);
+    }
   };
   const handleDeleteRevenueLog = async (id) => {
     const { error } = await supabase.from('revenue_entries').delete().eq('id', id);
