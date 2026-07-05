@@ -517,13 +517,32 @@ function AppProvider({ children }) {
   const fetchAllData = async (ids, userId, isAdmin) => {
     try {
       const [inv, rev, l, t] = await Promise.all([
-        supabase.from('invoices').select('*').in('user_id', ids),
+        supabase.from('invoices').select('*').eq('user_id', userId).order('created_at', { ascending: false }),
         supabase.from('revenue_entries').select('*').in('user_id', ids),
         supabase.from('leads').select('*').in('user_id', ids),
         supabase.from('templates').select('*').eq('user_id', userId),
       ]);
 
-      setInvoices(inv.data || []);
+      const email = session?.user?.email || '';
+      const mappedInvoices = (inv.data || []).map(item => ({
+        id: item.id,
+        user_id: item.user_id,
+        invoiceNumber: item.invoice_number,
+        clientName: item.client_name,
+        clientEmail: item.client_email,
+        issueDate: item.issue_date,
+        dueDate: item.due_date,
+        currency: item.currency,
+        items: item.items || [],
+        status: item.status,
+        notes: item.notes,
+        subtotal: item.subtotal || 0,
+        tax: item.tax || 0,
+        total: item.total || 0,
+        paymentDetails: item.payment_instructions,
+        userEmail: email
+      }));
+      setInvoices(mappedInvoices);
       setRevenueLogs(rev.data || []);
       setLeads(l.data || []);
 
@@ -632,8 +651,44 @@ function AppProvider({ children }) {
 
   // Invoices & Revenue handlers
   const handleAddInvoice = async (invoice) => {
-    const { data, error } = await supabase.from('invoices').insert({ ...invoice, user_id: session.user.id }).select().single();
-    if (!error && data) setInvoices(prev => [...prev, data]);
+    const dbInvoice = {
+      invoice_number: invoice.invoiceNumber,
+      client_name: invoice.clientName,
+      client_email: invoice.clientEmail,
+      issue_date: invoice.issueDate,
+      due_date: invoice.dueDate,
+      currency: invoice.currency,
+      items: invoice.items,
+      status: invoice.status,
+      notes: invoice.notes,
+      subtotal: invoice.subtotal || 0,
+      tax: invoice.tax || 0,
+      total: invoice.total,
+      payment_instructions: invoice.paymentDetails,
+      user_id: session.user.id
+    };
+    const { data, error } = await supabase.from('invoices').insert(dbInvoice).select().single();
+    if (!error && data) {
+      const mapped = {
+        id: data.id,
+        user_id: data.user_id,
+        invoiceNumber: data.invoice_number,
+        clientName: data.client_name,
+        clientEmail: data.client_email,
+        issueDate: data.issue_date,
+        dueDate: data.due_date,
+        currency: data.currency,
+        items: data.items || [],
+        status: data.status,
+        notes: data.notes,
+        subtotal: data.subtotal || 0,
+        tax: data.tax || 0,
+        total: data.total || 0,
+        paymentDetails: data.payment_instructions,
+        userEmail: session?.user?.email || ''
+      };
+      setInvoices(prev => [mapped, ...prev]);
+    }
   };
   const handleDeleteInvoice = async (id) => {
     const { error } = await supabase.from('invoices').delete().eq('id', id);
@@ -836,15 +891,18 @@ function TemplatesPage() {
 }
 
 function InvoicesPage() {
-  const { profile, invoices, currencySymbol, handleAddInvoice, handleDeleteInvoice, handleUpdateInvoiceStatus } = useAppContext();
+  const { profile, invoices, leads, currencySymbol, bankAccount, bankIban, handleAddInvoice, handleDeleteInvoice, handleUpdateInvoiceStatus } = useAppContext();
   return (
     <InvoiceGenerator
       currentUser={profile}
       invoices={invoices}
+      leads={leads}
       onAddInvoice={handleAddInvoice}
       onDeleteInvoice={handleDeleteInvoice}
       onUpdateInvoiceStatus={handleUpdateInvoiceStatus}
       currencySymbol={currencySymbol}
+      bankAccount={bankAccount}
+      bankIban={bankIban}
     />
   );
 }

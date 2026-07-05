@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { 
   Plus, 
   Trash2, 
@@ -12,14 +12,19 @@ import {
   Lock,
   ArrowLeft
 } from 'lucide-react';
+import { supabase } from '../lib/supabase';
 
 // Main Dashboard view for managing and creating invoices
 export default function InvoiceGenerator({ 
   currentUser, 
   invoices, 
+  leads = [],
   onAddInvoice, 
   onDeleteInvoice,
-  onUpdateInvoiceStatus
+  onUpdateInvoiceStatus,
+  currencySymbol = 'PKR',
+  bankAccount = '',
+  bankIban = ''
 }) {
   const [showCreateForm, setShowCreateForm] = useState(false);
   const [copiedId, setCopiedId] = useState(null);
@@ -30,9 +35,99 @@ export default function InvoiceGenerator({
   const [invoiceNumber, setInvoiceNumber] = useState(`INV-${new Date().getFullYear()}-${Math.floor(1000 + Math.random() * 9000)}`);
   const [issueDate, setIssueDate] = useState(new Date().toISOString().split('T')[0]);
   const [dueDate, setDueDate] = useState('');
-  const [currency, setCurrency] = useState('USD');
-  const [paymentDetails, setPaymentDetails] = useState('');
+  const [currency, setCurrency] = useState(currencySymbol || 'PKR');
+  const [taxPercent, setTaxPercent] = useState(0);
+  const [paymentDetails, setPaymentDetails] = useState(() => {
+    let details = [];
+    if (bankAccount) details.push(`Bank Account: ${bankAccount}`);
+    if (bankIban) details.push(`IBAN: ${bankIban}`);
+    return details.join('\n');
+  });
   const [notes, setNotes] = useState('Payment due on receipt.');
+
+  const [dbLeads, setDbLeads] = useState([]);
+  const [folders, setFolders] = useState([]);
+  const [showDropdown, setShowDropdown] = useState(false);
+  const dropdownRef = useRef(null);
+
+  // Update default currency if prop changes
+  useEffect(() => {
+    if (currencySymbol) {
+      setCurrency(currencySymbol);
+    }
+  }, [currencySymbol]);
+
+  // Update payment instructions default when bank details change
+  useEffect(() => {
+    if (!paymentDetails && (bankAccount || bankIban)) {
+      let details = [];
+      if (bankAccount) details.push(`Bank Account: ${bankAccount}`);
+      if (bankIban) details.push(`IBAN: ${bankIban}`);
+      setPaymentDetails(details.join('\n'));
+    }
+  }, [bankAccount, bankIban]);
+
+  // Fetch leads and folders for dropdown search where user_id = current user
+  useEffect(() => {
+    if (!currentUser?.id) return;
+
+    async function fetchLeadsAndFolders() {
+      try {
+        const [leadsRes, foldersRes] = await Promise.all([
+          supabase.from('leads').select('id, first_name, last_name, email, status, folder_id').eq('user_id', currentUser.id),
+          supabase.from('folders').select('id, name').eq('user_id', currentUser.id)
+        ]);
+
+        if (leadsRes.data) setDbLeads(leadsRes.data);
+        if (foldersRes.data) setFolders(foldersRes.data);
+      } catch (err) {
+        console.error("Error fetching leads/folders for dropdown:", err);
+      }
+    }
+
+    fetchLeadsAndFolders();
+  }, [currentUser]);
+
+  // Close dropdown on click outside
+  useEffect(() => {
+    function handleClickOutside(event) {
+      if (dropdownRef.current && !dropdownRef.current.contains(event.target)) {
+        setShowDropdown(false);
+      }
+    }
+    document.addEventListener("mousedown", handleClickOutside);
+    return () => {
+      document.removeEventListener("mousedown", handleClickOutside);
+    };
+  }, []);
+
+  const clientsFolderIds = folders.filter(f => f.name?.toLowerCase() === 'clients').map(f => f.id);
+  
+  const isClientLead = (lead) => {
+    const isClientStatus = lead.status?.toLowerCase() === 'client';
+    const isInClientsFolder = lead.folder_id && clientsFolderIds.includes(lead.folder_id);
+    return isClientStatus || isInClientsFolder;
+  };
+
+  const sortedLeads = [...dbLeads].sort((a, b) => {
+    const aClient = isClientLead(a) ? 1 : 0;
+    const bClient = isClientLead(b) ? 1 : 0;
+    return bClient - aClient;
+  });
+
+  const filteredLeads = sortedLeads.filter(lead => {
+    const fullName = `${lead.first_name || ''} ${lead.last_name || ''}`.trim();
+    return fullName.toLowerCase().includes(clientName.toLowerCase());
+  });
+
+  const handleSelectLead = (lead) => {
+    const fullName = `${lead.first_name || ''} ${lead.last_name || ''}`.trim();
+    setClientName(fullName);
+    if (lead.email) {
+      setClientEmail(lead.email);
+    }
+    setShowDropdown(false);
+  };
   
   const [items, setItems] = useState([
     { description: 'Freelance Services', quantity: 1, rate: 500 }
@@ -63,6 +158,12 @@ export default function InvoiceGenerator({
     return items.reduce((sum, item) => sum + (item.quantity * item.rate), 0);
   };
 
+  const calculateTotal = () => {
+    const subtotal = calculateSubtotal();
+    const taxAmount = (subtotal * (parseFloat(taxPercent) || 0)) / 100;
+    return subtotal + taxAmount;
+  };
+
   const handleSubmit = (e) => {
     e.preventDefault();
     if (!clientName) {
@@ -75,6 +176,8 @@ export default function InvoiceGenerator({
     }
 
     const subtotal = calculateSubtotal();
+    const taxAmount = (subtotal * (parseFloat(taxPercent) || 0)) / 100;
+    const total = subtotal + taxAmount;
 
     const newInvoice = {
       clientName,
@@ -86,7 +189,9 @@ export default function InvoiceGenerator({
       items,
       paymentDetails,
       notes,
-      total: subtotal,
+      subtotal,
+      tax: taxAmount,
+      total,
       status: 'Sent',
       userEmail: currentUser.email,
       dateAdded: new Date().toLocaleDateString()
@@ -99,8 +204,14 @@ export default function InvoiceGenerator({
     setClientEmail('');
     setInvoiceNumber(`INV-${new Date().getFullYear()}-${Math.floor(1000 + Math.random() * 9000)}`);
     setItems([{ description: 'Freelance Services', quantity: 1, rate: 500 }]);
-    setPaymentDetails('');
+    
+    let details = [];
+    if (bankAccount) details.push(`Bank Account: ${bankAccount}`);
+    if (bankIban) details.push(`IBAN: ${bankIban}`);
+    setPaymentDetails(details.join('\n'));
+    
     setNotes('Payment due on receipt.');
+    setTaxPercent(0);
     setShowCreateForm(false);
     
     alert("Invoice generated and saved successfully!");
@@ -117,6 +228,14 @@ export default function InvoiceGenerator({
 
   return (
     <div className="flex-col gap-4">
+      <style>{`
+        .dropdown-item-hover:hover {
+          background-color: rgba(255, 255, 255, 0.05) !important;
+        }
+        .light .dropdown-item-hover:hover {
+          background-color: rgba(0, 0, 0, 0.05) !important;
+        }
+      `}</style>
       <div className="flex justify-between align-center mb-4">
         <div>
           <h2>Client Invoices</h2>
@@ -142,7 +261,7 @@ export default function InvoiceGenerator({
           
           <form onSubmit={handleSubmit} className="flex-col gap-4">
             <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1.5rem' }}>
-              <div className="form-group">
+              <div className="form-group" style={{ position: 'relative' }} ref={dropdownRef}>
                 <label className="form-label">Client Name *</label>
                 <input 
                   type="text" 
@@ -150,8 +269,87 @@ export default function InvoiceGenerator({
                   className="form-input" 
                   placeholder="e.g. Acme Corporation" 
                   value={clientName} 
-                  onChange={(e) => setClientName(e.target.value)} 
+                  onChange={(e) => {
+                    setClientName(e.target.value);
+                    setShowDropdown(true);
+                  }}
+                  onFocus={() => setShowDropdown(true)}
                 />
+                {showDropdown && filteredLeads.length > 0 && (
+                  <div style={{
+                    position: 'absolute',
+                    top: '100%',
+                    left: 0,
+                    right: 0,
+                    backgroundColor: 'var(--bg-secondary, #1f2937)',
+                    border: '1px solid var(--border-color, #374151)',
+                    borderRadius: '6px',
+                    maxHeight: '200px',
+                    overflowY: 'auto',
+                    zIndex: 1000,
+                    marginTop: '4px',
+                    boxShadow: '0 4px 12px rgba(0, 0, 0, 0.3)'
+                  }}>
+                    {filteredLeads.map(lead => {
+                      const fullName = `${lead.first_name || ''} ${lead.last_name || ''}`.trim() || 'Unnamed Lead';
+                      const isClient = isClientLead(lead);
+                      return (
+                        <div 
+                          key={lead.id}
+                          onClick={() => handleSelectLead(lead)}
+                          style={{
+                            padding: '8px 12px',
+                            cursor: 'pointer',
+                            borderBottom: '1px solid var(--border-color, #374151)',
+                            display: 'flex',
+                            justifyContent: 'space-between',
+                            alignItems: 'center',
+                            fontSize: '0.9rem'
+                          }}
+                          className="dropdown-item-hover"
+                        >
+                          <div>
+                            <div style={{ fontWeight: 500, color: 'var(--text-primary, #f3f4f6)' }}>{fullName}</div>
+                            {lead.email && <div style={{ fontSize: '0.75rem', color: 'var(--text-muted, #9ca3af)' }}>{lead.email}</div>}
+                          </div>
+                          {isClient && (
+                            <span style={{
+                              backgroundColor: 'rgba(147, 51, 234, 0.15)',
+                              color: '#a855f7',
+                              padding: '2px 6px',
+                              borderRadius: '4px',
+                              fontSize: '0.7rem',
+                              fontWeight: 600,
+                              border: '1px solid rgba(147, 51, 234, 0.3)'
+                            }}>
+                              Client
+                            </span>
+                          )}
+                        </div>
+                      );
+                    })}
+                  </div>
+                )}
+                {showDropdown && filteredLeads.length === 0 && clientName && (
+                  <div style={{
+                    position: 'absolute',
+                    top: '100%',
+                    left: 0,
+                    right: 0,
+                    backgroundColor: 'var(--bg-secondary, #1f2937)',
+                    border: '1px solid var(--border-color, #374151)',
+                    borderRadius: '6px',
+                    padding: '12px',
+                    zIndex: 1000,
+                    marginTop: '4px',
+                    fontSize: '0.85rem',
+                    color: 'var(--text-muted, #9ca3af)',
+                    textAlign: 'center',
+                    boxShadow: '0 4px 12px rgba(0, 0, 0, 0.3)'
+                  }}>
+                    No matching leads found
+                  </div>
+                )}
               </div>
               <div className="form-group">
                 <label className="form-label">Client Email</label>
@@ -197,20 +395,33 @@ export default function InvoiceGenerator({
               </div>
             </div>
 
-            <div className="form-group">
-              <label className="form-label">Currency</label>
-              <select 
-                className="form-select" 
-                style={{ width: '150px' }}
-                value={currency} 
-                onChange={(e) => setCurrency(e.target.value)}
-              >
-                <option value="USD">USD ($)</option>
-                <option value="PKR">PKR (Rs.)</option>
-                <option value="GBP">GBP (£)</option>
-                <option value="EUR">EUR (€)</option>
-                <option value="AED">AED (Dhs)</option>
-              </select>
+            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1rem', maxWidth: '320px' }}>
+              <div className="form-group">
+                <label className="form-label">Currency</label>
+                <select 
+                  className="form-select" 
+                  value={currency} 
+                  onChange={(e) => setCurrency(e.target.value)}
+                >
+                  <option value="USD">USD ($)</option>
+                  <option value="PKR">PKR (Rs.)</option>
+                  <option value="GBP">GBP (£)</option>
+                  <option value="EUR">EUR (€)</option>
+                  <option value="AED">AED (Dhs)</option>
+                </select>
+              </div>
+              <div className="form-group">
+                <label className="form-label">Tax %</label>
+                <input 
+                  type="number" 
+                  min="0" 
+                  max="100" 
+                  step="any"
+                  className="form-input" 
+                  value={taxPercent} 
+                  onChange={(e) => setTaxPercent(Math.max(0, parseFloat(e.target.value) || 0))} 
+                />
+              </div>
             </div>
 
             {/* Line Items Table */}
@@ -279,11 +490,27 @@ export default function InvoiceGenerator({
             </div>
 
             {/* Total display */}
-            <div className="flex justify-between align-center" style={{ padding: '1rem', backgroundColor: 'var(--bg-tertiary)', borderRadius: '8px', border: '1px solid var(--border-color)' }}>
-              <span style={{ fontWeight: 600 }}>Total Due</span>
-              <span style={{ fontSize: '1.25rem', fontWeight: 700, color: 'var(--primary-magenta)' }}>
-                {calculateSubtotal().toLocaleString()} {currency}
-              </span>
+            <div className="flex-col gap-2" style={{ padding: '1rem', backgroundColor: 'var(--bg-tertiary)', borderRadius: '8px', border: '1px solid var(--border-color)' }}>
+              <div className="flex justify-between align-center">
+                <span className="color-muted" style={{ fontSize: '0.9rem' }}>Subtotal</span>
+                <span style={{ fontSize: '0.95rem', fontWeight: 600 }}>
+                  {calculateSubtotal().toLocaleString()} {currency}
+                </span>
+              </div>
+              {taxPercent > 0 && (
+                <div className="flex justify-between align-center">
+                  <span className="color-muted" style={{ fontSize: '0.9rem' }}>Tax ({taxPercent}%)</span>
+                  <span style={{ fontSize: '0.95rem', fontWeight: 600 }}>
+                    {((calculateSubtotal() * taxPercent) / 100).toLocaleString()} {currency}
+                  </span>
+                </div>
+              )}
+              <div className="flex justify-between align-center" style={{ borderTop: '1px solid var(--border-color)', paddingTop: '0.5rem', marginTop: '0.25rem' }}>
+                <span style={{ fontWeight: 600 }}>Total Due</span>
+                <span style={{ fontSize: '1.25rem', fontWeight: 700, color: 'var(--primary-magenta)' }}>
+                  {calculateTotal().toLocaleString()} {currency}
+                </span>
+              </div>
             </div>
 
             {/* Payment Details (Manual Bank Transfer Details) */}
@@ -537,11 +764,11 @@ export function PublicInvoiceView({ invoiceId, invoices }) {
         <div className="invoice-totals">
           <div className="invoice-totals-row">
             <span>Subtotal</span>
-            <span>{invoice.total.toLocaleString()} {invoice.currency}</span>
+            <span>{(invoice.subtotal || invoice.total || 0).toLocaleString()} {invoice.currency}</span>
           </div>
           <div className="invoice-totals-row" style={{ color: '#64748b' }}>
-            <span>Tax (0.0%)</span>
-            <span>0.00 {invoice.currency}</span>
+            <span>Tax ({(((invoice.tax || 0) / (invoice.subtotal || invoice.total || 1)) * 100).toFixed(1).replace('.0', '')}%)</span>
+            <span>{(invoice.tax || 0).toLocaleString()} {invoice.currency}</span>
           </div>
           <div className="invoice-totals-row grand-total">
             <span>Amount Due</span>

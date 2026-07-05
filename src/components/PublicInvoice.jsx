@@ -19,7 +19,29 @@ export default function PublicInvoice() {
           .maybeSingle();
 
         if (error) throw error;
-        setInvoice(data);
+        if (data) {
+          const mapped = {
+            id: data.id,
+            user_id: data.user_id,
+            invoiceNumber: data.invoice_number,
+            clientName: data.client_name,
+            clientEmail: data.client_email,
+            issueDate: data.issue_date,
+            dueDate: data.due_date,
+            currency: data.currency,
+            items: data.items || [],
+            status: data.status,
+            notes: data.notes,
+            subtotal: data.subtotal || 0,
+            tax: data.tax || 0,
+            total: data.total || 0,
+            paymentDetails: data.payment_instructions,
+            userEmail: ''
+          };
+          setInvoice(mapped);
+        } else {
+          setInvoice(null);
+        }
       } catch (err) {
         console.error('Error fetching public invoice:', err);
       } finally {
