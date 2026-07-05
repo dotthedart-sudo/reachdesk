@@ -73,7 +73,7 @@ export default function AppLayout({
           onClick={() => setIsSidebarOpen(true)}
           aria-label="Open menu"
         >
-          <Menu size={24} />
+          <Menu size={20} />
         </button>
         <span 
           className="logo-text" 
@@ -82,7 +82,7 @@ export default function AppLayout({
         >
           <span style={{fontFamily:'Mattone, sans-serif', textTransform:'uppercase', letterSpacing:'0.08em', fontSize:'11px', color:'var(--text-primary)', fontWeight:'400'}}>ReachDesk</span>
         </span>
-        <div style={{ width: 24 }}></div>
+        <div style={{ width: 20 }}></div>
       </div>
 
       {/* Sidebar overlay backdrop for mobile */}
