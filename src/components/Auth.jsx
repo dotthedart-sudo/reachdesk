@@ -135,7 +135,7 @@ export default function Auth({ onRegister, onLogin, mode = 'login' }) {
     }
 
     try {
-      const { error: verifyErr } = await supabase.auth.verifyOtp({
+      const { data: verifyData, error: verifyErr } = await supabase.auth.verifyOtp({
         email: email.trim(),
         token: verificationCode,
         type: 'signup'
@@ -143,7 +143,38 @@ export default function Auth({ onRegister, onLogin, mode = 'login' }) {
 
       if (verifyErr) throw verifyErr;
 
-      // Verification succeeded!
+      // Verification succeeded! Now that we have an authenticated session,
+      // upload the avatar file (if provided) and update user_profiles and auth metadata.
+      if (verifyData.user && avatarFile) {
+        const fileExt = avatarFile.name.split('.').pop();
+        const fileName = `${verifyData.user.id}-${Date.now()}.${fileExt}`;
+        const { error: uploadErr } = await supabase.storage
+          .from('avatars')
+          .upload(fileName, avatarFile, {
+            cacheControl: '3600',
+            upsert: true
+          });
+
+        if (uploadErr) {
+          console.error('Avatar upload failed:', uploadErr);
+        } else {
+          const { data: urlData } = supabase.storage
+            .from('avatars')
+            .getPublicUrl(fileName);
+          const avatarUrl = urlData?.publicUrl;
+          if (avatarUrl) {
+            // Update the user profile directly (since we are authenticated)
+            await supabase.from('user_profiles')
+              .update({ avatar_url: avatarUrl })
+              .eq('id', verifyData.user.id);
+            // Also update auth metadata to keep it in sync
+            await supabase.auth.updateUser({
+              data: { avatar_url: avatarUrl }
+            });
+          }
+        }
+      }
+
       navigate('/dashboard');
     } catch (err) {
       setVerificationError('Invalid or expired code, please try again');

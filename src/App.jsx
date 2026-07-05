@@ -380,10 +380,13 @@ function AppProvider({ children }) {
         // never read the stale React `session` state — it may still be null when
         // onAuthStateChange calls fetchProfile for a new Google OAuth user.
         const activeSession = liveSession ?? session;
-        if (!p && activeSession && activeSession.user.id === userId) {
+        if (activeSession && activeSession.user.id === userId && (!p || !p.full_name)) {
           const email = activeSession.user.email;
           const fullName = activeSession.user.user_metadata?.full_name || activeSession.user.user_metadata?.name || '';
           const avatarUrl = activeSession.user.user_metadata?.avatar_url || null;
+          const requestedPlan = activeSession.user.user_metadata?.requested_plan || 'trial';
+          const referralSource = activeSession.user.user_metadata?.referral_source || null;
+          const marketingConsent = activeSession.user.user_metadata?.marketing_consent || false;
 
           const { data: invite } = await supabase.from('team_invitations')
             .select('*').eq('invited_email', email).eq('status', 'pending').maybeSingle();
@@ -393,23 +396,29 @@ function AppProvider({ children }) {
           const userPlan = invite ? 'teams' : 'trial';
           const trialEnds = new Date(Date.now() + 168 * 60 * 60 * 1000).toISOString();
 
-          const { data: newProfile, error: profileErr } = await supabase.from('user_profiles').upsert({
+          const profileData = {
             id: userId,
             email,
             status,
             plan: userPlan,
-            requested_plan: invite ? 'teams' : 'trial',
+            requested_plan: invite ? 'teams' : requestedPlan,
             trial_ends_at: trialEnds,
             team_id: teamId,
             team_role: teamId ? 'member' : 'owner',
             full_name: fullName,
-            avatar_url: avatarUrl,
-            referral_source: null,
-            marketing_consent: false
-          }).select().single();
+            referral_source: referralSource,
+            marketing_consent: marketingConsent
+          };
+
+          // Only include avatar_url if it's set in metadata, to avoid overwriting a non-null database value
+          if (avatarUrl) {
+            profileData.avatar_url = avatarUrl;
+          }
+
+          const { data: newProfile, error: profileErr } = await supabase.from('user_profiles').upsert(profileData).select().single();
 
           if (profileErr) {
-            console.error('Failed to auto-create user profile:', profileErr);
+            console.error('Failed to auto-create/update user profile:', profileErr);
             throw profileErr;
           }
 
@@ -417,13 +426,16 @@ function AppProvider({ children }) {
             await supabase.from('team_invitations').update({ status: 'accepted' }).eq('id', invite.id);
           }
 
+          const isGoogle = activeSession.user.app_metadata?.provider === 'google';
           supabase.functions.invoke('send-push-notification', {
             body: {
               notify_admin: true,
               notification_type: 'new_signup',
               from_email: email,
-              title: 'New Signup (Google)',
-              body: `${email} just signed up via Google on ReachDesk`,
+              title: isGoogle ? 'New Signup (Google)' : 'New Signup',
+              body: isGoogle 
+                ? `${email} just signed up via Google on ReachDesk` 
+                : `${email} just signed up on ReachDesk`,
               url: '/admin',
             }
           }).catch(err => console.warn('[Push] Admin new-signup notification failed:', err));
@@ -572,80 +584,23 @@ function AppProvider({ children }) {
 
   const handleRegisterUser = async (email, password, plan, fullName, avatarFile, referralSource, marketingConsent) => {
     const displayName = fullName ? fullName.trim().split(' ')[0] : '';
+    // Sign up user and store all form fields in metadata so that they are securely written
+    // to the database by fetchProfile once the user is authenticated (post-OTP).
     const { data, error } = await supabase.auth.signUp({
       email,
       password,
       options: {
         data: {
-          display_name: displayName
+          display_name: displayName,
+          full_name: fullName,
+          requested_plan: plan,
+          referral_source: referralSource || null,
+          marketing_consent: marketingConsent || false
         }
       }
     });
     if (error) throw error;
     if (!data.user) throw new Error('Registration failed.');
-
-    const userId = data.user.id;
-    let avatarUrl = null;
-
-    if (avatarFile) {
-      const fileExt = avatarFile.name.split('.').pop();
-      const fileName = `${userId}-${Date.now()}.${fileExt}`;
-      const { error: uploadErr } = await supabase.storage
-        .from('avatars')
-        .upload(fileName, avatarFile, {
-          cacheControl: '3600',
-          upsert: true
-        });
-
-      if (uploadErr) {
-        console.error('Avatar upload failed:', uploadErr);
-      } else {
-        const { data: urlData } = supabase.storage
-          .from('avatars')
-          .getPublicUrl(fileName);
-        avatarUrl = urlData?.publicUrl;
-      }
-    }
-
-    const { data: invite } = await supabase.from('team_invitations')
-      .select('*').eq('invited_email', email).eq('status', 'pending').maybeSingle();
-
-    const teamId = invite ? invite.team_id : null;
-    const status = 'approved';
-    const userPlan = invite ? 'teams' : 'trial';
-    const trialEnds = new Date(Date.now() + 168 * 60 * 60 * 1000).toISOString(); // 7-day trial
-
-    const { error: profileErr } = await supabase.from('user_profiles').upsert({
-      id: userId,
-      email,
-      status,
-      plan: userPlan,
-      requested_plan: invite ? 'teams' : plan,
-      trial_ends_at: trialEnds,
-      team_id: teamId,
-      team_role: teamId ? 'member' : 'owner',
-      full_name: fullName,
-      avatar_url: avatarUrl,
-      referral_source: referralSource || null,
-      marketing_consent: marketingConsent || false
-    });
-    if (profileErr) throw profileErr;
-
-    if (invite) {
-      await supabase.from('team_invitations').update({ status: 'accepted' }).eq('id', invite.id);
-    }
-
-    // Notify admin of new signup (silent — never blocks registration)
-    supabase.functions.invoke('send-push-notification', {
-      body: {
-        notify_admin: true,
-        notification_type: 'new_signup',
-        from_email: email,
-        title: 'New Signup',
-        body: `${email} just signed up on ReachDesk`,
-        url: '/admin',
-      }
-    }).catch(err => console.warn('[Push] Admin new-signup notification failed:', err));
   };
 
   const handleLoginUser = async (email, password) => {
