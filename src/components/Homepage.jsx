@@ -68,7 +68,7 @@ export default function Homepage({ currentUserEmail, brandName = 'ReachDesk' }) 
 
       <nav className="hp-nav">
         <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', cursor: 'pointer' }} onClick={() => navigate('/homepage')}>
-          <span style={{fontFamily:'Mattone, sans-serif', textTransform:'uppercase', letterSpacing:'0.08em', fontSize:'16px', color:'var(--text-primary)', fontWeight:'400'}}>ReachDesk</span>
+          <span style={{fontFamily:'Mattone, sans-serif', textTransform:'uppercase', letterSpacing:'0.08em', fontSize:'11px', color:'var(--text-primary)', fontWeight:'400'}}>ReachDesk</span>
         </div>
         <div className="hp-nav-center">
           <a href="#features" onClick={(e) => handleNavClick(e, '#features')} className="hp-nav-link">Features</a>

@@ -366,13 +366,64 @@ function AppProvider({ children }) {
     const maxAttempts = 4;
     while (attempts < maxAttempts) {
       try {
-        const { data: p, error } = await supabase
+        let { data: p, error } = await supabase
           .from('user_profiles')
           .select('*')
           .eq('id', userId)
           .maybeSingle();
 
         if (error) throw error;
+
+        if (!p && session && session.user.id === userId) {
+          const email = session.user.email;
+          const fullName = session.user.user_metadata?.full_name || session.user.user_metadata?.name || '';
+          const avatarUrl = session.user.user_metadata?.avatar_url || null;
+
+          const { data: invite } = await supabase.from('team_invitations')
+            .select('*').eq('invited_email', email).eq('status', 'pending').maybeSingle();
+
+          const teamId = invite ? invite.team_id : null;
+          const status = 'approved';
+          const userPlan = invite ? 'teams' : 'trial';
+          const trialEnds = new Date(Date.now() + 168 * 60 * 60 * 1000).toISOString();
+
+          const { data: newProfile, error: profileErr } = await supabase.from('user_profiles').upsert({
+            id: userId,
+            email,
+            status,
+            plan: userPlan,
+            requested_plan: invite ? 'teams' : 'trial',
+            trial_ends_at: trialEnds,
+            team_id: teamId,
+            team_role: teamId ? 'member' : 'owner',
+            full_name: fullName,
+            avatar_url: avatarUrl,
+            referral_source: null,
+            marketing_consent: false
+          }).select().single();
+
+          if (profileErr) {
+            console.error('Failed to auto-create user profile:', profileErr);
+            throw profileErr;
+          }
+
+          if (invite) {
+            await supabase.from('team_invitations').update({ status: 'accepted' }).eq('id', invite.id);
+          }
+
+          supabase.functions.invoke('send-push-notification', {
+            body: {
+              notify_admin: true,
+              notification_type: 'new_signup',
+              from_email: email,
+              title: 'New Signup (Google)',
+              body: `${email} just signed up via Google on ReachDesk`,
+              url: '/admin',
+            }
+          }).catch(err => console.warn('[Push] Admin new-signup notification failed:', err));
+
+          p = newProfile;
+        }
 
         if (p) {
           const now = new Date();
@@ -1043,7 +1094,7 @@ function AppRoutes() {
         <Route path="/terms" element={<TermsOfService />} />
         <Route path="/privacy" element={<PrivacyPolicy />} />
         <Route path="/refund" element={<RefundPolicy />} />
-        <Route path="/get-started" element={<GetStarted />} />
+        <Route path="/get-started" element={session ? <ProtectedPage><GetStarted /></ProtectedPage> : <GetStarted />} />
 
         {/* Upgrade/Paywall route */}
         <Route path="/upgrade" element={<UpgradeRoutePage />} />

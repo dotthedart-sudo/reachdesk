@@ -8,6 +8,165 @@ export default function GetStarted() {
   const context = useAppContext();
   const theme = context?.theme || 'dark';
   const toggleTheme = context?.toggleTheme;
+  const session = context?.session;
+
+  if (session) {
+    return (
+      <div style={{
+        maxWidth: '800px',
+        margin: '0 auto',
+        width: '100%',
+        textAlign: 'left',
+        lineHeight: '1.8',
+        color: 'var(--text-primary)',
+        fontFamily: 'var(--font-body)',
+        padding: '1rem 0 4rem 0'
+      }}>
+        {/* Header */}
+        <div style={{ marginBottom: '2.5rem', borderBottom: '1px solid var(--border)', paddingBottom: '1.5rem' }}>
+          <h1 style={{ fontSize: '2.2rem', fontWeight: 700, color: 'var(--text-primary)', marginBottom: '0.75rem', fontFamily: 'var(--font-heading)', textTransform: 'uppercase', letterSpacing: '0.05em' }}>
+            Get Started with ReachDesk
+          </h1>
+          <p style={{ fontSize: '1.1rem', color: 'var(--text-secondary)', margin: 0 }}>
+            Your quick-start guide to mastering lead tracking, outreach templates, and automated follow-ups.
+          </p>
+        </div>
+
+        {/* 3-Step How It Works */}
+        <div style={{ marginBottom: '3rem' }}>
+          <h2 style={{ fontSize: '1.4rem', color: 'var(--accent-blue)', marginBottom: '1.5rem', fontFamily: 'var(--font-heading)', textTransform: 'uppercase', letterSpacing: '0.05em' }}>
+            How ReachDesk Works
+          </h2>
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '2rem' }}>
+            <div style={{ display: 'flex', gap: '1rem', alignItems: 'flex-start' }}>
+              <div style={{ backgroundColor: 'rgba(91, 143, 185, 0.1)', color: 'var(--accent-blue)', padding: '0.5rem 0.75rem', borderRadius: '4px', fontWeight: 700, minWidth: '40px', textAlign: 'center', border: '1px solid var(--border)' }}>1</div>
+              <div>
+                <h3 style={{ margin: '0 0 0.5rem 0', fontSize: '1.1rem', color: 'var(--text-primary)' }}>Add your first lead</h3>
+                <p style={{ margin: 0, color: 'var(--text-secondary)' }}>
+                  Quickly add new prospects manually via the CRM dashboard or import your contact list in bulk using standard CSV file uploads.
+                </p>
+              </div>
+            </div>
+            <div style={{ display: 'flex', gap: '1rem', alignItems: 'flex-start' }}>
+              <div style={{ backgroundColor: 'rgba(91, 143, 185, 0.1)', color: 'var(--accent-blue)', padding: '0.5rem 0.75rem', borderRadius: '4px', fontWeight: 700, minWidth: '40px', textAlign: 'center', border: '1px solid var(--border)' }}>2</div>
+              <div>
+                <h3 style={{ margin: '0 0 0.5rem 0', fontSize: '1.1rem', color: 'var(--text-primary)' }}>Send a message using a ready-made template</h3>
+                <p style={{ margin: 0, color: 'var(--text-secondary)' }}>
+                  Select an outreach template, customize it with smart tags like name or niche, and copy the body to paste into your favorite outreach channel.
+                </p>
+              </div>
+            </div>
+            <div style={{ display: 'flex', gap: '1rem', alignItems: 'flex-start' }}>
+              <div style={{ backgroundColor: 'rgba(91, 143, 185, 0.1)', color: 'var(--accent-blue)', padding: '0.5rem 0.75rem', borderRadius: '4px', fontWeight: 700, minWidth: '40px', textAlign: 'center', border: '1px solid var(--border)' }}>3</div>
+              <div>
+                <h3 style={{ margin: '0 0 0.5rem 0', fontSize: '1.1rem', color: 'var(--text-primary)' }}>Set a follow-up reminder so nothing slips through</h3>
+                <p style={{ margin: 0, color: 'var(--text-secondary)' }}>
+                  Set status to Contacted to kick off automated task reminders that prompt you to re-engage with leads at key intervals until they reply.
+                </p>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        {/* How Follow-up Reminders Work */}
+        <div style={{ marginBottom: '3rem', padding: '1.5rem', backgroundColor: 'var(--bg-card)', border: '1px solid var(--border)', borderRadius: '6px' }}>
+          <h2 style={{ fontSize: '1.2rem', color: 'var(--accent-blue)', marginTop: 0, marginBottom: '1rem', fontFamily: 'var(--font-heading)', textTransform: 'uppercase', letterSpacing: '0.05em', display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+            <Bell size={18} /> How Follow-up Reminders Work
+          </h2>
+          <p style={{ color: 'var(--text-secondary)', margin: '0 0 1rem 0' }}>
+            ReachDesk features an automated task scheduling system to keep your prospect outreach active. When a lead's status is updated to <strong>Contacted</strong> (or their last contacted date changes), the system automatically schedules a series of <strong>7 follow-up reminders</strong>:
+          </p>
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(180px, 1fr))', gap: '0.75rem', color: 'var(--text-primary)', fontSize: '0.9rem', marginBottom: '1rem' }}>
+            <div style={{ display: 'flex', gap: '0.5rem', alignItems: 'center' }}><CheckCircle size={14} style={{ color: 'var(--accent-blue)' }} /> 12 Hours (Reminder #1)</div>
+            <div style={{ display: 'flex', gap: '0.5rem', alignItems: 'center' }}><CheckCircle size={14} style={{ color: 'var(--accent-blue)' }} /> 24 Hours (Reminder #2)</div>
+            <div style={{ display: 'flex', gap: '0.5rem', alignItems: 'center' }}><CheckCircle size={14} style={{ color: 'var(--accent-blue)' }} /> 3 Days (Reminder #3)</div>
+            <div style={{ display: 'flex', gap: '0.5rem', alignItems: 'center' }}><CheckCircle size={14} style={{ color: 'var(--accent-blue)' }} /> 5 Days (Reminder #4)</div>
+            <div style={{ display: 'flex', gap: '0.5rem', alignItems: 'center' }}><CheckCircle size={14} style={{ color: 'var(--accent-blue)' }} /> 7 Days (Reminder #5)</div>
+            <div style={{ display: 'flex', gap: '0.5rem', alignItems: 'center' }}><CheckCircle size={14} style={{ color: 'var(--accent-blue)' }} /> 14 Days (Reminder #6)</div>
+            <div style={{ display: 'flex', gap: '0.5rem', alignItems: 'center' }}><CheckCircle size={14} style={{ color: 'var(--accent-blue)' }} /> 21 Days (Reminder #7)</div>
+          </div>
+          <p style={{ color: 'var(--text-secondary)', margin: 0 }}>
+            To stop the reminders, simply update the lead's status in the CRM to a terminal stop status (e.g. <strong>Positive Reply</strong>, <strong>Booked</strong>, <strong>Client</strong>, or <strong>Not Interested</strong>), and the pending reminders will be automatically dismissed.
+          </p>
+        </div>
+
+        {/* Templates Section */}
+        <div style={{ marginBottom: '3rem' }}>
+          <h2 style={{ fontSize: '1.4rem', color: 'var(--accent-blue)', marginBottom: '1rem', fontFamily: 'var(--font-heading)', textTransform: 'uppercase', letterSpacing: '0.05em' }}>
+            Custom & Starter Templates
+          </h2>
+          <p style={{ color: 'var(--text-secondary)', margin: '0 0 1rem 0' }}>
+            Save time and keep your messaging consistent by utilizing ReachDesk's template library:
+          </p>
+          <ul style={{ color: 'var(--text-secondary)', paddingLeft: '1.25rem', margin: 0, display: 'flex', flexDirection: 'column', gap: '0.75rem' }}>
+            <li><strong>Starter Library:</strong> Leverage pre-written outreach messages and follow-up templates curated for high response rates.</li>
+            <li><strong>Custom Templates:</strong> Create your own template messages or duplicate existing ones, and inject placeholders like <code>[Name]</code> or <code>[niche]</code> that load prospect information automatically.</li>
+            <li><strong>Organize with Tags:</strong> Tag your custom templates with comma-separated categories (like <code>cold outreach</code>, <code>agency</code>) to quickly search and filter them later.</li>
+          </ul>
+        </div>
+
+        {/* Understanding Your Pipeline */}
+        <div style={{ marginBottom: '3rem' }}>
+          <h2 style={{ fontSize: '1.4rem', color: 'var(--accent-blue)', marginBottom: '1rem', fontFamily: 'var(--font-heading)', textTransform: 'uppercase', letterSpacing: '0.05em' }}>
+            Understanding Your Pipeline
+          </h2>
+          <p style={{ color: 'var(--text-secondary)', marginBottom: '1.5rem' }}>
+            ReachDesk groups your active prospects using a standard CRM pipeline containing 9 key stages:
+          </p>
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
+            <div style={{ borderLeft: '3px solid #3b82f6', paddingLeft: '1rem' }}>
+              <strong style={{ color: 'var(--text-primary)' }}>Lead:</strong> <span style={{ color: 'var(--text-secondary)' }}>Initial status when a new prospect is added to your CRM.</span>
+            </div>
+            <div style={{ borderLeft: '3px solid #f59e0b', paddingLeft: '1rem' }}>
+              <strong style={{ color: 'var(--text-primary)' }}>Contacted:</strong> <span style={{ color: 'var(--text-secondary)' }}>You have sent the initial outreach message.</span>
+            </div>
+            <div style={{ borderLeft: '3px solid #10b981', paddingLeft: '1rem' }}>
+              <strong style={{ color: 'var(--text-primary)' }}>Waiting:</strong> <span style={{ color: 'var(--text-secondary)' }}>Awaiting reply; reminders continue to help prompt follow-ups.</span>
+            </div>
+            <div style={{ borderLeft: '3px solid #8b5cf6', paddingLeft: '1rem' }}>
+              <strong style={{ color: 'var(--text-primary)' }}>Positive Reply:</strong> <span style={{ color: 'var(--text-secondary)' }}>Lead replied with interest, dismissing pending reminders.</span>
+            </div>
+            <div style={{ borderLeft: '3px solid #ec4899', paddingLeft: '1rem' }}>
+              <strong style={{ color: 'var(--text-primary)' }}>Booked:</strong> <span style={{ color: 'var(--text-secondary)' }}>Meeting or discovery call booked.</span>
+            </div>
+            <div style={{ borderLeft: '3px solid #06b6d4', paddingLeft: '1rem' }}>
+              <strong style={{ color: 'var(--text-primary)' }}>Proposal Sent:</strong> <span style={{ color: 'var(--text-secondary)' }}>Discovery call held; custom proposal or quote delivered.</span>
+            </div>
+            <div style={{ borderLeft: '3px solid #ef4444', paddingLeft: '1rem' }}>
+              <strong style={{ color: 'var(--text-primary)' }}>No Show / Rescheduled:</strong> <span style={{ color: 'var(--text-secondary)' }}>Lead missed the scheduled call or requested a postponement.</span>
+            </div>
+            <div style={{ borderLeft: '3px solid #6b7280', paddingLeft: '1rem' }}>
+              <strong style={{ color: 'var(--text-primary)' }}>Not Interested:</strong> <span style={{ color: 'var(--text-secondary)' }}>Prospect has opted out or isn't interested right now.</span>
+            </div>
+            <div style={{ borderLeft: '3px solid #10b981', paddingLeft: '1rem' }}>
+              <strong style={{ color: 'var(--text-primary)' }}>Client:</strong> <span style={{ color: 'var(--text-secondary)' }}>Lead converted successfully into a paying customer.</span>
+            </div>
+          </div>
+        </div>
+
+        {/* FAQ */}
+        <div style={{ marginBottom: '3rem' }}>
+          <h2 style={{ fontSize: '1.4rem', color: 'var(--accent-blue)', marginBottom: '1.5rem', fontFamily: 'var(--font-heading)', textTransform: 'uppercase', letterSpacing: '0.05em' }}>
+            Frequently Asked Questions
+          </h2>
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '1.5rem' }}>
+            <div>
+              <h4 style={{ margin: '0 0 0.5rem 0', color: 'var(--text-primary)', display: 'flex', alignItems: 'center', gap: '0.5rem' }}><HelpCircle size={16} style={{ color: 'var(--accent-blue)' }} /> Can I export my leads?</h4>
+              <p style={{ margin: 0, color: 'var(--text-secondary)' }}>Yes! ReachDesk provides built-in export functionality allowing you to download all leads as a CSV file at any time.</p>
+            </div>
+            <div>
+              <h4 style={{ margin: '0 0 0.5rem 0', color: 'var(--text-primary)', display: 'flex', alignItems: 'center', gap: '0.5rem' }}><HelpCircle size={16} style={{ color: 'var(--accent-blue)' }} /> What happens when my trial ends?</h4>
+              <p style={{ margin: 0, color: 'var(--text-secondary)' }}>Your account will be temporarily suspended and locked. We preserve all your leads and templates securely for 30 days, during which you can upgrade to a paid subscription to regain access.</p>
+            </div>
+            <div>
+              <h4 style={{ margin: '0 0 0.5rem 0', color: 'var(--text-primary)', display: 'flex', alignItems: 'center', gap: '0.5rem' }}><HelpCircle size={16} style={{ color: 'var(--accent-blue)' }} /> Can I import existing contacts?</h4>
+              <p style={{ margin: 0, color: 'var(--text-secondary)' }}>Yes! ReachDesk features a CSV import tool in the CRM dashboard that maps and loads bulk contacts instantly.</p>
+            </div>
+          </div>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div style={{ minHeight: '100vh', display: 'flex', flexDirection: 'column', backgroundColor: 'var(--hp-bg)', color: 'var(--hp-text)', fontFamily: 'system-ui, -apple-system, sans-serif', transition: 'background-color 0.2s, color 0.2s' }}>

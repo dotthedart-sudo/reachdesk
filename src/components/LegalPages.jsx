@@ -8,10 +8,10 @@ function LegalContainer({ title, lastUpdated, children }) {
       {/* Navigation Bar */}
       <nav className="landing-nav" style={{ justifyContent: 'space-between' }}>
         <Link to="/homepage" className="landing-nav-logo" style={{ cursor: 'pointer', textDecoration: 'none', display: 'flex', alignItems: 'center' }}>
-          <span className="landing-logo-text" style={{ fontSize: '1.15rem' }}>ReachDesk</span>
+          <span className="landing-logo-text" style={{ fontSize: '11px' }}>ReachDesk</span>
         </Link>
-        <Link to="/homepage" className="btn btn-secondary btn-sm" style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', textDecoration: 'none' }}>
-          <ArrowLeft size={14} /> Back to Home
+        <Link to="/homepage" className="btn btn-secondary btn-sm" style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', textDecoration: 'none', borderRadius: '4px', padding: '3px 8px', fontSize: '0.7rem' }}>
+          <ArrowLeft size={12} /> Back to Home
         </Link>
       </nav>
 

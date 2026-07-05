@@ -4,7 +4,7 @@ import {
   Users, BookOpen, Receipt, TrendingUp, ShieldAlert,
   Sun, Moon, LayoutDashboard, Clock, LogOut,
   Settings, MoreVertical, FileText, Bell, CreditCard,
-  Menu, X as XIcon
+  Menu, X as XIcon, HelpCircle
 } from 'lucide-react';
 import { PLAN_LIMITS } from '../lib/utils';
 import UpgradeLockModal from './UpgradeLockModal';
@@ -80,7 +80,7 @@ export default function AppLayout({
           onClick={() => { navigate('/dashboard'); setIsSidebarOpen(false); }} 
           style={{ cursor: 'pointer', display: 'flex', alignItems: 'center' }}
         >
-          <span style={{fontFamily:'Mattone, sans-serif', textTransform:'uppercase', letterSpacing:'0.08em', fontSize:'16px', color:'var(--text-primary)', fontWeight:'400'}}>ReachDesk</span>
+          <span style={{fontFamily:'Mattone, sans-serif', textTransform:'uppercase', letterSpacing:'0.08em', fontSize:'11px', color:'var(--text-primary)', fontWeight:'400'}}>ReachDesk</span>
         </span>
         <div style={{ width: 24 }}></div>
       </div>
@@ -96,7 +96,7 @@ export default function AppLayout({
           {/* Sidebar Logo */}
           <div className="sidebar-logo" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
             <div style={{ display: 'flex', alignItems: 'center' }}>
-              <span style={{fontFamily:'Mattone, sans-serif', textTransform:'uppercase', letterSpacing:'0.08em', fontSize:'16px', color:'var(--text-primary)', fontWeight:'400'}}>ReachDesk</span>
+              <span style={{fontFamily:'Mattone, sans-serif', textTransform:'uppercase', letterSpacing:'0.08em', fontSize:'11px', color:'var(--text-primary)', fontWeight:'400'}}>ReachDesk</span>
             </div>
             <button 
               className="hamburger-btn mobile-only-close" 
@@ -162,6 +162,12 @@ export default function AppLayout({
                     {remindersCount}
                   </span>
                 )}
+              </Link>
+            </li>
+
+            <li>
+              <Link to="/get-started" className={`sidebar-item ${pathname === '/get-started' ? 'active' : ''}`}>
+                <HelpCircle size={18} /><span className="nav-label">Get Started</span>
               </Link>
             </li>
 
@@ -231,6 +237,12 @@ export default function AppLayout({
                 className="mobile-menu-item"
               >
                 Notes
+              </Link>
+            </li>
+
+            <li>
+              <Link to="/get-started" onClick={() => setIsSidebarOpen(false)} className="mobile-menu-item">
+                Get Started Guide
               </Link>
             </li>
 
