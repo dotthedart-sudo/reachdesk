@@ -299,7 +299,7 @@ function AppProvider({ children }) {
     supabase.auth.getSession().then(({ data: { session } }) => {
       setSession(session);
       if (session) {
-        fetchProfile(session.user.id);
+        fetchProfile(session.user.id, session);
       } else {
         setLoading(false);
       }
@@ -319,7 +319,9 @@ function AppProvider({ children }) {
         // that happen on every tab switch, which were wiping forms and showing
         // the full-page loading spinner unnecessarily.
         if (loadedUserIdRef.current !== session.user.id) {
-          fetchProfile(session.user.id);
+          // Pass the live session explicitly — the React `session` state is still
+          // stale inside fetchProfile's closure when called from this callback.
+          fetchProfile(session.user.id, session);
         }
       } else {
         // Signed out — clear the ref so next login loads fresh
@@ -352,7 +354,7 @@ function AppProvider({ children }) {
     return 'active';
   };
 
-  const fetchProfile = async (userId) => {
+  const fetchProfile = async (userId, liveSession) => {
     if (!userId) {
       setLoading(false);
       return;
@@ -374,10 +376,14 @@ function AppProvider({ children }) {
 
         if (error) throw error;
 
-        if (!p && session && session.user.id === userId) {
-          const email = session.user.email;
-          const fullName = session.user.user_metadata?.full_name || session.user.user_metadata?.name || '';
-          const avatarUrl = session.user.user_metadata?.avatar_url || null;
+        // Use the explicitly-passed liveSession (fresh from Supabase callback) so we
+        // never read the stale React `session` state — it may still be null when
+        // onAuthStateChange calls fetchProfile for a new Google OAuth user.
+        const activeSession = liveSession ?? session;
+        if (!p && activeSession && activeSession.user.id === userId) {
+          const email = activeSession.user.email;
+          const fullName = activeSession.user.user_metadata?.full_name || activeSession.user.user_metadata?.name || '';
+          const avatarUrl = activeSession.user.user_metadata?.avatar_url || null;
 
           const { data: invite } = await supabase.from('team_invitations')
             .select('*').eq('invited_email', email).eq('status', 'pending').maybeSingle();
