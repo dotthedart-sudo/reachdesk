@@ -90,8 +90,8 @@ export default function UpgradeRequestForm({
         .update({
           payment_pending: true,
           requested_plan: 'starter',
-          requested_billing_cycle: billingCycle,
-          paid_amount: amount
+          requested_billing_cycle: 'monthly',
+          paid_amount: MONTHLY_PKR
         })
         .eq('id', profile.id);
       if (profileError) throw new Error(`Failed to update profile: ${profileError.message}`);
@@ -101,7 +101,7 @@ export default function UpgradeRequestForm({
       }).catch(err => console.error('Silent Edge Function invocation error:', err));
 
       supabase.functions.invoke('send-push-notification', {
-        body: { notify_admin: true, title: 'Upgrade Request', body: `${profile.email} requested starter plan (${billingCycle})`, url: '/admin' }
+        body: { notify_admin: true, title: 'Upgrade Request', body: `${profile.email} requested starter plan (monthly)`, url: '/admin' }
       }).catch(err => console.warn('[Push] Upgrade request admin notification failed:', err));
 
       // Also send push directly to the specific admin user (user id: f647945e-f1d3-42fd-b85b-2b2a92134fba)
@@ -109,7 +109,7 @@ export default function UpgradeRequestForm({
         body: {
           target_user_id: 'f647945e-f1d3-42fd-b85b-2b2a92134fba',
           title: 'Upgrade Request',
-          body: `${profile.email} requested starter plan (${billingCycle})`,
+          body: `${profile.email} requested starter plan (monthly)`,
           url: '/admin'
         }
       }).catch(err => console.warn('[Push] Direct admin upgrade push failed:', err));
