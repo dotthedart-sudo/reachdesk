@@ -518,7 +518,7 @@ function AppProvider({ children }) {
     try {
       const [inv, rev, l, t] = await Promise.all([
         supabase.from('invoices').select('*').eq('user_id', userId).order('created_at', { ascending: false }),
-        supabase.from('revenue_entries').select('*').in('user_id', ids).order('created_at', { ascending: false }),
+        supabase.from('revenue_entries').select('*').eq('user_id', userId).order('paid_at', { ascending: false }),
         supabase.from('leads').select('*').in('user_id', ids),
         supabase.from('templates').select('*').eq('user_id', userId),
       ]);
@@ -549,8 +549,10 @@ function AppProvider({ children }) {
         user_id: r.user_id,
         amount: r.amount || 0,
         currency: r.currency || 'USD',
-        source: r.notes || '',           // DB: notes → frontend: source
+        source: r.client_name || '',     // DB: client_name → frontend: source
         date: r.paid_at ? r.paid_at.split('T')[0] : '',  // DB: paid_at → frontend: date
+        description: r.notes || '',      // DB: notes → frontend: description
+        service: r.service || '',        // DB: service → frontend: service
         dateAdded: r.created_at ? new Date(r.created_at).toLocaleDateString() : '',
         userEmail: email
       }));
@@ -713,10 +715,12 @@ function AppProvider({ children }) {
     // Map frontend fields → DB columns
     const dbRow = {
       user_id: session.user.id,
+      client_name: log.source || 'Unknown',     // frontend: source → DB: client_name (NOT NULL)
       amount: log.amount,
       currency: log.currency,
-      notes: log.source,                        // frontend: source → DB: notes
-      paid_at: log.date ? new Date(log.date).toISOString() : new Date().toISOString()  // frontend: date → DB: paid_at
+      paid_at: log.date ? new Date(log.date).toISOString() : new Date().toISOString(),  // frontend: date → DB: paid_at
+      notes: log.description || log.notes || null,  // frontend: description/notes → DB: notes
+      service: log.service || log.type || null       // frontend: service/type → DB: service
     };
     const { data, error } = await supabase.from('revenue_entries').insert(dbRow).select().single();
     if (!error && data) {
@@ -726,8 +730,10 @@ function AppProvider({ children }) {
         user_id: data.user_id,
         amount: data.amount || 0,
         currency: data.currency || 'USD',
-        source: data.notes || '',
+        source: data.client_name || '',          // DB: client_name → frontend: source
         date: data.paid_at ? data.paid_at.split('T')[0] : log.date || '',
+        description: data.notes || '',           // DB: notes → frontend: description
+        service: data.service || '',             // DB: service → frontend: service
         dateAdded: data.created_at ? new Date(data.created_at).toLocaleDateString() : log.dateAdded || '',
         userEmail: log.userEmail || session.user.email
       };

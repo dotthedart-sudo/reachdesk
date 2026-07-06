@@ -17,9 +17,11 @@ export default function RevenueTracker({
 }) {
   const [showAddForm, setShowAddForm] = useState(false);
   const [amount, setAmount] = useState('');
-  const [currency, setCurrency] = useState('USD');
+  const [currency, setCurrency] = useState('PKR');
   const [source, setSource] = useState('');
   const [date, setDate] = useState(new Date().toISOString().split('T')[0]);
+  const [service, setService] = useState('');
+  const [notes, setNotes] = useState('');
 
   // Filter logs for active user
   if (!currentUser) {
@@ -40,16 +42,18 @@ export default function RevenueTracker({
       alert("Please enter a valid amount");
       return;
     }
-    if (!source) {
-      alert("Source or Project is required");
+    if (!source.trim()) {
+      alert("Client Name / Source is required");
       return;
     }
 
     onAddRevenueLog({
       amount: parseFloat(amount),
       currency,
-      source,
+      source: source.trim(),
       date,
+      service: service.trim() || null,
+      description: notes.trim() || null,
       userEmail: currentUser.email,
       dateAdded: new Date().toLocaleDateString()
     });
@@ -58,6 +62,8 @@ export default function RevenueTracker({
     setAmount('');
     setSource('');
     setDate(new Date().toISOString().split('T')[0]);
+    setService('');
+    setNotes('');
     setShowAddForm(false);
     
     alert("Earnings logged successfully!");
@@ -96,7 +102,7 @@ export default function RevenueTracker({
               <div className="card" key={curr} style={{ textAlign: 'left' }}>
                 <span className="card-title">Total {curr} Earnings</span>
                 <div className="card-value" style={{ color: curr === 'USD' ? 'var(--primary-magenta)' : 'var(--primary-purple)' }}>
-                  {curr === 'USD' ? '$' : curr === 'PKR' ? `${currencySymbol} ` : ''}
+                  {curr === 'USD' ? '$' : curr === 'PKR' ? `${currencySymbol} ` : curr === 'GBP' ? '£' : curr === 'EUR' ? '€' : `${curr} `}
                   {currencyTotals[curr].toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
                 </div>
                 <div className="card-subtext">
@@ -116,6 +122,19 @@ export default function RevenueTracker({
           </h3>
           
           <form onSubmit={handleLogSubmit} className="flex-col gap-4">
+            {/* Client Name / Source — required */}
+            <div className="form-group">
+              <label className="form-label">Client Name / Source *</label>
+              <input 
+                type="text" 
+                required 
+                className="form-input" 
+                placeholder="e.g. Acme Corp, Upwork Project" 
+                value={source} 
+                onChange={(e) => setSource(e.target.value)} 
+              />
+            </div>
+
             <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1.5rem' }}>
               <div className="form-group">
                 <label className="form-label">Amount *</label>
@@ -136,35 +155,46 @@ export default function RevenueTracker({
                   value={currency} 
                   onChange={(e) => setCurrency(e.target.value)}
                 >
-                  <option value="USD">USD ($)</option>
                   <option value="PKR">PKR (Rs.)</option>
+                  <option value="USD">USD ($)</option>
                   <option value="GBP">GBP (£)</option>
                   <option value="EUR">EUR (€)</option>
-                  <option value="AED">AED (Dhs)</option>
                 </select>
               </div>
             </div>
 
             <div className="form-group">
-              <label className="form-label">Project / Client Reference *</label>
-              <input 
-                type="text" 
-                required 
-                className="form-input" 
-                placeholder="e.g. Website redesign for Acme Corp" 
-                value={source} 
-                onChange={(e) => setSource(e.target.value)} 
-              />
-            </div>
-
-            <div className="form-group">
-              <label className="form-label">Payment Date *</label>
+              <label className="form-label">Payment Date</label>
               <input 
                 type="date" 
-                required 
                 className="form-input" 
                 value={date} 
                 onChange={(e) => setDate(e.target.value)} 
+              />
+            </div>
+
+            {/* Service / Type — optional */}
+            <div className="form-group">
+              <label className="form-label">Service / Type</label>
+              <input 
+                type="text" 
+                className="form-input" 
+                placeholder="e.g. Web Design, Copywriting, Consulting" 
+                value={service} 
+                onChange={(e) => setService(e.target.value)} 
+              />
+            </div>
+
+            {/* Notes — optional */}
+            <div className="form-group">
+              <label className="form-label">Notes</label>
+              <textarea 
+                className="form-input" 
+                placeholder="Any additional details about this payment..." 
+                value={notes} 
+                onChange={(e) => setNotes(e.target.value)}
+                rows={3}
+                style={{ resize: 'vertical' }}
               />
             </div>
 
@@ -201,10 +231,12 @@ export default function RevenueTracker({
                 <thead>
                   <tr>
                     <th>Date</th>
-                    <th>Project/Source</th>
+                    <th>Client / Source</th>
+                    <th>Service</th>
                     <th>Amount</th>
                     <th>Currency</th>
-                    <th>Logged Date</th>
+                    <th>Notes</th>
+                    <th>Logged</th>
                     <th>Action</th>
                   </tr>
                 </thead>
@@ -213,11 +245,15 @@ export default function RevenueTracker({
                     <tr key={log.id}>
                       <td style={{ fontWeight: 600 }}>{log.date}</td>
                       <td>{log.source}</td>
+                      <td style={{ fontSize: '0.85rem', color: 'var(--text-muted)' }}>{log.service || '—'}</td>
                       <td style={{ fontWeight: 700, color: 'var(--success-color)' }}>
-                        {log.amount.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                        {(log.amount || 0).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
                       </td>
                       <td>
                         <span className="badge badge-starter">{log.currency}</span>
+                      </td>
+                      <td style={{ fontSize: '0.8rem', color: 'var(--text-muted)', maxWidth: '150px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                        {log.description || '—'}
                       </td>
                       <td style={{ fontSize: '0.8rem', color: 'var(--text-muted)' }}>{log.dateAdded}</td>
                       <td>
