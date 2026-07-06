@@ -230,7 +230,7 @@ export function DeniedScreen({ handleLogout }) {
         <div className="paywall-icon" style={{ background: 'var(--accent-blue)', boxShadow: 'none' }}><ShieldAlert size={36} /></div>
         <h1 className="paywall-title" style={{ fontFamily: 'Mattone, sans-serif' }}>Access Denied</h1>
         <p className="paywall-text">
-          Your workspace access has been denied. Please contact support at reachdesk.io@gmail.com.
+          Your workspace access has been denied. Please contact support at support@esemdot.com.
         </p>
         <button onClick={handleLogout} className="btn btn-secondary w-full" style={{ marginTop: '1rem', justifyContent: 'center', borderRadius: '3px' }}>
           Log Out

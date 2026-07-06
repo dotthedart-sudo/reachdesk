@@ -159,25 +159,176 @@ export default function Homepage({ currentUserEmail, brandName = 'ReachDesk' }) 
       <section id="features" className="hp-features">
         <div className="hp-section-tag">// WHAT YOU GET</div>
         <h2 className="hp-h2">
-          Built for solo operators.<br />
-          <span className="hp-h2-accent">Not enterprises.</span>
+          Everything a freelancer needs<br />
+          <span className="hp-h2-accent">to close more clients.</span>
         </h2>
-        <div className="hp-features-grid">
-          <div className="hp-feature-card">
-            <span className="hp-feature-num">01</span>
-            <h3 className="hp-feature-title">Unified pipeline</h3>
-            <p className="hp-feature-desc">Track every lead from cold contact to closed won. No spreadsheets.</p>
+
+        <style>{`
+          .hp-feat6-grid {
+            display: grid;
+            grid-template-columns: repeat(3, 1fr);
+            gap: 1px;
+            background: var(--border);
+            border: 1px solid var(--border);
+            border-radius: 3px;
+            overflow: hidden;
+            margin-top: 2.5rem;
+          }
+          @media (max-width: 860px) {
+            .hp-feat6-grid { grid-template-columns: 1fr 1fr; }
+          }
+          @media (max-width: 540px) {
+            .hp-feat6-grid { grid-template-columns: 1fr; }
+          }
+          .hp-feat6-card {
+            background: var(--bg-card);
+            padding: 2rem 1.75rem 1.75rem 1.75rem;
+            display: flex;
+            flex-direction: column;
+            gap: 0;
+            position: relative;
+            transition: background 0.15s ease;
+          }
+          .hp-feat6-card:hover {
+            background: var(--bg-card-hover);
+          }
+          .hp-feat6-top {
+            display: flex;
+            align-items: flex-start;
+            justify-content: space-between;
+            margin-bottom: 1.1rem;
+          }
+          .hp-feat6-icon {
+            color: var(--accent-blue);
+            flex-shrink: 0;
+          }
+          .hp-feat6-num {
+            font-family: 'Mattone', serif;
+            font-size: 0.65rem;
+            letter-spacing: 0.1em;
+            color: var(--text-muted);
+            font-weight: 400;
+          }
+          .hp-feat6-title {
+            font-family: 'Mattone', serif;
+            font-size: 0.95rem;
+            letter-spacing: 0.04em;
+            text-transform: uppercase;
+            color: var(--text-primary);
+            margin: 0 0 0.6rem 0;
+            font-weight: 400;
+            line-height: 1.35;
+          }
+          .hp-feat6-desc {
+            font-size: 0.83rem;
+            color: var(--text-secondary);
+            line-height: 1.65;
+            margin: 0;
+            flex: 1;
+          }
+          .hp-feat6-badge {
+            display: inline-flex;
+            align-items: center;
+            gap: 3px;
+            font-family: 'Mattone', serif;
+            font-size: 0.6rem;
+            letter-spacing: 0.08em;
+            text-transform: uppercase;
+            color: var(--accent-blue);
+            border: 1px solid var(--border);
+            background: var(--bg-card-hover);
+            padding: 2px 7px;
+            border-radius: 2px;
+          }
+        `}</style>
+
+        <div className="hp-feat6-grid">
+
+          {/* 1 — CRM Pipeline */}
+          <div className="hp-feat6-card">
+            <div className="hp-feat6-top">
+              <svg className="hp-feat6-icon" width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
+                <path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/>
+                <circle cx="9" cy="7" r="4"/>
+                <path d="M23 21v-2a4 4 0 0 0-3-3.87"/>
+                <path d="M16 3.13a4 4 0 0 1 0 7.75"/>
+              </svg>
+              <span className="hp-feat6-num">01</span>
+            </div>
+            <h3 className="hp-feat6-title">Track every lead, start to close</h3>
+            <p className="hp-feat6-desc">Add leads manually or import from CSV. See every contact's status, social links, notes, and follow-up history in one place. Switch between list view and pipeline view.</p>
           </div>
-          <div className="hp-feature-card">
-            <span className="hp-feature-num">02</span>
-            <h3 className="hp-feature-title">Smart folders</h3>
-            <p className="hp-feature-desc">Organize by status, priority, or platform. Your system, your rules.</p>
+
+          {/* 2 — Smart Follow-up Reminders */}
+          <div className="hp-feat6-card">
+            <div className="hp-feat6-top">
+              <svg className="hp-feat6-icon" width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
+                <path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"/>
+                <path d="M13.73 21a2 2 0 0 1-3.46 0"/>
+              </svg>
+              <span className="hp-feat6-num">02</span>
+            </div>
+            <h3 className="hp-feat6-title">Never forget to follow up again</h3>
+            <p className="hp-feat6-desc">Set a lead to Contacted and ReachDesk automatically schedules 7 follow-up reminders over 23 days. Get notified when it's time to reach out, and stop when they reply.</p>
           </div>
-          <div className="hp-feature-card">
-            <span className="hp-feature-num">03</span>
-            <h3 className="hp-feature-title">Convert to client</h3>
-            <p className="hp-feature-desc">One click to move a lead into your client roster with full history intact.</p>
+
+          {/* 3 — Outreach Templates */}
+          <div className="hp-feat6-card">
+            <div className="hp-feat6-top">
+              <svg className="hp-feat6-icon" width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
+                <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/>
+                <polyline points="14 2 14 8 20 8"/>
+                <line x1="16" y1="13" x2="8" y2="13"/>
+                <line x1="16" y1="17" x2="8" y2="17"/>
+                <polyline points="10 9 9 9 8 9"/>
+              </svg>
+              <span className="hp-feat6-num">03</span>
+            </div>
+            <h3 className="hp-feat6-title">Stop writing the same message twice</h3>
+            <p className="hp-feat6-desc">18 pre-built templates across 5 categories, including cold openers, follow-ups, and booking messages. Add your own with smart placeholders like [Name] and [niche].</p>
           </div>
+
+          {/* 4 — Client Invoices */}
+          <div className="hp-feat6-card">
+            <div className="hp-feat6-top">
+              <svg className="hp-feat6-icon" width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
+                <path d="M4 2h16a1 1 0 0 1 1 1v18l-3-2-2 2-2-2-2 2-2-2-3 2V3a1 1 0 0 1 1-1z"/>
+                <line x1="8" y1="8" x2="16" y2="8"/>
+                <line x1="8" y1="12" x2="16" y2="12"/>
+                <line x1="8" y1="16" x2="12" y2="16"/>
+              </svg>
+              <span className="hp-feat6-num">04</span>
+            </div>
+            <h3 className="hp-feat6-title">Send professional invoices in seconds</h3>
+            <p className="hp-feat6-desc">Pick a client from your CRM, add services and rates, apply tax, and share a public payment link. Supports PKR, USD, GBP, EUR and 25+ currencies.</p>
+          </div>
+
+          {/* 5 — Revenue Tracker */}
+          <div className="hp-feat6-card">
+            <div className="hp-feat6-top">
+              <svg className="hp-feat6-icon" width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
+                <polyline points="23 6 13.5 15.5 8.5 10.5 1 18"/>
+                <polyline points="17 6 23 6 23 12"/>
+              </svg>
+              <span className="hp-feat6-num">05</span>
+            </div>
+            <h3 className="hp-feat6-title">Know exactly what you earned</h3>
+            <p className="hp-feat6-desc">Log every payment by client, amount, currency, and service type. See your earnings broken down by client and currency across all your income streams.</p>
+          </div>
+
+          {/* 6 — Notes & Drawing Board */}
+          <div className="hp-feat6-card">
+            <div className="hp-feat6-top">
+              <svg className="hp-feat6-icon" width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
+                <path d="M12 20h9"/>
+                <path d="M16.5 3.5a2.121 2.121 0 0 1 3 3L7 19l-4 1 1-4L16.5 3.5z"/>
+              </svg>
+              <span className="hp-feat6-num">06</span>
+            </div>
+            <h3 className="hp-feat6-title">Keep your ideas where your clients are</h3>
+            <p className="hp-feat6-desc">Rich text notes with slash commands, to-do lists, and toggles. Plus a freehand drawing canvas for visual planning. All organized in folders.</p>
+          </div>
+
         </div>
       </section>
 
@@ -718,7 +869,7 @@ export default function Homepage({ currentUserEmail, brandName = 'ReachDesk' }) 
           <Link to="/terms"    className="hp-footer-link">Terms of Service</Link>
           <Link to="/privacy"  className="hp-footer-link">Privacy Policy</Link>
           <Link to="/refund"   className="hp-footer-link">Refund Policy</Link>
-          <a href="mailto:reachdesk.io@gmail.com" className="hp-footer-link">reachdesk.io@gmail.com</a>
+          <a href="mailto:support@esemdot.com" className="hp-footer-link">support@esemdot.com</a>
         </div>
         <div style={{ display: 'flex', alignItems: 'center', gap: '1rem', marginTop: '1.5rem' }}>
           <a

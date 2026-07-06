@@ -7,6 +7,7 @@ import {
   Calendar,
   Globe
 } from 'lucide-react';
+import CurrencySelector from './CurrencySelector';
 
 export default function RevenueTracker({ 
   currentUser, 
@@ -17,7 +18,7 @@ export default function RevenueTracker({
 }) {
   const [showAddForm, setShowAddForm] = useState(false);
   const [amount, setAmount] = useState('');
-  const [currency, setCurrency] = useState('PKR');
+  const [currency, setCurrency] = useState('');
   const [source, setSource] = useState('');
   const [date, setDate] = useState(new Date().toISOString().split('T')[0]);
   const [service, setService] = useState('');
@@ -44,6 +45,10 @@ export default function RevenueTracker({
     }
     if (!source.trim()) {
       alert("Client Name / Source is required");
+      return;
+    }
+    if (!currency) {
+      alert("Please select a currency");
       return;
     }
 
@@ -150,16 +155,11 @@ export default function RevenueTracker({
               </div>
               <div className="form-group">
                 <label className="form-label">Currency *</label>
-                <select 
-                  className="form-select" 
-                  value={currency} 
-                  onChange={(e) => setCurrency(e.target.value)}
-                >
-                  <option value="PKR">PKR (Rs.)</option>
-                  <option value="USD">USD ($)</option>
-                  <option value="GBP">GBP (£)</option>
-                  <option value="EUR">EUR (€)</option>
-                </select>
+                <CurrencySelector
+                  value={currency}
+                  onChange={setCurrency}
+                  placeholder="Select currency..."
+                />
               </div>
             </div>
 

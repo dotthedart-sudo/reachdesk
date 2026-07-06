@@ -13,6 +13,7 @@ import {
   ArrowLeft
 } from 'lucide-react';
 import { supabase } from '../lib/supabase';
+import CurrencySelector from './CurrencySelector';
 
 // Main Dashboard view for managing and creating invoices
 export default function InvoiceGenerator({ 
@@ -40,7 +41,7 @@ export default function InvoiceGenerator({
   const [invoiceNumber, setInvoiceNumber] = useState(`INV-${new Date().getFullYear()}-${Math.floor(1000 + Math.random() * 9000)}`);
   const [issueDate, setIssueDate] = useState(new Date().toISOString().split('T')[0]);
   const [dueDate, setDueDate] = useState('');
-  const [currency, setCurrency] = useState(resolvedCurrency);
+  const [currency, setCurrency] = useState('');
   const [taxPercent, setTaxPercent] = useState(0);
   const [paymentDetails, setPaymentDetails] = useState(() => {
     let details = [];
@@ -54,13 +55,6 @@ export default function InvoiceGenerator({
   const [folders, setFolders] = useState([]);
   const [showDropdown, setShowDropdown] = useState(false);
   const dropdownRef = useRef(null);
-
-  // Update default currency if resolved value changes (profile or prop)
-  useEffect(() => {
-    if (resolvedCurrency) {
-      setCurrency(resolvedCurrency);
-    }
-  }, [resolvedCurrency]);
 
   // Update payment instructions default when bank details change
   useEffect(() => {
@@ -175,6 +169,10 @@ export default function InvoiceGenerator({
       alert("Client name is required");
       return;
     }
+    if (!currency) {
+      alert("Please select a currency");
+      return;
+    }
     if (items.some(item => !item.description)) {
       alert("All items must have a description");
       return;
@@ -217,6 +215,7 @@ export default function InvoiceGenerator({
     
     setNotes('Payment due on receipt.');
     setTaxPercent(0);
+    setCurrency('');
     setShowCreateForm(false);
     
     alert("Invoice generated and saved successfully!");
@@ -403,17 +402,11 @@ export default function InvoiceGenerator({
             <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1rem', maxWidth: '320px' }}>
               <div className="form-group">
                 <label className="form-label">Currency</label>
-                <select 
-                  className="form-select" 
-                  value={currency} 
-                  onChange={(e) => setCurrency(e.target.value)}
-                >
-                  <option value="USD">USD ($)</option>
-                  <option value="PKR">PKR (Rs.)</option>
-                  <option value="GBP">GBP (£)</option>
-                  <option value="EUR">EUR (€)</option>
-                  <option value="AED">AED (Dhs)</option>
-                </select>
+                <CurrencySelector
+                  value={currency}
+                  onChange={setCurrency}
+                  placeholder="Select currency..."
+                />
               </div>
               <div className="form-group">
                 <label className="form-label">Tax %</label>

@@ -518,12 +518,16 @@ function AppProvider({ children }) {
     try {
       const [inv, rev, l, t] = await Promise.all([
         supabase.from('invoices').select('*').eq('user_id', userId).order('created_at', { ascending: false }),
-        supabase.from('revenue_entries').select('*').eq('user_id', userId).order('paid_at', { ascending: false }),
+        supabase.from('revenue_entries').select('*').eq('user_id', userId).order('created_at', { ascending: false }),
         supabase.from('leads').select('*').in('user_id', ids),
         supabase.from('templates').select('*').eq('user_id', userId),
       ]);
 
-      const email = session?.user?.email || '';
+      let email = session?.user?.email || profile?.email || '';
+      if (!email) {
+        const { data: { session: activeSession } } = await supabase.auth.getSession();
+        email = activeSession?.user?.email || '';
+      }
       const mappedInvoices = (inv.data || []).map(item => ({
         id: item.id,
         user_id: item.user_id,
@@ -709,7 +713,27 @@ function AppProvider({ children }) {
   };
   const handleUpdateInvoiceStatus = async (id, status) => {
     const { data, error } = await supabase.from('invoices').update({ status }).eq('id', id).select().single();
-    if (!error && data) setInvoices(prev => prev.map(i => i.id === id ? data : i));
+    if (!error && data) {
+      const mapped = {
+        id: data.id,
+        user_id: data.user_id,
+        invoiceNumber: data.invoice_number,
+        clientName: data.client_name,
+        clientEmail: data.client_email,
+        issueDate: data.issue_date,
+        dueDate: data.due_date,
+        currency: data.currency,
+        items: data.items || [],
+        status: data.status,
+        notes: data.notes,
+        subtotal: data.subtotal || 0,
+        tax: data.tax || 0,
+        total: data.total || 0,
+        paymentDetails: data.payment_instructions,
+        userEmail: session?.user?.email || profile?.email || ''
+      };
+      setInvoices(prev => prev.map(i => i.id === id ? mapped : i));
+    }
   };
   const handleAddRevenueLog = async (log) => {
     // Map frontend fields → DB columns
