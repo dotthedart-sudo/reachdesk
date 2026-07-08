@@ -380,7 +380,10 @@ function AppProvider({ children }) {
         // never read the stale React `session` state — it may still be null when
         // onAuthStateChange calls fetchProfile for a new Google OAuth user.
         const activeSession = liveSession ?? session;
-        if (activeSession && activeSession.user.id === userId && (!p || !p.full_name)) {
+        // Only create a profile from scratch when the row doesn't exist at all.
+        // Do NOT enter this block for existing users with an empty full_name —
+        // that would upsert a fresh trial_ends_at and reset their trial.
+        if (activeSession && activeSession.user.id === userId && !p) {
           const email = activeSession.user.email;
           const fullName = activeSession.user.user_metadata?.full_name || activeSession.user.user_metadata?.name || '';
           const avatarUrl = activeSession.user.user_metadata?.avatar_url || null;
@@ -443,6 +446,20 @@ function AppProvider({ children }) {
           p = newProfile;
         }
 
+        // Existing profile but missing full_name (e.g. OAuth signup without a display name).
+        // Patch ONLY that field — never upsert the whole row — so trial_ends_at is never touched.
+        if (p && !p.full_name && activeSession && activeSession.user.id === userId) {
+          const patchedName = activeSession.user.user_metadata?.full_name
+            || activeSession.user.user_metadata?.name
+            || '';
+          if (patchedName) {
+            await supabase.from('user_profiles')
+              .update({ full_name: patchedName })
+              .eq('id', userId);
+            p = { ...p, full_name: patchedName };
+          }
+        }
+
         if (p) {
           const now = new Date();
           const isAdminOrDotthedart = p.role === 'admin' || p.email === 'dotthedart@gmail.com';
@@ -477,6 +494,16 @@ function AppProvider({ children }) {
               profileToSet = { ...p, account_locked: true, locked_at: lockedAt };
             }
           }
+
+          // Stamp last_active_at on every successful login/session load.
+          // Fire-and-forget — never awaited, so it never delays the UI.
+          // Isolated update so it cannot accidentally overwrite unrelated columns.
+          supabase.from('user_profiles')
+            .update({ last_active_at: new Date().toISOString() })
+            .eq('id', userId)
+            .then(({ error: laErr }) => {
+              if (laErr) console.warn('[Profile] Failed to update last_active_at:', laErr);
+            });
 
           setProfile(profileToSet);
           // Mark this user's profile as loaded so future auth events are ignored
