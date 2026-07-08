@@ -139,9 +139,16 @@ export async function updateLeadStatusAndCheckpoint({
   
   // Apply suggestions automatically if enabled
   const suggestionsEnabled = currentUser ? currentUser.suggestions_enabled : true;
-  const autoApply = currentUser ? currentUser.suggestions_auto_apply : false;
+  const autoApply = currentUser ? currentUser.suggestions_auto_apply !== false : true;
   if (suggestionsEnabled && autoApply && suggestedAction) {
     leadUpdate.action_to_take = suggestedAction;
+  }
+
+  // Automatically adjust priority based on positive reply/booked status
+  if (newStatus === 'Positive Reply') {
+    leadUpdate.priority = 'Warm';
+  } else if (newStatus === 'Booked') {
+    leadUpdate.priority = 'Hot';
   }
   
   // Update leads table

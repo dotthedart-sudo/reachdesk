@@ -115,8 +115,27 @@ export default function EditableDropdown({
     }
   };
 
+const ACTION_COLORS = {
+  'Send first pitch': '#3b82f6',
+  'Wait for reply': '#6b7280',
+  'Send a follow up': '#f59e0b',
+  'Send a different pitch': '#8b5cf6',
+  'Send proposal': '#5B8FB9',
+  'Send Calendly': '#6366f1',
+  'Send invoice': '#10b981',
+  'No action needed': '#6b7280',
+  'Follow Up': '#3b82f6',
+  'Send Template': '#8b5cf6',
+  'Schedule Call': '#f59e0b',
+  'No Action': '#6b7280'
+};
+
   // Find current option style
-  const currentOpt = rawOptions.find(opt => opt.label === value) || { label: value || 'None', color: '#6b7280' };
+  let currentOpt = rawOptions.find(opt => opt.label === value);
+  if (!currentOpt) {
+    const fallbackColor = ACTION_COLORS[value] || '#6b7280';
+    currentOpt = { label: value || 'None', color: fallbackColor };
+  }
   const chipStyle = {
     background: `${currentOpt.color}18`,
     color: currentOpt.color,

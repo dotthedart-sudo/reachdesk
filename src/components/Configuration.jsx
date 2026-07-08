@@ -53,7 +53,7 @@ export default function Configuration({
   const [profileSaving, setProfileSaving] = useState(false);
   const [remindersEnabled, setRemindersEnabled] = useState(currentUser?.reminders_enabled !== false);
   const [suggestionsEnabled, setSuggestionsEnabled] = useState(currentUser?.suggestions_enabled !== false);
-  const [suggestionsAutoApply, setSuggestionsAutoApply] = useState(!!currentUser?.suggestions_auto_apply);
+  const [suggestionsAutoApply, setSuggestionsAutoApply] = useState(currentUser?.suggestions_auto_apply !== false);
 
   const [exporting, setExporting] = useState(null); // 'leads' | 'notes' | null
 
@@ -135,7 +135,7 @@ export default function Configuration({
       setProfileDefaultCurrency(currentUser.default_currency || 'PKR');
       setRemindersEnabled(currentUser.reminders_enabled !== false);
       setSuggestionsEnabled(currentUser.suggestions_enabled !== false);
-      setSuggestionsAutoApply(!!currentUser.suggestions_auto_apply);
+      setSuggestionsAutoApply(currentUser.suggestions_auto_apply !== false);
     }
   }, [currentUser]);
 
