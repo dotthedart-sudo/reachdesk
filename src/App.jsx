@@ -612,16 +612,17 @@ function AppProvider({ children }) {
 
       setTemplates([...STARTER_TEMPLATES, ...customMapped]);
 
-      // Reminders count (Count leads with due checkpoints if reminders are enabled)
+      // Reminders count (Count active due reminders from follow_up_reminders if enabled)
       let totalReminders = 0;
       const activeProfile = profileObj || profile;
       const remindersEnabled = activeProfile?.reminders_enabled !== false;
       if (remindersEnabled) {
         const now = new Date().toISOString();
-        const { count } = await supabase.from('leads')
+        const { count } = await supabase.from('follow_up_reminders')
           .select('*', { count: 'exact', head: true })
           .in('user_id', ids)
-          .lte('next_checkpoint_at', now);
+          .eq('status', 'pending')
+          .lte('scheduled_at', now);
         
         totalReminders = count || 0;
       }
