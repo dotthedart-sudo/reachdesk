@@ -1,34 +1,60 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { X, Calendar, User, FileText, Activity as ActivityIcon, Plus, Trash2, Pencil } from 'lucide-react';
+import { X, Calendar, User, FileText, Activity as ActivityIcon, Plus, Trash2, Pencil, Check } from 'lucide-react';
 import { supabase } from '../../lib/supabase';
 import EditableDropdown from './EditableDropdown';
 import RichTextEditor from './RichTextEditor';
 import GroupedStatusDropdown from './GroupedStatusDropdown';
-import { handleLeadReminderTrigger } from '../../lib/reminders';
+import { updateLeadStatusAndCheckpoint, getSuggestionForStatus } from '../../lib/reminders';
 import PriorityDropdown from './PriorityDropdown';
 
 const STATUS_COLORS = {
-  'lead':           { bg: '#8B949E22', text: '#8B949E' },
-  'contacted':      { bg: '#5B8FB922', text: '#5B8FB9' },
-  'calendly_sent':  { bg: '#6B9FD422', text: '#6B9FD4' },
-  'booked':         { bg: '#E8A83822', text: '#E8A838' },
-  'follow_up':      { bg: '#F9731622', text: '#F97316' },
-  'positive_reply': { bg: '#7FB5A022', text: '#7FB5A0' },
-  'client':         { bg: '#4ADE8022', text: '#4ADE80' },
-  'not_interested': { bg: '#E0525222', text: '#E05252' },
-  'no_show':        { bg: '#6B728022', text: '#6B7280' }
+  // Lowercase / legacy keys
+  'lead':                   { bg: '#8B949E22', text: '#8B949E' },
+  'contacted':              { bg: '#5B8FB922', text: '#5B8FB9' },
+  'calendly_sent':          { bg: '#6B9FD422', text: '#6B9FD4' },
+  'booked':                 { bg: '#E8A83822', text: '#E8A838' },
+  'follow_up':              { bg: '#F9731622', text: '#F97316' },
+  'positive_reply':         { bg: '#7FB5A022', text: '#7FB5A0' },
+  'client':                 { bg: '#4ADE8022', text: '#4ADE80' },
+  'not_interested':         { bg: '#E0525222', text: '#E05252' },
+  'no_show':                { bg: '#6B728022', text: '#6B7280' },
+
+  // PascalCase / Title Case keys (matching rules)
+  'Lead':                   { bg: '#8B949E22', text: '#8B949E' },
+  'Contacted':              { bg: '#5B8FB922', text: '#5B8FB9' },
+  'Waiting':                { bg: '#10b98122', text: '#10b981' },
+  'Positive Reply':         { bg: '#7FB5A022', text: '#7FB5A0' },
+  'Proposal Sent':          { bg: '#06b6d422', text: '#06b6d4' },
+  'Calendly Sent':          { bg: '#6B9FD422', text: '#6B9FD4' },
+  'Booked':                 { bg: '#E8A83822', text: '#E8A838' },
+  'No Show / Rescheduled':  { bg: '#E0525222', text: '#E05252' },
+  'Not Interested':         { bg: '#6b728022', text: '#6b7280' },
+  'Client':                 { bg: '#4ADE8022', text: '#4ADE80' }
 };
 
 const STATUS_LABELS = {
-  'lead':           'Lead',
-  'contacted':      'Contacted',
-  'positive_reply': 'Positive Reply',
-  'not_interested': 'Not Interested',
-  'booked':         'Call Booked',
-  'calendly_sent':  'Calendly Sent',
-  'client':         'Client',
-  'follow_up':      'Follow Up',
-  'no_show':        'No Show'
+  // Lowercase / legacy keys
+  'lead':                   'Lead',
+  'contacted':              'Contacted',
+  'positive_reply':         'Positive Reply',
+  'not_interested':         'Not Interested',
+  'booked':                 'Call Booked',
+  'calendly_sent':          'Calendly Sent',
+  'client':                 'Client',
+  'follow_up':              'Follow Up',
+  'no_show':                'No Show',
+
+  // PascalCase / Title Case keys
+  'Lead':                   'Lead',
+  'Contacted':              'Contacted',
+  'Waiting':                'Waiting',
+  'Positive Reply':         'Positive Reply',
+  'Proposal Sent':          'Proposal Sent',
+  'Calendly Sent':          'Calendly Sent',
+  'Booked':                 'Call Booked',
+  'No Show / Rescheduled':  'No Show / Rescheduled',
+  'Not Interested':         'Not Interested',
+  'Client':                 'Client'
 };
 
 export default function LeadDrawer({
@@ -41,11 +67,13 @@ export default function LeadDrawer({
   onConvertToClient,
   isClientView,
   onRefresh,
-  statuses = []
+  statuses = [],
+  suggestionRules = []
 }) {
   const [activeTab, setActiveTab] = useState('contact'); // 'contact' | 'pipeline' | 'notes' | 'activity'
   const [formData, setFormData] = useState({});
   const [showConvertModal, setShowConvertModal] = useState(false);
+  const [showSuggestion, setShowSuggestion] = useState(true);
   const [convertForm, setConvertForm] = useState({
     company: '',
     phone: '',
@@ -58,23 +86,25 @@ export default function LeadDrawer({
   const handleConvertSubmit = async (e) => {
     e.preventDefault();
     try {
-      const { data, error } = await supabase.from('leads').update({
-        status: 'client',
-        lifecycle_stage: 'client',
-        project_status: convertForm.project_status,
-        start_date: convertForm.start_date || null,
-        contract_value: convertForm.contract_value ? parseFloat(convertForm.contract_value) : null,
-        invoice_link: convertForm.invoice_link || null,
-        company: convertForm.company || null,
-        phone: convertForm.phone || null
-      }).eq('id', lead.id).select().single();
-
-      if (error) throw error;
-      await handleLeadReminderTrigger(lead, { status: 'client' }, currentUser.id);
+      const data = await updateLeadStatusAndCheckpoint({
+        lead,
+        newStatus: 'Client',
+        suggestionRules,
+        currentUser,
+        extraUpdates: {
+          lifecycle_stage: 'client',
+          project_status: convertForm.project_status,
+          start_date: convertForm.start_date || null,
+          contract_value: convertForm.contract_value ? parseFloat(convertForm.contract_value) : null,
+          invoice_link: convertForm.invoice_link || null,
+          company: convertForm.company || null,
+          phone: convertForm.phone || null
+        }
+      });
 
       setFormData(prev => ({
         ...prev,
-        status: 'client',
+        status: 'Client',
         lifecycle_stage: 'client',
         project_status: convertForm.project_status,
         start_date: convertForm.start_date,
@@ -129,6 +159,7 @@ export default function LeadDrawer({
       });
       fetchNotes();
       fetchActivities();
+      setShowSuggestion(true);
     }
   }, [lead]);
 
@@ -376,21 +407,30 @@ export default function LeadDrawer({
     const table = isClientView ? 'clients' : 'leads';
 
     try {
-      const { data, error } = await supabase
-        .from(table)
-        .update({ [field]: updateValue })
-        .eq('id', leadId)
-        .select()
-        .single();
-
-      if (error) throw error;
+      let data;
+      if (field === 'status' && !isClientView) {
+        data = await updateLeadStatusAndCheckpoint({
+          lead,
+          leadId,
+          newStatus: updateValue,
+          suggestionRules,
+          currentUser
+        });
+      } else {
+        const { data: updatedData, error } = await supabase
+          .from(table)
+          .update({ [field]: updateValue })
+          .eq('id', leadId)
+          .select()
+          .single();
+        if (error) throw error;
+        data = updatedData;
+      }
 
       handleFieldChange(field, updateValue);
       if (onUpdateLead) {
         onUpdateLead(data);
       }
-
-      await handleLeadReminderTrigger(lead, { [field]: updateValue }, currentUser.id);
 
       await logActivity(`${field.charAt(0).toUpperCase() + field.slice(1)} Updated`, {
         from: originalValue || 'None',
@@ -800,13 +840,81 @@ export default function LeadDrawer({
               }
 
               if (col.column_key === 'status') {
-                const currentStatus = val || 'lead';
+                const currentStatus = val || 'Lead';
                 return (
                   <div key={col.id} className="form-group">
                     <label className="form-label">{col.column_label}</label>
                     <GroupedStatusDropdown
                       value={currentStatus}
                       onChange={(newVal) => handleDropdownChange('status', newVal)}
+                    />
+                  </div>
+                );
+              }
+
+              if (col.column_key === 'action_to_take') {
+                const suggestionsEnabled = currentUser?.suggestions_enabled !== false;
+                const expectedSuggestion = getSuggestionForStatus(formData.status || 'Lead', suggestionRules);
+                const isMismatch = suggestionsEnabled && expectedSuggestion && val !== expectedSuggestion;
+
+                return (
+                  <div key={col.id} className="form-group">
+                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '0.25rem' }}>
+                      <label className="form-label" style={{ margin: 0 }}>{col.column_label}</label>
+                      {isMismatch && showSuggestion && (
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '0.35rem' }}>
+                          <button
+                            type="button"
+                            onClick={() => handleDropdownChange('action_to_take', expectedSuggestion)}
+                            style={{
+                              display: 'inline-flex',
+                              alignItems: 'center',
+                              justifyContent: 'center',
+                              width: '24px',
+                              height: '24px',
+                              background: 'transparent',
+                              border: '0.5px solid var(--border-strong)',
+                              borderRadius: '4px',
+                              color: 'var(--success-color)',
+                              cursor: 'pointer',
+                              transition: 'var(--transition-fast)'
+                            }}
+                            onMouseEnter={(e) => e.currentTarget.style.background = 'var(--bg-card-hover)'}
+                            onMouseLeave={(e) => e.currentTarget.style.background = 'transparent'}
+                            title={`Apply Suggested: "${expectedSuggestion}"`}
+                          >
+                            <Check size={12} />
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => setShowSuggestion(false)}
+                            style={{
+                              display: 'inline-flex',
+                              alignItems: 'center',
+                              justifyContent: 'center',
+                              width: '24px',
+                              height: '24px',
+                              background: 'transparent',
+                              border: '0.5px solid var(--border-strong)',
+                              borderRadius: '4px',
+                              color: 'var(--text-secondary)',
+                              cursor: 'pointer',
+                              transition: 'var(--transition-fast)'
+                            }}
+                            onMouseEnter={(e) => e.currentTarget.style.background = 'var(--bg-card-hover)'}
+                            onMouseLeave={(e) => e.currentTarget.style.background = 'transparent'}
+                            title="Dismiss Suggestion"
+                          >
+                            <X size={12} />
+                          </button>
+                        </div>
+                      )}
+                    </div>
+                    <EditableDropdown
+                      value={val}
+                      columnDef={col}
+                      onChange={(newVal) => handleDropdownChange(col.column_key, newVal)}
+                      onUpdateColumnDef={fetchNotes}
                     />
                   </div>
                 );

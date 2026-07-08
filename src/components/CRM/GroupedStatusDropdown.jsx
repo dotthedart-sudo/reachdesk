@@ -20,8 +20,9 @@ const DEFAULT_STATUSES = [
   { label: 'Contacted', color: '#f59e0b' },
   { label: 'Waiting', color: '#10b981' },
   { label: 'Positive Reply', color: '#8b5cf6' },
-  { label: 'Booked', color: '#ec4899' },
   { label: 'Proposal Sent', color: '#06b6d4' },
+  { label: 'Calendly Sent', color: '#6B9FD4' },
+  { label: 'Booked', color: '#ec4899' },
   { label: 'No Show / Rescheduled', color: '#ef4444' },
   { label: 'Not Interested', color: '#6b7280' },
   { label: 'Client', color: '#10b981' }

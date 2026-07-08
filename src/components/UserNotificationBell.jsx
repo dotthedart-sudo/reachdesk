@@ -2,12 +2,14 @@ import React, { useState, useEffect, useRef } from 'react';
 import { Bell, Check, X, Clock, CheckCircle, Users } from 'lucide-react';
 import { supabase } from '../lib/supabase';
 import { useNavigate } from 'react-router-dom';
+import { updateLeadStatusAndCheckpoint, REPLY_CHECK_STATUSES, FOLLOW_UP_CHECK_STATUSES } from '../lib/reminders';
 
 export default function UserNotificationBell({ profile, onRefreshProfile }) {
   const navigate = useNavigate();
   const [notifications, setNotifications] = useState([]);
   const [dueReminders, setDueReminders] = useState([]);
   const [adminNotifs, setAdminNotifs] = useState([]);
+  const [suggestionRules, setSuggestionRules] = useState([]);
   const [isOpen, setIsOpen] = useState(false);
   const [activeReminderForModal, setActiveReminderForModal] = useState(null);
   const dropdownRef = useRef(null);
@@ -42,7 +44,7 @@ export default function UserNotificationBell({ profile, onRefreshProfile }) {
     if (reminderId && profile?.id) {
       supabase
         .from('follow_up_reminders')
-        .select('*')
+        .select('*, lead:leads(*)')
         .eq('id', reminderId)
         .single()
         .then(({ data, error }) => {
@@ -76,10 +78,15 @@ export default function UserNotificationBell({ profile, onRefreshProfile }) {
   const fetchDueReminders = async () => {
     if (!profile?.id) return;
     try {
+      const { data: rules, error: rulesErr } = await supabase.from('action_suggestion_rules').select('*');
+      if (!rulesErr && rules) {
+        setSuggestionRules(rules);
+      }
+
       const now = new Date().toISOString();
       const { data, error } = await supabase
         .from('follow_up_reminders')
-        .select('*')
+        .select('*, lead:leads(*)')
         .eq('user_id', profile.id)
         .eq('status', 'pending')
         .lte('scheduled_at', now)
@@ -318,17 +325,39 @@ export default function UserNotificationBell({ profile, onRefreshProfile }) {
     }
   };
 
-  const handleReminderAction = async (reminderId, actionStatus) => {
+  const handleReminderOutcome = async (reminderId, leadObj, newStatus, extra = {}) => {
     try {
+      await updateLeadStatusAndCheckpoint({
+        lead: leadObj,
+        newStatus,
+        suggestionRules,
+        currentUser: profile,
+        extraUpdates: extra
+      });
+
       const { error } = await supabase
         .from('follow_up_reminders')
-        .update({ status: actionStatus, updated_at: new Date().toISOString() })
+        .update({ status: 'completed', updated_at: new Date().toISOString() })
         .eq('id', reminderId);
 
       if (error) throw error;
       setDueReminders(prev => prev.filter(r => r.id !== reminderId));
     } catch (err) {
-      console.error(`Error updating reminder to ${actionStatus}:`, err);
+      console.error('Error completing reminder outcome:', err);
+    }
+  };
+
+  const handleReminderDismiss = async (reminderId) => {
+    try {
+      const { error } = await supabase
+        .from('follow_up_reminders')
+        .update({ status: 'dismissed', updated_at: new Date().toISOString() })
+        .eq('id', reminderId);
+
+      if (error) throw error;
+      setDueReminders(prev => prev.filter(r => r.id !== reminderId));
+    } catch (err) {
+      console.error('Error dismissing reminder:', err);
     }
   };
 
@@ -423,71 +452,211 @@ export default function UserNotificationBell({ profile, onRefreshProfile }) {
               </div>
             ) : (
               <>
-                {/* Due Follow-up Reminders Section */}
-                {dueReminders.map(rem => (
-                  <div 
-                    key={rem.id}
-                    style={{
-                      padding: '0.85rem',
-                      background: 'rgba(139, 92, 246, 0.08)',
-                      borderRadius: '8px',
-                      border: '1px solid rgba(139, 92, 246, 0.25)',
-                      display: 'flex',
-                      flexDirection: 'column',
-                      gap: '0.4rem'
-                    }}
-                  >
-                    <div style={{ display: 'flex', alignItems: 'center', gap: '0.4rem', color: 'var(--primary-purple, #8b5cf6)', fontWeight: 700, fontSize: '0.85rem' }}>
-                      <Clock size={15} />
-                      <span>Follow-up Due</span>
-                    </div>
-                    <p style={{ margin: 0, fontSize: '0.85rem', fontWeight: 600, color: 'var(--text-primary)', lineHeight: 1.3 }}>
-                      Follow up with {rem.lead_name || 'Lead'} — Reminder #{rem.reminder_number}
-                    </p>
-                    <div style={{ display: 'flex', gap: '0.5rem', marginTop: '0.3rem' }}>
-                      <button
-                        onClick={() => handleReminderAction(rem.id, 'completed')}
+                {dueReminders.map(rem => {
+                  if (!rem.lead) {
+                    return (
+                      <div
+                        key={rem.id}
                         style={{
-                          flex: 1,
-                          padding: '0.35rem 0.6rem',
-                          background: 'var(--success-color, #10b981)',
-                          color: '#fff',
-                          border: 'none',
-                          borderRadius: '6px',
-                          fontSize: '0.75rem',
-                          fontWeight: 600,
-                          cursor: 'pointer',
+                          padding: '0.85rem',
+                          background: 'rgba(139, 92, 246, 0.08)',
+                          borderRadius: '8px',
+                          border: '1px solid rgba(139, 92, 246, 0.25)',
                           display: 'flex',
-                          alignItems: 'center',
-                          justifyContent: 'center',
-                          gap: '0.25rem'
+                          flexDirection: 'column',
+                          gap: '0.4rem'
                         }}
                       >
-                        <CheckCircle size={13} /> Mark Done
-                      </button>
-                      <button
-                        onClick={() => handleReminderAction(rem.id, 'dismissed')}
-                        style={{
-                          flex: 1,
-                          padding: '0.35rem 0.6rem',
-                          background: 'rgba(100, 116, 139, 0.15)',
-                          color: 'var(--text-secondary)',
-                          border: '1px solid var(--border-color)',
-                          borderRadius: '6px',
-                          fontSize: '0.75rem',
-                          fontWeight: 600,
-                          cursor: 'pointer',
-                          display: 'flex',
-                          alignItems: 'center',
-                          justifyContent: 'center',
-                          gap: '0.25rem'
-                        }}
-                      >
-                        <X size={13} /> Dismiss
-                      </button>
+                        <span style={{ fontWeight: 600, fontSize: '0.85rem', color: 'var(--text-muted)' }}>
+                          Deleted Lead (ID: {rem.lead_id})
+                        </span>
+                        <button
+                          onClick={() => handleReminderDismiss(rem.id)}
+                          style={{
+                            padding: '0.35rem',
+                            background: 'transparent',
+                            border: '0.5px solid var(--border-strong)',
+                            color: 'var(--text-secondary)',
+                            borderRadius: '4px',
+                            fontSize: '0.75rem',
+                            fontWeight: 600,
+                            cursor: 'pointer'
+                          }}
+                        >
+                          Dismiss Reminder
+                        </button>
+                      </div>
+                    );
+                  }
+
+                  const leadStatus = rem.lead.status || 'Lead';
+                  const isReplyCheck = REPLY_CHECK_STATUSES.includes(leadStatus);
+                  const isFollowUpCheck = FOLLOW_UP_CHECK_STATUSES.includes(leadStatus);
+                  const firstName = rem.lead.name?.split(' ')[0] || 'they';
+
+                  return (
+                    <div
+                      key={rem.id}
+                      style={{
+                        padding: '0.85rem',
+                        background: 'rgba(139, 92, 246, 0.08)',
+                        borderRadius: '8px',
+                        border: '1px solid rgba(139, 92, 246, 0.25)',
+                        display: 'flex',
+                        flexDirection: 'column',
+                        gap: '0.4rem'
+                      }}
+                    >
+                      <div style={{ display: 'flex', alignItems: 'center', gap: '0.4rem', color: 'var(--primary-purple, #8b5cf6)', fontWeight: 700, fontSize: '0.85rem' }}>
+                        <Clock size={15} />
+                        <span>Follow-up Due</span>
+                      </div>
+                      <p style={{ margin: 0, fontSize: '0.85rem', fontWeight: 600, color: 'var(--text-primary)', lineHeight: 1.3 }}>
+                        Follow up with {rem.lead_name || 'Lead'} — Reminder #{rem.reminder_number}
+                      </p>
+                      
+                      {isReplyCheck ? (
+                        <div style={{ display: 'flex', flexDirection: 'column', gap: '0.4rem', width: '100%', marginTop: '0.3rem' }}>
+                          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '0.35rem', width: '100%' }}>
+                            <button
+                              onClick={() => handleReminderOutcome(rem.id, rem.lead, 'Positive Reply', { reply_type: 'positive' })}
+                              style={{
+                                padding: '0.3rem',
+                                background: 'transparent',
+                                border: '0.5px solid var(--border-strong)',
+                                color: 'var(--success-color)',
+                                borderRadius: '4px',
+                                fontSize: '0.72rem',
+                                fontWeight: 600,
+                                cursor: 'pointer'
+                              }}
+                            >
+                              Positive reply
+                            </button>
+                            <button
+                              onClick={() => handleReminderOutcome(rem.id, rem.lead, 'Booked', { reply_type: 'positive' })}
+                              style={{
+                                padding: '0.3rem',
+                                background: 'transparent',
+                                border: '0.5px solid var(--border-strong)',
+                                color: '#8b5cf6',
+                                borderRadius: '4px',
+                                fontSize: '0.72rem',
+                                fontWeight: 600,
+                                cursor: 'pointer'
+                              }}
+                            >
+                              Call booked
+                            </button>
+                            <button
+                              onClick={() => handleReminderOutcome(rem.id, rem.lead, 'No Show / Rescheduled')}
+                              style={{
+                                padding: '0.3rem',
+                                background: 'transparent',
+                                border: '0.5px solid var(--border-strong)',
+                                color: 'var(--warning-color)',
+                                borderRadius: '4px',
+                                fontSize: '0.72rem',
+                                fontWeight: 600,
+                                cursor: 'pointer'
+                              }}
+                            >
+                              No show
+                            </button>
+                            <button
+                              onClick={() => handleReminderOutcome(rem.id, rem.lead, 'Not Interested', { reply_type: 'negative' })}
+                              style={{
+                                padding: '0.3rem',
+                                background: 'transparent',
+                                border: '0.5px solid var(--border-strong)',
+                                color: 'var(--danger-color)',
+                                borderRadius: '4px',
+                                fontSize: '0.72rem',
+                                fontWeight: 600,
+                                cursor: 'pointer'
+                              }}
+                            >
+                              Negative reply
+                            </button>
+                          </div>
+                          <button
+                            onClick={() => handleReminderDismiss(rem.id)}
+                            style={{
+                              background: 'none',
+                              border: 'none',
+                              color: 'var(--text-muted)',
+                              fontSize: '0.72rem',
+                              cursor: 'pointer',
+                              marginTop: '0.2rem'
+                            }}
+                          >
+                            Dismiss Reminder
+                          </button>
+                        </div>
+                      ) : isFollowUpCheck ? (
+                        <div style={{ display: 'flex', flexDirection: 'column', gap: '0.4rem', width: '100%', marginTop: '0.3rem' }}>
+                          <button
+                            onClick={() => handleReminderOutcome(rem.id, rem.lead, 'Waiting')}
+                            style={{
+                              padding: '0.35rem',
+                              background: 'var(--accent-blue)',
+                              color: '#0D1117',
+                              border: 'none',
+                              borderRadius: '4px',
+                              fontSize: '0.75rem',
+                              fontWeight: 600,
+                              cursor: 'pointer',
+                              display: 'flex',
+                              alignItems: 'center',
+                              justifyContent: 'center',
+                              gap: '0.25rem'
+                            }}
+                          >
+                            <Check size={12} /> Mark as done
+                          </button>
+                          <button
+                            onClick={() => handleReminderDismiss(rem.id)}
+                            style={{
+                              padding: '0.35rem',
+                              background: 'transparent',
+                              border: '0.5px solid var(--border-strong)',
+                              color: 'var(--text-secondary)',
+                              borderRadius: '4px',
+                              fontSize: '0.75rem',
+                              fontWeight: 600,
+                              cursor: 'pointer',
+                              display: 'flex',
+                              alignItems: 'center',
+                              justifyContent: 'center',
+                              gap: '0.25rem'
+                            }}
+                          >
+                            <X size={12} /> Dismiss
+                          </button>
+                        </div>
+                      ) : (
+                        <div style={{ display: 'flex', flexDirection: 'column', gap: '0.4rem', width: '100%', marginTop: '0.3rem' }}>
+                          <button
+                            onClick={() => handleReminderDismiss(rem.id)}
+                            style={{
+                              padding: '0.35rem',
+                              background: 'transparent',
+                              border: '0.5px solid var(--border-strong)',
+                              color: 'var(--text-secondary)',
+                              borderRadius: '4px',
+                              fontSize: '0.75rem',
+                              fontWeight: 600,
+                              cursor: 'pointer',
+                              width: '100%'
+                            }}
+                          >
+                            Archive Reminder
+                          </button>
+                        </div>
+                      )}
                     </div>
-                  </div>
-                ))}
+                  );
+                })}
 
                 {/* Standard User Notifications */}
                 {notifications.map(n => (
@@ -620,55 +789,121 @@ export default function UserNotificationBell({ profile, onRefreshProfile }) {
               Follow-up Reminder
             </h3>
             
-            <p style={{ margin: 0, fontSize: '1rem', lineHeight: 1.5 }}>
-              Did <strong style={{ color: 'var(--accent-blue, #5B8FB9)' }}>{activeReminderForModal.lead_name}</strong> reply?
-            </p>
-            
-            <div style={{ display: 'flex', flexDirection: 'column', gap: '0.75rem', marginTop: '0.5rem' }}>
-              <button
-                type="button"
-                onClick={() => handleYesReplied(activeReminderForModal)}
-                style={{
-                  padding: '0.75rem 1rem',
-                  background: 'var(--primary-purple, #8b5cf6)',
-                  color: '#fff',
-                  border: 'none',
-                  borderRadius: '8px',
-                  fontWeight: 600,
-                  fontSize: '0.9rem',
-                  cursor: 'pointer',
-                  transition: 'background 0.2s',
-                  outline: 'none'
-                }}
-                onMouseOver={e => e.currentTarget.style.background = '#7c3aed'}
-                onMouseOut={e => e.currentTarget.style.background = 'var(--primary-purple, #8b5cf6)'}
-              >
-                Yes, They Replied
-              </button>
-              
-              <button
-                type="button"
-                onClick={() => {
-                  setActiveReminderForModal(null);
-                }}
-                style={{
-                  padding: '0.75rem 1rem',
-                  background: 'transparent',
-                  color: 'var(--text-secondary, #8B949E)',
-                  border: '1px solid var(--border-color, #30363D)',
-                  borderRadius: '8px',
-                  fontWeight: 600,
-                  fontSize: '0.9rem',
-                  cursor: 'pointer',
-                  transition: 'background 0.2s',
-                  outline: 'none'
-                }}
-                onMouseOver={e => e.currentTarget.style.background = 'rgba(255,255,255,0.05)'}
-                onMouseOut={e => e.currentTarget.style.background = 'transparent'}
-              >
-                Not Yet
-              </button>
-            </div>
+            {activeReminderForModal.lead ? (() => {
+              const leadStatus = activeReminderForModal.lead.status || 'Lead';
+              const isReplyCheck = REPLY_CHECK_STATUSES.includes(leadStatus);
+              const isFollowUpCheck = FOLLOW_UP_CHECK_STATUSES.includes(leadStatus);
+              const firstName = activeReminderForModal.lead.name?.split(' ')[0] || 'they';
+
+              return (
+                <>
+                  <p style={{ margin: 0, fontSize: '1rem', lineHeight: 1.5 }}>
+                    {isReplyCheck 
+                      ? `Did ${firstName} reply?` 
+                      : (activeReminderForModal.lead.status === 'Calendly Sent' ? 'Did they book a call yet?' : `Did you follow up with ${firstName}?`)}
+                  </p>
+                  
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: '0.75rem', marginTop: '0.5rem' }}>
+                    {isReplyCheck ? (
+                      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '0.5rem' }}>
+                        <button
+                          type="button"
+                          onClick={() => {
+                            handleReminderOutcome(activeReminderForModal.id, activeReminderForModal.lead, 'Positive Reply', { reply_type: 'positive' });
+                            setActiveReminderForModal(null);
+                          }}
+                          className="btn btn-secondary"
+                          style={{ borderColor: 'var(--success-color)', color: 'var(--success-color)', fontWeight: 600 }}
+                        >
+                          Positive reply
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => {
+                            handleReminderOutcome(activeReminderForModal.id, activeReminderForModal.lead, 'Booked', { reply_type: 'positive' });
+                            setActiveReminderForModal(null);
+                          }}
+                          className="btn btn-secondary"
+                          style={{ borderColor: '#8b5cf6', color: '#8b5cf6', fontWeight: 600 }}
+                        >
+                          Call booked
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => {
+                            handleReminderOutcome(activeReminderForModal.id, activeReminderForModal.lead, 'No Show / Rescheduled');
+                            setActiveReminderForModal(null);
+                          }}
+                          className="btn btn-secondary"
+                          style={{ borderColor: 'var(--warning-color)', color: 'var(--warning-color)', fontWeight: 600 }}
+                        >
+                          No show
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => {
+                            handleReminderOutcome(activeReminderForModal.id, activeReminderForModal.lead, 'Not Interested', { reply_type: 'negative' });
+                            setActiveReminderForModal(null);
+                          }}
+                          className="btn btn-secondary"
+                          style={{ borderColor: 'var(--danger-color)', color: 'var(--danger-color)', fontWeight: 600 }}
+                        >
+                          Negative reply
+                        </button>
+                      </div>
+                    ) : isFollowUpCheck ? (
+                      <button
+                        type="button"
+                        onClick={() => {
+                          handleReminderOutcome(activeReminderForModal.id, activeReminderForModal.lead, 'Waiting');
+                          setActiveReminderForModal(null);
+                        }}
+                        className="btn btn-primary"
+                      >
+                        Mark as done
+                      </button>
+                    ) : (
+                      <button
+                        type="button"
+                        onClick={() => {
+                          handleReminderDismiss(activeReminderForModal.id);
+                          setActiveReminderForModal(null);
+                        }}
+                        className="btn btn-secondary"
+                      >
+                        Archive Reminder
+                      </button>
+                    )}
+                    
+                    <button
+                      type="button"
+                      onClick={() => setActiveReminderForModal(null)}
+                      className="btn btn-secondary"
+                    >
+                      Close
+                    </button>
+                  </div>
+                </>
+              );
+            })() : (
+              <>
+                <p style={{ margin: 0, fontSize: '1rem', lineHeight: 1.5 }}>
+                  This lead no longer exists.
+                </p>
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '0.75rem', marginTop: '0.5rem' }}>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      handleReminderDismiss(activeReminderForModal.id);
+                      setActiveReminderForModal(null);
+                    }}
+                    className="btn btn-secondary"
+                  >
+                    Dismiss Reminder
+                  </button>
+                </div>
+              </>
+            )}
           </div>
         </div>
       )}

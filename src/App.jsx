@@ -522,7 +522,7 @@ function AppProvider({ children }) {
           setTeamProfilesMap(mapping);
 
           // Fetch workspace data
-          await fetchAllData(ids, userId, p.role === 'admin' || p.email === 'dotthedart@gmail.com');
+          await fetchAllData(ids, userId, p.role === 'admin' || p.email === 'dotthedart@gmail.com', p);
           setLoading(false);
           return; // Success, exit function
         }
@@ -541,7 +541,7 @@ function AppProvider({ children }) {
     setLoading(false);
   };
 
-  const fetchAllData = async (ids, userId, isAdmin) => {
+  const fetchAllData = async (ids, userId, isAdmin, profileObj = null) => {
     try {
       const [inv, rev, l, t] = await Promise.all([
         supabase.from('invoices').select('*').eq('user_id', userId).order('created_at', { ascending: false }),
@@ -612,13 +612,20 @@ function AppProvider({ children }) {
 
       setTemplates([...STARTER_TEMPLATES, ...customMapped]);
 
-      // Reminders count
-      const oneDayAgo = new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString();
-      const { count } = await supabase.from('leads')
-        .select('*', { count: 'exact', head: true })
-        .in('user_id', ids).eq('status', 'Contacted').is('reply_type', null).lt('created_at', oneDayAgo);
+      // Reminders count (Count leads with due checkpoints if reminders are enabled)
+      let totalReminders = 0;
+      const activeProfile = profileObj || profile;
+      const remindersEnabled = activeProfile?.reminders_enabled !== false;
+      if (remindersEnabled) {
+        const now = new Date().toISOString();
+        const { count } = await supabase.from('leads')
+          .select('*', { count: 'exact', head: true })
+          .in('user_id', ids)
+          .lte('next_checkpoint_at', now);
+        
+        totalReminders = count || 0;
+      }
       
-      let totalReminders = count || 0;
       if (isAdmin) {
         const { count: adminNotifsCount } = await supabase.from('admin_notifications')
           .select('*', { count: 'exact', head: true })

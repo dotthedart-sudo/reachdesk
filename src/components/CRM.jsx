@@ -7,7 +7,7 @@ import {
   Search, Plus, Download, Upload, Trash2, Edit3, X,
   Filter, CheckSquare, Square, Folder, FolderPlus,
   MoreVertical, Check, ThumbsUp, ThumbsDown, SkipForward, AlertCircle, ChevronDown, FileText,
-  Settings as Gear, MessageCircle, Zap, ExternalLink, Lock
+  Settings as Gear, MessageCircle, Zap, ExternalLink, Lock, Lightbulb
 } from 'lucide-react';
 
 import EditableDropdown from './CRM/EditableDropdown';
@@ -17,8 +17,9 @@ import CSVImporter from './CRM/CSVImporter';
 import CSVImportModal from './CRM/CSVImportModal';
 import ConvertModal from './CRM/ConvertModal';
 import GroupedStatusDropdown from './CRM/GroupedStatusDropdown';
+import CheckpointPopover from './CRM/CheckpointPopover';
 import { ReachIcons, PhonePopup, detectDomainIcon, detectPlatformLabel } from './icons/PlatformIcons';
-import { handleLeadReminderTrigger } from '../lib/reminders';
+import { updateLeadStatusAndCheckpoint, getSuggestionForStatus } from '../lib/reminders';
 import PriorityDropdown from './CRM/PriorityDropdown';
 import { exportLeads, exportNotes } from '../utils/exportUtils';
 
@@ -73,8 +74,9 @@ export default function CRM({
     { label: 'Contacted', color: '#f59e0b' },
     { label: 'Waiting', color: '#10b981' },
     { label: 'Positive Reply', color: '#8b5cf6' },
-    { label: 'Booked', color: '#ec4899' },
     { label: 'Proposal Sent', color: '#06b6d4' },
+    { label: 'Calendly Sent', color: '#6B9FD4' },
+    { label: 'Booked', color: '#ec4899' },
     { label: 'No Show / Rescheduled', color: '#ef4444' },
     { label: 'Not Interested', color: '#6b7280' },
     { label: 'Client', color: '#10b981' }
@@ -175,7 +177,7 @@ export default function CRM({
       } else if (sysType === 'cold') {
         setLeadForm(prev => ({ ...prev, folder_id: '', priority: 'Cold' }));
       } else if (sysType === 'calendly') {
-        setLeadForm(prev => ({ ...prev, folder_id: '', status: 'calendly_sent' }));
+        setLeadForm(prev => ({ ...prev, folder_id: '', status: 'Calendly Sent' }));
       } else if (sysType === 'clients') {
         setLeadForm(prev => ({ ...prev, folder_id: '', status: 'client' }));
       }
@@ -217,6 +219,11 @@ export default function CRM({
   const [replyType, setReplyType] = useState('positive'); // 'positive' | 'negative' | 'skip'
   const [replyTemplateId, setReplyTemplateId] = useState('');
   const [replyNotes, setReplyNotes] = useState('');
+
+  // Suggestions & Checkpoints states
+  const [suggestionRules, setSuggestionRules] = useState([]);
+  const [checkpointPopoverLead, setCheckpointPopoverLead] = useState(null);
+  const [checkpointPopoverAnchor, setCheckpointPopoverAnchor] = useState(null);
 
   // Form states
   const [leadForm, setLeadForm] = useState({
@@ -282,7 +289,8 @@ export default function CRM({
         templatesRes,
         columnsRes,
         leadsRes,
-        clientsRes
+        clientsRes,
+        rulesRes
       ] = await Promise.all([
         supabase.from('folders').select('*').eq('user_id', currentUser.id).order('sort_order', { ascending: true }),
         plan !== 'starter'
@@ -292,7 +300,8 @@ export default function CRM({
         supabase.from('templates').select('id, title').or(`user_id.eq.${currentUser.id},user_id.is.null`),
         supabase.from('column_definitions').select('*').eq('user_id', currentUser.id).order('sort_order', { ascending: true }),
         supabase.from('leads').select('*').in('user_id', teamIds).order('created_at', { ascending: false }),
-        supabase.from('leads').select('*').in('user_id', teamIds).eq('status', 'client').order('created_at', { ascending: false })
+        supabase.from('leads').select('*').in('user_id', teamIds).eq('status', 'Client').order('created_at', { ascending: false }),
+        supabase.from('action_suggestion_rules').select('*')
       ]);
 
       if (leadsRes.error) throw leadsRes.error;
@@ -305,6 +314,7 @@ export default function CRM({
       const cols = columnsRes.data || [];
       const lData = leadsRes.data || [];
       const cData = clientsRes.data || [];
+      const rData = rulesRes.data || [];
 
       setFolders(fData);
       setUserFolders(ufData);
@@ -316,6 +326,7 @@ export default function CRM({
       setTemplates(tData);
       setLeads(lData);
       setClients(cData);
+      setSuggestionRules(rData);
 
       if (!cols || cols.length === 0) {
         const defaultDefs = [
@@ -332,10 +343,14 @@ export default function CRM({
           { user_id: currentUser.id, table_view: 'contact_details', column_key: 'niche',             column_label: 'Niche',            column_type: 'text',     is_visible: false, is_default: true, sort_order: 9, dropdown_options: [] },
           { user_id: currentUser.id, table_view: 'contact_details', column_key: 'template_used',     column_label: 'Template Used',   column_type: 'link',     is_visible: false, is_default: true, sort_order: 10, dropdown_options: [] },
           { user_id: currentUser.id, table_view: 'contact_details', column_key: 'action_to_take',    column_label: 'Action to Take',   column_type: 'dropdown', is_visible: false, is_default: true, sort_order: 11, dropdown_options: [
-            { label: 'Follow Up', color: '#3b82f6' },
-            { label: 'Send Template', color: '#5B8FB9' },
-            { label: 'Schedule Call', color: '#f59e0b' },
-            { label: 'No Action', color: '#6b7280' }
+            { label: 'Send first pitch', color: '#3b82f6' },
+            { label: 'Wait for reply', color: '#6b7280' },
+            { label: 'Send a follow up', color: '#f59e0b' },
+            { label: 'Send a different pitch', color: '#8b5cf6' },
+            { label: 'Send proposal', color: '#5B8FB9' },
+            { label: 'Send Calendly', color: '#6366f1' },
+            { label: 'Send invoice', color: '#10b981' },
+            { label: 'No action needed', color: '#6b7280' }
           ] },
           { user_id: currentUser.id, table_view: 'contact_details', column_key: 'last_contacted_at', column_label: 'Last Contacted At',column_type: 'date',     is_visible: false, is_default: true, sort_order: 12, dropdown_options: [] },
           { user_id: currentUser.id, table_view: 'contact_details', column_key: 'linkedin_url',      column_label: 'LinkedIn',         column_type: 'text',     is_visible: false, is_default: true, sort_order: 13, dropdown_options: [] },
@@ -351,10 +366,14 @@ export default function CRM({
           ] },
           { user_id: currentUser.id, table_view: 'pipeline', column_key: 'status',            column_label: 'Status',            column_type: 'dropdown', is_visible: true,  is_default: true, sort_order: 2, dropdown_options: [] },
           { user_id: currentUser.id, table_view: 'pipeline', column_key: 'action_to_take',    column_label: 'Action to Take',    column_type: 'dropdown', is_visible: true,  is_default: true, sort_order: 3, dropdown_options: [
-            { label: 'Follow Up', color: '#3b82f6' },
-            { label: 'Send Template', color: '#5B8FB9' },
-            { label: 'Schedule Call', color: '#f59e0b' },
-            { label: 'No Action', color: '#6b7280' }
+            { label: 'Send first pitch', color: '#3b82f6' },
+            { label: 'Wait for reply', color: '#6b7280' },
+            { label: 'Send a follow up', color: '#f59e0b' },
+            { label: 'Send a different pitch', color: '#8b5cf6' },
+            { label: 'Send proposal', color: '#5B8FB9' },
+            { label: 'Send Calendly', color: '#6366f1' },
+            { label: 'Send invoice', color: '#10b981' },
+            { label: 'No action needed', color: '#6b7280' }
           ] },
           { user_id: currentUser.id, table_view: 'pipeline', column_key: 'last_contacted_at', column_label: 'Last Contacted At', column_type: 'date',     is_visible: true,  is_default: true, sort_order: 4, dropdown_options: [] },
           { user_id: currentUser.id, table_view: 'pipeline', column_key: 'template_used',     column_label: 'Template Used',    column_type: 'link',     is_visible: true,  is_default: true, sort_order: 5, dropdown_options: [] },
@@ -420,7 +439,7 @@ export default function CRM({
           { table_view: 'contact_details', column_key: 'niche',             column_label: 'Niche',            column_type: 'text',     is_visible: false, sort_order: 9,  dropdown_options: [] },
           { table_view: 'contact_details', column_key: 'template_used',     column_label: 'Template Used',   column_type: 'link',     is_visible: false, sort_order: 10, dropdown_options: [] },
           { table_view: 'contact_details', column_key: 'action_to_take',    column_label: 'Action to Take',   column_type: 'dropdown', is_visible: false, sort_order: 11, dropdown_options: [
-            { label: 'Follow Up', color: '#3b82f6' }, { label: 'Send Template', color: '#5B8FB9' }, { label: 'Schedule Call', color: '#f59e0b' }, { label: 'No Action', color: '#6b7280' }
+            { label: 'Send first pitch', color: '#3b82f6' }, { label: 'Wait for reply', color: '#6b7280' }, { label: 'Send a follow up', color: '#f59e0b' }, { label: 'Send a different pitch', color: '#8b5cf6' }, { label: 'Send proposal', color: '#5B8FB9' }, { label: 'Send Calendly', color: '#6366f1' }, { label: 'Send invoice', color: '#10b981' }, { label: 'No action needed', color: '#6b7280' }
           ] },
           { table_view: 'contact_details', column_key: 'last_contacted_at', column_label: 'Last Contacted At', column_type: 'date',    is_visible: false, sort_order: 12, dropdown_options: [] },
           { table_view: 'contact_details', column_key: 'linkedin_url',      column_label: 'LinkedIn',          column_type: 'text',    is_visible: false, sort_order: 13, dropdown_options: [] },
@@ -433,7 +452,7 @@ export default function CRM({
           ] },
           { table_view: 'pipeline', column_key: 'status',            column_label: 'Status',            column_type: 'dropdown', is_visible: true,  sort_order: 2, dropdown_options: [] },
           { table_view: 'pipeline', column_key: 'action_to_take',    column_label: 'Action to Take',    column_type: 'dropdown', is_visible: true,  sort_order: 3, dropdown_options: [
-            { label: 'Follow Up', color: '#3b82f6' }, { label: 'Send Template', color: '#5B8FB9' }, { label: 'Schedule Call', color: '#f59e0b' }, { label: 'No Action', color: '#6b7280' }
+            { label: 'Send first pitch', color: '#3b82f6' }, { label: 'Wait for reply', color: '#6b7280' }, { label: 'Send a follow up', color: '#f59e0b' }, { label: 'Send a different pitch', color: '#8b5cf6' }, { label: 'Send proposal', color: '#5B8FB9' }, { label: 'Send Calendly', color: '#6366f1' }, { label: 'Send invoice', color: '#10b981' }, { label: 'No action needed', color: '#6b7280' }
           ] },
           { table_view: 'pipeline', column_key: 'last_contacted_at', column_label: 'Last Contacted At', column_type: 'date',     is_visible: true,  sort_order: 4, dropdown_options: [] },
           { table_view: 'pipeline', column_key: 'template_used',     column_label: 'Template Used',    column_type: 'link',     is_visible: true,  sort_order: 5, dropdown_options: [] },
@@ -826,15 +845,14 @@ export default function CRM({
     }
 
     try {
-      const { data, error } = await supabase.from('leads')
-        .update({ status: newStatus })
-        .eq('id', leadId)
-        .select()
-        .single();
+      const updatedLead = await updateLeadStatusAndCheckpoint({
+        lead,
+        newStatus,
+        suggestionRules,
+        currentUser
+      });
 
-      if (error) throw error;
-      setLeads(prev => prev.map(l => l.id === leadId ? data : l));
-      await handleLeadReminderTrigger(lead, { status: newStatus }, currentUser.id);
+      setLeads(prev => prev.map(l => l.id === leadId ? updatedLead : l));
       if (onRefreshReminders) onRefreshReminders();
     } catch (err) {
       console.error('Error updating status:', err);
@@ -861,21 +879,19 @@ export default function CRM({
 
       if (logErr) throw logErr;
 
-      // 2. Update Lead status and reply details
-      const { data: updatedLead, error: leadErr } = await supabase.from('leads')
-        .update({
-          status: replyPromptStatus,
+      // 2. Update Lead status and reply details via unified checkpoint logic
+      const updatedLead = await updateLeadStatusAndCheckpoint({
+        lead: replyPromptLead,
+        newStatus: replyPromptStatus,
+        suggestionRules,
+        currentUser,
+        extraUpdates: {
           reply_type: repType,
           template_used: replyTemplateId || null
-        })
-        .eq('id', replyPromptLead.id)
-        .select()
-        .single();
-
-      if (leadErr) throw leadErr;
+        }
+      });
 
       setLeads(prev => prev.map(l => l.id === replyPromptLead.id ? updatedLead : l));
-      await handleLeadReminderTrigger(replyPromptLead, { status: replyPromptStatus }, currentUser.id);
       setReplyPromptLead(null);
       if (onRefreshReminders) onRefreshReminders();
     } catch (err) {
@@ -886,15 +902,14 @@ export default function CRM({
   // Convert to Client
   const handleConvertSubmit = async (lead, clientData) => {
     try {
-      // 1. Update Lead lifecycle stage
-      const { data: updatedLead, error: leadErr } = await supabase.from('leads')
-        .update({ lifecycle_stage: 'converted' })
-        .eq('id', lead.id)
-        .select()
-        .single();
-      
-      if (leadErr) throw leadErr;
-      await handleLeadReminderTrigger(lead, { status: 'client' }, currentUser.id);
+      // 1. Update Lead lifecycle stage and status to Client
+      const updatedLead = await updateLeadStatusAndCheckpoint({
+        lead,
+        newStatus: 'Client',
+        suggestionRules,
+        currentUser,
+        extraUpdates: { lifecycle_stage: 'client' }
+      });
 
       // 2. Insert into Clients
       const { data: newClient, error: clientErr } = await supabase.from('clients')
@@ -1112,10 +1127,24 @@ export default function CRM({
 
   const handleBulkStatusChange = async (newStatus) => {
     try {
-      await supabase.from('leads').update({ status: newStatus }).in('id', selectedIds);
-      setLeads(prev => prev.map(l => selectedIds.includes(l.id) ? { ...l, status: newStatus } : l));
+      const updatedLeads = await Promise.all(
+        selectedIds.map(id => {
+          const lead = leads.find(l => l.id === id);
+          return updateLeadStatusAndCheckpoint({
+            lead,
+            newStatus,
+            suggestionRules,
+            currentUser
+          });
+        })
+      );
+      setLeads(prev => prev.map(l => {
+        const u = updatedLeads.find(item => item.id === l.id);
+        return u ? u : l;
+      }));
       setSelectedIds([]);
       setShowBulkStatusMenu(false);
+      if (onRefreshReminders) onRefreshReminders();
     } catch (err) {
       console.error('Error during bulk status update:', err);
     }
@@ -1264,9 +1293,9 @@ export default function CRM({
     } else if (selectedFolderId === 'cold') {
       folderMatch = l.priority?.toLowerCase() === 'cold';
     } else if (selectedFolderId === 'calendly') {
-      folderMatch = l.status === 'calendly_sent';
+      folderMatch = l.status?.toLowerCase() === 'calendly_sent' || l.status === 'Calendly Sent';
     } else if (selectedFolderId === 'clients') {
-      folderMatch = l.status === 'client';
+      folderMatch = l.status === 'Client';
     } else {
       // Smart folder check
       const smartFolder = userFolders.find(uf => uf.id === selectedFolderId);
@@ -1845,7 +1874,7 @@ export default function CRM({
                         }
 
                         if (col.column_key === 'status') {
-                          const currentStatus = cellValue || 'lead';
+                          const currentStatus = cellValue || 'Lead';
                           return (
                             <td key={col.id} style={{ padding: '0.75rem 1rem' }} onClick={(e) => e.stopPropagation()}>
                               <GroupedStatusDropdown
@@ -1859,32 +1888,67 @@ export default function CRM({
                         }
 
                         if (col.column_type === 'dropdown') {
+                          const isActionToTake = col.column_key === 'action_to_take';
+                          const expectedSuggestion = isActionToTake ? getSuggestionForStatus(lead.status, suggestionRules) : null;
+                          const suggestionsEnabled = currentUser?.suggestions_enabled !== false;
+                          const remindersEnabled = currentUser?.reminders_enabled !== false;
+                          const isSuggestionMismatch = suggestionsEnabled && expectedSuggestion && cellValue !== expectedSuggestion;
+                          const isCheckpointDue = remindersEnabled && lead.next_checkpoint_at && new Date(lead.next_checkpoint_at) <= new Date();
+                          const showLightbulb = isActionToTake && (isSuggestionMismatch || isCheckpointDue);
+
                           return (
                             <td key={col.id} style={{ padding: '0.75rem 1rem' }} onClick={(e) => e.stopPropagation()}>
-                              <EditableDropdown
-                                value={cellValue}
-                                columnDef={col}
-                                onChange={(val) => {
-                                  if (isCustom) {
-                                    const custom = { ...(lead.custom_fields || {}) };
-                                    custom[col.column_key] = val;
-                                    supabase.from('leads').update({ custom_fields: custom }).eq('id', lead.id).then(() => {
-                                      setLeads(prev => prev.map(l => l.id === lead.id ? { ...l, custom_fields: custom } : l));
-                                      supabase.from('lead_activity').insert({
-                                        user_id: currentUser.id,
-                                        lead_id: lead.id,
-                                        action_type: 'Field Updated',
-                                        action_detail: { field: col.column_key, from: lead.custom_fields?.[col.column_key] || 'None', to: val }
+                              <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+                                <EditableDropdown
+                                  value={cellValue}
+                                  columnDef={col}
+                                  onChange={(val) => {
+                                    if (isCustom) {
+                                      const custom = { ...(lead.custom_fields || {}) };
+                                      custom[col.column_key] = val;
+                                      supabase.from('leads').update({ custom_fields: custom }).eq('id', lead.id).then(() => {
+                                        setLeads(prev => prev.map(l => l.id === lead.id ? { ...l, custom_fields: custom } : l));
+                                        supabase.from('lead_activity').insert({
+                                          user_id: currentUser.id,
+                                          lead_id: lead.id,
+                                          action_type: 'Field Updated',
+                                          action_detail: { field: col.column_key, from: lead.custom_fields?.[col.column_key] || 'None', to: val }
+                                        });
                                       });
-                                    });
-                                  } else {
-                                    handleDropdownChange(lead.id, col.column_key, val);
-                                  }
-                                }}
-                                onUpdateColumnDef={(id, newOpts) => {
-                                  setColumnDefs(prev => prev.map(c => c.id === id ? { ...c, dropdown_options: newOpts } : c));
-                                }}
-                              />
+                                    } else {
+                                      handleDropdownChange(lead.id, col.column_key, val);
+                                    }
+                                  }}
+                                  onUpdateColumnDef={(id, newOpts) => {
+                                    setColumnDefs(prev => prev.map(c => c.id === id ? { ...c, dropdown_options: newOpts } : c));
+                                  }}
+                                />
+                                {showLightbulb && (
+                                  <button
+                                    onClick={(e) => {
+                                      e.stopPropagation();
+                                      setCheckpointPopoverLead(lead);
+                                      setCheckpointPopoverAnchor(e.currentTarget);
+                                    }}
+                                    style={{
+                                      background: 'transparent',
+                                      border: 'none',
+                                      cursor: 'pointer',
+                                      padding: '2px',
+                                      display: 'inline-flex',
+                                      alignItems: 'center',
+                                      color: isCheckpointDue ? '#ef4444' : '#f59e0b',
+                                    }}
+                                    title={
+                                      isCheckpointDue 
+                                        ? 'Action checkpoint is due!' 
+                                        : `Suggested action: "${expectedSuggestion}"`
+                                    }
+                                  >
+                                    <Lightbulb size={16} />
+                                  </button>
+                                )}
+                              </div>
                             </td>
                           );
                         }
@@ -2933,6 +2997,7 @@ export default function CRM({
           onConvertToClient={setConvertingLead}
           onRefresh={fetchData}
           statuses={statuses}
+          suggestionRules={suggestionRules}
         />
       )}
 
@@ -3172,6 +3237,23 @@ export default function CRM({
         onUpgrade={() => { setImportResult(null); navigate('/upgrade'); }}
         onClose={() => setImportResult(null)}
       />
+
+      {checkpointPopoverLead && (
+        <CheckpointPopover
+          lead={checkpointPopoverLead}
+          anchorEl={checkpointPopoverAnchor}
+          suggestionRules={suggestionRules}
+          currentUser={currentUser}
+          onClose={() => {
+            setCheckpointPopoverLead(null);
+            setCheckpointPopoverAnchor(null);
+          }}
+          onResolved={(updatedLead) => {
+            setLeads(prev => prev.map(l => l.id === updatedLead.id ? updatedLead : l));
+            if (onRefreshReminders) onRefreshReminders();
+          }}
+        />
+      )}
     </div>
   );
 }

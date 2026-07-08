@@ -3,20 +3,27 @@ import { useNavigate } from 'react-router-dom';
 import { supabase } from '../lib/supabase';
 import { getTeamIds } from '../lib/utils';
 import { Bell, CheckCircle, Clock, Check, X } from 'lucide-react';
+import { updateLeadStatusAndCheckpoint, REPLY_CHECK_STATUSES, FOLLOW_UP_CHECK_STATUSES } from '../lib/reminders';
 
 export default function Reminders({ currentUser, onSelectLead }) {
   const navigate = useNavigate();
   const [reminders, setReminders] = useState([]);
   const [adminRequests, setAdminRequests] = useState([]);
+  const [suggestionRules, setSuggestionRules] = useState([]);
   const [loading, setLoading] = useState(true);
 
   const fetchReminders = async () => {
     setLoading(true);
     try {
+      const { data: rules, error: rulesErr } = await supabase.from('action_suggestion_rules').select('*');
+      if (!rulesErr && rules) {
+        setSuggestionRules(rules);
+      }
+
       const teamIds = await getTeamIds(currentUser.id);
       const { data, error } = await supabase
         .from('follow_up_reminders')
-        .select('*')
+        .select('*, lead:leads(*)')
         .in('user_id', teamIds)
         .eq('status', 'pending')
         .order('scheduled_at', { ascending: true });
@@ -51,17 +58,39 @@ export default function Reminders({ currentUser, onSelectLead }) {
     }
   }, [currentUser]);
 
-  const handleReminderAction = async (reminderId, actionStatus) => {
+  const handleReminderOutcome = async (reminderId, leadObj, newStatus, extra = {}) => {
     try {
+      await updateLeadStatusAndCheckpoint({
+        lead: leadObj,
+        newStatus,
+        suggestionRules,
+        currentUser,
+        extraUpdates: extra
+      });
+
       const { error } = await supabase
         .from('follow_up_reminders')
-        .update({ status: actionStatus, updated_at: new Date().toISOString() })
+        .update({ status: 'completed', updated_at: new Date().toISOString() })
         .eq('id', reminderId);
 
       if (error) throw error;
       setReminders(prev => prev.filter(r => r.id !== reminderId));
     } catch (err) {
-      console.error(`Error updating reminder to ${actionStatus}:`, err);
+      console.error('Error completing reminder outcome:', err);
+    }
+  };
+
+  const handleReminderDismiss = async (reminderId) => {
+    try {
+      const { error } = await supabase
+        .from('follow_up_reminders')
+        .update({ status: 'dismissed', updated_at: new Date().toISOString() })
+        .eq('id', reminderId);
+
+      if (error) throw error;
+      setReminders(prev => prev.filter(r => r.id !== reminderId));
+    } catch (err) {
+      console.error('Error dismissing reminder:', err);
     }
   };
 
@@ -134,6 +163,35 @@ export default function Reminders({ currentUser, onSelectLead }) {
             const diffMs = Date.now() - new Date(rem.scheduled_at).getTime();
             const diffHours = Math.floor(diffMs / (1000 * 60 * 60));
 
+            if (!rem.lead) {
+              return (
+                <div key={rem.id} className="card flex-col gap-3" style={{ border: '1px solid var(--border-color)', justifyContent: 'space-between' }}>
+                  <div>
+                    <h4 style={{ fontWeight: 600, fontSize: '1rem', margin: 0, color: 'var(--text-muted)' }}>
+                      Deleted Lead (ID: {rem.lead_id})
+                    </h4>
+                    <p style={{ fontSize: '0.8rem', color: 'var(--text-muted)', marginTop: '0.25rem' }}>
+                      This lead no longer exists.
+                    </p>
+                  </div>
+                  <div className="flex gap-2" style={{ borderTop: '1px solid var(--border-color)', paddingTop: '0.75rem', marginTop: '0.5rem' }}>
+                    <button
+                      onClick={() => handleReminderDismiss(rem.id)}
+                      className="btn btn-secondary btn-sm"
+                      style={{ flex: 1, justifyContent: 'center' }}
+                    >
+                      Dismiss Reminder
+                    </button>
+                  </div>
+                </div>
+              );
+            }
+
+            const leadStatus = rem.lead.status || 'Lead';
+            const isReplyCheck = REPLY_CHECK_STATUSES.includes(leadStatus);
+            const isFollowUpCheck = FOLLOW_UP_CHECK_STATUSES.includes(leadStatus);
+            const firstName = rem.lead.name?.split(' ')[0] || 'they';
+
             return (
               <div key={rem.id} className="card flex-col gap-3" style={{ border: '1px solid var(--border-color)', justifyContent: 'space-between', background: isDue ? 'rgba(239, 68, 68, 0.02)' : 'var(--bg-card)' }}>
                 <div>
@@ -154,20 +212,85 @@ export default function Reminders({ currentUser, onSelectLead }) {
                 </div>
 
                 <div className="flex gap-2" style={{ borderTop: '1px solid var(--border-color)', paddingTop: '0.75rem', marginTop: '0.5rem' }}>
-                  <button 
-                    onClick={() => handleReminderAction(rem.id, 'completed')}
-                    className="btn btn-primary btn-sm"
-                    style={{ flex: 1, justifyContent: 'center' }}
-                  >
-                    <Check size={14} /> Mark Done
-                  </button>
-                  <button 
-                    onClick={() => handleReminderAction(rem.id, 'dismissed')}
-                    className="btn btn-secondary btn-sm"
-                    style={{ flex: 1, justifyContent: 'center' }}
-                  >
-                    <X size={14} /> Dismiss
-                  </button>
+                  {isReplyCheck ? (
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem', width: '100%' }}>
+                      <div style={{ fontSize: '0.8rem', color: 'var(--text-muted)' }}>
+                        Did {firstName} reply?
+                      </div>
+                      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '0.4rem', width: '100%' }}>
+                        <button
+                          onClick={() => handleReminderOutcome(rem.id, rem.lead, 'Positive Reply', { reply_type: 'positive' })}
+                          className="btn btn-secondary btn-sm"
+                          style={{ borderColor: 'var(--success-color)', color: 'var(--success-color)', fontSize: '0.72rem', padding: '4px', fontWeight: 600 }}
+                        >
+                          Positive reply
+                        </button>
+                        <button
+                          onClick={() => handleReminderOutcome(rem.id, rem.lead, 'Booked', { reply_type: 'positive' })}
+                          className="btn btn-secondary btn-sm"
+                          style={{ borderColor: '#8b5cf6', color: '#8b5cf6', fontSize: '0.72rem', padding: '4px', fontWeight: 600 }}
+                        >
+                          Call booked
+                        </button>
+                        <button
+                          onClick={() => handleReminderOutcome(rem.id, rem.lead, 'No Show / Rescheduled')}
+                          className="btn btn-secondary btn-sm"
+                          style={{ borderColor: 'var(--warning-color)', color: 'var(--warning-color)', fontSize: '0.72rem', padding: '4px', fontWeight: 600 }}
+                        >
+                          No show
+                        </button>
+                        <button
+                          onClick={() => handleReminderOutcome(rem.id, rem.lead, 'Not Interested', { reply_type: 'negative' })}
+                          className="btn btn-secondary btn-sm"
+                          style={{ borderColor: 'var(--danger-color)', color: 'var(--danger-color)', fontSize: '0.72rem', padding: '4px', fontWeight: 600 }}
+                        >
+                          Negative reply
+                        </button>
+                      </div>
+                      <button
+                        onClick={() => handleReminderDismiss(rem.id)}
+                        className="btn btn-secondary btn-sm"
+                        style={{ fontSize: '0.72rem', padding: '4px', border: 'none', color: 'var(--text-muted)', marginTop: '0.25rem' }}
+                      >
+                        Dismiss Reminder
+                      </button>
+                    </div>
+                  ) : isFollowUpCheck ? (
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem', width: '100%' }}>
+                      <div style={{ fontSize: '0.8rem', color: 'var(--text-muted)' }}>
+                        {rem.lead.status === 'Calendly Sent' ? 'Did they book a call yet?' : `Did you follow up with ${firstName}?`}
+                      </div>
+                      <div className="flex gap-2">
+                        <button
+                          onClick={() => handleReminderOutcome(rem.id, rem.lead, 'Waiting')}
+                          className="btn btn-primary btn-sm"
+                          style={{ flex: 1, justifyContent: 'center' }}
+                        >
+                          <Check size={14} /> Mark as done
+                        </button>
+                        <button
+                          onClick={() => handleReminderDismiss(rem.id)}
+                          className="btn btn-secondary btn-sm"
+                          style={{ flex: 1, justifyContent: 'center' }}
+                        >
+                          <X size={14} /> Dismiss
+                        </button>
+                      </div>
+                    </div>
+                  ) : (
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem', width: '100%' }}>
+                      <div style={{ fontSize: '0.8rem', color: 'var(--text-muted)' }}>
+                        Lead status changed to "{leadStatus}".
+                      </div>
+                      <button
+                        onClick={() => handleReminderDismiss(rem.id)}
+                        className="btn btn-secondary btn-sm"
+                        style={{ width: '100%', justifyContent: 'center' }}
+                      >
+                        Archive Reminder
+                      </button>
+                    </div>
+                  )}
                 </div>
               </div>
             );

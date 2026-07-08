@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { Pencil, Plus, Trash2, ChevronUp, ChevronDown, X } from 'lucide-react';
+import { Pencil, Plus, Trash2, ChevronUp, ChevronDown, X, Lock } from 'lucide-react';
 import { supabase } from '../../lib/supabase';
 
 const PRESET_COLORS = [
@@ -12,6 +12,21 @@ const PRESET_COLORS = [
   '#6366f1', // Indigo
   '#6b7280'  // Slate/Gray
 ];
+
+const PROTECTED_ACTION_VALUES = new Set([
+  'Send first pitch',
+  'Wait for reply',
+  'Send a follow up',
+  'Send a different pitch',
+  'Send proposal',
+  'Send Calendly',
+  'Send invoice',
+  'No action needed',
+  'Follow Up',
+  'Send Template',
+  'Schedule Call',
+  'No Action'
+]);
 
 export default function EditableDropdown({
   value,
@@ -63,6 +78,11 @@ export default function EditableDropdown({
   };
 
   const handleRemoveOption = (index) => {
+    const opt = options[index];
+    const isActionToTakeCol = columnDef?.column_key === 'action_to_take';
+    if (opt && isActionToTakeCol && PROTECTED_ACTION_VALUES.has(opt.label)) {
+      return;
+    }
     setOptions(options.filter((_, i) => i !== index));
   };
 
@@ -256,14 +276,23 @@ export default function EditableDropdown({
                       >
                         <ChevronDown size={14} />
                       </button>
-                      <button 
-                        type="button" 
-                        onClick={() => handleRemoveOption(idx)} 
-                        className="btn-icon" 
-                        style={{ padding: '0.2rem', color: 'var(--danger-color)', background: 'none', border: 'none', cursor: 'pointer' }}
-                      >
-                        <Trash2 size={14} />
-                      </button>
+                      {columnDef?.column_key === 'action_to_take' && PROTECTED_ACTION_VALUES.has(opt.label) ? (
+                        <div 
+                          style={{ padding: '0.2rem', color: 'var(--text-muted)', display: 'inline-flex', alignItems: 'center', opacity: 0.6 }}
+                          title="System protected option"
+                        >
+                          <Lock size={14} />
+                        </div>
+                      ) : (
+                        <button 
+                          type="button" 
+                          onClick={() => handleRemoveOption(idx)} 
+                          className="btn-icon" 
+                          style={{ padding: '0.2rem', color: 'var(--danger-color)', background: 'none', border: 'none', cursor: 'pointer' }}
+                        >
+                          <Trash2 size={14} />
+                        </button>
+                      )}
                     </div>
                   </div>
                 ))}

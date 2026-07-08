@@ -2506,3 +2506,18 @@ select option {
   font-family: 'Mattone', var(--font-headers), sans-serif !important;
 }
 
+/* Confetti Burst Animations */
+@keyframes confetti-burst {
+  0% {
+    transform: translate3d(0, 0, 0) rotate(0deg) scale(0);
+    opacity: 1;
+  }
+  15% {
+    opacity: 1;
+  }
+  100% {
+    transform: translate3d(var(--tx), var(--ty), 0) rotate(calc(var(--rot) + var(--rot-speed))) scale(var(--scale));
+    opacity: 0;
+  }
+}
+

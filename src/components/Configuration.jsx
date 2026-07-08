@@ -51,6 +51,9 @@ export default function Configuration({
   const [profileSuccess, setProfileSuccess] = useState('');
   const [profileError, setProfileError] = useState('');
   const [profileSaving, setProfileSaving] = useState(false);
+  const [remindersEnabled, setRemindersEnabled] = useState(currentUser?.reminders_enabled !== false);
+  const [suggestionsEnabled, setSuggestionsEnabled] = useState(currentUser?.suggestions_enabled !== false);
+  const [suggestionsAutoApply, setSuggestionsAutoApply] = useState(!!currentUser?.suggestions_auto_apply);
 
   const [exporting, setExporting] = useState(null); // 'leads' | 'notes' | null
 
@@ -130,6 +133,9 @@ export default function Configuration({
       setProfileBankAccount(currentUser.bank_account || '');
       setProfileBankIban(currentUser.bank_iban || '');
       setProfileDefaultCurrency(currentUser.default_currency || 'PKR');
+      setRemindersEnabled(currentUser.reminders_enabled !== false);
+      setSuggestionsEnabled(currentUser.suggestions_enabled !== false);
+      setSuggestionsAutoApply(!!currentUser.suggestions_auto_apply);
     }
   }, [currentUser]);
 
@@ -204,7 +210,10 @@ export default function Configuration({
           avatar_url: finalAvatarUrl,
           bank_account: profileBankAccount.trim() || null,
           bank_iban: profileBankIban.trim() || null,
-          default_currency: profileDefaultCurrency || 'PKR'
+          default_currency: profileDefaultCurrency || 'PKR',
+          reminders_enabled: remindersEnabled,
+          suggestions_enabled: suggestionsEnabled,
+          suggestions_auto_apply: suggestionsAutoApply
         })
         .eq('id', currentUser.id);
 
@@ -456,6 +465,59 @@ export default function Configuration({
                 disabled={profileSaving}
               />
               <span style={{ fontSize: '0.75rem', color: 'var(--text-muted)', marginTop: '0.25rem', display: 'block' }}>Auto-fills payment instructions</span>
+            </div>
+
+            {/* Automation & Checkpoint Settings */}
+            <div style={{ gridColumn: 'span 2', marginTop: '1rem', borderTop: '1px solid var(--border-color)', paddingTop: '1.25rem' }}>
+              <h4 style={{ fontSize: '1rem', fontWeight: 600, marginBottom: '1rem', display: 'flex', alignItems: 'center', gap: '0.4rem' }}>
+                <Settings size={18} style={{ color: 'var(--primary-purple)' }} />
+                Automation & Checkpoints
+              </h4>
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
+                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+                  <div>
+                    <span style={{ fontWeight: 600, fontSize: '0.9rem', display: 'block' }}>Follow-up Reminders</span>
+                    <span style={{ fontSize: '0.8rem', color: 'var(--text-muted)' }}>Generate reminders automatically based on checkpoint timeline.</span>
+                  </div>
+                  <input
+                    type="checkbox"
+                    checked={remindersEnabled}
+                    onChange={(e) => setRemindersEnabled(e.target.checked)}
+                    style={{ width: '18px', height: '18px', cursor: 'pointer' }}
+                    disabled={profileSaving}
+                  />
+                </div>
+
+                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+                  <div>
+                    <span style={{ fontWeight: 600, fontSize: '0.9rem', display: 'block' }}>Action Suggestions</span>
+                    <span style={{ fontSize: '0.8rem', color: 'var(--text-muted)' }}>Enable status-based action suggestions and warning bulbs.</span>
+                  </div>
+                  <input
+                    type="checkbox"
+                    checked={suggestionsEnabled}
+                    onChange={(e) => setSuggestionsEnabled(e.target.checked)}
+                    style={{ width: '18px', height: '18px', cursor: 'pointer' }}
+                    disabled={profileSaving}
+                  />
+                </div>
+
+                {suggestionsEnabled && (
+                  <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', paddingLeft: '1rem' }}>
+                    <div>
+                      <span style={{ fontWeight: 600, fontSize: '0.9rem', display: 'block' }}>Auto-apply Suggestions</span>
+                      <span style={{ fontSize: '0.8rem', color: 'var(--text-muted)' }}>Automatically sync action_to_take when a lead's status changes.</span>
+                    </div>
+                    <input
+                      type="checkbox"
+                      checked={suggestionsAutoApply}
+                      onChange={(e) => setSuggestionsAutoApply(e.target.checked)}
+                      style={{ width: '18px', height: '18px', cursor: 'pointer' }}
+                      disabled={profileSaving}
+                    />
+                  </div>
+                )}
+              </div>
             </div>
           </div>
 

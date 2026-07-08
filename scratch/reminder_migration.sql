@@ -1,10 +1,13 @@
--- Migration: Follow-up Reminder + Action Suggestion Engine
-
--- 1. Add columns to leads table (additive only)
+-- leads: new checkpoint columns
 ALTER TABLE leads ADD COLUMN IF NOT EXISTS next_checkpoint_at timestamptz;
 ALTER TABLE leads ADD COLUMN IF NOT EXISTS custom_reminder_hours numeric;
 
--- 2. Create action_suggestion_rules table
+-- user_profiles: 3 new per-user settings
+ALTER TABLE user_profiles ADD COLUMN IF NOT EXISTS reminders_enabled boolean DEFAULT true;
+ALTER TABLE user_profiles ADD COLUMN IF NOT EXISTS suggestions_enabled boolean DEFAULT true;
+ALTER TABLE user_profiles ADD COLUMN IF NOT EXISTS suggestions_auto_apply boolean DEFAULT false;
+
+-- action suggestion rules table
 CREATE TABLE IF NOT EXISTS action_suggestion_rules (
   id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
   status text NOT NULL UNIQUE,
@@ -13,7 +16,6 @@ CREATE TABLE IF NOT EXISTS action_suggestion_rules (
   updated_at timestamptz DEFAULT now()
 );
 
--- 3. Seed default rules
 INSERT INTO action_suggestion_rules (status, suggested_action) VALUES
   ('Lead', 'Send first pitch'),
   ('Contacted', 'Wait for reply'),
@@ -26,20 +28,8 @@ INSERT INTO action_suggestion_rules (status, suggested_action) VALUES
   ('Client', 'No action needed')
 ON CONFLICT (status) DO NOTHING;
 
--- 4. Enable Row Level Security (RLS)
 ALTER TABLE action_suggestion_rules ENABLE ROW LEVEL SECURITY;
 
--- 5. Add RLS Policies
--- Allow anyone to read the rules
-CREATE POLICY "Allow read access to action_suggestion_rules for everyone" 
-ON action_suggestion_rules 
-FOR SELECT 
-USING (true);
-
--- Allow authenticated users to manage rules (insert, update, delete)
-CREATE POLICY "Allow authenticated users to manage action_suggestion_rules" 
-ON action_suggestion_rules 
-FOR ALL 
-TO authenticated 
-USING (true)
-WITH CHECK (true);
+DROP POLICY IF EXISTS "authenticated users can read suggestion rules" ON action_suggestion_rules;
+CREATE POLICY "authenticated users can read suggestion rules"
+  ON action_suggestion_rules FOR SELECT TO authenticated USING (true);
