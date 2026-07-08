@@ -25,7 +25,7 @@ export function getSuggestionForStatus(status, suggestionRules = []) {
     'Positive Reply': 'Send proposal',
     'Proposal Sent': 'Send Calendly',
     'Calendly Sent': 'Wait for reply',
-    'Booked': 'Send invoice',
+    'Booked': 'Prepare for call',
     'Client': 'No action needed'
   };
   return fallbacks[status] || null;
@@ -144,10 +144,12 @@ export async function updateLeadStatusAndCheckpoint({
     leadUpdate.action_to_take = suggestedAction;
   }
 
-  // Automatically adjust priority based on positive reply/booked status
-  if (newStatus === 'Positive Reply') {
+  // Automatically adjust priority based on status changes
+  if (['Lead', 'Not Interested'].includes(newStatus)) {
+    leadUpdate.priority = 'Cold';
+  } else if (['Positive Reply', 'Proposal Sent', 'Calendly Sent'].includes(newStatus)) {
     leadUpdate.priority = 'Warm';
-  } else if (newStatus === 'Booked') {
+  } else if (['Booked', 'Client'].includes(newStatus)) {
     leadUpdate.priority = 'Hot';
   }
   

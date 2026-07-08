@@ -770,6 +770,24 @@ export default function LeadDrawer({
               />
             </div>
 
+            <div className="form-group">
+              <label className="form-label" style={{ display: 'flex', alignItems: 'center', gap: '0.35rem' }}>
+                Project
+                {!(!['trial', 'starter'].includes((currentUser?.plan || 'trial').toLowerCase())) && (
+                  <Lock size={12} style={{ color: 'var(--text-muted)' }} title="Locked on Starter/Trial plans" />
+                )}
+              </label>
+              <input
+                type="text"
+                disabled={!(!['trial', 'starter'].includes((currentUser?.plan || 'trial').toLowerCase()))}
+                placeholder={!(!['trial', 'starter'].includes((currentUser?.plan || 'trial').toLowerCase())) ? "Locked on Starter/Trial" : "e.g. VA Services, Newsletters"}
+                value={!(!['trial', 'starter'].includes((currentUser?.plan || 'trial').toLowerCase())) ? "" : (formData.project || '')}
+                onChange={e => handleFieldChange('project', e.target.value)}
+                onBlur={() => handleFieldBlur('project')}
+                className="form-input"
+              />
+            </div>
+
             {/* Custom non-default fields if any */}
             {contactCols.filter(c => !c.is_default).map(col => {
               const val = formData.custom_fields?.[col.column_key] || '';

@@ -20,6 +20,7 @@ const PROTECTED_ACTION_VALUES = new Set([
   'Send a different pitch',
   'Send proposal',
   'Send Calendly',
+  'Prepare for call',
   'Send invoice',
   'No action needed',
   'Follow Up',
@@ -27,6 +28,18 @@ const PROTECTED_ACTION_VALUES = new Set([
   'Schedule Call',
   'No Action'
 ]);
+
+const DEFAULT_ACTION_OPTIONS = [
+  { label: 'Send first pitch', color: '#3b82f6' },
+  { label: 'Wait for reply', color: '#6b7280' },
+  { label: 'Send a follow up', color: '#f59e0b' },
+  { label: 'Send a different pitch', color: '#8b5cf6' },
+  { label: 'Send proposal', color: '#5B8FB9' },
+  { label: 'Send Calendly', color: '#6366f1' },
+  { label: 'Prepare for call', color: '#8b5cf6' },
+  { label: 'Send invoice', color: '#10b981' },
+  { label: 'No action needed', color: '#6b7280' }
+];
 
 export default function EditableDropdown({
   value,
@@ -43,7 +56,8 @@ export default function EditableDropdown({
   const [newOptionLabel, setNewOptionLabel] = useState('');
   const [newOptionColor, setNewOptionColor] = useState(PRESET_COLORS[0]);
 
-  const rawOptions = columnDef?.dropdown_options || [];
+  const isActionToTake = columnDef?.column_key === 'action_to_take';
+  const rawOptions = isActionToTake ? DEFAULT_ACTION_OPTIONS : (columnDef?.dropdown_options || []);
 
   // Close dropdown on click outside
   useEffect(() => {
@@ -122,6 +136,7 @@ const ACTION_COLORS = {
   'Send a different pitch': '#8b5cf6',
   'Send proposal': '#5B8FB9',
   'Send Calendly': '#6366f1',
+  'Prepare for call': '#8b5cf6',
   'Send invoice': '#10b981',
   'No action needed': '#6b7280',
   'Follow Up': '#3b82f6',

@@ -22,7 +22,8 @@ export default function ColumnManager({
   columns, // full array of all columnDefs across views
   onUpdateColumns,
   onResetToDefault,
-  userId
+  userId,
+  currentUser
 }) {
   const [activeTab, setActiveTab] = useState('contact_details');
   const [allCols, setAllCols] = useState([]);
@@ -323,9 +324,16 @@ export default function ColumnManager({
                   {/* Toggle */}
                   <input
                     type="checkbox"
-                    checked={col.is_visible}
-                    onChange={() => handleToggleVisible(col._realIdx)}
-                    style={{ cursor: 'pointer', width: '14px', height: '14px', accentColor: 'var(--accent-blue)' }}
+                    checked={(col.column_key === 'project' && !(!['trial', 'starter'].includes((currentUser?.plan || 'trial').toLowerCase()))) ? false : col.is_visible}
+                    disabled={col.column_key === 'project' && !(!['trial', 'starter'].includes((currentUser?.plan || 'trial').toLowerCase()))}
+                    onChange={() => {
+                      if (col.column_key === 'project' && !(!['trial', 'starter'].includes((currentUser?.plan || 'trial').toLowerCase()))) {
+                        alert("The Project/Service tracking column is a Pro and Teams tier feature. Please upgrade to use projects.");
+                        return;
+                      }
+                      handleToggleVisible(col._realIdx);
+                    }}
+                    style={{ cursor: (col.column_key === 'project' && !(!['trial', 'starter'].includes((currentUser?.plan || 'trial').toLowerCase()))) ? 'not-allowed' : 'pointer', width: '14px', height: '14px', accentColor: 'var(--accent-blue)' }}
                   />
 
                   {/* Label */}
@@ -344,12 +352,21 @@ export default function ColumnManager({
                     ) : (
                       <div style={{ display: 'flex', alignItems: 'center', gap: '0.4rem', flexWrap: 'wrap' }}>
                         <span
-                          onClick={() => handleStartRename(col)}
-                          style={{ fontSize: '0.85rem', cursor: 'pointer', fontFamily: 'var(--font-body)', color: col.is_visible ? 'var(--text-primary)' : 'var(--text-muted)' }}
-                          title="Click to rename"
+                          onClick={() => {
+                            if (col.column_key === 'project' && !(!['trial', 'starter'].includes((currentUser?.plan || 'trial').toLowerCase()))) {
+                              alert("The Project/Service tracking column is a Pro and Teams tier feature. Please upgrade to use projects.");
+                              return;
+                            }
+                            handleStartRename(col);
+                          }}
+                          style={{ fontSize: '0.85rem', cursor: (col.column_key === 'project' && !(!['trial', 'starter'].includes((currentUser?.plan || 'trial').toLowerCase()))) ? 'not-allowed' : 'pointer', fontFamily: 'var(--font-body)', color: col.is_visible ? 'var(--text-primary)' : 'var(--text-muted)' }}
+                          title={(col.column_key === 'project' && !(!['trial', 'starter'].includes((currentUser?.plan || 'trial').toLowerCase()))) ? "Upgrade to unlock" : "Click to rename"}
                         >
                           {col.column_label}
                         </span>
+                        {col.column_key === 'project' && !(!['trial', 'starter'].includes((currentUser?.plan || 'trial').toLowerCase())) && (
+                          <Lock size={11} style={{ color: 'var(--text-muted)' }} />
+                        )}
                         {!col.is_default && (
                           <span style={{
                             fontSize: '0.6rem', background: 'rgba(91,143,185,0.12)', color: 'var(--accent-blue)',

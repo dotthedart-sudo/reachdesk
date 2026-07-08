@@ -726,9 +726,9 @@ export function PublicInvoiceView({ invoiceId, invoices }) {
                 fontSize: '0.75rem',
                 borderRadius: '4px',
                 fontWeight: 700,
-                backgroundColor: invoice.status === 'Paid' ? '#d1fae5' : '#fee2e2',
-                color: invoice.status === 'Paid' ? '#065f46' : '#991b1b',
-                border: `1px solid ${invoice.status === 'Paid' ? '#a7f3d0' : '#fecaca'}`
+                backgroundColor: invoice.status?.toLowerCase() === 'paid' ? '#d1fae5' : '#fee2e2',
+                color: invoice.status?.toLowerCase() === 'paid' ? '#065f46' : '#991b1b',
+                border: `1px solid ${invoice.status?.toLowerCase() === 'paid' ? '#a7f3d0' : '#fecaca'}`
               }}>
                 {invoice.status.toUpperCase()}
               </span>

@@ -14,6 +14,14 @@ const PRESET_COLORS = [
   '#ef4444', '#ec4899', '#06b6d4', '#84cc16', '#f97316'
 ];
 
+const CURRENCY_SYMBOLS = {
+  'PKR': 'Rs.',
+  'USD': '$',
+  'GBP': '£',
+  'EUR': '€',
+  'AED': 'Dhs'
+};
+
 export default function Configuration({
   brandName,
   currencySymbol,
@@ -54,6 +62,7 @@ export default function Configuration({
   const [remindersEnabled, setRemindersEnabled] = useState(currentUser?.reminders_enabled !== false);
   const [suggestionsEnabled, setSuggestionsEnabled] = useState(currentUser?.suggestions_enabled !== false);
   const [suggestionsAutoApply, setSuggestionsAutoApply] = useState(currentUser?.suggestions_auto_apply !== false);
+  const [monthlyRevenueTarget, setMonthlyRevenueTarget] = useState(currentUser?.monthly_revenue_target || '');
 
   const [exporting, setExporting] = useState(null); // 'leads' | 'notes' | null
 
@@ -136,6 +145,7 @@ export default function Configuration({
       setRemindersEnabled(currentUser.reminders_enabled !== false);
       setSuggestionsEnabled(currentUser.suggestions_enabled !== false);
       setSuggestionsAutoApply(currentUser.suggestions_auto_apply !== false);
+      setMonthlyRevenueTarget(currentUser.monthly_revenue_target || '');
     }
   }, [currentUser]);
 
@@ -213,7 +223,8 @@ export default function Configuration({
           default_currency: profileDefaultCurrency || 'PKR',
           reminders_enabled: remindersEnabled,
           suggestions_enabled: suggestionsEnabled,
-          suggestions_auto_apply: suggestionsAutoApply
+          suggestions_auto_apply: suggestionsAutoApply,
+          monthly_revenue_target: monthlyRevenueTarget ? Number(monthlyRevenueTarget) : null
         })
         .eq('id', currentUser.id);
 
@@ -413,19 +424,32 @@ export default function Configuration({
                     <Upload size={16} />
                   </div>
                 )}
+                <label 
+                  htmlFor="avatar-upload" 
+                  className="btn btn-secondary btn-sm"
+                  style={{ cursor: 'pointer', display: 'inline-flex', alignItems: 'center', gap: '0.25rem', padding: '0.4rem 0.75rem', fontSize: '0.8rem' }}
+                >
+                  <Upload size={14} /> Choose Photo
+                </label>
                 <input
+                  id="avatar-upload"
                   type="file"
                   accept="image/*"
                   onChange={handleProfileAvatarChange}
-                  style={{ fontSize: '0.85rem', color: 'var(--text-secondary)' }}
+                  style={{ display: 'none' }}
                   disabled={profileSaving}
                 />
+                {profileAvatarFile && (
+                  <span style={{ fontSize: '0.8rem', color: 'var(--text-muted)' }}>
+                    {profileAvatarFile.name.slice(0, 20)}{profileAvatarFile.name.length > 20 ? '...' : ''}
+                  </span>
+                )}
               </div>
             </div>
           </div>
 
           {/* Invoice & Payment Defaults */}
-          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: '1.5rem', marginTop: '0.5rem' }}>
+          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1.5rem', marginTop: '0.5rem' }}>
             <div className="form-group">
               <label className="form-label">Default Currency</label>
               <select
@@ -440,35 +464,31 @@ export default function Configuration({
                 <option value="EUR">EUR (€)</option>
                 <option value="AED">AED (Dhs)</option>
               </select>
-              <span style={{ fontSize: '0.75rem', color: 'var(--text-muted)', marginTop: '0.25rem', display: 'block' }}>Auto-fills invoices</span>
-            </div>
-            <div className="form-group">
-              <label className="form-label">Bank Account Number</label>
-              <input
-                type="text"
-                className="form-input"
-                value={profileBankAccount}
-                onChange={(e) => setProfileBankAccount(e.target.value)}
-                placeholder="e.g. 05200112553962"
-                disabled={profileSaving}
-              />
-              <span style={{ fontSize: '0.75rem', color: 'var(--text-muted)', marginTop: '0.25rem', display: 'block' }}>Auto-fills payment instructions</span>
-            </div>
-            <div className="form-group">
-              <label className="form-label">Bank IBAN</label>
-              <input
-                type="text"
-                className="form-input"
-                value={profileBankIban}
-                onChange={(e) => setProfileBankIban(e.target.value)}
-                placeholder="e.g. PK78MEZN0005200112553962"
-                disabled={profileSaving}
-              />
-              <span style={{ fontSize: '0.75rem', color: 'var(--text-muted)', marginTop: '0.25rem', display: 'block' }}>Auto-fills payment instructions</span>
+              <span style={{ fontSize: '0.75rem', color: 'var(--text-muted)', marginTop: '0.25rem', display: 'block' }}>Auto-fills invoices & target metrics</span>
             </div>
 
+            <div className="form-group">
+              <label className="form-label">Monthly Revenue Target</label>
+              <div style={{ position: 'relative', display: 'flex', alignItems: 'center' }}>
+                <span style={{ position: 'absolute', left: '12px', color: 'var(--text-muted)', pointerEvents: 'none', fontSize: '0.9rem' }}>
+                  {CURRENCY_SYMBOLS[profileDefaultCurrency] || '$'}
+                </span>
+                <input
+                  type="number"
+                  className="form-input"
+                  style={{ paddingLeft: (CURRENCY_SYMBOLS[profileDefaultCurrency] || '$').length > 1 ? '2.75rem' : '1.75rem' }}
+                  value={monthlyRevenueTarget}
+                  onChange={(e) => setMonthlyRevenueTarget(e.target.value)}
+                  placeholder="e.g. 5000"
+                  disabled={profileSaving}
+                />
+              </div>
+              <span style={{ fontSize: '0.75rem', color: 'var(--text-muted)', marginTop: '0.25rem', display: 'block' }}>Monthly earnings goal</span>
+            </div>
+          </div>
+
             {/* Automation & Checkpoint Settings */}
-            <div style={{ gridColumn: 'span 2', marginTop: '1rem', borderTop: '1px solid var(--border-color)', paddingTop: '1.25rem' }}>
+            <div style={{ marginTop: '1rem', borderTop: '1px solid var(--border-color)', paddingTop: '1.25rem' }}>
               <h4 style={{ fontSize: '1rem', fontWeight: 600, marginBottom: '1rem', display: 'flex', alignItems: 'center', gap: '0.4rem' }}>
                 <Settings size={18} style={{ color: 'var(--primary-purple)' }} />
                 Automation & Checkpoints
@@ -519,7 +539,6 @@ export default function Configuration({
                 )}
               </div>
             </div>
-          </div>
 
           <div style={{ display: 'flex', justifyContent: 'flex-end', marginTop: '0.5rem' }}>
             <button type="submit" className="btn btn-primary" disabled={profileSaving}>

@@ -19,7 +19,7 @@ import ConvertModal from './CRM/ConvertModal';
 import GroupedStatusDropdown from './CRM/GroupedStatusDropdown';
 import CheckpointPopover from './CRM/CheckpointPopover';
 import { ReachIcons, PhonePopup, detectDomainIcon, detectPlatformLabel } from './icons/PlatformIcons';
-import { updateLeadStatusAndCheckpoint, getSuggestionForStatus } from '../lib/reminders';
+import { updateLeadStatusAndCheckpoint, getSuggestionForStatus, REPLY_CHECK_STATUSES, FOLLOW_UP_CHECK_STATUSES } from '../lib/reminders';
 import PriorityDropdown from './CRM/PriorityDropdown';
 import { exportLeads, exportNotes } from '../utils/exportUtils';
 
@@ -196,6 +196,15 @@ export default function CRM({
   const [showColumnManager, setShowColumnManager] = useState(false);
   const [showCSVImporter, setShowCSVImporter] = useState(false);
 
+  // Advanced Filter Drawer States
+  const [showFilterDrawer, setShowFilterDrawer] = useState(false);
+  const [filterStatuses, setFilterStatuses] = useState([]);
+  const [filterPriorities, setFilterPriorities] = useState([]);
+  const [filterActions, setFilterActions] = useState([]);
+  const [filterProjects, setFilterProjects] = useState([]);
+  const [filterDateRange, setFilterDateRange] = useState('all'); // 'all' | 'today' | '7days' | '30days'
+  const [filterDateField, setFilterDateField] = useState('created_at'); // 'created_at' | 'last_contacted_at'
+
   // Modals state
   const [showAddLeadModal, setShowAddLeadModal] = useState(false);
   const [showQuickAddModal, setShowQuickAddModal] = useState(false);
@@ -278,9 +287,14 @@ export default function CRM({
 
   // 1. Fetch CRM Data
   const fetchData = async () => {
+    if (!currentUser?.id) return;
     setLoading(true);
     try {
       const teamIds = await getTeamIds(currentUser.id);
+      if (!teamIds || teamIds.length === 0 || teamIds.includes(undefined) || teamIds.includes(null)) {
+        setLoading(false);
+        return;
+      }
 
       const [
         foldersRes,
@@ -349,6 +363,7 @@ export default function CRM({
             { label: 'Send a different pitch', color: '#8b5cf6' },
             { label: 'Send proposal', color: '#5B8FB9' },
             { label: 'Send Calendly', color: '#6366f1' },
+            { label: 'Prepare for call', color: '#8b5cf6' },
             { label: 'Send invoice', color: '#10b981' },
             { label: 'No action needed', color: '#6b7280' }
           ] },
@@ -372,6 +387,7 @@ export default function CRM({
             { label: 'Send a different pitch', color: '#8b5cf6' },
             { label: 'Send proposal', color: '#5B8FB9' },
             { label: 'Send Calendly', color: '#6366f1' },
+            { label: 'Prepare for call', color: '#8b5cf6' },
             { label: 'Send invoice', color: '#10b981' },
             { label: 'No action needed', color: '#6b7280' }
           ] },
@@ -439,7 +455,7 @@ export default function CRM({
           { table_view: 'contact_details', column_key: 'niche',             column_label: 'Niche',            column_type: 'text',     is_visible: false, sort_order: 9,  dropdown_options: [] },
           { table_view: 'contact_details', column_key: 'template_used',     column_label: 'Template Used',   column_type: 'link',     is_visible: false, sort_order: 10, dropdown_options: [] },
           { table_view: 'contact_details', column_key: 'action_to_take',    column_label: 'Action to Take',   column_type: 'dropdown', is_visible: false, sort_order: 11, dropdown_options: [
-            { label: 'Send first pitch', color: '#3b82f6' }, { label: 'Wait for reply', color: '#6b7280' }, { label: 'Send a follow up', color: '#f59e0b' }, { label: 'Send a different pitch', color: '#8b5cf6' }, { label: 'Send proposal', color: '#5B8FB9' }, { label: 'Send Calendly', color: '#6366f1' }, { label: 'Send invoice', color: '#10b981' }, { label: 'No action needed', color: '#6b7280' }
+            { label: 'Send first pitch', color: '#3b82f6' }, { label: 'Wait for reply', color: '#6b7280' }, { label: 'Send a follow up', color: '#f59e0b' }, { label: 'Send a different pitch', color: '#8b5cf6' }, { label: 'Send proposal', color: '#5B8FB9' }, { label: 'Send Calendly', color: '#6366f1' }, { label: 'Prepare for call', color: '#8b5cf6' }, { label: 'Send invoice', color: '#10b981' }, { label: 'No action needed', color: '#6b7280' }
           ] },
           { table_view: 'contact_details', column_key: 'last_contacted_at', column_label: 'Last Contacted At', column_type: 'date',    is_visible: false, sort_order: 12, dropdown_options: [] },
           { table_view: 'contact_details', column_key: 'linkedin_url',      column_label: 'LinkedIn',          column_type: 'text',    is_visible: false, sort_order: 13, dropdown_options: [] },
@@ -452,7 +468,7 @@ export default function CRM({
           ] },
           { table_view: 'pipeline', column_key: 'status',            column_label: 'Status',            column_type: 'dropdown', is_visible: true,  sort_order: 2, dropdown_options: [] },
           { table_view: 'pipeline', column_key: 'action_to_take',    column_label: 'Action to Take',    column_type: 'dropdown', is_visible: true,  sort_order: 3, dropdown_options: [
-            { label: 'Send first pitch', color: '#3b82f6' }, { label: 'Wait for reply', color: '#6b7280' }, { label: 'Send a follow up', color: '#f59e0b' }, { label: 'Send a different pitch', color: '#8b5cf6' }, { label: 'Send proposal', color: '#5B8FB9' }, { label: 'Send Calendly', color: '#6366f1' }, { label: 'Send invoice', color: '#10b981' }, { label: 'No action needed', color: '#6b7280' }
+            { label: 'Send first pitch', color: '#3b82f6' }, { label: 'Wait for reply', color: '#6b7280' }, { label: 'Send a follow up', color: '#f59e0b' }, { label: 'Send a different pitch', color: '#8b5cf6' }, { label: 'Send proposal', color: '#5B8FB9' }, { label: 'Send Calendly', color: '#6366f1' }, { label: 'Prepare for call', color: '#8b5cf6' }, { label: 'Send invoice', color: '#10b981' }, { label: 'No action needed', color: '#6b7280' }
           ] },
           { table_view: 'pipeline', column_key: 'last_contacted_at', column_label: 'Last Contacted At', column_type: 'date',     is_visible: true,  sort_order: 4, dropdown_options: [] },
           { table_view: 'pipeline', column_key: 'template_used',     column_label: 'Template Used',    column_type: 'link',     is_visible: true,  sort_order: 5, dropdown_options: [] },
@@ -1069,7 +1085,7 @@ export default function CRM({
   };
 
   const handleRenameFolder = async (folderId, newName) => {
-    if (['all', 'hot', 'warm', 'cold', 'calendly', 'clients'].includes(folderId)) {
+    if (['all', 'hot', 'warm', 'cold', 'followup', 'calendly', 'clients'].includes(folderId)) {
       setSystemFolderNames(prev => {
         const next = { ...prev, [folderId]: newName };
         localStorage.setItem('crm_system_folder_names', JSON.stringify(next));
@@ -1292,6 +1308,8 @@ export default function CRM({
       folderMatch = l.priority?.toLowerCase() === 'warm';
     } else if (selectedFolderId === 'cold') {
       folderMatch = l.priority?.toLowerCase() === 'cold';
+    } else if (selectedFolderId === 'followup') {
+      folderMatch = [...REPLY_CHECK_STATUSES, ...FOLLOW_UP_CHECK_STATUSES].includes(l.status);
     } else if (selectedFolderId === 'calendly') {
       folderMatch = l.status?.toLowerCase() === 'calendly_sent' || l.status === 'Calendly Sent';
     } else if (selectedFolderId === 'clients') {
@@ -1318,7 +1336,46 @@ export default function CRM({
     // Priority filter matches via helper
     const priorityMatch = matchesPriority(l.priority, priorityFilter);
 
-    return searchMatch && folderMatch && statusMatch && priorityMatch;
+    // Multi-select status filter from Drawer
+    const statusDrawerMatch = filterStatuses.length === 0 || 
+      filterStatuses.includes(l.status);
+
+    // Multi-select priority filter from Drawer
+    const priorityDrawerMatch = filterPriorities.length === 0 ||
+      filterPriorities.includes(l.priority);
+
+    // Multi-select action filter from Drawer
+    const actionDrawerMatch = filterActions.length === 0 ||
+      filterActions.includes(l.action_to_take);
+
+    // Multi-select project filter from Drawer (supports null/undefined comparison dynamically)
+    const projectDrawerMatch = filterProjects.length === 0 ||
+      filterProjects.includes(l.project);
+
+    // Date range filter
+    let dateRangeMatch = true;
+    if (filterDateRange !== 'all') {
+      const dateVal = l[filterDateField];
+      if (!dateVal) {
+        dateRangeMatch = false;
+      } else {
+        const dateMs = new Date(dateVal).getTime();
+        const nowMs = Date.now();
+        if (filterDateRange === 'today') {
+          const startOfToday = new Date();
+          startOfToday.setHours(0, 0, 0, 0);
+          dateRangeMatch = dateMs >= startOfToday.getTime();
+        } else if (filterDateRange === '7days') {
+          const sevenDaysAgo = nowMs - 7 * 24 * 60 * 60 * 1000;
+          dateRangeMatch = dateMs >= sevenDaysAgo;
+        } else if (filterDateRange === '30days') {
+          const thirtyDaysAgo = nowMs - 30 * 24 * 60 * 60 * 1000;
+          dateRangeMatch = dateMs >= thirtyDaysAgo;
+        }
+      }
+    }
+
+    return searchMatch && folderMatch && statusMatch && priorityMatch && statusDrawerMatch && priorityDrawerMatch && actionDrawerMatch && projectDrawerMatch && dateRangeMatch;
   });
 
   const filteredClients = clients.filter(c => {
@@ -1361,6 +1418,7 @@ export default function CRM({
               { id: 'hot', dbId: 'hot', defaultLabel: 'Hot', iconColor: '#EF4444' },
               { id: 'warm', dbId: 'warm', defaultLabel: 'Warm', iconColor: '#F59E0B' },
               { id: 'cold', dbId: 'cold', defaultLabel: 'Cold', iconColor: '#6B7280' },
+              { id: 'followup', dbId: 'followup', defaultLabel: 'Follow-ups', iconColor: '#8b5cf6' },
               { id: 'calendly', dbId: 'calendly', defaultLabel: 'Calendly Sent', iconColor: '#06B6D4' },
               { id: 'clients', dbId: 'clients', defaultLabel: 'Clients', iconColor: '#5B8FB9' }
             ].map(sysFolder => {
@@ -1615,6 +1673,35 @@ export default function CRM({
         {/* 🔍 Filter Bar Row */}
         {view !== 'clients' && (
           <div className="flex gap-4 align-center" style={{ marginTop: '0.75rem', marginBottom: '0.75rem', padding: '0.5rem 0.75rem', background: 'var(--bg-secondary)', borderRadius: '8px', flexWrap: 'wrap', border: '1px solid var(--border-color)' }}>
+            
+            <button
+              type="button"
+              onClick={() => setShowFilterDrawer(true)}
+              className="btn btn-secondary btn-sm"
+              style={{
+                display: 'flex',
+                alignItems: 'center',
+                gap: '0.35rem',
+                fontSize: '0.8rem',
+                padding: '0.35rem 0.75rem',
+                position: 'relative'
+              }}
+            >
+              <Filter size={14} /> Advanced Filters
+              {(filterStatuses.length > 0 || filterPriorities.length > 0 || filterActions.length > 0 || filterProjects.length > 0 || filterDateRange !== 'all') && (
+                <span style={{
+                  position: 'absolute',
+                  top: '-4px',
+                  right: '-4px',
+                  width: '8px',
+                  height: '8px',
+                  borderRadius: '50%',
+                  background: 'var(--accent-blue)',
+                  boxShadow: '0 0 6px var(--accent-blue)'
+                }} />
+              )}
+            </button>
+
             <div className="flex gap-2 align-center">
               <span style={{ fontSize: '0.8rem', fontWeight: 600, color: 'var(--text-secondary)' }}>Status:</span>
               <select
@@ -1651,9 +1738,13 @@ export default function CRM({
               </select>
             </div>
 
-            {(statusFilter || priorityFilter) && (
+            {(statusFilter || priorityFilter || filterStatuses.length > 0 || filterPriorities.length > 0 || filterActions.length > 0 || filterProjects.length > 0 || filterDateRange !== 'all') && (
               <button
-                onClick={() => { setStatusFilter(''); setPriorityFilter(''); }}
+                onClick={() => {
+                  setStatusFilter('');
+                  setPriorityFilter('');
+                  handleClearFilters();
+                }}
                 className="btn btn-secondary btn-sm"
                 style={{ fontSize: '0.75rem', padding: '0.25rem 0.5rem', height: 'auto' }}
               >
@@ -1761,11 +1852,21 @@ export default function CRM({
                     .filter(c => !pinnedKeys.includes(c.column_key) && c.is_visible)
                     .sort((a, b) => a.sort_order - b.sort_order);
                   const headerCols = [...pinnedCols, ...otherCols];
-                  return headerCols.map(col => (
-                    <th key={col.id} style={{ padding: '0.75rem 1rem' }}>
-                      {col.column_key === 'platform' ? 'Reach' : col.column_label}
-                    </th>
-                  ));
+                  return headerCols.map(col => {
+                    const isProject = col.column_key === 'project';
+                    const userPlan = (currentUser?.plan || 'trial').toLowerCase();
+                    const isProjectUnlocked = !['trial', 'starter'].includes(userPlan);
+                    return (
+                      <th key={col.id} style={{ padding: '0.75rem 1rem' }}>
+                        <div style={{ display: 'inline-flex', alignItems: 'center', gap: '0.25rem' }}>
+                          {col.column_key === 'platform' ? 'Reach' : col.column_label}
+                          {isProject && !isProjectUnlocked && (
+                            <Lock size={12} style={{ color: 'var(--text-muted)' }} title="Locked on Starter/Trial plans" />
+                          )}
+                        </div>
+                      </th>
+                    );
+                  });
                 })()
                 }
                 {isTeamView && <th style={{ padding: '0.75rem 1rem' }}>Added By</th>}
@@ -2966,6 +3067,7 @@ export default function CRM({
         }}
         onResetToDefault={handleResetToDefault}
         userId={currentUser.id}
+        currentUser={currentUser}
       />
 
       {/* Convert to Client Modal */}
@@ -3237,6 +3339,205 @@ export default function CRM({
         onUpgrade={() => { setImportResult(null); navigate('/upgrade'); }}
         onClose={() => setImportResult(null)}
       />
+
+      {/* 🔍 Advanced Filter Drawer */}
+      {showFilterDrawer && (
+        <div className="modal-backdrop" style={{ justifyContent: 'flex-end', backdropFilter: 'blur(3px)' }}>
+          <div 
+            className="modal-content"
+            style={{
+              maxWidth: '380px',
+              height: '100vh',
+              borderRadius: 0,
+              margin: 0,
+              display: 'flex',
+              flexDirection: 'column',
+              boxShadow: '-10px 0 30px rgba(0,0,0,0.3)',
+              borderLeft: '0.5px solid var(--border)',
+              borderTop: 'none',
+              borderRight: 'none',
+              borderBottom: 'none',
+              animation: 'slideInRight 0.3s ease-out',
+              textAlign: 'left',
+              padding: '1.5rem',
+              background: 'var(--bg-card)'
+            }}
+          >
+            {/* Header */}
+            <div className="modal-header" style={{ paddingBottom: '1rem', borderBottom: '1px solid var(--border)', marginBottom: '1.25rem' }}>
+              <h3 style={{ fontSize: '1rem', display: 'flex', alignItems: 'center', gap: '0.5rem', fontFamily: 'var(--font-heading)' }}>
+                <Filter size={16} /> Advanced Filters
+              </h3>
+              <button type="button" onClick={() => setShowFilterDrawer(false)} className="theme-toggle"><X size={18} /></button>
+            </div>
+
+            {/* Scrollable filters list */}
+            <div style={{ flex: 1, overflowY: 'auto', display: 'flex', flexDirection: 'column', gap: '1.5rem', paddingRight: '4px' }}>
+              
+              {/* Priorities filter */}
+              <div>
+                <span style={{ fontSize: '0.65rem', letterSpacing: '0.1em', textTransform: 'uppercase', color: 'var(--text-muted)', fontWeight: 600, display: 'block', marginBottom: '0.5rem' }}>Priority</span>
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '0.4rem' }}>
+                  {['Hot', 'Warm', 'Cold'].map(pr => (
+                    <label key={pr} style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', fontSize: '0.85rem', cursor: 'pointer', color: 'var(--text-secondary)' }}>
+                      <input 
+                        type="checkbox" 
+                        checked={filterPriorities.includes(pr)} 
+                        onChange={() => {
+                          setFilterPriorities(prev => prev.includes(pr) ? prev.filter(x => x !== pr) : [...prev, pr]);
+                        }} 
+                        style={{ accentColor: 'var(--accent-blue)' }}
+                      />
+                      {pr}
+                    </label>
+                  ))}
+                </div>
+              </div>
+
+              {/* Statuses filter */}
+              <div>
+                <span style={{ fontSize: '0.65rem', letterSpacing: '0.1em', textTransform: 'uppercase', color: 'var(--text-muted)', fontWeight: 600, display: 'block', marginBottom: '0.5rem' }}>Lead Status</span>
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '0.4rem', maxHeight: '180px', overflowY: 'auto', border: '1px solid var(--border)', padding: '0.5rem', borderRadius: '4px' }}>
+                  {statuses.map(st => (
+                    <label key={st.id || st.label} style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', fontSize: '0.85rem', cursor: 'pointer', color: 'var(--text-secondary)' }}>
+                      <input 
+                        type="checkbox" 
+                        checked={filterStatuses.includes(st.label)} 
+                        onChange={() => {
+                          setFilterStatuses(prev => prev.includes(st.label) ? prev.filter(x => x !== st.label) : [...prev, st.label]);
+                        }} 
+                        style={{ accentColor: 'var(--accent-blue)' }}
+                      />
+                      {st.label}
+                    </label>
+                  ))}
+                </div>
+              </div>
+
+              {/* Actions to Take filter */}
+              <div>
+                <span style={{ fontSize: '0.65rem', letterSpacing: '0.1em', textTransform: 'uppercase', color: 'var(--text-muted)', fontWeight: 600, display: 'block', marginBottom: '0.5rem' }}>Action to Take</span>
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '0.4rem', maxHeight: '180px', overflowY: 'auto', border: '1px solid var(--border)', padding: '0.5rem', borderRadius: '4px' }}>
+                  {[
+                    'Send first pitch', 'Wait for reply', 'Send a follow up',
+                    'Send a different pitch', 'Send proposal', 'Send Calendly',
+                    'Prepare for call', 'Send invoice', 'No action needed'
+                  ].map(act => (
+                    <label key={act} style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', fontSize: '0.85rem', cursor: 'pointer', color: 'var(--text-secondary)' }}>
+                      <input 
+                        type="checkbox" 
+                        checked={filterActions.includes(act)} 
+                        onChange={() => {
+                          setFilterActions(prev => prev.includes(act) ? prev.filter(x => x !== act) : [...prev, act]);
+                        }} 
+                        style={{ accentColor: 'var(--accent-blue)' }}
+                      />
+                      {act}
+                    </label>
+                  ))}
+                </div>
+              </div>
+
+              {/* Projects filter (gated) */}
+              <div>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '0.35rem', marginBottom: '0.5rem' }}>
+                  <span style={{ fontSize: '0.65rem', letterSpacing: '0.1em', textTransform: 'uppercase', color: 'var(--text-muted)', fontWeight: 600 }}>Project</span>
+                  {!(!['trial', 'starter'].includes((currentUser?.plan || 'trial').toLowerCase())) && (
+                    <Lock size={11} style={{ color: 'var(--text-muted)' }} />
+                  )}
+                </div>
+
+                {!(!['trial', 'starter'].includes((currentUser?.plan || 'trial').toLowerCase())) ? (
+                  <div style={{ fontSize: '0.75rem', color: 'var(--text-muted)', fontStyle: 'italic', background: 'var(--bg-secondary)', padding: '0.5rem', borderRadius: '4px', border: '1px dashed var(--border)' }}>
+                    🔒 Gated feature. Upgrade to Pro/Teams to categorize and filter leads by project.
+                  </div>
+                ) : (
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: '0.4rem', maxHeight: '120px', overflowY: 'auto', border: '1px solid var(--border)', padding: '0.5rem', borderRadius: '4px' }}>
+                    {Array.from(new Set(leads.map(l => l.project).filter(Boolean))).length === 0 ? (
+                      <span style={{ fontSize: '0.75rem', color: 'var(--text-muted)' }}>No projects defined yet.</span>
+                    ) : (
+                      Array.from(new Set(leads.map(l => l.project).filter(Boolean))).map(proj => (
+                        <label key={proj} style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', fontSize: '0.85rem', cursor: 'pointer', color: 'var(--text-secondary)' }}>
+                          <input 
+                            type="checkbox" 
+                            checked={filterProjects.includes(proj)} 
+                            onChange={() => {
+                              setFilterProjects(prev => prev.includes(proj) ? prev.filter(x => x !== proj) : [...prev, proj]);
+                            }} 
+                            style={{ accentColor: 'var(--accent-blue)' }}
+                          />
+                          {proj}
+                        </label>
+                      ))
+                    )}
+                  </div>
+                )}
+              </div>
+
+              {/* Date Filters */}
+              <div>
+                <span style={{ fontSize: '0.65rem', letterSpacing: '0.1em', textTransform: 'uppercase', color: 'var(--text-muted)', fontWeight: 600, display: 'block', marginBottom: '0.5rem' }}>Date range</span>
+                
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '0.75rem' }}>
+                  <div style={{ display: 'flex', gap: '0.5rem', alignItems: 'center' }}>
+                    <span style={{ fontSize: '0.75rem', color: 'var(--text-secondary)' }}>Filter field:</span>
+                    <select 
+                      value={filterDateField} 
+                      onChange={e => setFilterDateField(e.target.value)} 
+                      className="form-select"
+                      style={{ fontSize: '0.75rem', padding: '0.2rem 0.4rem', height: 'auto', width: 'auto' }}
+                    >
+                      <option value="created_at">Added Date</option>
+                      <option value="last_contacted_at">Last Contacted</option>
+                    </select>
+                  </div>
+
+                  <div style={{ display: 'flex', gap: '0.4rem', flexWrap: 'wrap' }}>
+                    {[
+                      { label: 'All Time', value: 'all' },
+                      { label: 'Today', value: 'today' },
+                      { label: 'Last 7 Days', value: '7days' },
+                      { label: 'Last 30 Days', value: '30days' }
+                    ].map(preset => (
+                      <button
+                        key={preset.value}
+                        type="button"
+                        onClick={() => setFilterDateRange(preset.value)}
+                        className={`btn btn-sm ${filterDateRange === preset.value ? 'btn-primary' : 'btn-secondary'}`}
+                        style={{ fontSize: '0.7rem', padding: '0.25rem 0.5rem' }}
+                      >
+                        {preset.label}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+              </div>
+
+            </div>
+
+            {/* Footer Actions */}
+            <div style={{ display: 'flex', gap: '0.75rem', marginTop: '1.25rem', borderTop: '1px solid var(--border)', paddingTop: '1rem' }}>
+              <button 
+                type="button" 
+                onClick={handleClearFilters}
+                className="btn btn-secondary" 
+                style={{ flex: 1, fontSize: '0.8rem', justifyContent: 'center' }}
+              >
+                Clear All
+              </button>
+              <button 
+                type="button" 
+                onClick={() => setShowFilterDrawer(false)}
+                className="btn btn-primary" 
+                style={{ flex: 1, fontSize: '0.8rem', justifyContent: 'center' }}
+              >
+                Apply Filters
+              </button>
+            </div>
+
+          </div>
+        </div>
+      )}
 
       {checkpointPopoverLead && (
         <CheckpointPopover
