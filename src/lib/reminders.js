@@ -12,23 +12,46 @@ export const FOLLOW_UP_CHECK_STATUSES = ['No Show / Rescheduled', 'Not Intereste
  */
 export function getSuggestionForStatus(status, suggestionRules = []) {
   if (!status) return null;
-  const rule = suggestionRules.find(r => r.status === status);
-  if (rule) return rule.suggested_action;
-  
-  // Fallback default suggestions
-  const fallbacks = {
-    'Lead': 'Send first pitch',
-    'Contacted': 'Wait for reply',
-    'Waiting': 'Wait for reply',
-    'No Show / Rescheduled': 'Send a follow up',
-    'Not Interested': 'Send a different pitch',
-    'Positive Reply': 'Send proposal',
-    'Proposal Sent': 'Send Calendly',
-    'Calendly Sent': 'Wait for reply',
-    'Booked': 'Prepare for call',
-    'Client': 'No action needed'
+
+  // Normalize string: trim, lowercase, replace underscores with spaces
+  const normalize = (val) => {
+    if (!val) return '';
+    return val.trim().toLowerCase().replace(/_/g, ' ');
   };
-  return fallbacks[status] || null;
+
+  const normStatus = normalize(status);
+
+  // 1. Try matching rule in database case-insensitively
+  const rule = suggestionRules.find(r => normalize(r.status) === normStatus);
+  if (rule) return rule.suggested_action;
+
+  // 2. Fallback default suggestions
+  const fallbacks = {
+    'lead': 'Send first pitch',
+    'contacted': 'Wait for reply',
+    'waiting': 'Wait for reply',
+    'no show': 'Send a follow up',
+    'no show / rescheduled': 'Send a follow up',
+    'not interested': 'Send a different pitch',
+    'positive reply': 'Send proposal',
+    'proposal sent': 'Send Calendly',
+    'calendly sent': 'Wait for reply',
+    'booked': 'Prepare for call',
+    'client': 'No action needed'
+  };
+
+  if (fallbacks[normStatus]) {
+    return fallbacks[normStatus];
+  }
+
+  // Fallback to substring matching if not matched directly
+  for (const [key, val] of Object.entries(fallbacks)) {
+    if (normStatus.includes(key) || key.includes(normStatus)) {
+      return val;
+    }
+  }
+
+  return null;
 }
 
 /**

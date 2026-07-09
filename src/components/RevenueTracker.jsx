@@ -7,7 +7,7 @@ import {
   Calendar,
   Globe
 } from 'lucide-react';
-import CurrencySelector from './CurrencySelector';
+import CurrencySelector, { CURRENCY_MAP } from './CurrencySelector';
 
 export default function RevenueTracker({ 
   currentUser, 
@@ -18,7 +18,8 @@ export default function RevenueTracker({
 }) {
   const [showAddForm, setShowAddForm] = useState(false);
   const [amount, setAmount] = useState('');
-  const [currency, setCurrency] = useState('');
+  const defaultCurrency = currentUser?.default_currency || currencySymbol || 'PKR';
+  const [currency, setCurrency] = useState(defaultCurrency);
   const [source, setSource] = useState('');
   const [date, setDate] = useState(new Date().toISOString().split('T')[0]);
   const [service, setService] = useState('');
@@ -107,7 +108,7 @@ export default function RevenueTracker({
               <div className="card" key={curr} style={{ textAlign: 'left' }}>
                 <span className="card-title">Total {curr} Earnings</span>
                 <div className="card-value" style={{ color: curr === 'USD' ? 'var(--primary-magenta)' : 'var(--primary-purple)' }}>
-                  {curr === 'USD' ? '$' : curr === 'PKR' ? `${currencySymbol} ` : curr === 'GBP' ? '£' : curr === 'EUR' ? '€' : `${curr} `}
+                  {CURRENCY_MAP[curr] || curr} 
                   {currencyTotals[curr].toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
                 </div>
                 <div className="card-subtext">

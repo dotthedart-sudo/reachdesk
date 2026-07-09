@@ -1,4 +1,4 @@
-﻿import React, { useState, useRef, useEffect } from 'react';
+import React, { useState, useRef, useEffect } from 'react';
 
 export const CURRENCIES = [
   { code: 'PKR', label: 'PKR (Rs.)' },
@@ -32,6 +32,15 @@ export const CURRENCIES = [
   { code: 'NOK', label: 'NOK (kr)' },
   { code: 'DKK', label: 'DKK (kr)' },
 ];
+
+// Derived map: code → symbol, e.g. { 'USD': '$', 'GBP': '£', ... }
+// Extracted from the label string between parentheses.
+export const CURRENCY_MAP = Object.fromEntries(
+  CURRENCIES.map(c => {
+    const match = c.label.match(/\((.+)\)/);
+    return [c.code, match ? match[1] : c.code];
+  })
+);
 
 export default function CurrencySelector({
   value,

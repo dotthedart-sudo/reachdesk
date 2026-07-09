@@ -41,7 +41,7 @@ export default function InvoiceGenerator({
   const [invoiceNumber, setInvoiceNumber] = useState(`INV-${new Date().getFullYear()}-${Math.floor(1000 + Math.random() * 9000)}`);
   const [issueDate, setIssueDate] = useState(new Date().toISOString().split('T')[0]);
   const [dueDate, setDueDate] = useState('');
-  const [currency, setCurrency] = useState('');
+  const [currency, setCurrency] = useState(resolvedCurrency);
   const [taxPercent, setTaxPercent] = useState(0);
   const [paymentDetails, setPaymentDetails] = useState(() => {
     let details = [];

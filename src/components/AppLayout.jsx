@@ -1,16 +1,18 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { Link, useLocation, useNavigate } from 'react-router-dom';
 import {
   Users, BookOpen, Receipt, TrendingUp, ShieldAlert,
   Sun, Moon, LayoutDashboard, Clock, LogOut,
-  Settings, MoreVertical, FileText, Bell, CreditCard,
-  Menu, X as XIcon, HelpCircle
+  Settings, FileText, Bell, CreditCard,
+  Menu, X as XIcon, HelpCircle,
+  PanelLeftClose, PanelLeftOpen
 } from 'lucide-react';
 import { PLAN_LIMITS } from '../lib/utils';
 import UpgradeLockModal from './UpgradeLockModal';
 import MobileNav from './MobileNav';
 import { useLeadLimitStatus, LeadLimitTopBar } from '../lib/leadLimits';
 import { exportLeads } from '../utils/exportUtils';
+import { supabase } from '../lib/supabase';
 
 export default function AppLayout({
   profile,
@@ -27,6 +29,36 @@ export default function AppLayout({
   const navigate = useNavigate();
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
 
+  // ── Collapsible sidebar (desktop only) ─────────────────────────────────────
+  // Initialise from profile immediately — no flash (value read before first paint)
+  const [isCollapsed, setIsCollapsed] = useState(() => !!profile?.sidebar_collapsed);
+  const saveTimeoutRef = useRef(null);
+
+  // Sync if profile prop changes (e.g. after onRefreshProfile resolves)
+  useEffect(() => {
+    setIsCollapsed(!!profile?.sidebar_collapsed);
+  }, [profile?.sidebar_collapsed]);
+
+  const handleToggleCollapse = () => {
+    const next = !isCollapsed;
+    setIsCollapsed(next);
+
+    // Persist to DB — direct save, same pattern as reminders_enabled
+    if (!profile?.id) return;
+    clearTimeout(saveTimeoutRef.current);
+    saveTimeoutRef.current = setTimeout(async () => {
+      try {
+        await supabase
+          .from('user_profiles')
+          .update({ sidebar_collapsed: next })
+          .eq('id', profile.id);
+      } catch (err) {
+        console.error('[Sidebar] Failed to persist collapse state:', err);
+      }
+    }, 400); // small debounce so rapid double-clicks don't fire two requests
+  };
+  // ───────────────────────────────────────────────────────────────────────────
+
   const limitStatus = useLeadLimitStatus(profile?.id);
 
   const handleExportLeads = async () => {
@@ -42,7 +74,7 @@ export default function AppLayout({
   const isAdmin = profile?.role === 'admin' || profile?.email === 'dotthedart@gmail.com';
   const planLimits = PLAN_LIMITS[(profile?.plan || 'trial').toLowerCase()] || PLAN_LIMITS.trial;
 
-  const handleNotesClickMobile = (e) => {
+  const handleNotesClickMobile = () => {
     setIsSidebarOpen(false);
   };
 
@@ -57,6 +89,9 @@ export default function AppLayout({
     return 'RD';
   };
 
+  // Tooltip helper: shows label only when sidebar is collapsed
+  const tip = (label) => isCollapsed ? label : undefined;
+
   return (
     <>
       <LeadLimitTopBar
@@ -68,16 +103,16 @@ export default function AppLayout({
       <div className="app-container">
       {/* Mobile Top Bar */}
       <div className="mobile-top-bar">
-        <button 
-          className="hamburger-btn" 
+        <button
+          className="hamburger-btn"
           onClick={() => setIsSidebarOpen(true)}
           aria-label="Open menu"
         >
           <Menu size={20} />
         </button>
-        <span 
-          className="logo-text" 
-          onClick={() => { navigate('/dashboard'); setIsSidebarOpen(false); }} 
+        <span
+          className="logo-text"
+          onClick={() => { navigate('/dashboard'); setIsSidebarOpen(false); }}
           style={{ cursor: 'pointer', display: 'flex', alignItems: 'center' }}
         >
           <span style={{fontFamily:'Mattone, sans-serif', textTransform:'uppercase', letterSpacing:'0.08em', fontSize:'11px', color:'var(--text-primary)', fontWeight:'400'}}>ReachDesk</span>
@@ -91,15 +126,35 @@ export default function AppLayout({
       )}
 
       {/* ── Sidebar ── */}
-      <div className={`sidebar ${isSidebarOpen ? 'mobile-open' : ''}`}>
+      <div className={`sidebar${isCollapsed ? ' collapsed' : ''}${isSidebarOpen ? ' mobile-open' : ''}`}>
         <div>
-          {/* Sidebar Logo */}
+          {/* Sidebar Logo + collapse toggle */}
           <div className="sidebar-logo" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
             <div style={{ display: 'flex', alignItems: 'center' }}>
-              <span style={{fontFamily:'Mattone, sans-serif', textTransform:'uppercase', letterSpacing:'0.08em', fontSize:'11px', color:'var(--text-primary)', fontWeight:'400'}}>ReachDesk</span>
+              <span
+                className="hp-logo nav-label"
+                style={{fontFamily:'Mattone, sans-serif', textTransform:'uppercase', letterSpacing:'0.08em', fontSize:'11px', color:'var(--text-primary)', fontWeight:'400'}}
+              >
+                ReachDesk
+              </span>
             </div>
-            <button 
-              className="hamburger-btn mobile-only-close" 
+
+            {/* Desktop collapse toggle — hidden on mobile via CSS (desktop @media block only) */}
+            <button
+              className="sidebar-collapse-btn"
+              onClick={handleToggleCollapse}
+              title={isCollapsed ? 'Expand sidebar' : 'Collapse sidebar'}
+              aria-label={isCollapsed ? 'Expand sidebar' : 'Collapse sidebar'}
+            >
+              {isCollapsed
+                ? <PanelLeftOpen size={16} />
+                : <PanelLeftClose size={16} />
+              }
+            </button>
+
+            {/* Mobile close button */}
+            <button
+              className="hamburger-btn mobile-only-close"
               onClick={() => setIsSidebarOpen(false)}
               style={{ display: 'none' }}
             >
@@ -110,47 +165,45 @@ export default function AppLayout({
           {/* Desktop-only Sidebar Menu */}
           <ul className="sidebar-menu desktop-only-menu">
             <li>
-              <Link to="/dashboard" className={`sidebar-item ${pathname === '/dashboard' ? 'active' : ''}`}>
+              <Link to="/dashboard" title={tip('Dashboard')} className={`sidebar-item ${pathname === '/dashboard' ? 'active' : ''}`}>
                 <LayoutDashboard size={18} /><span className="nav-label">Dashboard</span>
               </Link>
             </li>
-            
+
             <li>
-              <Link to="/leads" className={`sidebar-item ${pathname === '/leads' ? 'active' : ''}`}>
+              <Link to="/leads" title={tip('CRM Leads')} className={`sidebar-item ${pathname === '/leads' ? 'active' : ''}`}>
                 <Users size={18} /><span className="nav-label">CRM Leads</span>
               </Link>
             </li>
-            
+
             <li>
-              <Link to="/templates" className={`sidebar-item ${pathname === '/templates' ? 'active' : ''}`}>
+              <Link to="/templates" title={tip('Templates')} className={`sidebar-item ${pathname === '/templates' ? 'active' : ''}`}>
                 <BookOpen size={18} /><span className="nav-label">Templates</span>
               </Link>
             </li>
-            
+
             <li>
-              <Link to="/invoices" className={`sidebar-item ${pathname === '/invoices' ? 'active' : ''}`}>
+              <Link to="/invoices" title={tip('Client Invoices')} className={`sidebar-item ${pathname === '/invoices' ? 'active' : ''}`}>
                 <Receipt size={18} /><span className="nav-label">Client Invoices</span>
               </Link>
             </li>
-            
+
             <li>
-              <Link to="/revenue" className={`sidebar-item ${pathname === '/revenue' ? 'active' : ''}`}>
+              <Link to="/revenue" title={tip('Revenue Tracker')} className={`sidebar-item ${pathname === '/revenue' ? 'active' : ''}`}>
                 <TrendingUp size={18} /><span className="nav-label">Revenue Tracker</span>
               </Link>
             </li>
 
             <li>
-              <Link 
-                to="/notes" 
-                className={`sidebar-item ${pathname === '/notes' ? 'active' : ''}`}
-              >
+              <Link to="/notes" title={tip('Notes')} className={`sidebar-item ${pathname === '/notes' ? 'active' : ''}`}>
                 <FileText size={18} /><span className="nav-label">Notes</span>
               </Link>
             </li>
 
             <li>
-              <Link 
-                to="/reminders" 
+              <Link
+                to="/reminders"
+                title={tip('Reminders')}
                 className={`sidebar-item ${pathname === '/reminders' ? 'active' : ''}`}
                 style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}
               >
@@ -166,20 +219,19 @@ export default function AppLayout({
             </li>
 
             <li>
-              <Link to="/get-started" className={`sidebar-item ${pathname === '/get-started' ? 'active' : ''}`}>
+              <Link to="/get-started" title={tip('Get Started')} className={`sidebar-item ${pathname === '/get-started' ? 'active' : ''}`}>
                 <HelpCircle size={18} /><span className="nav-label">Get Started</span>
               </Link>
             </li>
 
-            {/* Configuration — visible to all plans */}
             <li>
-              <Link to="/settings" className={`sidebar-item ${pathname === '/settings' ? 'active' : ''}`}>
+              <Link to="/settings" title={tip('Configuration')} className={`sidebar-item ${pathname === '/settings' ? 'active' : ''}`}>
                 <Settings size={18} /><span className="nav-label">Configuration</span>
               </Link>
             </li>
 
             <li>
-              <Link to="/upgrade" className={`sidebar-item ${pathname === '/upgrade' ? 'active' : ''}`}>
+              <Link to="/upgrade" title={tip(profile?.plan_status === 'active' ? 'Manage Plan' : 'Upgrade Plan')} className={`sidebar-item ${pathname === '/upgrade' ? 'active' : ''}`}>
                 <CreditCard size={18} /><span className="nav-label">{profile?.plan_status === 'active' ? 'Manage Plan' : 'Upgrade Plan'}</span>
               </Link>
             </li>
@@ -188,6 +240,7 @@ export default function AppLayout({
               <li>
                 <Link
                   to="/admin"
+                  title={tip('Admin Panel')}
                   className={`sidebar-item ${pathname === '/admin' ? 'active' : ''}`}
                   style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}
                 >
@@ -207,8 +260,9 @@ export default function AppLayout({
             <li>
               <div
                 className="sidebar-item"
+                title={tip('Log Out')}
                 onClick={handleLogout}
-                style={{ marginTop: '1rem', borderTop: '0.5px solid var(--border)', paddingTop: '1rem', borderRadius: 0 }}
+                style={{ marginTop: '0.5rem', borderTop: '0.5px solid var(--border)', paddingTop: '0.75rem', borderRadius: 0, cursor: 'pointer' }}
               >
                 <LogOut size={16} style={{ color: 'var(--status-hot)' }} />
                 <span className="nav-label" style={{ color: 'var(--status-hot)' }}>Log Out</span>
@@ -223,7 +277,7 @@ export default function AppLayout({
                 Client Invoices
               </Link>
             </li>
-            
+
             <li>
               <Link to="/revenue" onClick={() => setIsSidebarOpen(false)} className="mobile-menu-item">
                 Revenue Tracker
@@ -231,8 +285,8 @@ export default function AppLayout({
             </li>
 
             <li>
-              <Link 
-                to="/notes" 
+              <Link
+                to="/notes"
                 onClick={handleNotesClickMobile}
                 className="mobile-menu-item"
               >
@@ -282,8 +336,9 @@ export default function AppLayout({
 
         <div className="sidebar-footer" style={{ position: 'relative' }}>
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '0 0.5rem', marginBottom: '0.25rem' }}>
-            <span style={{ fontSize: '0.8rem', color: 'var(--text-muted)', fontWeight: 600 }}>WORKSPACE</span>
+            <span className="workspace-label" style={{ fontSize: '0.8rem', color: 'var(--text-muted)', fontWeight: 600 }}>WORKSPACE</span>
             <button
+              className="theme-toggle"
               onClick={toggleTheme}
               style={{
                 background: 'none',
@@ -305,11 +360,11 @@ export default function AppLayout({
 
           <div className="user-info-card">
             {profile?.avatar_url ? (
-              <img 
-                src={profile.avatar_url} 
-                alt="Profile Avatar" 
+              <img
+                src={profile.avatar_url}
+                alt="Profile Avatar"
                 className="user-avatar"
-                style={{ objectFit: 'cover' }} 
+                style={{ objectFit: 'cover' }}
               />
             ) : (
               <div className="user-avatar">{getInitials()}</div>
@@ -335,7 +390,7 @@ export default function AppLayout({
 
       {/* ── Main Content ── */}
       <div className="main-content">
-        {/* Trial banner — days remaining is derived from trial_ends_at stored in DB */}
+        {/* Trial banner */}
         {profile?.plan === 'trial' && subStatus === 'active' && (() => {
           const msLeft = new Date(profile.trial_ends_at) - Date.now();
           const daysLeft = Math.max(0, Math.ceil(msLeft / (1000 * 60 * 60 * 24)));
@@ -352,6 +407,7 @@ export default function AppLayout({
         })()}
         {children}
       </div>
+
       {profile?.account_locked && (
         <UpgradeLockModal
           profile={profile}
@@ -359,11 +415,10 @@ export default function AppLayout({
           theme={theme}
         />
       )}
-      
+
       {/* Mobile Bottom Navigation */}
       <MobileNav onOpenMenu={() => setIsSidebarOpen(prev => !prev)} />
       </div>
     </>
   );
 }
-

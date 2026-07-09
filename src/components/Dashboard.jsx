@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
+import { CURRENCY_MAP } from './CurrencySelector';
 import { supabase } from '../lib/supabase';
 import { getTeamIds, PLAN_LIMITS } from '../lib/utils';
 import { 
@@ -15,13 +16,8 @@ import {
   ChevronRight, Calendar, AlertCircle, Check, X
 } from 'lucide-react';
 
-const CURRENCY_SYMBOLS = {
-  'PKR': 'Rs.',
-  'USD': '$',
-  'GBP': '£',
-  'EUR': '€',
-  'AED': 'Dhs'
-};
+// Use the shared map so any currency code the user picks renders the correct symbol
+const CURRENCY_SYMBOLS = CURRENCY_MAP;
 
 export default function Dashboard({ currentUser, onSelectLead }) {
   const navigate = useNavigate();
@@ -196,10 +192,16 @@ export default function Dashboard({ currentUser, onSelectLead }) {
     }
   };
 
-  // Unified Handler: Checkpoint Popover Outcome Log
-  const handleLogCheckpointOutcome = async (lead, targetStatus) => {
+  // Unified Handler: Checkpoint outcome — uses same object signature as CheckpointPopover
+  const handleLogCheckpointOutcome = async (lead, targetStatus, extraUpdates = {}) => {
     try {
-      await updateLeadStatusAndCheckpoint(lead, targetStatus, currentUser);
+      await updateLeadStatusAndCheckpoint({
+        lead,
+        newStatus: targetStatus,
+        suggestionRules,
+        currentUser,
+        extraUpdates
+      });
       loadDashboardData();
     } catch (err) {
       console.error('Error logging checkpoint outcome:', err);
@@ -273,8 +275,9 @@ export default function Dashboard({ currentUser, onSelectLead }) {
         <p className="color-muted">Outreach engine tracking, conversions, and follow-ups status.</p>
       </div>
 
-      {/* Primary KPIs Row (3 columns: Leads, Revenue target progress, Velocity Dial) */}
-      <div className="grid-3 stats-grid" style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(240px, 1fr))', gap: '1.5rem' }}>
+      {/* Primary KPIs Row — uses dash-kpi-grid so the mobile @media override
+          (max-width 768px → 1-column stack) applies correctly */}
+      <div className="dash-kpi-grid">
         
         {/* Leads card */}
         <div className="card flex align-start gap-3" style={{ minHeight: '140px' }}>
@@ -285,10 +288,22 @@ export default function Dashboard({ currentUser, onSelectLead }) {
             <span className="card-title" style={{ fontSize: '0.85rem', color: 'var(--text-muted)', fontWeight: 600 }}>Leads Overview</span>
             <div className="card-value" style={{ fontSize: '1.75rem', fontWeight: 700, margin: '0.2rem 0' }}>{metrics.total}</div>
             
-            <div style={{ display: 'flex', gap: '1rem', marginTop: '0.5rem', borderTop: '1px solid var(--border)', paddingTop: '0.5rem', fontSize: '0.75rem', color: 'var(--text-secondary)' }}>
-              <div>Contacted: <strong style={{ color: 'var(--text-primary)' }}>{metrics.contacted}</strong></div>
-              <div>Replied: <strong style={{ color: 'var(--text-primary)' }}>{metrics.replied}</strong></div>
-              <div>Positive: <strong style={{ color: 'var(--success-color)' }}>{metrics.positive}</strong></div>
+            {/* Contacted / Replied / Positive mini-stats
+                flex-wrap + min-width ensures the 3rd item never clips
+                regardless of sidebar state or card width */}
+            <div style={{
+              display: 'flex',
+              gap: '0.75rem',
+              marginTop: '0.5rem',
+              borderTop: '1px solid var(--border)',
+              paddingTop: '0.5rem',
+              fontSize: '0.75rem',
+              color: 'var(--text-secondary)',
+              flexWrap: 'wrap'
+            }}>
+              <div style={{ minWidth: '70px' }}>Contacted: <strong style={{ color: 'var(--text-primary)' }}>{metrics.contacted}</strong></div>
+              <div style={{ minWidth: '60px' }}>Replied: <strong style={{ color: 'var(--text-primary)' }}>{metrics.replied}</strong></div>
+              <div style={{ minWidth: '65px' }}>Positive: <strong style={{ color: 'var(--success-color)' }}>{metrics.positive}</strong></div>
             </div>
           </div>
         </div>
@@ -346,7 +361,7 @@ export default function Dashboard({ currentUser, onSelectLead }) {
               </span>
               <span style={{ fontSize: '0.8rem', color: 'var(--text-muted)' }}>({weeklyPitchCount} pitches)</span>
             </div>
-            <p style={{ fontSize: '0.7rem', color: 'var(--text-muted)', marginTop: '0.5rem', maxWidth: '160px', lineHeight: '1.2' }}>
+            <p style={{ fontSize: '0.7rem', color: 'var(--text-muted)', marginTop: '0.5rem', maxWidth: '150px', lineHeight: '1.3', wordBreak: 'break-word' }}>
               {velocityMsg}
             </p>
           </div>
@@ -378,44 +393,93 @@ export default function Dashboard({ currentUser, onSelectLead }) {
         <h3 style={{ fontSize: '0.9rem', marginBottom: '1rem', display: 'flex', alignItems: 'center', gap: '0.4rem', color: 'var(--text-secondary)' }}>
           <TrendingUp size={16} /> Lead Progression Pipeline
         </h3>
-        
-        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '0.5rem 0', position: 'relative', overflowX: 'auto' }}>
-          
-          {/* Horizontal dotted connector trail */}
-          <div style={{ position: 'absolute', top: '16px', left: '4%', right: '4%', height: '2px', borderTop: '2px dashed var(--border-strong)', zIndex: 0 }} />
 
-          {forwardStages.map((st, index) => {
-            const hasLeads = stageCounts[st] > 0;
-            return (
-              <div key={st} style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', width: '13%', zIndex: 1, minWidth: '70px' }}>
-                {/* Node circle */}
-                <div 
-                  style={{ 
-                    width: '24px', 
-                    height: '24px', 
-                    borderRadius: '50%', 
-                    background: hasLeads ? 'var(--accent-blue)' : 'var(--bg-card)', 
-                    border: `2px solid ${hasLeads ? 'var(--accent-blue)' : 'var(--border-strong)'}`, 
-                    color: hasLeads ? '#fff' : 'var(--text-muted)', 
-                    display: 'flex', 
-                    alignItems: 'center', 
-                    justifyContent: 'center', 
-                    fontSize: '0.7rem', 
+        {/*
+          Two-row stepper that scrolls horizontally on mobile without breaking.
+          Row 1: dots + inline dashed connectors (no absolute positioning)
+          Row 2: labels aligned under each dot via the same fixed-width columns
+          Both rows share a wrapper with overflow-x: auto.
+        */}
+        <div style={{ overflowX: 'auto', WebkitOverflowScrolling: 'touch', paddingBottom: '0.5rem' }}>
+          {/* Shared grid: each stage gets a 72px column, connectors get 1fr */}
+          <div style={{
+            display: 'grid',
+            gridTemplateColumns: forwardStages.map((_, i) =>
+              i < forwardStages.length - 1 ? '72px 1fr' : '72px'
+            ).join(' '),
+            minWidth: `${forwardStages.length * 72 + (forwardStages.length - 1) * 40}px`,
+            rowGap: '0.4rem'
+          }}>
+
+            {/* Row 1 — dots + connectors */}
+            {forwardStages.map((st, i) => {
+              const hasLeads = stageCounts[st] > 0;
+              return [
+                /* Node column */
+                <div key={`node-${st}`} style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', height: '28px' }}>
+                  <div style={{
+                    width: '26px',
+                    height: '26px',
+                    borderRadius: '50%',
+                    background: hasLeads ? 'var(--accent-blue)' : 'var(--bg-card)',
+                    border: `2px solid ${hasLeads ? 'var(--accent-blue)' : 'var(--border-strong)'}`,
+                    color: hasLeads ? '#fff' : 'var(--text-muted)',
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    fontSize: '0.7rem',
                     fontWeight: 800,
-                    boxShadow: hasLeads ? '0 0 8px rgba(91,143,185,0.4)' : 'none'
-                  }}
-                >
-                  {stageCounts[st]}
-                </div>
-                {/* Label text */}
-                <span style={{ fontSize: '0.7rem', color: hasLeads ? 'var(--text-primary)' : 'var(--text-muted)', marginTop: '0.5rem', fontWeight: hasLeads ? 600 : 400, textAlign: 'center', whiteSpace: 'nowrap' }}>
-                  {st}
-                </span>
-              </div>
-            );
-          })}
+                    flexShrink: 0,
+                    boxShadow: hasLeads ? '0 0 8px rgba(91,143,185,0.35)' : 'none',
+                    zIndex: 1,
+                    position: 'relative'
+                  }}>
+                    {stageCounts[st]}
+                  </div>
+                </div>,
+
+                /* Connector column (not rendered after last node) */
+                i < forwardStages.length - 1 && (
+                  <div key={`conn-${st}`} style={{ display: 'flex', alignItems: 'center', height: '28px' }}>
+                    <div style={{
+                      width: '100%',
+                      height: '2px',
+                      borderTop: '2px dashed var(--border-strong)'
+                    }} />
+                  </div>
+                )
+              ];
+            })}
+
+            {/* Row 2 — labels under each dot */}
+            {forwardStages.map((st, i) => {
+              const hasLeads = stageCounts[st] > 0;
+              return [
+                /* Label under node */
+                <div key={`label-${st}`} style={{ display: 'flex', justifyContent: 'center' }}>
+                  <span style={{
+                    fontSize: '0.62rem',
+                    color: hasLeads ? 'var(--text-primary)' : 'var(--text-muted)',
+                    fontWeight: hasLeads ? 600 : 400,
+                    textAlign: 'center',
+                    whiteSpace: 'nowrap',
+                    lineHeight: 1.2
+                  }}>
+                    {st}
+                  </span>
+                </div>,
+
+                /* Empty spacer under connector */
+                i < forwardStages.length - 1 && (
+                  <div key={`label-space-${st}`} />
+                )
+              ];
+            })}
+
+          </div>
         </div>
       </div>
+
 
       {/* Main Dual Grid: Column 1 = Up Next chronological feed, Column 2 = Urgent Reminders & Templates */}
       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(320px, 1fr))', gap: '1.5rem', marginTop: '0.5rem' }}>
@@ -489,23 +553,43 @@ export default function Dashboard({ currentUser, onSelectLead }) {
                           <span style={{ fontSize: '0.7rem', color: 'var(--text-muted)' }}>Select outcome to update lead status:</span>
                           
                           {REPLY_CHECK_STATUSES.includes(item.lead.status) ? (
-                            <div style={{ display: 'flex', gap: '0.35rem', flexWrap: 'wrap' }}>
-                              <button onClick={() => handleLogCheckpointOutcome(item.lead, 'Positive Reply')} className="btn btn-secondary btn-sm" style={{ fontSize: '0.7rem', padding: '0.2rem 0.4rem' }}>
-                                👍 Positive Reply
+                            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '0.4rem' }}>
+                              <button
+                                onClick={() => handleLogCheckpointOutcome(item.lead, 'Positive Reply', { reply_type: 'positive' })}
+                                className="btn btn-secondary btn-sm"
+                                style={{ fontSize: '0.75rem', padding: '6px', borderColor: 'var(--success-color)', color: 'var(--success-color)', fontWeight: 600 }}
+                              >
+                                Positive reply
                               </button>
-                              <button onClick={() => handleLogCheckpointOutcome(item.lead, 'Booked')} className="btn btn-secondary btn-sm" style={{ fontSize: '0.7rem', padding: '0.2rem 0.4rem' }}>
-                                📞 Call Booked
+                              <button
+                                onClick={() => handleLogCheckpointOutcome(item.lead, 'Booked', { reply_type: 'positive' })}
+                                className="btn btn-secondary btn-sm"
+                                style={{ fontSize: '0.75rem', padding: '6px', borderColor: '#8b5cf6', color: '#8b5cf6', fontWeight: 600 }}
+                              >
+                                Call booked
                               </button>
-                              <button onClick={() => handleLogCheckpointOutcome(item.lead, 'No Show / Rescheduled')} className="btn btn-secondary btn-sm" style={{ fontSize: '0.7rem', padding: '0.2rem 0.4rem' }}>
-                                ❌ No Show
+                              <button
+                                onClick={() => handleLogCheckpointOutcome(item.lead, 'No Show / Rescheduled')}
+                                className="btn btn-secondary btn-sm"
+                                style={{ fontSize: '0.75rem', padding: '6px', borderColor: 'var(--warning-color)', color: 'var(--warning-color)', fontWeight: 600 }}
+                              >
+                                No show
                               </button>
-                              <button onClick={() => handleLogCheckpointOutcome(item.lead, 'Not Interested')} className="btn btn-secondary btn-sm" style={{ fontSize: '0.7rem', padding: '0.2rem 0.4rem' }}>
-                                👎 Not Interested
+                              <button
+                                onClick={() => handleLogCheckpointOutcome(item.lead, 'Not Interested', { reply_type: 'negative' })}
+                                className="btn btn-secondary btn-sm"
+                                style={{ fontSize: '0.75rem', padding: '6px', borderColor: 'var(--danger-color)', color: 'var(--danger-color)', fontWeight: 600 }}
+                              >
+                                Negative reply
                               </button>
                             </div>
                           ) : (
-                            <button onClick={() => handleLogCheckpointOutcome(item.lead, item.lead.status)} className="btn btn-primary btn-sm" style={{ width: '100%', justifyContent: 'center', fontSize: '0.7rem', padding: '0.25rem' }}>
-                              ✓ Mark Checkpoint as Done
+                            <button
+                              onClick={() => handleLogCheckpointOutcome(item.lead, item.lead.status)}
+                              className="btn btn-primary btn-sm"
+                              style={{ width: '100%', justifyContent: 'center', fontSize: '0.75rem', padding: '6px', fontWeight: 600 }}
+                            >
+                              Mark checkpoint as done
                             </button>
                           )}
                         </div>

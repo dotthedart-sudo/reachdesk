@@ -8,19 +8,15 @@ import {
   Download, FileText
 } from 'lucide-react';
 import { exportLeads, exportNotes } from '../utils/exportUtils';
+import CurrencySelector, { CURRENCY_MAP } from './CurrencySelector';
 
 const PRESET_COLORS = [
   '#6b7280', '#3b82f6', '#f59e0b', '#10b981', '#8b5cf6',
   '#ef4444', '#ec4899', '#06b6d4', '#84cc16', '#f97316'
 ];
 
-const CURRENCY_SYMBOLS = {
-  'PKR': 'Rs.',
-  'USD': '$',
-  'GBP': '£',
-  'EUR': '€',
-  'AED': 'Dhs'
-};
+// Use CURRENCY_MAP for symbol lookups (covers all 34+ currencies)
+const CURRENCY_SYMBOLS = CURRENCY_MAP;
 
 export default function Configuration({
   brandName,
@@ -229,6 +225,36 @@ export default function Configuration({
         .eq('id', currentUser.id);
 
       if (updateErr) throw updateErr;
+
+      // Automatically sync suggestions in database if enabled
+      if (suggestionsEnabled && suggestionsAutoApply) {
+        try {
+          const [rulesRes, leadsRes] = await Promise.all([
+            supabase.from('action_suggestion_rules').select('*'),
+            supabase.from('leads').select('id, status, action_to_take').eq('user_id', currentUser.id)
+          ]);
+          const rules = rulesRes.data || [];
+          const leadsData = leadsRes.data || [];
+
+          if (leadsData.length > 0 && rules.length > 0) {
+            const updates = [];
+            for (const lead of leadsData) {
+              const matchedRule = rules.find(r => r.status.toLowerCase() === (lead.status || '').toLowerCase());
+              const suggestedAction = matchedRule ? matchedRule.suggested_action : null;
+              if (suggestedAction && lead.action_to_take !== suggestedAction) {
+                updates.push(
+                  supabase.from('leads').update({ action_to_take: suggestedAction }).eq('id', lead.id)
+                );
+              }
+            }
+            if (updates.length > 0) {
+              await Promise.all(updates);
+            }
+          }
+        } catch (syncErr) {
+          console.error('Error auto-syncing suggestion mismatches on save:', syncErr);
+        }
+      }
 
       // Also sync to localStorage so Invoice Generator picks it up immediately
       if (profileBankAccount) localStorage.setItem('reachdesk_bank_account', profileBankAccount.trim());
@@ -452,18 +478,11 @@ export default function Configuration({
           <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1.5rem', marginTop: '0.5rem' }}>
             <div className="form-group">
               <label className="form-label">Default Currency</label>
-              <select
-                className="form-select"
+              <CurrencySelector
                 value={profileDefaultCurrency}
-                onChange={(e) => setProfileDefaultCurrency(e.target.value)}
-                disabled={profileSaving}
-              >
-                <option value="PKR">PKR (Rs.)</option>
-                <option value="USD">USD ($)</option>
-                <option value="GBP">GBP (£)</option>
-                <option value="EUR">EUR (€)</option>
-                <option value="AED">AED (Dhs)</option>
-              </select>
+                onChange={(val) => setProfileDefaultCurrency(val)}
+                placeholder="Select currency..."
+              />
               <span style={{ fontSize: '0.75rem', color: 'var(--text-muted)', marginTop: '0.25rem', display: 'block' }}>Auto-fills invoices & target metrics</span>
             </div>
 

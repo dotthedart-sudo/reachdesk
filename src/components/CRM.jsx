@@ -66,21 +66,46 @@ export default function CRM({
 }) {
   const navigate = useNavigate();
   const [leads, setLeads] = useState([]);
-  const [folders, setFolders] = useState([]);
+  const [folders, setFolders] = useState(() => {
+    try {
+      const saved = localStorage.getItem('crm_folders');
+      return saved ? JSON.parse(saved) : [];
+    } catch (e) {
+      return [];
+    }
+  });
   const [userFolders, setUserFolders] = useState([]);
   const [clients, setClients] = useState([]);
-  const [statuses, setStatuses] = useState([
-    { label: 'Lead', color: '#3b82f6' },
-    { label: 'Contacted', color: '#f59e0b' },
-    { label: 'Waiting', color: '#10b981' },
-    { label: 'Positive Reply', color: '#8b5cf6' },
-    { label: 'Proposal Sent', color: '#06b6d4' },
-    { label: 'Calendly Sent', color: '#6B9FD4' },
-    { label: 'Booked', color: '#ec4899' },
-    { label: 'No Show / Rescheduled', color: '#ef4444' },
-    { label: 'Not Interested', color: '#6b7280' },
-    { label: 'Client', color: '#10b981' }
-  ]);
+  const [statuses, setStatuses] = useState(() => {
+    try {
+      const saved = localStorage.getItem('crm_custom_statuses');
+      return saved ? JSON.parse(saved) : [
+        { label: 'Lead', color: '#3b82f6' },
+        { label: 'Contacted', color: '#f59e0b' },
+        { label: 'Waiting', color: '#10b981' },
+        { label: 'Positive Reply', color: '#8b5cf6' },
+        { label: 'Proposal Sent', color: '#06b6d4' },
+        { label: 'Calendly Sent', color: '#6B9FD4' },
+        { label: 'Booked', color: '#ec4899' },
+        { label: 'No Show / Rescheduled', color: '#ef4444' },
+        { label: 'Not Interested', color: '#6b7280' },
+        { label: 'Client', color: '#10b981' }
+      ];
+    } catch (e) {
+      return [
+        { label: 'Lead', color: '#3b82f6' },
+        { label: 'Contacted', color: '#f59e0b' },
+        { label: 'Waiting', color: '#10b981' },
+        { label: 'Positive Reply', color: '#8b5cf6' },
+        { label: 'Proposal Sent', color: '#06b6d4' },
+        { label: 'Calendly Sent', color: '#6B9FD4' },
+        { label: 'Booked', color: '#ec4899' },
+        { label: 'No Show / Rescheduled', color: '#ef4444' },
+        { label: 'Not Interested', color: '#6b7280' },
+        { label: 'Client', color: '#10b981' }
+      ];
+    }
+  });
   const [templates, setTemplates] = useState([]);
   const [loading, setLoading] = useState(true);
 
@@ -137,7 +162,14 @@ export default function CRM({
       return next;
     });
   };
-  const [columnDefs, setColumnDefs] = useState([]);
+  const [columnDefs, setColumnDefs] = useState(() => {
+    try {
+      const saved = localStorage.getItem('crm_columns');
+      return saved ? JSON.parse(saved) : [];
+    } catch (e) {
+      return [];
+    }
+  });
   const [selectedLead, setSelectedLead] = useState(null);
   const [pastedLink, setPastedLink] = useState('');
 
@@ -303,7 +335,6 @@ export default function CRM({
         templatesRes,
         columnsRes,
         leadsRes,
-        clientsRes,
         rulesRes
       ] = await Promise.all([
         supabase.from('folders').select('*').eq('user_id', currentUser.id).order('sort_order', { ascending: true }),
@@ -314,7 +345,6 @@ export default function CRM({
         supabase.from('templates').select('id, title').or(`user_id.eq.${currentUser.id},user_id.is.null`),
         supabase.from('column_definitions').select('*').eq('user_id', currentUser.id).order('sort_order', { ascending: true }),
         supabase.from('leads').select('*').in('user_id', teamIds).order('created_at', { ascending: false }),
-        supabase.from('leads').select('*').in('user_id', teamIds).eq('status', 'Client').order('created_at', { ascending: false }),
         supabase.from('action_suggestion_rules').select('*')
       ]);
 
@@ -327,14 +357,16 @@ export default function CRM({
       const tData = templatesRes.data || [];
       const cols = columnsRes.data || [];
       const lData = leadsRes.data || [];
-      const cData = clientsRes.data || [];
+      const cData = lData.filter(l => l.status === 'Client');
       const rData = rulesRes.data || [];
 
       setFolders(fData);
+      localStorage.setItem('crm_folders', JSON.stringify(fData));
       setUserFolders(ufData);
       
       if (sData.length > 0) {
         setStatuses(sData);
+        localStorage.setItem('crm_custom_statuses', JSON.stringify(sData));
       }
       
       setTemplates(tData);
@@ -429,7 +461,9 @@ export default function CRM({
           .select();
 
         if (seedErr) throw seedErr;
-        setColumnDefs(seeded || []);
+        const seededList = seeded || [];
+        setColumnDefs(seededList);
+        localStorage.setItem('crm_columns', JSON.stringify(seededList));
       } else {
         // ── Deduplicate: keep only the first entry per (table_view, column_key) ──
         const seen = new Set();
@@ -489,9 +523,12 @@ export default function CRM({
             .from('column_definitions')
             .insert(missingDefs)
             .select();
-          setColumnDefs([...dedupedCols, ...(newCols || [])]);
+          const combined = [...dedupedCols, ...(newCols || [])];
+          setColumnDefs(combined);
+          localStorage.setItem('crm_columns', JSON.stringify(combined));
         } else {
           setColumnDefs(dedupedCols);
+          localStorage.setItem('crm_columns', JSON.stringify(dedupedCols));
         }
       }
     } catch (err) {
