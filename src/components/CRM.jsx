@@ -17,6 +17,7 @@ import CSVImporter from './CRM/CSVImporter';
 import CSVImportModal from './CRM/CSVImportModal';
 import ConvertModal from './CRM/ConvertModal';
 import GroupedStatusDropdown from './CRM/GroupedStatusDropdown';
+import GroupedTemplateDropdown from './CRM/GroupedTemplateDropdown';
 import CheckpointPopover from './CRM/CheckpointPopover';
 import { ReachIcons, PhonePopup, detectDomainIcon, detectPlatformLabel } from './icons/PlatformIcons';
 import { updateLeadStatusAndCheckpoint, getSuggestionForStatus, REPLY_CHECK_STATUSES, FOLLOW_UP_CHECK_STATUSES } from '../lib/reminders';
@@ -34,29 +35,18 @@ const PRESET_COLORS = [
   '#6b7280'  // Slate/Gray
 ];
 
-const STATUS_COLORS = {
-  'lead':           { bg: '#8B949E22', text: '#8B949E' },
-  'contacted':      { bg: '#5B8FB922', text: '#5B8FB9' },
-  'calendly_sent':  { bg: '#6B9FD422', text: '#6B9FD4' },
-  'booked':         { bg: '#E8A83822', text: '#E8A838' },
-  'follow_up':      { bg: '#F9731622', text: '#F97316' },
-  'positive_reply': { bg: '#7FB5A022', text: '#7FB5A0' },
-  'client':         { bg: '#4ADE8022', text: '#4ADE80' },
-  'not_interested': { bg: '#E0525222', text: '#E05252' },
-  'no_show':        { bg: '#6B728022', text: '#6B7280' }
-};
-
-const STATUS_LABELS = {
-  'lead':           'Lead',
-  'contacted':      'Contacted',
-  'positive_reply': 'Positive Reply',
-  'not_interested': 'Not Interested',
-  'booked':         'Call Booked',
-  'calendly_sent':  'Calendly Sent',
-  'client':         'Client',
-  'follow_up':      'Follow Up',
-  'no_show':        'No Show'
-};
+const DEFAULT_STATUSES = [
+  { label: 'Lead', color: '#3b82f6' },
+  { label: 'Contacted', color: '#f59e0b' },
+  { label: 'Waiting', color: '#10b981' },
+  { label: 'Positive Reply', color: '#8b5cf6' },
+  { label: 'Proposal Sent', color: '#06b6d4' },
+  { label: 'Calendly Sent', color: '#6B9FD4' },
+  { label: 'Booked', color: '#ec4899' },
+  { label: 'No Show / Rescheduled', color: '#ef4444' },
+  { label: 'Not Interested', color: '#6b7280' },
+  { label: 'Client', color: '#10b981' }
+];
 
 export default function CRM({ 
   currentUser, 
@@ -342,7 +332,7 @@ export default function CRM({
           ? supabase.from('user_folders').select('*').eq('user_id', currentUser.id).order('created_at', { ascending: true })
           : Promise.resolve({ data: [] }),
         supabase.from('custom_statuses').select('*').eq('user_id', currentUser.id).order('sort_order', { ascending: true }),
-        supabase.from('templates').select('id, title').or(`user_id.eq.${currentUser.id},user_id.is.null`),
+        supabase.from('templates').select('id, title, platform, is_starter').or(`user_id.eq.${currentUser.id},user_id.is.null`),
         supabase.from('column_definitions').select('*').eq('user_id', currentUser.id).order('sort_order', { ascending: true }),
         supabase.from('leads').select('*').in('user_id', teamIds).order('created_at', { ascending: false }),
         supabase.from('action_suggestion_rules').select('*')
@@ -1089,9 +1079,14 @@ export default function CRM({
 
     let isMatch = leadStr === ruleStr;
     if (field === 'Status') {
-      isMatch = leadStr === ruleStr || 
-        (STATUS_LABELS[leadValue] || '').toLowerCase() === ruleStr ||
-        Object.entries(STATUS_LABELS).some(([key, val]) => key.toLowerCase() === leadStr && val.toLowerCase() === ruleStr);
+      const normalizeStatus = (val) => {
+        if (!val) return '';
+        const lower = val.toLowerCase().trim();
+        if (lower === 'booked' || lower === 'call booked') return 'booked';
+        if (lower === 'no show' || lower === 'no show / rescheduled') return 'no show';
+        return lower.replace(/_/g, ' ');
+      };
+      isMatch = normalizeStatus(leadValue) === normalizeStatus(value);
     } else if (field === 'Priority') {
       isMatch = leadStr === ruleStr || matchesPriority(leadValue, value);
     }
@@ -1366,9 +1361,16 @@ export default function CRM({
     }
 
     // Status filter matches case-insensitively (supports code and labels)
-    const statusMatch = !statusFilter || 
-      (l.status || '').toLowerCase() === statusFilter.toLowerCase() ||
-      (STATUS_LABELS[l.status] || '').toLowerCase() === statusFilter.toLowerCase();
+    const statusMatch = !statusFilter || (() => {
+      const normalizeStatus = (val) => {
+        if (!val) return '';
+        const lower = val.toLowerCase().trim();
+        if (lower === 'booked' || lower === 'call booked') return 'booked';
+        if (lower === 'no show' || lower === 'no show / rescheduled') return 'no show';
+        return lower.replace(/_/g, ' ');
+      };
+      return normalizeStatus(l.status) === normalizeStatus(statusFilter);
+    })();
 
     // Priority filter matches via helper
     const priorityMatch = matchesPriority(l.priority, priorityFilter);
@@ -1753,8 +1755,8 @@ export default function CRM({
                     <option key={s.id || s.label} value={s.label}>{s.label}</option>
                   ))
                 ) : (
-                  Object.entries(STATUS_LABELS).map(([val, lbl]) => (
-                    <option key={val} value={val}>{lbl}</option>
+                  DEFAULT_STATUSES.map(s => (
+                    <option key={s.label} value={s.label}>{s.label}</option>
                   ))
                 )}
               </select>
@@ -1821,11 +1823,11 @@ export default function CRM({
                 <button onClick={() => setShowBulkStatusMenu(!showBulkStatusMenu)} className="btn btn-secondary btn-sm">
                   Change Status ▾
                 </button>
-                {showBulkStatusMenu && (
+                 {showBulkStatusMenu && (
                   <div className="dropdown-menu" style={{ position: 'absolute', top: '100%', marginTop: '0.25rem', right: 0, background: 'var(--bg-tertiary)', border: '1px solid var(--border-color)', borderRadius: '8px', zIndex: 9999, display: 'flex', flexDirection: 'column', padding: '0.25rem', maxHeight: '300px', overflowY: 'auto', minWidth: '160px', boxShadow: '0 8px 24px rgba(0,0,0,0.4)' }}>
-                    {Object.entries(STATUS_LABELS).map(([val, lbl]) => (
-                      <button key={val} onClick={() => { handleBulkStatusChange(val); setShowBulkStatusMenu(false); }} className="dropdown-item" style={{ background: 'transparent', border: 'none', padding: '0.4rem 0.8rem', textAlign: 'left', color: 'var(--text-primary)', cursor: 'pointer', borderRadius: '6px', fontSize: '0.85rem' }}>
-                        {lbl}
+                    {(statuses.length > 0 ? statuses : DEFAULT_STATUSES).map(s => (
+                      <button key={s.label} onClick={() => { handleBulkStatusChange(s.label); setShowBulkStatusMenu(false); }} className="dropdown-item" style={{ background: 'transparent', border: 'none', padding: '0.4rem 0.8rem', textAlign: 'left', color: 'var(--text-primary)', cursor: 'pointer', borderRadius: '6px', fontSize: '0.85rem' }}>
+                        {s.label}
                       </button>
                     ))}
                   </div>
@@ -1996,17 +1998,12 @@ export default function CRM({
                         if (col.column_key === 'template_used') {
                           return (
                             <td key={col.id} style={{ padding: '0.75rem 1rem' }} onClick={(e) => e.stopPropagation()}>
-                              <select
+                              <GroupedTemplateDropdown
                                 value={lead.template_used || ''}
-                                onChange={(e) => handleDropdownChange(lead.id, 'template_used', e.target.value || null)}
-                                className="form-select btn-sm"
-                                style={{ padding: '0.15rem 0.35rem', fontSize: '0.75rem', height: 'auto', width: 'auto', background: 'transparent' }}
-                              >
-                                <option value="">None</option>
-                                {templates.map(t => (
-                                  <option key={t.id} value={t.id}>{t.title}</option>
-                                ))}
-                              </select>
+                                onChange={(val) => handleDropdownChange(lead.id, 'template_used', val)}
+                                templates={templates}
+                                placeholder="None"
+                              />
                             </td>
                           );
                         }
@@ -2471,11 +2468,11 @@ export default function CRM({
                   >
                     <option value="">(No Folder / All Leads)</option>
                     <optgroup label="System Folders">
-                      <option value="sys:hot">🔴 Hot</option>
-                      <option value="sys:warm">🟡 Warm</option>
-                      <option value="sys:cold">⚫ Cold</option>
-                      <option value="sys:calendly">📅 Calendly Sent</option>
-                      <option value="sys:clients">💼 Clients</option>
+                      <option value="sys:hot">Hot</option>
+                      <option value="sys:warm">Warm</option>
+                      <option value="sys:cold">Cold</option>
+                      <option value="sys:calendly">Calendly Sent</option>
+                      <option value="sys:clients">Clients</option>
                     </optgroup>
                     {folders.length > 0 && (
                       <optgroup label="Manual Folders">
@@ -2496,14 +2493,12 @@ export default function CRM({
                 </div>
                 <div className="form-group">
                   <label className="form-label">Template Used</label>
-                  <select
+                  <GroupedTemplateDropdown
                     value={leadForm.template_used}
-                    onChange={e => setLeadForm({...leadForm, template_used: e.target.value})}
-                    className="form-select"
-                  >
-                    <option value="">None</option>
-                    {templates.map(t => <option key={t.id} value={t.id}>{t.title}</option>)}
-                  </select>
+                    onChange={val => setLeadForm({...leadForm, template_used: val})}
+                    templates={templates}
+                    placeholder="None"
+                  />
                 </div>
               </div>
 
@@ -2902,14 +2897,12 @@ export default function CRM({
                 </div>
                 <div className="form-group">
                   <label className="form-label">Template Used</label>
-                  <select
+                  <GroupedTemplateDropdown
                     value={leadForm.template_used}
-                    onChange={e => setLeadForm({...leadForm, template_used: e.target.value})}
-                    className="form-select"
-                  >
-                    <option value="">None</option>
-                    {templates.map(t => <option key={t.id} value={t.id}>{t.title}</option>)}
-                  </select>
+                    onChange={val => setLeadForm({...leadForm, template_used: val})}
+                    templates={templates}
+                    placeholder="None"
+                  />
                 </div>
               </div>
 
@@ -3060,16 +3053,11 @@ export default function CRM({
 
               <div className="form-group">
                 <label className="form-label">Which template did you use? (optional)</label>
-                <select 
+                <GroupedTemplateDropdown 
                   value={replyTemplateId} 
-                  onChange={e => setReplyTemplateId(e.target.value)} 
-                  className="form-select"
-                >
-                  <option value="">-- Select template (optional) --</option>
-                  {templates.map(t => (
-                    <option key={t.id} value={t.id}>{t.title}</option>
-                  ))}
-                </select>
+                  onChange={setReplyTemplateId} 
+                  templates={templates} 
+                />
               </div>
 
               <div className="form-group">
@@ -3263,8 +3251,8 @@ export default function CRM({
                               <option key={s.id || s.label} value={s.label}>{s.label}</option>
                             ))
                           ) : (
-                            Object.entries(STATUS_LABELS).map(([val, lbl]) => (
-                              <option key={val} value={val}>{lbl}</option>
+                            DEFAULT_STATUSES.map(s => (
+                              <option key={s.label} value={s.label}>{s.label}</option>
                             ))
                           )}
                         </select>

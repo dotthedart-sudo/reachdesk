@@ -168,7 +168,7 @@ export async function updateLeadStatusAndCheckpoint({
   }
 
   // Automatically adjust priority based on status changes
-  if (['Lead', 'Not Interested'].includes(newStatus)) {
+  if (['Lead', 'Not Interested', 'No Show / Rescheduled'].includes(newStatus)) {
     leadUpdate.priority = 'Cold';
   } else if (['Positive Reply', 'Proposal Sent', 'Calendly Sent'].includes(newStatus)) {
     leadUpdate.priority = 'Warm';

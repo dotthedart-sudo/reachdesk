@@ -260,7 +260,7 @@ export const ReachIcons = ({ lead, columnDefs = [] }) => {
         let IconComp = null;
         let iconColor = '#6B7280';
 
-        if (!isCustom) {
+        if (!isCustom && platform.toLowerCase() !== 'website') {
           const config = PLATFORM_MAP[platform.toLowerCase()];
           if (config) {
             IconComp = config.icon;

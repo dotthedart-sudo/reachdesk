@@ -492,7 +492,7 @@ export default function Dashboard({ currentUser, onSelectLead }) {
 
           {upNextFeed.length === 0 ? (
             <div style={{ padding: '2.5rem', textAlign: 'center', color: 'var(--text-muted)', fontSize: '0.85rem' }}>
-              🎉 You're all caught up! No due check-ins, invoice delays, or mismatching status actions.
+              You're all caught up! No due check-ins, invoice delays, or mismatching status actions.
             </div>
           ) : (
             <div className="flex-col gap-3">
@@ -727,7 +727,7 @@ export default function Dashboard({ currentUser, onSelectLead }) {
                     {copyAnalytics.slice(0, 3).map((item, idx) => (
                       <tr key={item.id} style={{ borderBottom: '1px solid var(--border)' }}>
                         <td style={{ padding: '0.4rem', fontWeight: 500 }}>
-                          {idx === 0 && <span style={{ marginRight: '0.15rem' }}>🏆</span>}
+                          {idx === 0 && <Trophy size={13} style={{ color: '#E8A838', marginRight: '0.25rem', display: 'inline-block', verticalAlign: 'middle' }} />}
                           {item.title}
                         </td>
                         <td style={{ padding: '0.4rem', color: 'var(--success-color)', fontWeight: 600, textAlign: 'right' }}>

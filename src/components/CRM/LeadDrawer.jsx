@@ -4,58 +4,11 @@ import { supabase } from '../../lib/supabase';
 import EditableDropdown from './EditableDropdown';
 import RichTextEditor from './RichTextEditor';
 import GroupedStatusDropdown from './GroupedStatusDropdown';
+import GroupedTemplateDropdown from './GroupedTemplateDropdown';
 import { updateLeadStatusAndCheckpoint, getSuggestionForStatus } from '../../lib/reminders';
 import PriorityDropdown from './PriorityDropdown';
 
-const STATUS_COLORS = {
-  // Lowercase / legacy keys
-  'lead':                   { bg: '#8B949E22', text: '#8B949E' },
-  'contacted':              { bg: '#5B8FB922', text: '#5B8FB9' },
-  'calendly_sent':          { bg: '#6B9FD422', text: '#6B9FD4' },
-  'booked':                 { bg: '#E8A83822', text: '#E8A838' },
-  'follow_up':              { bg: '#F9731622', text: '#F97316' },
-  'positive_reply':         { bg: '#7FB5A022', text: '#7FB5A0' },
-  'client':                 { bg: '#4ADE8022', text: '#4ADE80' },
-  'not_interested':         { bg: '#E0525222', text: '#E05252' },
-  'no_show':                { bg: '#6B728022', text: '#6B7280' },
 
-  // PascalCase / Title Case keys (matching rules)
-  'Lead':                   { bg: '#8B949E22', text: '#8B949E' },
-  'Contacted':              { bg: '#5B8FB922', text: '#5B8FB9' },
-  'Waiting':                { bg: '#10b98122', text: '#10b981' },
-  'Positive Reply':         { bg: '#7FB5A022', text: '#7FB5A0' },
-  'Proposal Sent':          { bg: '#06b6d422', text: '#06b6d4' },
-  'Calendly Sent':          { bg: '#6B9FD422', text: '#6B9FD4' },
-  'Booked':                 { bg: '#E8A83822', text: '#E8A838' },
-  'No Show / Rescheduled':  { bg: '#E0525222', text: '#E05252' },
-  'Not Interested':         { bg: '#6b728022', text: '#6b7280' },
-  'Client':                 { bg: '#4ADE8022', text: '#4ADE80' }
-};
-
-const STATUS_LABELS = {
-  // Lowercase / legacy keys
-  'lead':                   'Lead',
-  'contacted':              'Contacted',
-  'positive_reply':         'Positive Reply',
-  'not_interested':         'Not Interested',
-  'booked':                 'Call Booked',
-  'calendly_sent':          'Calendly Sent',
-  'client':                 'Client',
-  'follow_up':              'Follow Up',
-  'no_show':                'No Show',
-
-  // PascalCase / Title Case keys
-  'Lead':                   'Lead',
-  'Contacted':              'Contacted',
-  'Waiting':                'Waiting',
-  'Positive Reply':         'Positive Reply',
-  'Proposal Sent':          'Proposal Sent',
-  'Calendly Sent':          'Calendly Sent',
-  'Booked':                 'Call Booked',
-  'No Show / Rescheduled':  'No Show / Rescheduled',
-  'Not Interested':         'Not Interested',
-  'Client':                 'Client'
-};
 
 export default function LeadDrawer({
   lead,
@@ -845,14 +798,12 @@ export default function LeadDrawer({
                 return (
                   <div key={col.id} className="form-group">
                     <label className="form-label">{col.column_label}</label>
-                    <select
+                    <GroupedTemplateDropdown
                       value={val || ''}
-                      onChange={e => handleDropdownChange('template_used', e.target.value)}
-                      className="form-select"
-                    >
-                      <option value="">None</option>
-                      {templates.map(t => <option key={t.id} value={t.id}>{t.title}</option>)}
-                    </select>
+                      onChange={newVal => handleDropdownChange('template_used', newVal)}
+                      templates={templates}
+                      placeholder="None"
+                    />
                   </div>
                 );
               }
