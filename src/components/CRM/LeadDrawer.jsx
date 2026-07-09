@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { X, Calendar, User, FileText, Activity as ActivityIcon, Plus, Trash2, Pencil, Check } from 'lucide-react';
+import { X, Calendar, User, FileText, Activity as ActivityIcon, Plus, Trash2, Pencil, Check, Receipt, Lock } from 'lucide-react';
 import { supabase } from '../../lib/supabase';
+import { useAppContext } from '../../App';
 import EditableDropdown from './EditableDropdown';
 import RichTextEditor from './RichTextEditor';
 import GroupedStatusDropdown from './GroupedStatusDropdown';
@@ -24,7 +25,30 @@ export default function LeadDrawer({
   suggestionRules = []
 }) {
   const [activeTab, setActiveTab] = useState('contact'); // 'contact' | 'pipeline' | 'notes' | 'activity'
+  const { showToast } = useAppContext() || {};
   const [formData, setFormData] = useState({});
+  const [invoices, setInvoices] = useState([]);
+
+  useEffect(() => {
+    if (lead?.id) {
+      fetchInvoices();
+    }
+  }, [lead?.id]);
+
+  const fetchInvoices = async () => {
+    try {
+      const { data, error } = await supabase
+        .from('invoices')
+        .select('*')
+        .eq('lead_id', lead.id)
+        .order('created_at', { ascending: false });
+      if (!error && data) {
+        setInvoices(data);
+      }
+    } catch (e) {
+      console.error('Error fetching invoices:', e);
+    }
+  };
   const [showConvertModal, setShowConvertModal] = useState(false);
   const [showSuggestion, setShowSuggestion] = useState(true);
   const [convertForm, setConvertForm] = useState({
@@ -369,6 +393,9 @@ export default function LeadDrawer({
           suggestionRules,
           currentUser
         });
+        if (data?.draftCreated && showToast) {
+          showToast(`Draft invoice generated for ${[data.first_name, data.last_name].filter(Boolean).join(' ') || 'Lead'}`);
+        }
       } else {
         const { data: updatedData, error } = await supabase
           .from(table)
@@ -575,6 +602,17 @@ export default function LeadDrawer({
           }}
         >
           <ActivityIcon size={14} /> Activity
+        </button>
+        <button 
+          onClick={() => setActiveTab('invoices')}
+          style={{
+            flex: 1, padding: '0.75rem', border: 'none', background: 'transparent',
+            color: activeTab === 'invoices' ? 'var(--accent-blue)' : 'var(--text-muted)',
+            borderBottom: activeTab === 'invoices' ? '2px solid var(--accent-blue)' : '2px solid transparent',
+            fontFamily: 'var(--font-body)', fontWeight: 600, fontSize: '0.8rem', cursor: 'pointer', display: 'flex', alignContent: 'center', justifyContent: 'center', gap: '0.35rem'
+          }}
+        >
+          <Receipt size={14} /> Invoices
         </button>
       </div>
 
@@ -1127,6 +1165,50 @@ export default function LeadDrawer({
                         )}
                       </div>
                     )}
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+        )}
+
+        {/* Invoices Tab */}
+        {activeTab === 'invoices' && (
+          <div className="flex-col gap-3" style={{ textAlign: 'left' }}>
+            <h4 style={{ fontSize: '0.9rem', borderBottom: '1px solid var(--border-color)', paddingBottom: '0.5rem', marginBottom: '0.5rem', fontWeight: 600 }}>Linked Invoices</h4>
+            {invoices.length === 0 ? (
+              <div style={{ textAlign: 'center', padding: '2.5rem', color: 'var(--text-muted)', fontSize: '0.85rem' }}>
+                No invoices linked to this lead yet. Invoices are automatically drafted when status is set to Booked or Rescheduled.
+              </div>
+            ) : (
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '0.75rem' }}>
+                {invoices.map(inv => (
+                  <div key={inv.id} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '0.75rem 1rem', backgroundColor: 'var(--bg-secondary)', border: '1px solid var(--border-color)', borderRadius: '6px' }}>
+                    <div className="flex-col" style={{ gap: '0.2rem' }}>
+                      <span style={{ fontWeight: 600, fontSize: '0.85rem', color: 'var(--text-primary)' }}>{inv.invoice_number}</span>
+                      <span style={{ fontSize: '0.75rem', color: 'var(--text-muted)' }}>Created {new Date(inv.created_at).toLocaleDateString()}</span>
+                    </div>
+                    <div className="flex align-center gap-3">
+                      <span style={{ fontWeight: 700, fontSize: '0.9rem', color: 'var(--text-primary)' }}>{inv.total?.toLocaleString() || 0} {inv.currency || 'USD'}</span>
+                      <span style={{
+                        padding: '0.2rem 0.5rem',
+                        borderRadius: '4px',
+                        fontSize: '0.7rem',
+                        fontWeight: 600,
+                        backgroundColor: inv.status?.toLowerCase() === 'draft' ? 'rgba(255,255,255,0.08)' : 'rgba(16,185,129,0.15)',
+                        color: inv.status?.toLowerCase() === 'draft' ? 'var(--text-muted)' : '#10b981',
+                        textTransform: 'capitalize'
+                      }}>
+                        {inv.status}
+                      </span>
+                      <button
+                        onClick={() => window.open(`${window.location.origin}/i/${inv.id}`, '_blank')}
+                        className="btn btn-secondary btn-sm"
+                        style={{ padding: '0.25rem 0.5rem', fontSize: '0.75rem' }}
+                      >
+                        View
+                      </button>
+                    </div>
                   </div>
                 ))}
               </div>

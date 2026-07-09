@@ -29,6 +29,7 @@ export default function InvoiceGenerator({
 }) {
   const [showCreateForm, setShowCreateForm] = useState(false);
   const [copiedId, setCopiedId] = useState(null);
+  const [invoiceTab, setInvoiceTab] = useState('active'); // 'active' | 'drafts'
 
   // Resolve bank details and currency: profile DB values take priority over localStorage props
   const resolvedBankAccount = currentUser?.bank_account || bankAccount || '';
@@ -229,6 +230,12 @@ export default function InvoiceGenerator({
   };
 
   const userInvoices = invoices.filter(inv => inv.userEmail === currentUser.email);
+  const activeCount = userInvoices.filter(inv => inv.status?.toLowerCase() !== 'draft').length;
+  const draftsCount = userInvoices.filter(inv => inv.status?.toLowerCase() === 'draft').length;
+  const displayedInvoices = userInvoices.filter(inv => {
+    const isDraft = inv.status?.toLowerCase() === 'draft';
+    return invoiceTab === 'drafts' ? isDraft : !isDraft;
+  });
 
   return (
     <div className="flex-col gap-4">
@@ -550,15 +557,55 @@ export default function InvoiceGenerator({
       ) : (
         /* Saved Invoices List */
         <div className="table-container">
-          <div className="table-header-bar">
-            <h3>Saved Invoices</h3>
-            <span className="badge badge-starter">{userInvoices.length} Invoices</span>
+          <div className="table-header-bar" style={{ display: 'flex', flexDirection: 'column', gap: '0.75rem', alignItems: 'stretch' }}>
+            <div className="flex justify-between align-center" style={{ width: '100%' }}>
+              <h3>Saved Invoices</h3>
+              <span className="badge badge-starter">{displayedInvoices.length} Invoices</span>
+            </div>
+            
+            <div style={{ display: 'flex', borderBottom: '1px solid var(--border-color)', gap: '1rem', marginTop: '0.25rem' }}>
+              <button
+                type="button"
+                onClick={() => setInvoiceTab('active')}
+                style={{
+                  padding: '0.5rem 0.75rem',
+                  background: 'transparent',
+                  border: 'none',
+                  borderBottom: invoiceTab === 'active' ? '2px solid var(--accent-blue)' : '2px solid transparent',
+                  color: invoiceTab === 'active' ? 'var(--text-primary)' : 'var(--text-muted)',
+                  fontWeight: invoiceTab === 'active' ? 600 : 400,
+                  cursor: 'pointer',
+                  fontSize: '0.85rem'
+                }}
+              >
+                Active Invoices ({activeCount})
+              </button>
+              <button
+                type="button"
+                onClick={() => setInvoiceTab('drafts')}
+                style={{
+                  padding: '0.5rem 0.75rem',
+                  background: 'transparent',
+                  border: 'none',
+                  borderBottom: invoiceTab === 'drafts' ? '2px solid var(--accent-blue)' : '2px solid transparent',
+                  color: invoiceTab === 'drafts' ? 'var(--text-primary)' : 'var(--text-muted)',
+                  fontWeight: invoiceTab === 'drafts' ? 600 : 400,
+                  cursor: 'pointer',
+                  fontSize: '0.85rem'
+                }}
+              >
+                Drafts ({draftsCount})
+              </button>
+            </div>
           </div>
 
           <div className="table-wrapper">
-            {userInvoices.length === 0 ? (
+            {displayedInvoices.length === 0 ? (
               <div style={{ padding: '3rem', textAlign: 'center', color: 'var(--text-muted)' }}>
-                No invoices found. Click "Create Invoice" to bill your first client!
+                {invoiceTab === 'drafts' 
+                  ? 'No drafts found. Drafts are auto-generated when leads are set to Booked or Rescheduled status.'
+                  : 'No active invoices found. Click "Create Invoice" to bill your first client!'
+                }
               </div>
             ) : (
               <table className="data-table">
@@ -574,7 +621,7 @@ export default function InvoiceGenerator({
                   </tr>
                 </thead>
                 <tbody>
-                  {userInvoices.map(invoice => (
+                  {displayedInvoices.map(invoice => (
                     <tr key={invoice.id}>
                       <td style={{ fontWeight: 600 }}>{invoice.invoiceNumber}</td>
                       <td>
@@ -591,10 +638,11 @@ export default function InvoiceGenerator({
                       <td>
                         <select 
                           className="form-select"
-                          style={{ padding: '0.15rem 0.5rem', fontSize: '0.8rem', width: '90px' }}
+                          style={{ padding: '0.15rem 0.5rem', fontSize: '0.8rem', width: '100px' }}
                           value={invoice.status}
                           onChange={(e) => onUpdateInvoiceStatus(invoice.id, e.target.value)}
                         >
+                          {invoice.status?.toLowerCase() === 'draft' && <option value="draft">Draft</option>}
                           <option value="Sent">Sent</option>
                           <option value="Paid">Paid</option>
                           <option value="Overdue">Overdue</option>

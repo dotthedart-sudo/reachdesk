@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { CURRENCY_MAP } from './CurrencySelector';
 import { supabase } from '../lib/supabase';
+import { useAppContext } from '../App';
 import { getTeamIds, PLAN_LIMITS } from '../lib/utils';
 import { 
   updateLeadStatusAndCheckpoint, 
@@ -21,6 +22,7 @@ const CURRENCY_SYMBOLS = CURRENCY_MAP;
 
 export default function Dashboard({ currentUser, onSelectLead }) {
   const navigate = useNavigate();
+  const { showToast } = useAppContext() || {};
   const [metrics, setMetrics] = useState({ total: 0, contacted: 0, replied: 0, positive: 0 });
   const [copyAnalytics, setCopyAnalytics] = useState([]);
   const [reminders, setReminders] = useState([]);
@@ -70,7 +72,7 @@ export default function Dashboard({ currentUser, onSelectLead }) {
       // 1. Calculate Core Metrics
       const totalLeads = loadedLeads.length;
       const contactedLeads = loadedLeads.filter(l => l.status === 'Contacted').length;
-      const repliedLeads = loadedLeads.filter(l => ['Positive Reply', 'Booked', 'Client'].includes(l.status)).length;
+      const repliedLeads = loadedLeads.filter(l => ['Positive Reply', 'Booked', 'Closed Won'].includes(l.status)).length;
       const positiveReplies = loadedLeads.filter(l => l.status === 'Positive Reply').length;
 
       setMetrics({
@@ -195,13 +197,16 @@ export default function Dashboard({ currentUser, onSelectLead }) {
   // Unified Handler: Checkpoint outcome — uses same object signature as CheckpointPopover
   const handleLogCheckpointOutcome = async (lead, targetStatus, extraUpdates = {}) => {
     try {
-      await updateLeadStatusAndCheckpoint({
+      const updatedLead = await updateLeadStatusAndCheckpoint({
         lead,
         newStatus: targetStatus,
         suggestionRules,
         currentUser,
         extraUpdates
       });
+      if (updatedLead?.draftCreated && showToast) {
+        showToast(`Draft invoice generated for ${[updatedLead.first_name, updatedLead.last_name].filter(Boolean).join(' ') || 'Lead'}`);
+      }
       loadDashboardData();
     } catch (err) {
       console.error('Error logging checkpoint outcome:', err);
@@ -262,7 +267,7 @@ export default function Dashboard({ currentUser, onSelectLead }) {
   const dashOffset = pathLength * (1 - dialPercentage / 100);
 
   // Stepper calculations (7 stages count)
-  const forwardStages = ['Lead', 'Contacted', 'Positive Reply', 'Proposal Sent', 'Calendly Sent', 'Booked', 'Client'];
+  const forwardStages = ['Lead', 'Contacted', 'Positive Reply', 'Proposal Sent', 'Calendly Sent', 'Booked', 'Closed Won'];
   const stageCounts = {};
   forwardStages.forEach(st => {
     stageCounts[st] = leadsList.filter(l => l.status === st).length;

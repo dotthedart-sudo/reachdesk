@@ -2,10 +2,10 @@ import { supabase } from './supabase';
 
 export const CHECKPOINT_OFFSETS_HOURS = [12, 24, 72, 120, 168, 336, 504];
 
-export const RESOLVED_STATUSES = ['Positive Reply', 'Booked', 'Client'];
+export const RESOLVED_STATUSES = ['Positive Reply', 'Booked', 'Rescheduled', 'Closed Won'];
 
-export const REPLY_CHECK_STATUSES = ['Contacted', 'Waiting'];
-export const FOLLOW_UP_CHECK_STATUSES = ['No Show / Rescheduled', 'Not Interested', 'Calendly Sent'];
+export const REPLY_CHECK_STATUSES = ['Contacted', 'Calendly Sent', 'Proposal Sent', 'Followed up'];
+export const FOLLOW_UP_CHECK_STATUSES = ['No show', 'Not Interested'];
 
 /**
  * Returns the suggested action based on the rules and current status.
@@ -29,15 +29,15 @@ export function getSuggestionForStatus(status, suggestionRules = []) {
   const fallbacks = {
     'lead': 'Send first pitch',
     'contacted': 'Wait for reply',
-    'waiting': 'Wait for reply',
-    'no show': 'Send a follow up',
-    'no show / rescheduled': 'Send a follow up',
-    'not interested': 'Send a different pitch',
     'positive reply': 'Send proposal',
-    'proposal sent': 'Send Calendly',
     'calendly sent': 'Wait for reply',
     'booked': 'Prepare for call',
-    'client': 'No action needed'
+    'no show': 'Send a follow up',
+    'rescheduled': 'Prepare for call',
+    'proposal sent': 'Send Calendly',
+    'followed up': 'Wait for reply',
+    'not interested': 'Send a different pitch',
+    'closed won': 'Send invoice'
   };
 
   if (fallbacks[normStatus]) {
@@ -168,11 +168,11 @@ export async function updateLeadStatusAndCheckpoint({
   }
 
   // Automatically adjust priority based on status changes
-  if (['Lead', 'Not Interested', 'No Show / Rescheduled'].includes(newStatus)) {
+  if (['Lead', 'Contacted', 'No show', 'Not Interested'].includes(newStatus)) {
     leadUpdate.priority = 'Cold';
-  } else if (['Positive Reply', 'Proposal Sent', 'Calendly Sent'].includes(newStatus)) {
+  } else if (['Positive Reply', 'Calendly Sent', 'Booked', 'Rescheduled', 'Proposal Sent', 'Followed up'].includes(newStatus)) {
     leadUpdate.priority = 'Warm';
-  } else if (['Booked', 'Client'].includes(newStatus)) {
+  } else if (['Closed Won'].includes(newStatus)) {
     leadUpdate.priority = 'Hot';
   }
   
@@ -185,6 +185,69 @@ export async function updateLeadStatusAndCheckpoint({
     .single();
     
   if (updateError) throw updateError;
+
+  let draftCreated = false;
+  if (['Booked', 'Rescheduled'].includes(newStatus)) {
+    try {
+      draftCreated = await createAutoDraftInvoice(updatedLead, currentUser?.id || updatedLead.user_id);
+    } catch (e) {
+      console.error('Failed to create auto draft invoice:', e);
+    }
+  }
+
+  if (updatedLead) {
+    updatedLead.draftCreated = draftCreated;
+  }
   
   return updatedLead;
+}
+
+export async function createAutoDraftInvoice(lead, userId) {
+  // Check if a draft invoice already exists for this lead
+  const { data: existing, error: checkErr } = await supabase
+    .from('invoices')
+    .select('id')
+    .eq('lead_id', lead.id)
+    .eq('status', 'draft')
+    .limit(1);
+    
+  if (checkErr) {
+    console.error('Error checking existing draft invoice:', checkErr);
+    return false;
+  }
+  
+  if (existing && existing.length > 0) {
+    // Draft invoice already exists, do not create duplicate
+    return false;
+  }
+  
+  const invoiceNum = 'INV-' + Math.floor(100000 + Math.random() * 900000);
+  const clientName = lead.full_name || [lead.first_name, lead.last_name].filter(Boolean).join(' ') || 'Unnamed Client';
+  const clientEmail = lead.email || '';
+  
+  const dbInvoice = {
+    user_id: userId,
+    lead_id: lead.id,
+    invoice_number: invoiceNum,
+    client_name: clientName,
+    client_email: clientEmail,
+    status: 'draft',
+    issue_date: new Date().toISOString().split('T')[0],
+    due_date: null,
+    currency: 'USD',
+    subtotal: 0,
+    tax: 0,
+    total: 0,
+    items: []
+  };
+  
+  const { error: insErr } = await supabase
+    .from('invoices')
+    .insert(dbInvoice);
+    
+  if (insErr) {
+    console.error('Error inserting auto-draft invoice:', insErr);
+    return false;
+  }
+  return true;
 }

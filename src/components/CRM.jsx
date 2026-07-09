@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { useSearchParams, useNavigate } from 'react-router-dom';
 import { supabase } from '../lib/supabase';
+import { useAppContext } from '../App';
 import { getTeamIds, PLAN_LIMITS } from '../lib/utils';
 import { LeadLimitModal, LeadLimitToast, getRemainingLeadQuota, shouldShowCountdownToast, prepareBulkImport, BulkImportLimitModal, getPlanLeadLimit } from '../lib/leadLimits';
 import {
@@ -55,6 +56,7 @@ export default function CRM({
   onRefreshReminders 
 }) {
   const navigate = useNavigate();
+  const { showToast } = useAppContext() || {};
   const [leads, setLeads] = useState([]);
   const [folders, setFolders] = useState(() => {
     try {
@@ -874,7 +876,7 @@ export default function CRM({
     const lead = leads.find(l => l.id === leadId);
     if (!lead) return;
 
-    const lowerStatus = newStatus.toLowerCase();
+    const lowerStatus = newStatus.toLowerCase().replace(/[\s_]+/g, '_');
     const isReplyTrigger = ['positive_reply', 'booked'].includes(lowerStatus);
 
     if (isReplyTrigger && !lead.reply_type) {
@@ -894,6 +896,10 @@ export default function CRM({
         suggestionRules,
         currentUser
       });
+
+      if (updatedLead?.draftCreated && showToast) {
+        showToast(`Draft invoice generated for ${[updatedLead.first_name, updatedLead.last_name].filter(Boolean).join(' ') || 'Lead'}`);
+      }
 
       setLeads(prev => prev.map(l => l.id === leadId ? updatedLead : l));
       if (onRefreshReminders) onRefreshReminders();
@@ -933,6 +939,10 @@ export default function CRM({
           template_used: replyTemplateId || null
         }
       });
+
+      if (updatedLead?.draftCreated && showToast) {
+        showToast(`Draft invoice generated for ${[updatedLead.first_name, updatedLead.last_name].filter(Boolean).join(' ') || 'Lead'}`);
+      }
 
       setLeads(prev => prev.map(l => l.id === replyPromptLead.id ? updatedLead : l));
       setReplyPromptLead(null);
@@ -1186,6 +1196,17 @@ export default function CRM({
           });
         })
       );
+
+      const draftsCreated = updatedLeads.filter(l => l?.draftCreated);
+      if (draftsCreated.length > 0 && showToast) {
+        if (draftsCreated.length === 1) {
+          const u = draftsCreated[0];
+          showToast(`Draft invoice generated for ${[u.first_name, u.last_name].filter(Boolean).join(' ') || 'Lead'}`);
+        } else {
+          showToast(`Draft invoices generated for ${draftsCreated.length} leads`);
+        }
+      }
+
       setLeads(prev => prev.map(l => {
         const u = updatedLeads.find(item => item.id === l.id);
         return u ? u : l;

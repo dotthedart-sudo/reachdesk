@@ -18,14 +18,15 @@ const PRESET_COLORS = [
 const DEFAULT_STATUSES = [
   { label: 'Lead', color: '#3b82f6' },
   { label: 'Contacted', color: '#f59e0b' },
-  { label: 'Waiting', color: '#10b981' },
   { label: 'Positive Reply', color: '#8b5cf6' },
-  { label: 'Proposal Sent', color: '#06b6d4' },
   { label: 'Calendly Sent', color: '#6B9FD4' },
   { label: 'Booked', color: '#ec4899' },
-  { label: 'No Show / Rescheduled', color: '#ef4444' },
+  { label: 'No show', color: '#ef4444' },
+  { label: 'Rescheduled', color: '#a855f7' },
+  { label: 'Proposal Sent', color: '#06b6d4' },
+  { label: 'Followed up', color: '#10b981' },
   { label: 'Not Interested', color: '#6b7280' },
-  { label: 'Client', color: '#10b981' }
+  { label: 'Closed Won', color: '#10b981' }
 ];
 
 const seedingPromises = {};

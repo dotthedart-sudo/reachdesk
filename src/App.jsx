@@ -543,9 +543,11 @@ function AppProvider({ children }) {
 
   const fetchAllData = async (ids, userId, isAdmin, profileObj = null) => {
     try {
+
+
       const [inv, rev, l, t] = await Promise.all([
         supabase.from('invoices').select('*').eq('user_id', userId).order('created_at', { ascending: false }),
-        supabase.from('revenue_entries').select('*').eq('user_id', userId).order('created_at', { ascending: false }),
+        supabase.from('revenue_entries').select('*').eq('user_id', userId).order('paid_at', { ascending: false }),
         supabase.from('leads').select('*').in('user_id', ids),
         supabase.from('templates').select('*').eq('user_id', userId),
       ]);
