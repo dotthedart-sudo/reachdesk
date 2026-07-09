@@ -177,15 +177,13 @@ function GetStartedContent({ isAppView, theme, navigate }) {
           <section id="pipeline-stages" style={{ scrollMarginTop: '120px' }}>
             <h2 style={sectionTitle()}>Pipeline Stages</h2>
             <p style={{ color: muted, marginBottom: '1.5rem', marginTop: 0 }}>
-              ReachDesk uses fully customizable pipeline stages. Default stages include: Lead, Contacted, Replied, Positive Reply, Booked, Calendly Sent, Call Booked, Client, Follow Up, No Show, Not Interested. Add, rename, or reorder stages from Configuration Settings.
+              ReachDesk uses fully customizable pipeline stages. Default stages include: Lead, Contacted, Positive Reply, Booked, Calendly Sent, Call Booked, Client, Follow Up, No Show, Not Interested. Add, rename, or reorder stages from Configuration Settings.
             </p>
             <div style={{ display: 'flex', flexDirection: 'column', gap: '0.9rem' }}>
               {[{
                 color: '#3b82f6', name: 'Lead', desc: 'Initial status when a new prospect is added to your CRM.',
               }, {
                 color: '#f59e0b', name: 'Contacted', desc: 'You have sent the initial outreach message.',
-              }, {
-                color: '#10b981', name: 'Replied', desc: 'Prospect has replied to your message.',
               }, {
                 color: '#8b5cf6', name: 'Positive Reply', desc: 'Lead replied with interest, dismissing pending reminders.',
               }, {
