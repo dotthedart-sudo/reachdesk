@@ -694,7 +694,7 @@ export function UpgradePage({ profile, handleLogout, onRefreshProfile, bankAccou
         {/* Branding header — only on standalone (non-embedded) paywall */}
         {!isEmbedded && (
           <div style={{ marginBottom: '0.5rem' }}>
-            <span style={{ fontFamily: 'Mattone, sans-serif', textTransform: 'uppercase', letterSpacing: '0.08em', fontSize: '22px', color: 'var(--text-primary)', fontWeight: '400' }}>ReachDesk</span>
+            <span style={{ fontFamily: 'Mattone, sans-serif', textTransform: 'uppercase', letterSpacing: '0.08em', fontSize: '22px', color: 'var(--text-primary)', fontWeight: '400' }}>ReachDesk CRM</span>
           </div>
         )}
 

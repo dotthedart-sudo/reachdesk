@@ -5,7 +5,7 @@
 export const organizationSchema = () => ({
   '@context': 'https://schema.org',
   '@type': 'Organization',
-  name: 'ReachDesk',
+  name: 'ReachDesk CRM',
   url: 'https://reachdeskcrm.com',
   logo: 'https://reachdeskcrm.com/reachdesk-logo.svg',
   description: 'CRM for freelancers and agencies that centralizes leads and automates follow-ups.',
@@ -19,7 +19,7 @@ export const organizationSchema = () => ({
 export const websiteSchema = () => ({
   '@context': 'https://schema.org',
   '@type': 'WebSite',
-  name: 'ReachDesk',
+  name: 'ReachDesk CRM',
   url: 'https://reachdeskcrm.com',
   searchAction: {
     '@type': 'SearchAction',
@@ -33,7 +33,7 @@ export const websiteSchema = () => ({
 export const softwareApplicationSchema = () => ({
   '@context': 'https://schema.org',
   '@type': 'SoftwareApplication',
-  name: 'ReachDesk',
+  name: 'ReachDesk CRM',
   description: 'CRM for freelancers and agencies.',
   url: 'https://reachdeskcrm.com',
   applicationCategory: 'BusinessApplication',
@@ -56,7 +56,7 @@ export const blogPostSchema = (post) => ({
   dateModified: post.modifiedDate || post.publishedDate,
   author: {
     '@type': 'Organization',
-    name: 'ReachDesk',
+    name: 'ReachDesk CRM',
   },
   mainEntityOfPage: {
     '@type': 'WebPage',

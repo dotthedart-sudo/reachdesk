@@ -6,7 +6,7 @@ category: Communication
 publishedDate: 2026-02-08
 modifiedDate: 2026-02-08
 coverImage: https://reachdeskcrm.com/og-image.png
-author: ReachDesk
+author: ReachDesk CRM
 ---
 
 # How to Follow Up Without Being Annoying

@@ -109,7 +109,7 @@ export default function UserNotificationBell({ profile, onRefreshProfile }) {
             // 1. Local browser notification fallback
             if ('Notification' in window && Notification.permission === 'granted') {
               try {
-                new Notification('ReachDesk — Follow-up Due', {
+                new Notification('ReachDesk CRM — Follow-up Due', {
                   body: `Did ${rem.lead_name || 'Lead'} reply? Tap to update status and stop reminders.`,
                   icon: '/android-chrome-192x192.png',
                   tag: `reminder-${rem.id}`,
@@ -123,7 +123,7 @@ export default function UserNotificationBell({ profile, onRefreshProfile }) {
             supabase.functions.invoke('send-push-notification', {
               body: {
                 target_user_id: profile.id,
-                title: 'ReachDesk — Follow-up Due',
+                title: 'ReachDesk CRM — Follow-up Due',
                 body: `Did ${rem.lead_name || 'Lead'} reply? Tap to update status and stop reminders.`,
                 url: `/dashboard?reminderId=${rem.id}`,
                 tag: `reminder-${rem.id}`
@@ -191,7 +191,7 @@ export default function UserNotificationBell({ profile, onRefreshProfile }) {
               // Fire browser Notification popup for in-app / PWA
               if ('Notification' in window && Notification.permission === 'granted') {
                 try {
-                  new Notification(payload.new.title || 'ReachDesk', {
+                  new Notification(payload.new.title || 'ReachDesk CRM', {
                     body: payload.new.message || 'You have a new notification',
                     icon: '/android-chrome-192x192.png',
                     tag: `user-notif-${payload.new.id}`,
@@ -221,8 +221,8 @@ export default function UserNotificationBell({ profile, onRefreshProfile }) {
                 try {
                   const fromEmail = payload.new.from_email || 'Someone';
                   const notifTitle = payload.new.type === 'new_signup'
-                    ? 'ReachDesk — New Signup'
-                    : 'ReachDesk — Upgrade Request';
+                    ? 'ReachDesk CRM — New Signup'
+                    : 'ReachDesk CRM — Upgrade Request';
                   const notifBody = payload.new.type === 'new_signup'
                     ? `${fromEmail} just signed up`
                     : payload.new.message || `${fromEmail} requested an upgrade`;

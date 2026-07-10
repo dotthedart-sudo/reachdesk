@@ -6,7 +6,7 @@ category: Lead Management
 publishedDate: 2026-03-15
 modifiedDate: 2026-03-15
 coverImage: https://reachdeskcrm.com/og-image.png
-author: ReachDesk
+author: ReachDesk CRM
 ---
 
 # What Should I Do Next? The One Question Your CRM Should Answer Every Morning
@@ -76,9 +76,9 @@ If the answer is no — if you have to spend 20 minutes deciding what to do — 
 
 The best CRM is not the one with the most features. It's the one you actually use daily.
 
-## ReachDesk and the "Next Action" Philosophy
+## ReachDesk CRM and the "Next Action" Philosophy
 
-ReachDesk is built around this philosophy. The dashboard is designed to answer one question the moment you open it: what should you do next?
+ReachDesk CRM is built around this philosophy. The dashboard is designed to answer one question the moment you open it: what should you do next?
 
 The Up Next feed surfaces leads based on priority and last contact date. The lightbulb suggestion system tells you what action to take on each. The checkpoint system reminds you when follow-ups are due.
 
@@ -97,7 +97,7 @@ A: No — because Hot/Warm/Cold triage separates urgency levels. Only your Hot l
 **Q: What makes an action suggestion actually useful?**
 A: Specificity. "Follow up" is not useful. "This lead replied positively 3 days ago — send them the proposal they asked about" is useful. The suggestion should tell you not just who to contact but what to do and why.
 
-**Q: Is ReachDesk free?**
+**Q: Is ReachDesk CRM free?**
 A: There's a free trial with 65 leads and 2 templates — enough to test the workflow properly. Paid plans start at $12/month. [Start your free trial here](https://reachdeskcrm.com).
 
 ---

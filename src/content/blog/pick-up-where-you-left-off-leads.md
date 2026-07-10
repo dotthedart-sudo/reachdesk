@@ -6,7 +6,7 @@ category: Lead Management
 publishedDate: 2026-03-05
 modifiedDate: 2026-03-05
 coverImage: https://reachdeskcrm.com/og-image.png
-author: ReachDesk
+author: ReachDesk CRM
 ---
 
 # How to Pick Up Exactly Where You Left Off With Every Lead

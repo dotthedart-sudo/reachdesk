@@ -6,7 +6,7 @@ category: Productivity
 publishedDate: 2026-03-01
 modifiedDate: 2026-03-01
 coverImage: https://reachdeskcrm.com/og-image.png
-author: ReachDesk
+author: ReachDesk CRM
 ---
 
 # You Sit Down to Do Outreach. Now What?
@@ -119,7 +119,7 @@ A: Email shows you who reached out to you. A pipeline system shows you who YOU s
 A: Start with one. Once it's working, you can segment by client type or project. Complexity before clarity is a trap.
 
 **Q: What CRM do you recommend for this?**
-A: ReachDesk is built specifically around this daily clarity workflow — Hot/Warm/Cold priority tags, pipeline statuses, and an Up Next feed that surfaces your most important leads automatically. [Try it free here](https://reachdeskcrm.com).
+A: ReachDesk CRM is built specifically around this daily clarity workflow — Hot/Warm/Cold priority tags, pipeline statuses, and an Up Next feed that surfaces your most important leads automatically. [Try it free here](https://reachdeskcrm.com).
 
 ---
 

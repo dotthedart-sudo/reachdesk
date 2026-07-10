@@ -6,7 +6,7 @@ category: Productivity
 publishedDate: 2026-03-12
 modifiedDate: 2026-03-12
 coverImage: https://reachdeskcrm.com/og-image.png
-author: ReachDesk
+author: ReachDesk CRM
 ---
 
 # The Hidden Cost of Checking 5 Apps Before You Start Work

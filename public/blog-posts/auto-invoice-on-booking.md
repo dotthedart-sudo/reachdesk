@@ -6,7 +6,7 @@ category: Invoicing & Payments
 publishedDate: 2026-01-18
 modifiedDate: 2026-01-18
 coverImage: https://reachdeskcrm.com/og-image.png
-author: ReachDesk
+author: ReachDesk CRM
 ---
 
 # Auto-Draft Invoices When a Lead Books: The Cash Flow Hack Nobody Talks About
@@ -104,7 +104,7 @@ It should *not* include:
 
 ## Setup: 30 Seconds
 
-In ReachDesk, auto-invoicing happens automatically the moment a lead's status moves to "Booked" or "Rescheduled." No configuration needed — it just works.
+In ReachDesk CRM, auto-invoicing happens automatically the moment a lead's status moves to "Booked" or "Rescheduled." No configuration needed — it just works.
 
 For other CRMs, you might need to set up a Zapier automation or similar, which takes 5-10 minutes. The ROI is still massive: 6 minutes of setup = $6,000+ in freed-up working capital.
 
@@ -145,7 +145,7 @@ This is what ["lean sales operations"](https://reachdesk.com/features) looks lik
 
 If you're currently creating invoices manually after every booking, set up auto-draft invoicing this week. It'll save you 5+ hours per month and improve your cash flow immediately.
 
-Check out [how to use auto-draft invoices in ReachDesk](/blog/how-to-organize-leads) — part of a complete lead organization system designed specifically for freelancers.
+Check out [how to use auto-draft invoices in ReachDesk CRM](/blog/how-to-organize-leads) — part of a complete lead organization system designed specifically for freelancers.
 
 ---
 

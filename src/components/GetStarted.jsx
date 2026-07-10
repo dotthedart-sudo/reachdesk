@@ -122,7 +122,7 @@ function GetStartedContent({ isAppView, theme, navigate }) {
 
           {/* 1 — How It Works */}
           <section id="how-it-works" style={{ scrollMarginTop: '120px' }}>
-            <h2 style={sectionTitle()}>How ReachDesk Works</h2>
+            <h2 style={sectionTitle()}>How ReachDesk CRM Works</h2>
             <div style={{ display: 'flex', flexDirection: 'column', gap: '1.75rem' }}>
               {[{
                 n: '1', title: 'Add your first lead',
@@ -151,7 +151,7 @@ function GetStartedContent({ isAppView, theme, navigate }) {
               <Bell size={18} /> How Follow-up Reminders Work
             </h2>
             <p style={{ color: muted, margin: '0 0 1rem 0' }}>
-              ReachDesk features an automated task scheduling system to keep your prospect outreach active. When a lead's status is updated to <strong>Contacted</strong> (or their last contacted date changes), the system automatically schedules a series of <strong>7 follow-up reminders</strong>:
+              ReachDesk CRM features an automated task scheduling system to keep your prospect outreach active. When a lead's status is updated to <strong>Contacted</strong> (or their last contacted date changes), the system automatically schedules a series of <strong>7 follow-up reminders</strong>:
             </p>
             <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(180px, 1fr))', gap: '0.75rem', color: text, fontSize: '0.9rem', marginBottom: '1rem' }}>
               {[
@@ -177,7 +177,7 @@ function GetStartedContent({ isAppView, theme, navigate }) {
           <section id="pipeline-stages" style={{ scrollMarginTop: '120px' }}>
             <h2 style={sectionTitle()}>Pipeline Stages</h2>
             <p style={{ color: muted, marginBottom: '1.5rem', marginTop: 0 }}>
-              ReachDesk uses fully customizable pipeline stages. Default stages include: Lead, Contacted, Positive Reply, Booked, Calendly Sent, Call Booked, Client, Follow Up, No Show, Not Interested. Add, rename, or reorder stages from Configuration Settings.
+              ReachDesk CRM uses fully customizable pipeline stages. Default stages include: Lead, Contacted, Positive Reply, Booked, Calendly Sent, Call Booked, Client, Follow Up, No Show, Not Interested. Add, rename, or reorder stages from Configuration Settings.
             </p>
             <div style={{ display: 'flex', flexDirection: 'column', gap: '0.9rem' }}>
               {[{
@@ -203,7 +203,7 @@ function GetStartedContent({ isAppView, theme, navigate }) {
           <section id="templates" style={{ scrollMarginTop: '120px' }}>
             <h2 style={sectionTitle()}>Custom & Starter Templates</h2>
             <p style={{ color: muted, margin: '0 0 1rem 0' }}>
-              Save time and keep your messaging consistent by utilizing ReachDesk's template library:
+              Save time and keep your messaging consistent by utilizing ReachDesk CRM's template library:
             </p>
             <ul style={{ color: muted, paddingLeft: '1.25rem', margin: 0, display: 'flex', flexDirection: 'column', gap: '0.75rem' }}>
               <li><strong>Starter Library:</strong> 18 pre-built starter templates in 5 sections: Initial Templates, Follow Ups, Booking Messages, After Booked, After Client Booked.</li>
@@ -239,7 +239,7 @@ function GetStartedContent({ isAppView, theme, navigate }) {
           {/* 8 — Configuration */}
           <section id="configuration" style={{ scrollMarginTop: '120px' }}>
             <h2 style={sectionTitle()}>Configuration & Settings</h2>
-            <p style={{ color: muted, marginBottom: '1rem', marginTop: 0 }}>Customize ReachDesk to your workflow:</p>
+            <p style={{ color: muted, marginBottom: '1rem', marginTop: 0 }}>Customize ReachDesk CRM to your workflow:</p>
             <ul style={{ color: muted, paddingLeft: '1.25rem', margin: 0, display: 'flex', flexDirection: 'column', gap: '0.75rem' }}>
               <li><strong>Profile:</strong> Set your full name and profile photo.</li>
               <li><strong>Pipeline Stages:</strong> Add, rename, reorder your CRM stages.</li>
@@ -253,7 +253,7 @@ function GetStartedContent({ isAppView, theme, navigate }) {
           <section id="trial-pricing" style={{ scrollMarginTop: '120px', borderTop: `1px solid ${border}`, paddingTop: '2.5rem' }}>
             <h2 style={sectionTitle()}>Free Trial & Pricing</h2>
             <p style={{ color: muted, marginTop: 0, marginBottom: '1.5rem' }}>
-              All new ReachDesk accounts start on a <strong>7-day free trial</strong> with full access — no credit card required.
+              All new ReachDesk CRM accounts start on a <strong>7-day free trial</strong> with full access — no credit card required.
             </p>
             <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(190px, 1fr))', gap: '1.25rem' }}>
               {[{
@@ -281,7 +281,7 @@ function GetStartedContent({ isAppView, theme, navigate }) {
             <div style={{ display: 'flex', flexDirection: 'column', gap: '1.5rem' }}>
               {[{
                 q: 'Can I export my leads?',
-                a: 'Yes! ReachDesk provides built-in export functionality allowing you to download all leads as a CSV file at any time.',
+                a: 'Yes! ReachDesk CRM provides built-in export functionality allowing you to download all leads as a CSV file at any time.',
               }, {
                 q: 'What happens when my trial ends?',
                 a: 'Your account is locked but data is preserved for 30 days. Export your leads anytime from the lock screen.',
@@ -385,7 +385,7 @@ export default function GetStarted() {
         {/* Header */}
         <div style={{ marginBottom: '2.5rem', borderBottom: '1px solid var(--border)', paddingBottom: '1.5rem' }}>
           <h1 style={{ fontSize: '2.2rem', fontWeight: 700, color: 'var(--text-primary)', marginBottom: '0.75rem', fontFamily: 'var(--font-heading)', textTransform: 'uppercase', letterSpacing: '0.05em' }}>
-            Get Started with ReachDesk
+            Get Started with ReachDesk CRM
           </h1>
           <p style={{ fontSize: '1.1rem', color: 'var(--text-secondary)', margin: 0 }}>
             Your quick-start guide to mastering lead tracking, outreach templates, and automated follow-ups.
@@ -413,7 +413,7 @@ export default function GetStarted() {
         backdropFilter: 'blur(10px)'
       }}>
         <Link to="/homepage" style={{ display: 'flex', alignItems: 'center', textDecoration: 'none', cursor: 'pointer' }}>
-          <span style={{ fontSize: '1.15rem', fontWeight: 800, color: 'var(--hp-text)', fontFamily: 'Mattone, sans-serif', textTransform: 'uppercase', letterSpacing: '0.05em' }}>ReachDesk</span>
+          <span style={{ fontSize: '1.15rem', fontWeight: 800, color: 'var(--hp-text)', fontFamily: 'Mattone, sans-serif', textTransform: 'uppercase', letterSpacing: '0.05em' }}>ReachDesk CRM</span>
         </Link>
         <div style={{ display: 'flex', alignItems: 'center', gap: '1rem' }}>
           {toggleTheme && (
@@ -461,7 +461,7 @@ export default function GetStarted() {
           {/* Header */}
           <div style={{ marginBottom: '3.5rem', borderBottom: '1px solid var(--hp-border)', paddingBottom: '2rem' }}>
             <h1 style={{ fontSize: '2.5rem', fontWeight: 700, color: 'var(--hp-text)', marginBottom: '0.75rem', fontFamily: 'Mattone, sans-serif', textTransform: 'uppercase', letterSpacing: '0.05em' }}>
-              Get Started with ReachDesk
+              Get Started with ReachDesk CRM
             </h1>
             <p style={{ fontSize: '1.15rem', color: 'var(--hp-muted)', margin: 0 }}>
               Your quick-start guide to mastering lead tracking, outreach templates, and automated follow-ups.

@@ -6,7 +6,7 @@ category: Freelance Strategy
 publishedDate: 2026-02-05
 modifiedDate: 2026-02-05
 coverImage: https://reachdeskcrm.com/og-image.png
-author: ReachDesk
+author: ReachDesk CRM
 ---
 
 # The Feast or Famine Cycle Is Not Normal. Here's How to Break It.

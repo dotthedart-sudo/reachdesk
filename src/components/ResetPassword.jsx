@@ -96,7 +96,7 @@ export default function ResetPassword() {
     <div className="landing-container">
       <nav className="landing-nav">
         <Link to="/homepage" className="landing-nav-logo" style={{ cursor: 'pointer', textDecoration: 'none', display: 'flex', alignItems: 'center' }}>
-          <span className="landing-logo-text" style={{ fontSize: '11px' }}>ReachDesk</span>
+          <span className="landing-logo-text" style={{ fontSize: '11px' }}>ReachDesk CRM</span>
         </Link>
         <Link to="/login" className="btn btn-secondary btn-sm" style={{ textDecoration: 'none', borderRadius: '4px', padding: '3px 8px', fontSize: '0.7rem' }}>
           Back to Login

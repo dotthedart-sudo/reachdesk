@@ -6,7 +6,7 @@ category: Communication
 publishedDate: 2026-01-22
 modifiedDate: 2026-01-22
 coverImage: https://reachdeskcrm.com/og-image.png
-author: ReachDesk
+author: ReachDesk CRM
 ---
 
 # 12 Follow-Up Email Templates for Freelancers (Copy + Personalize in Seconds)
@@ -345,7 +345,7 @@ The best CRMs let you save these as snippets so you don't have to copy/paste eve
 
 This takes follow-up from "20 minutes per email" to "2 minutes per email."
 
-Learn how [ReachDesk template snippets work](/blog/how-to-organize-leads) — they auto-fill lead data too, so [Name] and [Company] populate automatically.
+Learn how [ReachDesk CRM template snippets work](/blog/how-to-organize-leads) — they auto-fill lead data too, so [Name] and [Company] populate automatically.
 
 ---
 

@@ -23,7 +23,7 @@ const InstagramIcon = ({ size = 18 }) => (
 
 // BILLING is imported from Paywalls.jsx — single source of truth
 
-export default function Homepage({ currentUserEmail, brandName = 'ReachDesk' }) {
+export default function Homepage({ currentUserEmail, brandName = 'ReachDesk CRM' }) {
   const { theme, toggleTheme } = useAppContext() || {};
   const { formatLocalPrice, country, rate } = useLocalCurrency();
 
@@ -67,8 +67,9 @@ export default function Homepage({ currentUserEmail, brandName = 'ReachDesk' }) 
     <div className="hp-root">
 
       <nav className="hp-nav">
-        <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', cursor: 'pointer' }} onClick={() => navigate('/homepage')}>
-          <span style={{fontFamily:'Mattone, sans-serif', textTransform:'uppercase', letterSpacing:'0.08em', fontSize:'11px', color:'var(--text-primary)', fontWeight:'400'}}>ReachDesk</span>
+        <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-start', cursor: 'pointer', lineHeight: '1.0' }} onClick={() => navigate('/homepage')}>
+          <span style={{fontFamily:'Mattone, sans-serif', textTransform:'uppercase', letterSpacing:'0.06em', fontSize:'13px', color:'var(--text-primary)', fontWeight:'700'}}>REACHDESK</span>
+          <span style={{fontFamily:'Mattone, sans-serif', textTransform:'uppercase', letterSpacing:'1.4em', fontSize:'9px', color:'var(--text-secondary)', fontWeight:'700', marginTop: '2px', width: '100%'}}>CRM</span>
         </div>
         <div className="hp-nav-center">
           <a href="#features" onClick={(e) => handleNavClick(e, '#features')} className="hp-nav-link">Features</a>
@@ -865,7 +866,7 @@ export default function Homepage({ currentUserEmail, brandName = 'ReachDesk' }) 
 
       {/* ── FOOTER ── */}
       <footer className="hp-footer">
-        <span className="hp-footer-logo">REACHDESK</span>
+        <span className="hp-footer-logo">REACHDESK CRM</span>
         <div className="hp-footer-links">
           <Link to="/terms"    className="hp-footer-link">Terms of Service</Link>
           <Link to="/privacy"  className="hp-footer-link">Privacy Policy</Link>

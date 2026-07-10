@@ -124,7 +124,7 @@ export default function UpgradeLockModal({ profile, handleLogout, theme }) {
         {/* Description */}
         <p style={{ color: 'var(--text-secondary)', fontSize: '0.9rem', lineHeight: 1.6 }}>
           {isTrial
-            ? 'Your free trial has ended. Upgrade your plan to continue accessing your ReachDesk workspace.'
+            ? 'Your free trial has ended. Upgrade your plan to continue accessing your ReachDesk CRM workspace.'
             : 'Your subscription has expired. Renew your plan to unlock client data.'}
         </p>
 

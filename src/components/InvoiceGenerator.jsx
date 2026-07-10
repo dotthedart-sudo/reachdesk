@@ -714,7 +714,7 @@ export function PublicInvoiceView({ invoiceId, invoices }) {
       <div className="no-print" style={{ width: '100%', maxWidth: '800px', padding: '0.5rem 1rem', display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1rem', background: '#ffffff', borderRadius: '8px', boxShadow: '0 1px 3px rgba(0,0,0,0.1)' }}>
         <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
           <FileText size={18} style={{ color: '#3b82f6' }} />
-          <span style={{ fontWeight: 600, fontSize: '0.9rem', color: '#1e293b' }}>ReachDesk Client Invoice System</span>
+          <span style={{ fontWeight: 600, fontSize: '0.9rem', color: '#1e293b' }}>ReachDesk CRM Client Invoice System</span>
         </div>
         <button 
           onClick={handlePrint}

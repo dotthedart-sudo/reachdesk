@@ -6,7 +6,7 @@ category: Productivity
 publishedDate: 2026-03-03
 modifiedDate: 2026-03-03
 coverImage: https://reachdeskcrm.com/og-image.png
-author: ReachDesk
+author: ReachDesk CRM
 ---
 
 # Your Brain Has Too Many Tabs Open

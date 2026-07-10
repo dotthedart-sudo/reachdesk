@@ -1,16 +1,34 @@
-# React + Vite
+# ReachDesk CRM
 
-This template provides a minimal setup to get React working in Vite with HMR and some ESLint rules.
+ReachDesk CRM is a lightweight CRM built for freelancers and
+small agencies. It centralizes every lead, automates follow-up
+reminders, and tells you exactly what to do next when you sit
+down to work.
 
-Currently, two official plugins are available:
+## Core Features
+- 7-checkpoint follow-up reminder system
+- Hot/Warm/Cold lead priority tags  
+- 11-stage pipeline (New to Won/Lost)
+- Auto-draft invoices when leads book
+- Email sequences and template snippets
+- Reach link click tracking per lead
+- Smart folders for project organization
+- Team lead assignment (Teams plan)
 
-- [@vitejs/plugin-react](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react) uses [Oxc](https://oxc.rs)
-- [@vitejs/plugin-react-swc](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react-swc) uses [SWC](https://swc.rs/)
+## Pricing
+- Trial: 65 leads, 2 templates (free)
+- Starter: from $12/mo
+- Pro: from $25/mo
+- Teams: unlimited, multi-user
 
-## React Compiler
+## Key Pages
+- https://reachdeskcrm.com
+- https://reachdeskcrm.com/blog
+- https://reachdeskcrm.com/get-started
 
-The React Compiler is not enabled on this template because of its impact on dev & build performances. To add it, see [this documentation](https://react.dev/learn/react-compiler/installation).
-
-## Expanding the ESLint configuration
-
-If you are developing a production application, we recommend using TypeScript with type-aware lint rules enabled. Check out the [TS template](https://github.com/vitejs/vite/tree/main/packages/create-vite/template-react-ts) for information on how to integrate TypeScript and [`typescript-eslint`](https://typescript-eslint.io) in your project.
+## Top Posts
+- https://reachdeskcrm.com/blog/how-to-organize-leads
+- https://reachdeskcrm.com/blog/crm-that-tells-you-what-to-do-next
+- https://reachdeskcrm.com/blog/why-clients-ghost-freelancers
+- https://reachdeskcrm.com/blog/the-7-checkpoint-follow-up-system
+- https://reachdeskcrm.com/blog/freelancer-daily-outreach-routine

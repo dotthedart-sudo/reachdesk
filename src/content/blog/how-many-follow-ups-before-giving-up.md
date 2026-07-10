@@ -6,7 +6,7 @@ category: Follow-Up Strategy
 publishedDate: 2026-02-12
 modifiedDate: 2026-02-12
 coverImage: https://reachdeskcrm.com/og-image.png
-author: ReachDesk
+author: ReachDesk CRM
 ---
 
 # How Many Follow-Ups Before Giving Up?

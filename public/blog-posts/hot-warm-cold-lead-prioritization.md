@@ -6,7 +6,7 @@ category: Lead Management
 publishedDate: 2026-01-20
 modifiedDate: 2026-01-20
 coverImage: https://reachdeskcrm.com/og-image.png
-author: ReachDesk
+author: ReachDesk CRM
 ---
 
 # Hot, Warm, or Cold? The 3-Tag Lead Prioritization System That Takes 5 Seconds

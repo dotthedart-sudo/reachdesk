@@ -6,7 +6,7 @@ category: Lead Management
 publishedDate: 2026-03-10
 modifiedDate: 2026-03-10
 coverImage: https://reachdeskcrm.com/og-image.png
-author: ReachDesk
+author: ReachDesk CRM
 ---
 
 # How to Manage 30+ Leads Without Losing Your Mind

@@ -6,7 +6,7 @@ category: Lead Management
 publishedDate: 2026-02-15
 modifiedDate: 2026-02-15
 coverImage: https://reachdeskcrm.com/og-image.png
-author: ReachDesk
+author: ReachDesk CRM
 ---
 
 # The Best Way to Track Client Conversations (Without Losing Your Mind)

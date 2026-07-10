@@ -8,7 +8,7 @@ function LegalContainer({ title, lastUpdated, children }) {
       {/* Navigation Bar */}
       <nav className="landing-nav" style={{ justifyContent: 'space-between' }}>
         <Link to="/homepage" className="landing-nav-logo" style={{ cursor: 'pointer', textDecoration: 'none', display: 'flex', alignItems: 'center' }}>
-          <span className="landing-logo-text" style={{ fontSize: '11px' }}>ReachDesk</span>
+          <span className="landing-logo-text" style={{ fontSize: '11px' }}>ReachDesk CRM</span>
         </Link>
         <Link to="/homepage" className="btn btn-secondary btn-sm" style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', textDecoration: 'none', borderRadius: '4px', padding: '3px 8px', fontSize: '0.7rem' }}>
           <ArrowLeft size={12} /> Back to Home
@@ -38,12 +38,12 @@ export function TermsOfService() {
   return (
     <LegalContainer title="Terms of Service" lastUpdated="July 2026">
       <p>
-        These Terms of Service ("Terms") govern your access to and use of ReachDesk, a customer relationship management (CRM) tool for freelancers and agency owners, accessible at reachdesk.esemdot.com and related domains (the "Service"). The Service is operated under esemdot, Pakistan. By creating an account or using the Service, you agree to be bound by these Terms.
+        These Terms of Service ("Terms") govern your access to and use of ReachDesk CRM, a customer relationship management (CRM) tool for freelancers and agency owners, accessible at reachdesk.esemdot.com and related domains (the "Service"). The Service is operated under esemdot, Pakistan. By creating an account or using the Service, you agree to be bound by these Terms.
       </p>
 
       <h3 style={{ color: 'var(--text-primary)', marginTop: '1rem', fontFamily: 'var(--font-headers)' }}>1. The Service</h3>
       <p>
-        ReachDesk provides tools to help freelancers and agency owners organize leads, contacts, notes, and follow-up information. ReachDesk is a record-keeping and organization tool only — it does not send messages, emails, or communications to your leads or contacts on your behalf.
+        ReachDesk CRM provides tools to help freelancers and agency owners organize leads, contacts, notes, and follow-up information. ReachDesk CRM is a record-keeping and organization tool only — it does not send messages, emails, or communications to your leads or contacts on your behalf.
       </p>
 
       <h3 style={{ color: 'var(--text-primary)', marginTop: '1rem', fontFamily: 'var(--font-headers)' }}>2. Accounts</h3>
@@ -132,7 +132,7 @@ export function PrivacyPolicy() {
   return (
     <LegalContainer title="Privacy Policy" lastUpdated="July 2026">
       <p>
-        This Privacy Policy explains how ReachDesk ("we", "us"), operated under esemdot, Pakistan, collects, uses, and protects information when you use the ReachDesk Service at reachdesk.esemdot.com and related domains.
+        This Privacy Policy explains how ReachDesk CRM ("we", "us"), operated under esemdot, Pakistan, collects, uses, and protects information when you use the ReachDesk CRM Service at reachdesk.esemdot.com and related domains.
       </p>
 
       <h3 style={{ color: 'var(--text-primary)', marginTop: '1rem', fontFamily: 'var(--font-headers)' }}>1. Information We Collect</h3>
@@ -214,7 +214,7 @@ export function RefundPolicy() {
   return (
     <LegalContainer title="Refund Policy" lastUpdated="July 2026">
       <p>
-        This Refund Policy applies to all subscription purchases made through ReachDesk, operated under esemdot, Pakistan.
+        This Refund Policy applies to all subscription purchases made through ReachDesk CRM, operated under esemdot, Pakistan.
       </p>
 
       <h3 style={{ color: 'var(--text-primary)', marginTop: '1rem', fontFamily: 'var(--font-headers)' }}>1. Free Trial</h3>
@@ -224,7 +224,7 @@ export function RefundPolicy() {
 
       <h3 style={{ color: 'var(--text-primary)', marginTop: '1rem', fontFamily: 'var(--font-headers)' }}>2. Payment Process</h3>
       <p>
-        All ReachDesk subscription payments are processed securely via Paddle.com. Subscriptions renew automatically at the end of each billing cycle (monthly, quarterly, 6-month, or yearly) unless cancelled prior to the renewal date.
+        All ReachDesk CRM subscription payments are processed securely via Paddle.com. Subscriptions renew automatically at the end of each billing cycle (monthly, quarterly, 6-month, or yearly) unless cancelled prior to the renewal date.
       </p>
 
       <h3 style={{ color: 'var(--text-primary)', marginTop: '1rem', fontFamily: 'var(--font-headers)' }}>3. Refund Eligibility</h3>

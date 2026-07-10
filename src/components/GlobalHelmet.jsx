@@ -8,7 +8,7 @@ export default function GlobalHelmet() {
       <meta charSet="utf-8" />
       <meta name="viewport" content="width=device-width, initial-scale=1" />
       <meta name="theme-color" content="#0D1117" />
-      <link rel="canonical" href="https://reachdesk.esemdot.com" />
+      <link rel="canonical" href="https://reachdeskcrm.com" />
       
       {/* Global schemas */}
       <script type="application/ld+json">

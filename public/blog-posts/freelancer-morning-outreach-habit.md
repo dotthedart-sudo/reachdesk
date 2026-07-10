@@ -6,7 +6,7 @@ category: Productivity
 publishedDate: 2026-03-08
 modifiedDate: 2026-03-08
 coverImage: https://reachdeskcrm.com/og-image.png
-author: ReachDesk
+author: ReachDesk CRM
 ---
 
 # The 20-Minute Morning Outreach Habit That Actually Gets Done

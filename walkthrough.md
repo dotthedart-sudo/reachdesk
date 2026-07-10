@@ -1,44 +1,65 @@
-# Walkthrough - Advanced CRM Filters, Project Tracking & Dashboard Upgrades
+# Walkthrough: ReachDesk Blog & SEO Architecture Implementation
 
-This walkthrough summarizes the complete implementation, database validation, and verification of the Advanced Filters, Project Gating, interactive Dashboard, status overhaul, collapsible template selectors, auto-draft invoices, and scheduled edge function cleanups.
-
----
-
-## 1. Accomplished Work
-
-### Status & Action Pipeline Overhaul
-* **Lead Mappings Executed:** Successfully migrated existing lead records with legacy/corrupted statuses to canonical values:
-  * `Waiting` ➔ `Followed up`
-  * `Follow Up` ➔ `Followed up`
-  * `Call Booked` ➔ `Booked`
-  * 45 legacy `No Show` leads (belonging to `esemdot`) ➔ `Followed up` (verified 50 total `Followed up` leads post-migration).
-* **Canonical Status Enforcements:**
-  * Synced exactly 11 statuses (`Lead`, `Contacted`, `Positive Reply`, `Calendly Sent`, `Booked`, `No show`, `Rescheduled`, `Proposal Sent`, `Followed up`, `Not Interested`, `Closed Won`) across `GroupedStatusDropdown.jsx`, `EditableDropdown.jsx`, `reminders.js` groups, and the Dashboard Pipeline Stepper.
-  * Added database `valid_status` CHECK constraint on the `leads.status` column to guarantee future integrity.
-  * Cleared obsolete records from `custom_statuses` and updated the `action_suggestion_rules` table.
-
-### Collapsible Accordion Template Selector
-* **Custom Dropdown Component:** Built `GroupedTemplateDropdown.jsx` to display templates grouped by category folders (`INITIAL TEMPLATES`, `FOLLOW UPS`, etc.) inside collapsible accordions.
-* **Direction & Search:** Programmed the dropdown portal to open strictly downward and included a live search filter.
-* **Replaced Native Selects:** Wired the custom component in:
-  1. Save Reply Prompt outcome modal in `CRM.jsx`.
-  2. Inline cell editing for `template_used` in the CRM grid.
-  3. Add/Edit Lead forms in `CRM.jsx`.
-  4. Lead Details Drawer (`LeadDrawer.jsx`).
-
-### Auto-Draft Invoices & Folders
-* **Database Reference:** Added a `lead_id` column referencing the `leads` table to the `invoices` table.
-* **Automated Creation:** Setting status to `Booked` or `Rescheduled` automatically inserts a prefilled draft invoice with the client's name and email linked by `lead_id`.
-* **Lead Drawer Invoice View:** Added an `Invoices` tab in `LeadDrawer.jsx` showing all linked invoices, their status badges, and an external link to open the public invoice view.
-* **Folders in Invoice Manager:** Split the Saved Invoices screen in `InvoiceGenerator.jsx` into two folders: **Active Invoices** and **Drafts**. Changing status from `Draft` to `Sent` automatically moves the invoice to the Active folder.
-* **Toast Notification:** Added a short-lived toast notification using design tokens in the bottom-right corner when a draft invoice is generated for a lead: `"Draft invoice generated for {Lead Name}"`.
-* **Untouched 30-Day Auto-Delete Edge Function:**
-  * Created the `cleanup-draft-invoices` Supabase Edge Function that runs Deno code to invoke the database `delete_old_draft_invoices` RPC via service role credentials.
-  * Scheduled it as a daily cron job (`cleanup-draft-invoices-daily`) at `0 3 * * *` (3 AM UTC) using `cron.schedule()` in Postgres.
-  * Removed all legacy/temporary frontend self-cleaning logic from `App.jsx`.
+I have successfully built, integrated, and verified the ReachDesk CRM Blog and SEO architecture layer into the Vite React SPA codebase, bringing it to a total of 17 fully registered blog posts with responsive headers, spacing optimizations, and em-dash cleanup logic. I have also migrated the entire site domain structure to the new `https://reachdeskcrm.com` domain and standardized the product name as "ReachDesk CRM".
 
 ---
 
-## 2. Verification Results
-* **Instant Auto-Draft Test:** Confirmed that changing lead status to `Booked` immediately generates the draft invoice row synchronously in the database `invoices` table without delay.
-* **Vite Compilation Success:** Running `npm run build` compiled the entire project successfully in **7.30 seconds** without any errors.
+## 1. Changes Made
+
+### Product Name Migration ("ReachDesk CRM")
+*   **Codebase-wide replacement:** Replaced all instances of "ReachDesk" referencing the product with "ReachDesk CRM" across components:
+    *   [metadata.js](file:///c:/Users/T15/reachdesk/src/config/metadata.js)
+    *   [schemaMarkup.js](file:///c:/Users/T15/reachdesk/src/utils/schemaMarkup.js)
+    *   [GlobalHelmet.jsx](file:///c:/Users/T15/reachdesk/src/components/GlobalHelmet.jsx)
+    *   [ResetPassword.jsx](file:///c:/Users/T15/reachdesk/src/components/ResetPassword.jsx)
+    *   [LegalPages.jsx](file:///c:/Users/T15/reachdesk/src/components/LegalPages.jsx)
+    *   [GetStarted.jsx](file:///c:/Users/T15/reachdesk/src/components/GetStarted.jsx)
+    *   [Paywalls.jsx](file:///c:/Users/T15/reachdesk/src/components/Paywalls.jsx)
+    *   [LoadingSpinner.jsx](file:///c:/Users/T15/reachdesk/src/components/LoadingSpinner.jsx)
+    *   [UserNotificationBell.jsx](file:///c:/Users/T15/reachdesk/src/components/UserNotificationBell.jsx)
+    *   [InvoiceGenerator.jsx](file:///c:/Users/T15/reachdesk/src/components/InvoiceGenerator.jsx)
+    *   [UpgradeLockModal.jsx](file:///c:/Users/T15/reachdesk/src/components/UpgradeLockModal.jsx)
+*   **Blog content:** Migrated all 17 blog posts in `src/content/blog/` to use "ReachDesk CRM" when talking about the product.
+
+### Aligned Stacked Logo in Navbar
+*   **Branding design:** In both [PublicNav.jsx](file:///c:/Users/T15/reachdesk/src/components/PublicNav.jsx) and [Homepage.jsx](file:///c:/Users/T15/reachdesk/src/components/Homepage.jsx), replaced the simple brand name text with a stacked brand layout:
+    *   **REACHDESK** (in bold primary text)
+    *   **CRM** (perfectly aligned underneath in secondary muted style)
+    *   This provides a beautiful corporate visual style without breaking navbar height.
+
+### Domain Migration Update
+*   **Site-wide Config:** Updated the canonical base URL in `metadata.js` to `https://reachdeskcrm.com`.
+*   **Schema & Meta Tags:** Updated all structured metadata schemas in `schemaMarkup.js` to point to `https://reachdeskcrm.com`.
+*   **Redirect and Payments:** Updated Paddle checkout redirect URL in `Paywalls.jsx` to successUrl: `https://reachdeskcrm.com/dashboard?upgraded=true`.
+*   **Static Sitemap Generator:** Updated `SITE_URL` in [generate-sitemap.cjs](file:///c:/Users/T15/reachdesk/scripts/generate-sitemap.cjs) to the new domain.
+*   **Bulk Markdown Replacement:** Converted all internal links, references, and OG coverImage fields in all `.md` files to refer to the new `https://reachdeskcrm.com` domain.
+
+### Shared Public Navigation Header
+*   **Created Component:** Wrote `PublicNav.jsx` extracting the main navigation bar. It supports:
+    *   Smooth page anchor scrolling when rendered on `/homepage` or `/`.
+    *   Clean redirection back to the homepage targets `/homepage#features` and `/homepage#pricing` when clicked from the blog or other subpages.
+    *   State checks for light/dark theme switches and active session/login configurations.
+*   **Header Integration:** Added `<PublicNav />` to `BlogIndex.jsx` and `BlogPost.jsx`.
+
+### Blog Post Spacing & Typography Optimizations
+*   **Spacing Adjustments:** Modified [Blog.css](file:///c:/Users/T15/reachdesk/src/styles/Blog.css) to reduce grid padding, title sizes, post margins, pre-formatted padding, blockquotes, and lists to make the readability feel extremely premium.
+*   **Typography Support:** Appended modern styling overrides to `Blog.css` to cover in-post links, strong text, and responsive tables.
+*   **Em Dash Cleanups:** Integrated regex cleanups (`markdown.replace(/\s*—\s*/g, ' — ')`) on both the index card renderings and within post Markdown files to prevent Mattone font glyph gaps.
+
+---
+
+## 2. Validation & Verification Results
+
+### Build Pipeline
+*   **Result:** **SUCCESSFUL**
+*   **Log Output:**
+    *   Build-time sitemap generator compiled successfully:
+        *   `✅ sitemap.xml generated`
+        *   `✅ blog-posts.json generated`
+        *   `✅ 17 blog post(s) copied to public/blog-posts`
+    *   Vite compiled all assets under `/dist` with zero module errors.
+
+### Sitemap and Registry Check
+*   Verified that the generated [sitemap.xml](file:///c:/Users/T15/reachdesk/public/sitemap.xml) contains all 17 blog posts formatted with standard **W3C Date format (YYYY-MM-DD)**.
+*   Verified that all URLs in the sitemap now point to `https://reachdeskcrm.com`.
+*   Verified that [blog-posts.json](file:///c:/Users/T15/reachdesk/public/blog-posts.json) contains exactly 17 registry records pointing to the correct new cover image domain and naming.

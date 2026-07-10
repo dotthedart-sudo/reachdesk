@@ -6,7 +6,7 @@ category: Follow-Up Strategy
 publishedDate: 2026-01-25
 modifiedDate: 2026-01-25
 coverImage: https://reachdeskcrm.com/og-image.png
-author: ReachDesk
+author: ReachDesk CRM
 ---
 
 # The 7-Checkpoint Follow-Up System: Never Lose a Lead Again
@@ -367,7 +367,7 @@ This is what separates full-time freelancers from broke ones. Not talent. Not lu
 
 ---
 
-## How ReachDesk Automates This
+## How ReachDesk CRM Automates This
 
 The 7-checkpoint system is built into ReachDesk. You log a lead, and the system:
 1. **Reminds you** when checkpoint 2 (day 3) is due
@@ -376,9 +376,9 @@ The 7-checkpoint system is built into ReachDesk. You log a lead, and the system:
 4. **Auto-tags** the lead based on their response
 5. **Moves them forward** through the pipeline
 
-No thinking required. You open ReachDesk, see a notification: "Checkpoint 2 due for Sarah," and you know exactly what to do.
+No thinking required. You open ReachDesk CRM, see a notification: "Checkpoint 2 due for Sarah," and you know exactly what to do.
 
-This is why [leads organized in ReachDesk](/blog/how-to-organize-leads) with [Hot/Warm/Cold priority](/blog/hot-warm-cold-lead-prioritization) and [auto-drafted invoices](/blog/auto-invoice-on-booking) close at 50-60% rates — the system does the heavy lifting.
+This is why [leads organized in ReachDesk CRM](/blog/how-to-organize-leads) with [Hot/Warm/Cold priority](/blog/hot-warm-cold-lead-prioritization) and [auto-drafted invoices](/blog/auto-invoice-on-booking) close at 50-60% rates — the system does the heavy lifting.
 
 ---
 
