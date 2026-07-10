@@ -22,14 +22,18 @@ export function stripHTML(html = '') {
   return html.replace(/<[^>]*>/g, '').replace(/&nbsp;/g, ' ').replace(/&amp;/g, '&').replace(/&lt;/g, '<').replace(/&gt;/g, '>').replace(/&quot;/g, '"').trim();
 }
 
-export async function exportLeads(userId) {
-  const { data: leads, error } = await supabase
-    .from('leads')
-    .select('*')
-    .eq('user_id', userId)
-    .order('created_at', { ascending: true });
+export async function exportLeads(userId, leadsData = null) {
+  let leads = leadsData;
+  if (!leads) {
+    const { data, error } = await supabase
+      .from('leads')
+      .select('*')
+      .eq('user_id', userId)
+      .order('created_at', { ascending: true });
 
-  if (error) throw error;
+    if (error) throw error;
+    leads = data;
+  }
   if (!leads || leads.length === 0) {
     throw new Error('No leads found.');
   }

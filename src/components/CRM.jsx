@@ -276,7 +276,7 @@ export default function CRM({
     setExporting('leads');
     setShowExportDropdown(false);
     try {
-      await exportLeads(currentUser.id);
+      await exportLeads(currentUser.id, leads);
     } catch (err) {
       console.error('Export leads error:', err);
       alert('Failed to export leads: ' + err.message);
