@@ -148,7 +148,7 @@ export function generatePrefilledUrl(channelKey, destination, contactInfo, subje
   if (channelKey === 'email') {
     const to = contactInfo.email || '';
     if (destination === 'gmail') {
-      return { url: `https://mail.google.com/mail/?view=cm&to=${encodeURIComponent(to)}&su=${encSubject}&body=${encBody}` };
+      return { url: `https://mail.google.com/mail/?view=cm&fs=1&to=${encodeURIComponent(to)}&su=${encSubject}&body=${encBody}` };
     }
     if (destination === 'outlook') {
       return { url: `https://outlook.office.com/mail/deeplink/compose?to=${encodeURIComponent(to)}&subject=${encSubject}&body=${encBody}` };

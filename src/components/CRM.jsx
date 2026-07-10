@@ -3306,7 +3306,7 @@ export default function CRM({
               </div>
 
               {/* Destination/Send Buttons */}
-              <div style={{ display: 'flex', gap: '0.75rem', justifyContent: 'flex-end', marginTop: '1.25rem', borderTop: '1px solid var(--border)', paddingTop: '1rem', flexWrap: 'wrap' }}>
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginTop: '1.25rem', borderTop: '1px solid var(--border)', paddingTop: '1rem' }}>
                 <button
                   type="button"
                   onClick={() => setReachModalOpen(false)}
@@ -3316,62 +3316,64 @@ export default function CRM({
                   Cancel
                 </button>
 
-                {reachChannel === 'email' ? (
-                  <>
+                <div style={{ display: 'flex', gap: '0.5rem', alignItems: 'center' }}>
+                  {reachChannel === 'email' ? (
+                    <>
+                      <button
+                        type="button"
+                        onClick={() => handleReachSend('mailto')}
+                        className="btn btn-secondary"
+                        style={{ height: '36px', display: 'flex', alignItems: 'center', gap: '0.25rem', whiteSpace: 'nowrap' }}
+                      >
+                        <Mail size={14} /> Device Mail App
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => handleReachSend('gmail')}
+                        className="btn btn-secondary"
+                        style={{ height: '36px', display: 'flex', alignItems: 'center', gap: '0.25rem', whiteSpace: 'nowrap' }}
+                      >
+                        Gmail Web
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => handleReachSend('outlook')}
+                        className="btn btn-secondary"
+                        style={{ height: '36px', display: 'flex', alignItems: 'center', gap: '0.25rem', whiteSpace: 'nowrap' }}
+                      >
+                        Outlook Web
+                      </button>
+                    </>
+                  ) : reachChannel === 'whatsapp' ? (
                     <button
                       type="button"
-                      onClick={() => handleReachSend('mailto')}
-                      className="btn btn-secondary"
-                      style={{ height: '36px', display: 'flex', alignItems: 'center', gap: '0.25rem' }}
+                      onClick={() => handleReachSend('whatsapp')}
+                      className="btn btn-primary"
+                      style={{ height: '36px', background: '#25D366', borderColor: '#25D366', color: '#fff', display: 'flex', alignItems: 'center', gap: '0.25rem' }}
                     >
-                      <Mail size={14} /> Device Mail App
+                      Open WhatsApp
                     </button>
+                  ) : reachChannel === 'sms' ? (
                     <button
                       type="button"
-                      onClick={() => handleReachSend('gmail')}
-                      className="btn btn-secondary"
-                      style={{ height: '36px', display: 'flex', alignItems: 'center', gap: '0.25rem' }}
-                    >
-                      Gmail Web
-                    </button>
-                    <button
-                      type="button"
-                      onClick={() => handleReachSend('outlook')}
+                      onClick={() => handleReachSend('sms')}
                       className="btn btn-primary"
                       style={{ height: '36px', display: 'flex', alignItems: 'center', gap: '0.25rem' }}
                     >
-                      Outlook Web
+                      Send SMS
                     </button>
-                  </>
-                ) : reachChannel === 'whatsapp' ? (
-                  <button
-                    type="button"
-                    onClick={() => handleReachSend('whatsapp')}
-                    className="btn btn-primary"
-                    style={{ height: '36px', background: '#25D366', borderColor: '#25D366', color: '#fff', display: 'flex', alignItems: 'center', gap: '0.25rem' }}
-                  >
-                    Open WhatsApp
-                  </button>
-                ) : reachChannel === 'sms' ? (
-                  <button
-                    type="button"
-                    onClick={() => handleReachSend('sms')}
-                    className="btn btn-primary"
-                    style={{ height: '36px', display: 'flex', alignItems: 'center', gap: '0.25rem' }}
-                  >
-                    Send SMS
-                  </button>
-                ) : (
-                  // LinkedIn, Instagram, Twitter (no prefill support)
-                  <button
-                    type="button"
-                    onClick={() => handleReachSend(reachChannel)}
-                    className="btn btn-primary"
-                    style={{ height: '36px', display: 'flex', alignItems: 'center', gap: '0.25rem' }}
-                  >
-                    <Copy size={14} /> Copy & Open Profile
-                  </button>
-                )}
+                  ) : (
+                    // LinkedIn, Instagram, Twitter (no prefill support)
+                    <button
+                      type="button"
+                      onClick={() => handleReachSend(reachChannel)}
+                      className="btn btn-primary"
+                      style={{ height: '36px', display: 'flex', alignItems: 'center', gap: '0.25rem' }}
+                    >
+                      <Copy size={14} /> Copy & Open Profile
+                    </button>
+                  )}
+                </div>
               </div>
             </div>
           </div>

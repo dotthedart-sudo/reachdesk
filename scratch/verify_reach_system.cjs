@@ -51,7 +51,7 @@ assert(s1.url.includes('body=Hello%20John'), `Expected URL encoded body, got: ${
 
 // Test 9: Email Gmail web destination
 const e1 = generatePrefilledUrl('email', 'gmail', { email: 'test@example.com' }, 'Inquiry', 'Hello message');
-assert(e1.url.includes('mail.google.com/mail/?view=cm'), `Expected Gmail compose url, got: ${e1.url}`);
+assert(e1.url.includes('mail.google.com/mail/?view=cm&fs=1'), `Expected Gmail compose url with fs=1, got: ${e1.url}`);
 assert(e1.url.includes('to=test%40example.com'), `Expected encoded email in Gmail URL, got: ${e1.url}`);
 
 console.log('--- ALL PHONE & PREFILL VERIFICATION TESTS COMPLETED SUCCESSFULLY ---');
