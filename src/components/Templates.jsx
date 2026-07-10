@@ -1,5 +1,7 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
+import { supabase } from '../lib/supabase';
+import { useAppContext } from '../App';
 import { 
   Plus, 
   Copy, 
@@ -43,6 +45,44 @@ export default function Templates({
   const [showEditor, setShowEditor] = useState(false);
   const [editingTemplate, setEditingTemplate] = useState(null);
   
+  const { userSnippets, handleAddSnippet } = useAppContext();
+  const [columnDefs, setColumnDefs] = useState([]);
+  const [showSnippetDropdown, setShowSnippetDropdown] = useState(false);
+  const [isAddingSnippet, setIsAddingSnippet] = useState(false);
+  const [newSnippetKey, setNewSnippetKey] = useState('');
+  const [newSnippetValue, setNewSnippetValue] = useState('');
+  const [snippetError, setSnippetError] = useState('');
+  const snippetDropdownRef = useRef(null);
+
+  useEffect(() => {
+    if (!currentUser?.id) return;
+    const fetchColumns = async () => {
+      try {
+        const { data, error } = await supabase
+          .from('column_definitions')
+          .select('*')
+          .eq('user_id', currentUser.id)
+          .order('sort_order', { ascending: true });
+        if (!error && data) {
+          setColumnDefs(data);
+        }
+      } catch (err) {
+        console.error('Error fetching columns for templates:', err);
+      }
+    };
+    fetchColumns();
+  }, [currentUser?.id]);
+
+  useEffect(() => {
+    const handleOutsideClick = (e) => {
+      if (snippetDropdownRef.current && !snippetDropdownRef.current.contains(e.target)) {
+        setShowSnippetDropdown(false);
+      }
+    };
+    document.addEventListener('mousedown', handleOutsideClick);
+    return () => document.removeEventListener('mousedown', handleOutsideClick);
+  }, []);
+
   // Form state
   const [formState, setFormState] = useState({
     title: '',
@@ -229,18 +269,80 @@ export default function Templates({
     setTimeout(() => setCopiedBody(false), 2000);
   };
 
-  const insertTag = (tag) => {
+  const insertTagAtCursor = (tag) => {
     if (editingTemplate?.is_starter) return;
-    const newBody = formState.body + ` ${tag} `;
-    setFormState(prev => ({
-      ...prev,
-      body: newBody
-    }));
+    
+    const formattedTag = (tag.startsWith('[') && tag.endsWith(']')) ? tag : `[${tag}]`;
+    
+    const textarea = document.querySelector('.template-editor-container textarea');
+    let newBody = formState.body || '';
+    
+    if (textarea) {
+      const start = textarea.selectionStart;
+      const end = textarea.selectionEnd;
+      newBody = newBody.substring(0, start) + formattedTag + newBody.substring(end);
+      const newCursorPos = start + formattedTag.length;
+      
+      setFormState(prev => ({
+        ...prev,
+        body: newBody
+      }));
+      
+      setTimeout(() => {
+        textarea.focus();
+        textarea.setSelectionRange(newCursorPos, newCursorPos);
+      }, 0);
+    } else {
+      newBody = newBody ? `${newBody} ${formattedTag}` : formattedTag;
+      setFormState(prev => ({
+        ...prev,
+        body: newBody
+      }));
+    }
+
     if (editingTemplate) {
       onUpdateTemplate(editingTemplate.id, {
         ...formState,
         body: newBody
       });
+    }
+  };
+
+  const handleSaveQuickSnippet = async () => {
+    const keyToSave = newSnippetKey.trim().toLowerCase();
+    if (!keyToSave) {
+      setSnippetError('Key is required');
+      return;
+    }
+    if (!/^[a-zA-Z0-9_]+$/.test(keyToSave)) {
+      setSnippetError('Key must be alphanumeric / underscores');
+      return;
+    }
+
+    const defaultGroupAKeys = ['name', 'first_name', 'last_name', 'email', 'company', 'niche', 'phone', 'status', 'priority', 'action_to_take', 'last_contacted_at', 'project'];
+    const customGroupAKeys = (columnDefs || []).filter(c => !c.is_default && c.column_key).map(c => c.column_key.toLowerCase());
+    const isDuplicate = defaultGroupAKeys.includes(keyToSave) || 
+                        customGroupAKeys.includes(keyToSave) ||
+                        (userSnippets || []).some(s => s.snippet_key.toLowerCase() === keyToSave);
+    
+    if (isDuplicate) {
+      setSnippetError('Snippet/column key already exists');
+      return;
+    }
+
+    try {
+      await handleAddSnippet({
+        snippet_key: keyToSave,
+        snippet_value: newSnippetValue
+      });
+      insertTagAtCursor(`[${keyToSave}]`);
+      setIsAddingSnippet(false);
+      setShowSnippetDropdown(false);
+      setNewSnippetKey('');
+      setNewSnippetValue('');
+      setSnippetError('');
+    } catch (err) {
+      setSnippetError(err.message || 'Failed to save');
     }
   };
 
@@ -916,38 +1018,217 @@ export default function Templates({
               </div>
 
               {/* Tag Injector Helpers */}
-              {!editingTemplate?.is_starter && (
-                <div className="flex gap-2 align-center">
-                  <span style={{ fontSize: '0.8rem', color: 'var(--text-muted)' }}>Click to insert tag:</span>
-                  <button 
-                    type="button" 
-                    className="btn btn-secondary btn-sm"
-                    onClick={() => insertTag('[Name]')}
-                    style={{ borderColor: 'var(--border)', borderRadius: '3px' }}
-                  >
-                    <Sparkles size={12} style={{ color: 'var(--accent-blue)' }} />
-                    [Name]
-                  </button>
-                  <button 
-                    type="button" 
-                    className="btn btn-secondary btn-sm"
-                    onClick={() => insertTag('[niche]')}
-                    style={{ borderColor: 'var(--border)', borderRadius: '3px' }}
-                  >
-                    <Sparkles size={12} style={{ color: 'var(--accent-blue)' }} />
-                    [niche]
-                  </button>
-                  <button 
-                    type="button" 
-                    className="btn btn-secondary btn-sm"
-                    onClick={() => insertTag('[result]')}
-                    style={{ borderColor: 'var(--border)', borderRadius: '3px' }}
-                  >
-                    <Sparkles size={12} style={{ color: 'var(--accent-blue)' }} />
-                    [result]
-                  </button>
-                </div>
-              )}
+              {!editingTemplate?.is_starter && (() => {
+                const defaultGroupA = [
+                  { key: 'name', label: 'Name ([name])' },
+                  { key: 'first_name', label: 'First Name ([first_name])' },
+                  { key: 'last_name', label: 'Last Name ([last_name])' },
+                  { key: 'email', label: 'Email ([email])' },
+                  { key: 'company', label: 'Company ([company])' },
+                  { key: 'niche', label: 'Niche ([niche])' },
+                  { key: 'phone', label: 'Phone ([phone])' },
+                  { key: 'status', label: 'Status ([status])' },
+                  { key: 'priority', label: 'Priority ([priority])' },
+                  { key: 'action_to_take', label: 'Action to Take ([action_to_take])' }
+                ];
+
+                const customGroupA = [];
+                const seenKeys = new Set();
+                (columnDefs || []).forEach(col => {
+                  if (!col.is_default && col.column_key) {
+                    const key = col.column_key.toLowerCase();
+                    if (!seenKeys.has(key)) {
+                      seenKeys.add(key);
+                      customGroupA.push({
+                        key: col.column_key,
+                        label: `${col.column_label || col.column_key} ([${col.column_key}])`
+                      });
+                    }
+                  }
+                });
+
+                const groupALeadData = [...defaultGroupA, ...customGroupA];
+                const groupBMySnippets = (userSnippets || []).map(snip => ({
+                  key: snip.snippet_key,
+                  label: `${snip.snippet_key} ([${snip.snippet_key}])`,
+                  value: snip.snippet_value
+                }));
+
+                return (
+                  <div className="flex gap-2 align-center" style={{ position: 'relative' }}>
+                    <span style={{ fontSize: '0.8rem', color: 'var(--text-muted)' }}>Insert Snippet:</span>
+                    <div ref={snippetDropdownRef} style={{ position: 'relative' }}>
+                      <button 
+                        type="button" 
+                        className="btn btn-secondary btn-sm"
+                        onClick={() => setShowSnippetDropdown(!showSnippetDropdown)}
+                        style={{ borderColor: 'var(--border)', borderRadius: '3px', display: 'flex', alignItems: 'center', gap: '0.35rem' }}
+                      >
+                        <Sparkles size={12} style={{ color: 'var(--accent-blue)' }} />
+                        <span>Insert Snippet</span>
+                        <ChevronDown size={12} />
+                      </button>
+
+                      {showSnippetDropdown && (
+                        <div className="snippet-dropdown-menu" style={{
+                          position: 'absolute',
+                          top: '100%',
+                          left: 0,
+                          zIndex: 1000,
+                          width: '320px',
+                          backgroundColor: 'var(--bg-card)',
+                          border: '1px solid var(--border-strong)',
+                          borderRadius: '6px',
+                          boxShadow: '0 8px 32px rgba(0,0,0,0.5)',
+                          padding: '0.5rem 0',
+                          display: 'flex',
+                          flexDirection: 'column',
+                          marginTop: '4px'
+                        }}>
+                          <div style={{ overflowY: 'auto', maxHeight: '280px', padding: '0 0.5rem' }}>
+                            {/* Group A — Lead Data */}
+                            <div style={{ padding: '0.25rem 0.5rem', fontSize: '0.7rem', fontWeight: 700, color: 'var(--text-muted)', textTransform: 'uppercase', borderBottom: '1px solid var(--border)', marginBottom: '0.25rem' }}>
+                              Lead Data (Group A)
+                            </div>
+                            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '0.25rem', marginBottom: '0.75rem' }}>
+                              {groupALeadData.map(item => (
+                                <button
+                                  key={item.key}
+                                  type="button"
+                                  onClick={() => {
+                                    insertTagAtCursor(`[${item.key}]`);
+                                    setShowSnippetDropdown(false);
+                                  }}
+                                  style={{
+                                    padding: '4px 6px',
+                                    textAlign: 'left',
+                                    background: 'transparent',
+                                    border: 'none',
+                                    borderRadius: '3px',
+                                    color: 'var(--text-secondary)',
+                                    fontSize: '0.75rem',
+                                    cursor: 'pointer',
+                                    overflow: 'hidden',
+                                    textOverflow: 'ellipsis',
+                                    whiteSpace: 'nowrap',
+                                    transition: 'background 0.1s'
+                                  }}
+                                  onMouseEnter={e => e.target.style.backgroundColor = 'var(--bg-card-hover)'}
+                                  onMouseLeave={e => e.target.style.backgroundColor = 'transparent'}
+                                  title={item.label}
+                                >
+                                  {item.key}
+                                </button>
+                              ))}
+                            </div>
+
+                            {/* Group B — My Snippets */}
+                            <div style={{ padding: '0.25rem 0.5rem', fontSize: '0.7rem', fontWeight: 700, color: 'var(--text-muted)', textTransform: 'uppercase', borderBottom: '1px solid var(--border)', marginBottom: '0.25rem' }}>
+                              My Snippets (Group B)
+                            </div>
+                            {groupBMySnippets.length === 0 ? (
+                              <div style={{ padding: '0.5rem', fontSize: '0.75rem', color: 'var(--text-muted)', fontStyle: 'italic' }}>
+                                No custom snippets yet.
+                              </div>
+                            ) : (
+                              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '0.25rem', marginBottom: '0.75rem' }}>
+                                {groupBMySnippets.map(item => (
+                                  <button
+                                    key={item.key}
+                                    type="button"
+                                    onClick={() => {
+                                      insertTagAtCursor(`[${item.key}]`);
+                                      setShowSnippetDropdown(false);
+                                    }}
+                                    style={{
+                                      padding: '4px 6px',
+                                      textAlign: 'left',
+                                      background: 'transparent',
+                                      border: 'none',
+                                      borderRadius: '3px',
+                                      color: 'var(--text-secondary)',
+                                      fontSize: '0.75rem',
+                                      cursor: 'pointer',
+                                      overflow: 'hidden',
+                                      textOverflow: 'ellipsis',
+                                      whiteSpace: 'nowrap',
+                                      transition: 'background 0.1s'
+                                    }}
+                                    onMouseEnter={e => e.target.style.backgroundColor = 'var(--bg-card-hover)'}
+                                    onMouseLeave={e => e.target.style.backgroundColor = 'transparent'}
+                                    title={`${item.key}: ${item.value}`}
+                                  >
+                                    {item.key}
+                                  </button>
+                                ))}
+                              </div>
+                            )}
+                          </div>
+
+                          {/* Inline Quick Add mini-form */}
+                          <div style={{ borderTop: '1px solid var(--border)', paddingTop: '0.5rem', margin: '0.5rem 0.5rem 0 0.5rem' }}>
+                            {!isAddingSnippet ? (
+                              <button
+                                type="button"
+                                onClick={() => {
+                                  setIsAddingSnippet(true);
+                                  setNewSnippetKey('');
+                                  setNewSnippetValue('');
+                                  setSnippetError('');
+                                }}
+                                className="btn btn-secondary btn-sm"
+                                style={{ width: '100%', justifyContent: 'center', fontSize: '0.75rem', borderRadius: '3px', padding: '4px' }}
+                              >
+                                + New Snippet
+                              </button>
+                            ) : (
+                              <div style={{ display: 'flex', flexDirection: 'column', gap: '0.35rem', padding: '0.25rem' }}>
+                                <div style={{ display: 'flex', gap: '0.25rem' }}>
+                                  <input
+                                    type="text"
+                                    placeholder="Key"
+                                    value={newSnippetKey}
+                                    onChange={e => setNewSnippetKey(e.target.value)}
+                                    style={{ flex: 1, padding: '4px 6px', background: 'var(--bg-page)', border: '1px solid var(--border)', borderRadius: '3px', color: 'var(--text-primary)', fontSize: '0.75rem' }}
+                                  />
+                                  <input
+                                    type="text"
+                                    placeholder="Value"
+                                    value={newSnippetValue}
+                                    onChange={e => setNewSnippetValue(e.target.value)}
+                                    style={{ flex: 1, padding: '4px 6px', background: 'var(--bg-page)', border: '1px solid var(--border)', borderRadius: '3px', color: 'var(--text-primary)', fontSize: '0.75rem' }}
+                                  />
+                                </div>
+                                {snippetError && (
+                                  <div style={{ color: 'var(--danger-color)', fontSize: '0.65rem' }}>{snippetError}</div>
+                                )}
+                                <div style={{ display: 'flex', gap: '0.25rem', justifyContent: 'flex-end' }}>
+                                  <button
+                                    type="button"
+                                    onClick={() => setIsAddingSnippet(false)}
+                                    className="btn btn-secondary btn-sm"
+                                    style={{ padding: '2px 6px', fontSize: '0.7rem', height: '22px', minHeight: 'auto' }}
+                                  >
+                                    Cancel
+                                  </button>
+                                  <button
+                                    type="button"
+                                    onClick={handleSaveQuickSnippet}
+                                    className="btn btn-primary btn-sm"
+                                    style={{ padding: '2px 6px', fontSize: '0.7rem', height: '22px', minHeight: 'auto' }}
+                                  >
+                                    Save
+                                  </button>
+                                </div>
+                              </div>
+                            )}
+                          </div>
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                );
+              })()}
 
               {/* Grid: Editor Left, Live Preview Right */}
               <div className="template-editor-container" style={{ marginTop: '0.5rem' }}>

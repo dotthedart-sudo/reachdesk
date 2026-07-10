@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { X, Calendar, User, FileText, Activity as ActivityIcon, Plus, Trash2, Pencil, Check, Receipt, Lock } from 'lucide-react';
+import { X, Calendar, User, FileText, Activity as ActivityIcon, Plus, Trash2, Pencil, Check, Receipt, Lock, Copy } from 'lucide-react';
 import { supabase } from '../../lib/supabase';
 import { useAppContext } from '../../App';
 import EditableDropdown from './EditableDropdown';
@@ -8,6 +8,7 @@ import GroupedStatusDropdown from './GroupedStatusDropdown';
 import GroupedTemplateDropdown from './GroupedTemplateDropdown';
 import { updateLeadStatusAndCheckpoint, getSuggestionForStatus } from '../../lib/reminders';
 import PriorityDropdown from './PriorityDropdown';
+import { mergeTemplateFields } from '../../utils/templateMerge';
 
 
 
@@ -25,7 +26,7 @@ export default function LeadDrawer({
   suggestionRules = []
 }) {
   const [activeTab, setActiveTab] = useState('contact'); // 'contact' | 'pipeline' | 'notes' | 'activity'
-  const { showToast } = useAppContext() || {};
+  const { showToast, userSnippets } = useAppContext() || {};
   const [formData, setFormData] = useState({});
   const [invoices, setInvoices] = useState([]);
 
@@ -363,6 +364,18 @@ export default function LeadDrawer({
     } catch (err) {
       console.error('Error auto-saving lead:', err);
     }
+  };
+
+  const handleCopyPersonalizedMessage = (templateId) => {
+    if (!templateId) return;
+    const foundTmpl = templates.find(t => t.id === templateId);
+    if (!foundTmpl) {
+      showToast?.('Template not found', 'error');
+      return;
+    }
+    const merged = mergeTemplateFields(foundTmpl.body || '', lead, userSnippets, columnDefs);
+    navigator.clipboard.writeText(merged);
+    showToast?.(`Personalized message for ${lead.first_name || 'Lead'} copied!`);
   };
 
   const handleDropdownChange = async (arg1, arg2, arg3) => {
@@ -836,12 +849,35 @@ export default function LeadDrawer({
                 return (
                   <div key={col.id} className="form-group">
                     <label className="form-label">{col.column_label}</label>
-                    <GroupedTemplateDropdown
-                      value={val || ''}
-                      onChange={newVal => handleDropdownChange('template_used', newVal)}
-                      templates={templates}
-                      placeholder="None"
-                    />
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '0.35rem' }}>
+                      <div style={{ flex: 1, minWidth: 0 }}>
+                        <GroupedTemplateDropdown
+                          value={val || ''}
+                          onChange={newVal => handleDropdownChange('template_used', newVal)}
+                          templates={templates}
+                          placeholder="None"
+                        />
+                      </div>
+                      {val && (
+                        <button
+                          type="button"
+                          onClick={() => handleCopyPersonalizedMessage(val)}
+                          className="btn btn-secondary btn-sm"
+                          style={{
+                            padding: '6px 8px',
+                            minHeight: 'auto',
+                            display: 'inline-flex',
+                            alignItems: 'center',
+                            justifyContent: 'center',
+                            borderColor: 'var(--border)',
+                            borderRadius: '3px'
+                          }}
+                          title="Copy personalized message"
+                        >
+                          <Copy size={14} />
+                        </button>
+                      )}
+                    </div>
                   </div>
                 );
               }

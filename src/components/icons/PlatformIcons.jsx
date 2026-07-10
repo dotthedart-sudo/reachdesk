@@ -19,7 +19,7 @@ import {
   SiUpwork,
   SiTripadvisor
 } from '@icons-pack/react-simple-icons';
-import { Mail, Globe, Phone } from 'lucide-react';
+import { Mail, Globe, Phone, MessageSquare } from 'lucide-react';
 
 // ── Inline LinkedIn SVG (no extra dependency) ─────────────────────────────────
 const SiLinkedin = ({ size = 24, color = 'currentColor', ...props }) => (
@@ -43,6 +43,9 @@ const PLATFORM_MAP = {
   x:         { icon: SiX,         color: '#1a1a1a' },
   email:     { icon: Mail,        color: '#6B7280' },
   website:   { icon: Globe,       color: '#6B7280' },
+  whatsapp:  { icon: SiWhatsapp,  color: '#25D366' },
+  sms:       { icon: MessageSquare, color: '#3B82F6' },
+  phone:     { icon: Phone,       color: '#10B981' }
 };
 
 // ── Domain detector for custom link fields ─────────────────────────────────────
@@ -184,21 +187,7 @@ export const PhonePopup = ({ phone }) => {
 };
 
 // ── ReachIcons — shown in the "Reach" column of the CRM table ─────────────────
-export const ReachIcons = ({ lead, columnDefs = [] }) => {
-  const [phoneOpen, setPhoneOpen] = useState(false);
-  const phoneRef = useRef();
-  const hasPhone = !!lead.phone;
-  const isWhatsApp = (lead.platform || '').toLowerCase() === 'whatsapp';
-  const clean = lead.phone?.replace(/\D/g, '') || '';
-
-  useEffect(() => {
-    const handler = (e) => {
-      if (phoneRef.current && !phoneRef.current.contains(e.target)) setPhoneOpen(false);
-    };
-    document.addEventListener('mousedown', handler);
-    return () => document.removeEventListener('mousedown', handler);
-  }, []);
-
+export const ReachIcons = ({ lead, columnDefs = [], onReachClick }) => {
   // 1. Gather all social links (standard fields first)
   const links = [];
   const addedUrls = new Set();
@@ -206,7 +195,7 @@ export const ReachIcons = ({ lead, columnDefs = [] }) => {
   const tryAdd = (platform, url, isCustom = false) => {
     if (url) {
       let cleanUrl = url;
-      if (platform !== 'email' && !url.startsWith('http://') && !url.startsWith('https://') && !url.startsWith('mailto:')) {
+      if (platform !== 'email' && platform !== 'whatsapp' && platform !== 'sms' && platform !== 'phone' && !url.startsWith('http://') && !url.startsWith('https://') && !url.startsWith('mailto:')) {
         cleanUrl = `https://${url}`;
       }
       if (!addedUrls.has(cleanUrl)) {
@@ -217,12 +206,17 @@ export const ReachIcons = ({ lead, columnDefs = [] }) => {
   };
 
   // Standard fields from PLATFORM_MAP keys (linkedin, instagram, twitter, website, email)
-  tryAdd('linkedin', lead.linkedin_url);
-  tryAdd('instagram', lead.instagram_url);
-  tryAdd('twitter', lead.twitter_url);
+  tryAdd('linkedin_url', lead.linkedin_url);
+  tryAdd('instagram_url', lead.instagram_url);
+  tryAdd('twitter_url', lead.twitter_url);
   tryAdd('website', lead.website);
   if (lead.email) {
-    tryAdd('email', `mailto:${lead.email}`);
+    tryAdd('email', `email:${lead.email}`);
+  }
+  if (lead.phone) {
+    tryAdd('whatsapp', `whatsapp:${lead.phone}`);
+    tryAdd('sms', `sms:${lead.phone}`);
+    tryAdd('phone', `tel:${lead.phone}`);
   }
 
   // 2. Add custom_fields of type 'link'
@@ -246,7 +240,7 @@ export const ReachIcons = ({ lead, columnDefs = [] }) => {
     });
   }
 
-  if (links.length === 0 && !hasPhone) {
+  if (links.length === 0) {
     return <span style={{ color: '#6B7280', fontSize: '0.85rem' }}>—</span>;
   }
 
@@ -255,32 +249,68 @@ export const ReachIcons = ({ lead, columnDefs = [] }) => {
       style={{ display: 'flex', alignItems: 'center', gap: '6px' }}
       onClick={(e) => e.stopPropagation()}
     >
-      {/* Platform and Custom Link icon links in one single row — no truncation */}
       {links.map(({ platform, url, isCustom }) => {
         let IconComp = null;
         let iconColor = '#6B7280';
 
-        if (!isCustom && platform.toLowerCase() !== 'website') {
-          const config = PLATFORM_MAP[platform.toLowerCase()];
-          if (config) {
-            IconComp = config.icon;
-            iconColor = config.color;
-          }
+        const mapKey = platform.toLowerCase();
+        let displayPlatform = platform;
+        
+        if (mapKey.includes('linkedin')) {
+          IconComp = PLATFORM_MAP.linkedin.icon;
+          iconColor = PLATFORM_MAP.linkedin.color;
+          displayPlatform = 'LinkedIn';
+        } else if (mapKey.includes('instagram')) {
+          IconComp = PLATFORM_MAP.instagram.icon;
+          iconColor = PLATFORM_MAP.instagram.color;
+          displayPlatform = 'Instagram';
+        } else if (mapKey.includes('twitter') || mapKey === 'x') {
+          IconComp = PLATFORM_MAP.twitter.icon;
+          iconColor = PLATFORM_MAP.twitter.color;
+          displayPlatform = 'Twitter/X';
+        } else if (mapKey.includes('email')) {
+          IconComp = PLATFORM_MAP.email.icon;
+          iconColor = PLATFORM_MAP.email.color;
+          displayPlatform = 'Email';
+        } else if (mapKey.includes('whatsapp')) {
+          IconComp = PLATFORM_MAP.whatsapp.icon;
+          iconColor = PLATFORM_MAP.whatsapp.color;
+          displayPlatform = 'WhatsApp';
+        } else if (mapKey === 'sms') {
+          IconComp = PLATFORM_MAP.sms.icon;
+          iconColor = PLATFORM_MAP.sms.color;
+          displayPlatform = 'SMS';
+        } else if (mapKey === 'phone') {
+          IconComp = PLATFORM_MAP.phone.icon;
+          iconColor = PLATFORM_MAP.phone.color;
+          displayPlatform = 'Phone (SIM)';
+        } else if (mapKey === 'website') {
+          IconComp = PLATFORM_MAP.website.icon;
+          iconColor = PLATFORM_MAP.website.color;
+          displayPlatform = 'Website';
         }
 
         if (!IconComp) {
           const config = detectDomainIcon(url);
           IconComp = config.icon;
           iconColor = config.color;
+          displayPlatform = detectPlatformLabel(url);
         }
+
+        const handleIconClick = (e) => {
+          if (onReachClick) {
+            onReachClick(e, platform, url, lead);
+          }
+        };
 
         return (
           <a
             key={url}
             href={url}
+            onClick={handleIconClick}
             target="_blank"
             rel="noopener noreferrer"
-            title={platform.charAt(0).toUpperCase() + platform.slice(1)}
+            title={displayPlatform}
             style={{
               display: 'flex', alignItems: 'center', lineHeight: 1,
               opacity: 0.85, transition: 'opacity 0.15s ease',
@@ -292,62 +322,6 @@ export const ReachIcons = ({ lead, columnDefs = [] }) => {
           </a>
         );
       })}
-
-      {/* Phone icon — opens call / WhatsApp popup */}
-      {hasPhone && (
-        <div ref={phoneRef} style={{ position: 'relative', display: 'inline-flex' }}>
-          <span
-            onClick={(e) => { e.stopPropagation(); setPhoneOpen(!phoneOpen); }}
-            style={{
-              display: 'flex', alignItems: 'center', cursor: 'pointer',
-              color: isWhatsApp ? '#25D366' : '#3B82F6',
-              opacity: 0.85, transition: 'opacity 0.15s ease',
-            }}
-            title={isWhatsApp ? 'WhatsApp' : 'Phone'}
-            onMouseEnter={(e) => (e.currentTarget.style.opacity = '1')}
-            onMouseLeave={(e) => (e.currentTarget.style.opacity = '0.85')}
-          >
-            {isWhatsApp
-              ? <SiWhatsapp size={15} color="#25D366" />
-              : <Phone size={15} />
-            }
-          </span>
-          {phoneOpen && (
-            <div style={{
-              position: 'absolute', top: '100%', left: 0, zIndex: 1000,
-              background: 'var(--bg-secondary, #1a1a2e)',
-              border: '1px solid var(--border-color, #2d2d3d)',
-              borderRadius: '8px', padding: '4px 0',
-              minWidth: '160px', boxShadow: '0 4px 12px rgba(0,0,0,0.3)'
-            }}>
-              <a
-                href={`tel:${clean}`}
-                onClick={() => setPhoneOpen(false)}
-                style={{
-                  display: 'flex', alignItems: 'center', gap: '8px',
-                  padding: '8px 12px', color: 'var(--text-primary, #fff)',
-                  textDecoration: 'none', fontSize: '13px'
-                }}
-              >
-                <Phone size={14} /> Call via SIM
-              </a>
-              <a
-                href={`https://wa.me/${clean}`}
-                target="_blank"
-                rel="noopener noreferrer"
-                onClick={() => setPhoneOpen(false)}
-                style={{
-                  display: 'flex', alignItems: 'center', gap: '8px',
-                  padding: '8px 12px', color: 'var(--text-primary, #fff)',
-                  textDecoration: 'none', fontSize: '13px'
-                }}
-              >
-                <SiWhatsapp size={14} color="#25D366" /> Open WhatsApp
-              </a>
-            </div>
-          )}
-        </div>
-      )}
     </div>
   );
 };

@@ -8,7 +8,7 @@ import {
   Search, Plus, Download, Upload, Trash2, Edit3, X,
   Filter, CheckSquare, Square, Folder, FolderPlus,
   MoreVertical, Check, ThumbsUp, ThumbsDown, SkipForward, AlertCircle, ChevronDown, FileText,
-  Settings as Gear, MessageCircle, Zap, ExternalLink, Lock, Lightbulb
+  Settings as Gear, MessageCircle, Zap, ExternalLink, Lock, Lightbulb, Copy, Sparkles, Mail
 } from 'lucide-react';
 
 import EditableDropdown from './CRM/EditableDropdown';
@@ -24,6 +24,7 @@ import { ReachIcons, PhonePopup, detectDomainIcon, detectPlatformLabel } from '.
 import { updateLeadStatusAndCheckpoint, getSuggestionForStatus, REPLY_CHECK_STATUSES, FOLLOW_UP_CHECK_STATUSES } from '../lib/reminders';
 import PriorityDropdown from './CRM/PriorityDropdown';
 import { exportLeads, exportNotes } from '../utils/exportUtils';
+import { mergeTemplateFields, normalizePhoneNumber, generatePrefilledUrl } from '../utils/templateMerge';
 
 const PRESET_COLORS = [
   '#ef4444', // Red
@@ -56,8 +57,19 @@ export default function CRM({
   onRefreshReminders 
 }) {
   const navigate = useNavigate();
-  const { showToast } = useAppContext() || {};
+  const { showToast, userSnippets } = useAppContext() || {};
   const [leads, setLeads] = useState([]);
+
+  // Reach Link Click System states
+  const [reachModalOpen, setReachModalOpen] = useState(false);
+  const [reachLead, setReachLead] = useState(null);
+  const [reachChannel, setReachChannel] = useState('');
+  const [reachUrl, setReachUrl] = useState('');
+  const [selectedReachTemplateId, setSelectedReachTemplateId] = useState('');
+  const [reachTemplateBody, setReachTemplateBody] = useState('');
+  const [reachTemplateSubject, setReachTemplateSubject] = useState('');
+  const [reachWarning, setReachWarning] = useState('');
+  const [reachDestination, setReachDestination] = useState('mailto');
   const [folders, setFolders] = useState(() => {
     try {
       const saved = localStorage.getItem('crm_folders');
@@ -164,6 +176,150 @@ export default function CRM({
   });
   const [selectedLead, setSelectedLead] = useState(null);
   const [pastedLink, setPastedLink] = useState('');
+
+  const handleCopyPersonalizedMessage = (lead, templateId) => {
+    if (!templateId) return;
+    const foundTmpl = templates.find(t => t.id === templateId);
+    if (!foundTmpl) {
+      showToast?.('Template not found', 'error');
+      return;
+    }
+    const merged = mergeTemplateFields(foundTmpl.body || '', lead, userSnippets, columnDefs);
+    navigator.clipboard.writeText(merged);
+    showToast?.(`Personalized message for ${lead.first_name || 'Lead'} copied!`);
+  };
+
+  const handleReachClick = (e, platform, url, lead) => {
+    const mapKey = platform.toLowerCase();
+
+    // 1. Classify channel type: messaging vs profile_only
+    let channelKey = mapKey;
+    let channelType = 'profile_only';
+    let supportsPrefill = false;
+
+    if (
+      mapKey === 'email' ||
+      mapKey === 'whatsapp' ||
+      mapKey === 'sms' ||
+      mapKey === 'linkedin_url' ||
+      mapKey === 'instagram_url' ||
+      mapKey === 'twitter_url' ||
+      mapKey === 'linkedin' ||
+      mapKey === 'instagram' ||
+      mapKey === 'twitter' ||
+      mapKey === 'x'
+    ) {
+      channelKey = mapKey.includes('linkedin') ? 'linkedin_url' : mapKey.includes('instagram') ? 'instagram_url' : mapKey.includes('twitter') ? 'twitter_url' : mapKey;
+      channelType = 'messaging';
+      supportsPrefill = ['email', 'whatsapp', 'sms'].includes(mapKey);
+    } else {
+      // For custom domain fields, detect via detectPlatformLabel
+      const detectedLabel = detectPlatformLabel(url).toLowerCase();
+      if (detectedLabel === 'linkedin' || detectedLabel === 'instagram' || detectedLabel === 'twitter') {
+        channelKey = `${detectedLabel}_url`;
+        channelType = 'messaging';
+        supportsPrefill = false;
+      }
+    }
+
+    // Fallback path: profile_only channels just open the url directly
+    if (channelType === 'profile_only') {
+      return; // Do NOT call e.preventDefault(), browser navigates naturally
+    }
+
+    // Intercept messaging channel
+    e.preventDefault();
+
+    // 2. Normalize Phone details if WhatsApp/SMS/Call
+    let warningMsg = '';
+    if (['whatsapp', 'sms', 'phone'].includes(channelKey)) {
+      const defCode = currentUser?.default_country_code || '+92';
+      const normResult = normalizePhoneNumber(lead.phone, defCode);
+      if (!normResult.isValid) {
+        warningMsg = normResult.error;
+      }
+    }
+
+    // 3. User configuration check: always_draft_before_sending
+    const alwaysDraft = currentUser?.always_draft_before_sending !== false;
+    
+    // Choose template to load (user-scoped last-used)
+    const storedTmplId = localStorage.getItem(`reach_last_tmpl_${currentUser?.id}_${channelKey}`);
+    const activeTemplates = templates || [];
+    const initialTemplate = activeTemplates.find(t => t.id === storedTmplId) || activeTemplates[0];
+
+    const initialSubject = initialTemplate?.subject || '';
+    const initialBody = initialTemplate ? mergeTemplateFields(initialTemplate.body || '', lead, userSnippets, columnDefs) : '';
+
+    if (alwaysDraft) {
+      // Open Reach Draft Modal
+      setReachLead(lead);
+      setReachChannel(channelKey);
+      setReachUrl(url);
+      setSelectedReachTemplateId(initialTemplate?.id || '');
+      setReachTemplateSubject(initialSubject);
+      setReachTemplateBody(initialBody);
+      setReachWarning(warningMsg);
+      setReachDestination(channelKey === 'email' ? localStorage.getItem(`reach_last_dest_${currentUser?.id}_${channelKey}`) || 'mailto' : channelKey);
+      setReachModalOpen(true);
+    } else {
+      // Auto-send (direct prefill url opening or clipboard copying)
+      if (supportsPrefill) {
+        const dest = channelKey === 'email' ? localStorage.getItem(`reach_last_dest_${currentUser?.id}_${channelKey}`) || 'mailto' : channelKey;
+        const prefillResult = generatePrefilledUrl(
+          channelKey,
+          dest,
+          { email: lead.email, phone: lead.phone },
+          initialSubject,
+          initialBody,
+          currentUser?.default_country_code || '+92'
+        );
+        if (prefillResult.warning) {
+          alert(`Warning: ${prefillResult.warning}`);
+        }
+        window.open(prefillResult.url, '_blank');
+      } else {
+        // Clipboard copy + open profile URL
+        navigator.clipboard.writeText(initialBody);
+        showToast?.(`Copied! Paste it on ${lead.first_name || 'their'} profile.`);
+        window.open(url, '_blank');
+      }
+    }
+  };
+
+  const handleReachTemplateChange = (templateId) => {
+    setSelectedReachTemplateId(templateId);
+    const found = templates.find(t => t.id === templateId);
+    if (found && reachLead) {
+      const mergedBody = mergeTemplateFields(found.body || '', reachLead, userSnippets, columnDefs);
+      setReachTemplateSubject(found.subject || '');
+      setReachTemplateBody(mergedBody);
+      localStorage.setItem(`reach_last_tmpl_${currentUser?.id}_${reachChannel}`, templateId);
+    }
+  };
+
+  const handleReachSend = (dest) => {
+    localStorage.setItem(`reach_last_dest_${currentUser?.id}_${reachChannel}`, dest);
+    localStorage.setItem(`reach_last_tmpl_${currentUser?.id}_${reachChannel}`, selectedReachTemplateId);
+
+    const isPrefill = ['email', 'whatsapp', 'sms'].includes(reachChannel);
+    if (isPrefill) {
+      const prefillResult = generatePrefilledUrl(
+        reachChannel,
+        dest,
+        { email: reachLead.email, phone: reachLead.phone },
+        reachTemplateSubject,
+        reachTemplateBody,
+        currentUser?.default_country_code || '+92'
+      );
+      window.open(prefillResult.url, '_blank');
+    } else {
+      navigator.clipboard.writeText(reachTemplateBody);
+      showToast?.(`Copied! Paste it on ${reachLead?.first_name || 'their'} profile.`);
+      window.open(reachUrl, '_blank');
+    }
+    setReachModalOpen(false);
+  };
 
   const handleAddPastedLink = (e) => {
     if (e.key === 'Enter' || e.key === 'Tab') {
@@ -334,7 +490,7 @@ export default function CRM({
           ? supabase.from('user_folders').select('*').eq('user_id', currentUser.id).order('created_at', { ascending: true })
           : Promise.resolve({ data: [] }),
         supabase.from('custom_statuses').select('*').eq('user_id', currentUser.id).order('sort_order', { ascending: true }),
-        supabase.from('templates').select('id, title, platform, is_starter').or(`user_id.eq.${currentUser.id},user_id.is.null`),
+        supabase.from('templates').select('id, title, platform, is_starter, content').or(`user_id.eq.${currentUser.id},user_id.is.null`),
         supabase.from('column_definitions').select('*').eq('user_id', currentUser.id).order('sort_order', { ascending: true }),
         supabase.from('leads').select('*').in('user_id', teamIds).order('created_at', { ascending: false }),
         supabase.from('action_suggestion_rules').select('*')
@@ -361,7 +517,29 @@ export default function CRM({
         localStorage.setItem('crm_custom_statuses', JSON.stringify(sData));
       }
       
-      setTemplates(tData);
+      const parsedTemplates = tData.map(tmpl => {
+        let subject = '';
+        let body = '';
+        if (tmpl.content) {
+          if (tmpl.content.startsWith('{') && tmpl.content.endsWith('}')) {
+            try {
+              const parsed = JSON.parse(tmpl.content);
+              subject = parsed.subject || '';
+              body = parsed.body || '';
+            } catch (e) {
+              console.error('Error parsing custom template JSON content:', e);
+            }
+          } else {
+            body = tmpl.content;
+          }
+        }
+        return {
+          ...tmpl,
+          subject,
+          body
+        };
+      });
+      setTemplates(parsedTemplates);
       setLeads(lData);
       setClients(cData);
       setSuggestionRules(rData);
@@ -2019,12 +2197,35 @@ export default function CRM({
                         if (col.column_key === 'template_used') {
                           return (
                             <td key={col.id} style={{ padding: '0.75rem 1rem' }} onClick={(e) => e.stopPropagation()}>
-                              <GroupedTemplateDropdown
-                                value={lead.template_used || ''}
-                                onChange={(val) => handleDropdownChange(lead.id, 'template_used', val)}
-                                templates={templates}
-                                placeholder="None"
-                              />
+                              <div style={{ display: 'flex', alignItems: 'center', gap: '0.35rem' }}>
+                                <div style={{ flex: 1, minWidth: 0 }}>
+                                  <GroupedTemplateDropdown
+                                    value={lead.template_used || ''}
+                                    onChange={(val) => handleDropdownChange(lead.id, 'template_used', val)}
+                                    templates={templates}
+                                    placeholder="None"
+                                  />
+                                </div>
+                                {lead.template_used && (
+                                  <button
+                                    type="button"
+                                    onClick={() => handleCopyPersonalizedMessage(lead, lead.template_used)}
+                                    className="btn btn-secondary btn-sm"
+                                    style={{
+                                      padding: '4px 6px',
+                                      minHeight: 'auto',
+                                      display: 'inline-flex',
+                                      alignItems: 'center',
+                                      justifyContent: 'center',
+                                      borderColor: 'var(--border)',
+                                      borderRadius: '3px'
+                                    }}
+                                    title="Copy personalized message"
+                                  >
+                                    <Copy size={13} />
+                                  </button>
+                                )}
+                              </div>
                             </td>
                           );
                         }
@@ -2151,7 +2352,7 @@ export default function CRM({
                         if (col.column_key === 'platform' || col.column_type === 'reach' || col.column_type === 'system') {
                           return (
                             <td key={col.id} style={{ padding: '0.75rem 1rem' }} onClick={(e) => e.stopPropagation()}>
-                              <ReachIcons lead={lead} columnDefs={columnDefs} />
+                              <ReachIcons lead={lead} columnDefs={columnDefs} onReachClick={handleReachClick} />
                             </td>
                           );
                         }
@@ -3027,6 +3228,152 @@ export default function CRM({
                 <button type="submit" className="btn btn-primary">Import Leads</button>
               </div>
             </form>
+          </div>
+        </div>
+      )}
+
+      {/* 🚀 Reach Message Draft Modal Overlay */}
+      {reachModalOpen && reachLead && (
+        <div className="modal-backdrop" style={{ zIndex: 1100 }}>
+          <div className="modal-content" style={{ maxWidth: '520px', width: '90%', padding: '1.75rem', borderRadius: '12px', background: 'var(--bg-card)', border: '1px solid var(--border-strong)', boxShadow: '0 20px 40px rgba(0,0,0,0.6)' }}>
+            <div className="modal-header" style={{ borderBottom: '1px solid var(--border)', paddingBottom: '0.75rem', marginBottom: '1.25rem', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+              <h3 style={{ fontSize: '1.2rem', fontWeight: 600, margin: 0, color: 'var(--text-primary)', display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+                <Sparkles size={18} style={{ color: 'var(--accent-blue)' }} />
+                <span>Draft Message ({reachChannel === 'email' ? 'Email' : reachChannel === 'whatsapp' ? 'WhatsApp' : reachChannel === 'sms' ? 'SMS' : 'Social Profile'})</span>
+              </h3>
+              <button 
+                type="button" 
+                onClick={() => setReachModalOpen(false)}
+                style={{ background: 'transparent', border: 'none', color: 'var(--text-muted)', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center' }}
+              >
+                <X size={18} />
+              </button>
+            </div>
+
+            <div className="flex-col gap-4" style={{ textAlign: 'left' }}>
+              {/* Lead Details */}
+              <div style={{ background: 'var(--bg-page)', padding: '0.75rem 1rem', borderRadius: '6px', fontSize: '0.85rem', color: 'var(--text-secondary)', border: '1px solid var(--border)' }}>
+                <strong>Lead:</strong> {reachLead.first_name} {reachLead.last_name || ''} ({reachLead.company || 'No Company'})
+              </div>
+
+              {/* Validation Warning */}
+              {reachWarning && (
+                <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', padding: '0.75rem 1rem', borderRadius: '6px', background: 'rgba(224, 82, 82, 0.1)', border: '1px solid rgba(224, 82, 82, 0.25)', color: 'var(--status-hot)', fontSize: '0.8rem' }}>
+                  <AlertCircle size={16} />
+                  <span><strong>Warning:</strong> {reachWarning}</span>
+                </div>
+              )}
+
+              {/* Template Picker */}
+              <div className="form-group">
+                <label className="form-label" style={{ fontWeight: 600, fontSize: '0.85rem', color: 'var(--text-secondary)' }}>Select Template</label>
+                <select
+                  value={selectedReachTemplateId}
+                  onChange={(e) => handleReachTemplateChange(e.target.value)}
+                  className="form-select"
+                  style={{ width: '100%', background: 'var(--bg-page)', border: '1px solid var(--border)', color: 'var(--text-primary)', height: '36px', borderRadius: '4px' }}
+                >
+                  <option value="">(No Template - Free Text)</option>
+                  {(templates || []).map(t => (
+                    <option key={t.id} value={t.id}>{t.title} ({t.platform})</option>
+                  ))}
+                </select>
+              </div>
+
+              {/* Subject (Email Only) */}
+              {reachChannel === 'email' && (
+                <div className="form-group">
+                  <label className="form-label" style={{ fontWeight: 600, fontSize: '0.85rem', color: 'var(--text-secondary)' }}>Subject</label>
+                  <input
+                    type="text"
+                    className="form-input"
+                    value={reachTemplateSubject}
+                    onChange={(e) => setReachTemplateSubject(e.target.value)}
+                    style={{ width: '100%', background: 'var(--bg-page)', border: '1px solid var(--border)', color: 'var(--text-primary)', height: '36px', borderRadius: '4px', padding: '0 8px' }}
+                  />
+                </div>
+              )}
+
+              {/* Message Body Preview & Edit */}
+              <div className="form-group">
+                <label className="form-label" style={{ fontWeight: 600, fontSize: '0.85rem', color: 'var(--text-secondary)' }}>Personalized Preview</label>
+                <textarea
+                  className="form-textarea"
+                  value={reachTemplateBody}
+                  onChange={(e) => setReachTemplateBody(e.target.value)}
+                  style={{ width: '100%', minHeight: '160px', background: 'var(--bg-page)', border: '1px solid var(--border)', color: 'var(--text-primary)', borderRadius: '4px', padding: '8px', fontFamily: 'inherit', fontSize: '0.9rem', lineHeight: 1.5 }}
+                />
+              </div>
+
+              {/* Destination/Send Buttons */}
+              <div style={{ display: 'flex', gap: '0.75rem', justifyContent: 'flex-end', marginTop: '1.25rem', borderTop: '1px solid var(--border)', paddingTop: '1rem', flexWrap: 'wrap' }}>
+                <button
+                  type="button"
+                  onClick={() => setReachModalOpen(false)}
+                  className="btn btn-secondary"
+                  style={{ height: '36px' }}
+                >
+                  Cancel
+                </button>
+
+                {reachChannel === 'email' ? (
+                  <>
+                    <button
+                      type="button"
+                      onClick={() => handleReachSend('mailto')}
+                      className="btn btn-secondary"
+                      style={{ height: '36px', display: 'flex', alignItems: 'center', gap: '0.25rem' }}
+                    >
+                      <Mail size={14} /> Device Mail App
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => handleReachSend('gmail')}
+                      className="btn btn-secondary"
+                      style={{ height: '36px', display: 'flex', alignItems: 'center', gap: '0.25rem' }}
+                    >
+                      Gmail Web
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => handleReachSend('outlook')}
+                      className="btn btn-primary"
+                      style={{ height: '36px', display: 'flex', alignItems: 'center', gap: '0.25rem' }}
+                    >
+                      Outlook Web
+                    </button>
+                  </>
+                ) : reachChannel === 'whatsapp' ? (
+                  <button
+                    type="button"
+                    onClick={() => handleReachSend('whatsapp')}
+                    className="btn btn-primary"
+                    style={{ height: '36px', background: '#25D366', borderColor: '#25D366', color: '#fff', display: 'flex', alignItems: 'center', gap: '0.25rem' }}
+                  >
+                    Open WhatsApp
+                  </button>
+                ) : reachChannel === 'sms' ? (
+                  <button
+                    type="button"
+                    onClick={() => handleReachSend('sms')}
+                    className="btn btn-primary"
+                    style={{ height: '36px', display: 'flex', alignItems: 'center', gap: '0.25rem' }}
+                  >
+                    Send SMS
+                  </button>
+                ) : (
+                  // LinkedIn, Instagram, Twitter (no prefill support)
+                  <button
+                    type="button"
+                    onClick={() => handleReachSend(reachChannel)}
+                    className="btn btn-primary"
+                    style={{ height: '36px', display: 'flex', alignItems: 'center', gap: '0.25rem' }}
+                  >
+                    <Copy size={14} /> Copy & Open Profile
+                  </button>
+                )}
+              </div>
+            </div>
           </div>
         </div>
       )}

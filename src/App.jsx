@@ -222,6 +222,7 @@ function AppProvider({ children }) {
   const [teamProfilesMap, setTeamProfilesMap] = useState({});
   const [leads, setLeads] = useState([]);
   const [templates, setTemplates] = useState([]);
+  const [userSnippets, setUserSnippets] = useState([]);
   const [invoices, setInvoices] = useState([]);
   const [revenueLogs, setRevenueLogs] = useState([]);
   const [adminNotifCount, setAdminNotifCount] = useState(0);
@@ -545,11 +546,12 @@ function AppProvider({ children }) {
     try {
 
 
-      const [inv, rev, l, t] = await Promise.all([
+      const [inv, rev, l, t, snip] = await Promise.all([
         supabase.from('invoices').select('*').eq('user_id', userId).order('created_at', { ascending: false }),
         supabase.from('revenue_entries').select('*').eq('user_id', userId).order('paid_at', { ascending: false }),
         supabase.from('leads').select('*').in('user_id', ids),
         supabase.from('templates').select('*').eq('user_id', userId),
+        supabase.from('user_snippets').select('*').eq('user_id', userId).order('created_at', { ascending: true }),
       ]);
 
       let email = session?.user?.email || profile?.email || '';
@@ -613,6 +615,7 @@ function AppProvider({ children }) {
       });
 
       setTemplates([...STARTER_TEMPLATES, ...customMapped]);
+      setUserSnippets(snip.data || []);
 
       // Reminders count (Count active due reminders from follow_up_reminders if enabled)
       let totalReminders = 0;
@@ -854,16 +857,57 @@ function AppProvider({ children }) {
     }
   };
 
+  const handleAddSnippet = async (snippet) => {
+    const { data, error } = await supabase
+      .from('user_snippets')
+      .insert({
+        user_id: session.user.id,
+        snippet_key: snippet.snippet_key,
+        snippet_value: snippet.snippet_value
+      })
+      .select()
+      .single();
+    if (error) throw error;
+    if (!error && data) {
+      setUserSnippets(prev => [...prev, data]);
+      return data;
+    }
+  };
+
+  const handleDeleteSnippet = async (id) => {
+    const { error } = await supabase
+      .from('user_snippets')
+      .delete()
+      .eq('id', id);
+    if (error) throw error;
+    setUserSnippets(prev => prev.filter(s => s.id !== id));
+  };
+
+  const handleUpdateSnippet = async (id, fields) => {
+    const { data, error } = await supabase
+      .from('user_snippets')
+      .update(fields)
+      .eq('id', id)
+      .select()
+      .single();
+    if (error) throw error;
+    if (!error && data) {
+      setUserSnippets(prev => prev.map(s => s.id === id ? data : s));
+      return data;
+    }
+  };
+
   const value = {
     session, profile, subStatus, loading,
     theme, toggleTheme, brandName, currencySymbol, webhookUrl, bankAccount, bankIban,
-    teamIds, teamProfilesMap, leads, templates, invoices, revenueLogs,
+    teamIds, teamProfilesMap, leads, templates, userSnippets, invoices, revenueLogs,
     adminNotifCount, remindersCount,
     toast, showToast,
     handleLogout, handleRegisterUser, handleLoginUser, handleSaveSettings,
     handleAddInvoice, handleDeleteInvoice, handleUpdateInvoiceStatus,
     handleAddRevenueLog, handleDeleteRevenueLog,
     handleAddTemplate, handleDeleteTemplate, handleUpdateTemplate,
+    handleAddSnippet, handleDeleteSnippet, handleUpdateSnippet,
     fetchProfile: () => fetchProfile(session?.user?.id),
     fetchAllData: () => fetchAllData(teamIds, session?.user?.id, profile?.role === 'admin' || profile?.email === 'dotthedart@gmail.com'),
   };
