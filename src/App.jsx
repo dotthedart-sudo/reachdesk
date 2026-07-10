@@ -32,6 +32,11 @@ const PrivacyPolicy = lazy(() => import('./components/LegalPages').then(m => ({ 
 const RefundPolicy = lazy(() => import('./components/LegalPages').then(m => ({ default: m.RefundPolicy })));
 const GetStarted = lazy(() => import('./components/GetStarted'));
 import UserNotificationBell from './components/UserNotificationBell';
+import { HelmetProvider } from 'react-helmet-async';
+import GlobalHelmet from './components/GlobalHelmet';
+
+const BlogIndex = lazy(() => import('./components/BlogIndex'));
+const BlogPost = lazy(() => import('./components/BlogPost'));
 
 // App Context
 export const AppContext = createContext(null);
@@ -1189,52 +1194,55 @@ export default function App() {
   };
 
   return (
-    <BrowserRouter>
-      <AppProvider>
-        {swUpdateAvailable && (
-          <div style={{
-            position: 'fixed',
-            top: 0,
-            left: 0,
-            right: 0,
-            backgroundColor: '#5B8FB9',
-            color: '#0D1117',
-            padding: '0.75rem 1rem',
-            textAlign: 'center',
-            zIndex: 99999,
-            fontFamily: 'Mattone, sans-serif',
-            fontWeight: 600,
-            fontSize: '0.9rem',
-            boxShadow: '0 2px 10px rgba(0,0,0,0.5)',
-            display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'center',
-            gap: '0.75rem'
-          }}>
-            <span>A new version of ReachDesk CRM is available.</span>
-            <button 
-              onClick={handleSwUpdateRefresh}
-              style={{
-                backgroundColor: '#0D1117',
-                color: '#FFFFFF',
-                border: 'none',
-                padding: '4px 12px',
-                borderRadius: '3px',
-                cursor: 'pointer',
-                fontFamily: 'Mattone, sans-serif',
-                fontSize: '0.8rem',
-                fontWeight: 600
-              }}
-            >
-              Refresh Now
-            </button>
+    <HelmetProvider>
+      <GlobalHelmet />
+      <BrowserRouter>
+        <AppProvider>
+          {swUpdateAvailable && (
+            <div style={{
+              position: 'fixed',
+              top: 0,
+              left: 0,
+              right: 0,
+              backgroundColor: '#5B8FB9',
+              color: '#0D1117',
+              padding: '0.75rem 1rem',
+              textAlign: 'center',
+              zIndex: 99999,
+              fontFamily: 'Mattone, sans-serif',
+              fontWeight: 600,
+              fontSize: '0.9rem',
+              boxShadow: '0 2px 10px rgba(0,0,0,0.5)',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              gap: '0.75rem'
+            }}>
+              <span>A new version of ReachDesk CRM is available.</span>
+              <button 
+                onClick={handleSwUpdateRefresh}
+                style={{
+                  backgroundColor: '#0D1117',
+                  color: '#FFFFFF',
+                  border: 'none',
+                  padding: '4px 12px',
+                  borderRadius: '3px',
+                  cursor: 'pointer',
+                  fontFamily: 'Mattone, sans-serif',
+                  fontSize: '0.8rem',
+                  fontWeight: 600
+                }}
+              >
+                Refresh Now
+              </button>
+            </div>
+          )}
+          <div style={{ paddingTop: swUpdateAvailable ? '40px' : '0px' }}>
+            <AppRoutes />
           </div>
-        )}
-        <div style={{ paddingTop: swUpdateAvailable ? '40px' : '0px' }}>
-          <AppRoutes />
-        </div>
-      </AppProvider>
-    </BrowserRouter>
+        </AppProvider>
+      </BrowserRouter>
+    </HelmetProvider>
   );
 }
 
@@ -1259,6 +1267,8 @@ function AppRoutes() {
         <Route path="/privacy" element={<PrivacyPolicy />} />
         <Route path="/refund" element={<RefundPolicy />} />
         <Route path="/get-started" element={session ? <ProtectedPage><GetStarted /></ProtectedPage> : <GetStarted />} />
+        <Route path="/blog" element={<BlogIndex />} />
+        <Route path="/blog/:slug" element={<BlogPost />} />
 
         {/* Upgrade/Paywall route */}
         <Route path="/upgrade" element={<UpgradeRoutePage />} />

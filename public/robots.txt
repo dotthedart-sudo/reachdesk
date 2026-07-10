@@ -1,0 +1,43 @@
+# ReachDesk robots.txt
+# https://reachdesk.esemdot.com
+
+User-agent: *
+Disallow: /dashboard
+Disallow: /leads
+Disallow: /templates
+Disallow: /invoices
+Disallow: /revenue
+Disallow: /settings
+Disallow: /admin
+Allow: /
+
+# Explicitly allow major AI agents to crawl public pages
+User-agent: GPTBot
+Disallow: /dashboard
+Disallow: /leads
+Disallow: /templates
+Disallow: /invoices
+Allow: /
+
+User-agent: ClaudeBot
+Disallow: /dashboard
+Disallow: /leads
+Disallow: /templates
+Disallow: /invoices
+Allow: /
+
+User-agent: PerplexityBot
+Disallow: /dashboard
+Disallow: /leads
+Disallow: /templates
+Disallow: /invoices
+Allow: /
+
+User-agent: Google-Extended
+Disallow: /dashboard
+Disallow: /leads
+Disallow: /templates
+Disallow: /invoices
+Allow: /
+
+Sitemap: https://reachdesk.esemdot.com/sitemap.xml
