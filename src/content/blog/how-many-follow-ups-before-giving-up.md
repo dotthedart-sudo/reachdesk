@@ -5,7 +5,7 @@ keywords: how many follow ups before giving up, follow up frequency, when to sto
 category: Follow-Up Strategy
 publishedDate: 2026-02-12
 modifiedDate: 2026-02-12
-coverImage: https://reachdesk.esemdot.com/og-image.png
+coverImage: https://reachdeskcrm.com/og-image.png
 author: ReachDesk
 ---
 

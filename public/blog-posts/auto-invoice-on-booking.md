@@ -5,7 +5,7 @@ keywords: CRM invoice automation, auto invoice when meeting booked, automatic in
 category: Invoicing & Payments
 publishedDate: 2026-01-18
 modifiedDate: 2026-01-18
-coverImage: https://reachdesk.esemdot.com/og-image.png
+coverImage: https://reachdeskcrm.com/og-image.png
 author: ReachDesk
 ---
 

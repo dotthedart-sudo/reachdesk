@@ -5,7 +5,7 @@ keywords: how to organize leads, lead organization system, lead management for f
 category: Lead Management
 publishedDate: 2026-01-15
 modifiedDate: 2026-01-15
-coverImage: https://reachdesk.esemdot.com/og-image.png
+coverImage: https://reachdeskcrm.com/og-image.png
 author: ReachDesk
 ---
 

@@ -6,9 +6,9 @@
 export const siteMeta = {
   site: {
     name: 'ReachDesk',
-    url: 'https://reachdesk.esemdot.com',
+    url: 'https://reachdeskcrm.com',
     twitterHandle: '@reachdesk', // Update if you have a Twitter
-    ogImage: 'https://reachdesk.esemdot.com/og-image.png', // Add OG image to public/
+    ogImage: 'https://reachdeskcrm.com/og-image.png', // Add OG image to public/
   },
   
   pages: {

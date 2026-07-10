@@ -6,8 +6,8 @@ export const organizationSchema = () => ({
   '@context': 'https://schema.org',
   '@type': 'Organization',
   name: 'ReachDesk',
-  url: 'https://reachdesk.esemdot.com',
-  logo: 'https://reachdesk.esemdot.com/reachdesk-logo.svg',
+  url: 'https://reachdeskcrm.com',
+  logo: 'https://reachdeskcrm.com/reachdesk-logo.svg',
   description: 'CRM for freelancers and agencies that centralizes leads and automates follow-ups.',
   sameAs: [
     // Add your social media profiles here
@@ -20,12 +20,12 @@ export const websiteSchema = () => ({
   '@context': 'https://schema.org',
   '@type': 'WebSite',
   name: 'ReachDesk',
-  url: 'https://reachdesk.esemdot.com',
+  url: 'https://reachdeskcrm.com',
   searchAction: {
     '@type': 'SearchAction',
     target: {
       '@type': 'EntryPoint',
-      urlTemplate: 'https://reachdesk.esemdot.com/search?q={search_term}',
+      urlTemplate: 'https://reachdeskcrm.com/search?q={search_term}',
     },
   },
 });
@@ -35,13 +35,13 @@ export const softwareApplicationSchema = () => ({
   '@type': 'SoftwareApplication',
   name: 'ReachDesk',
   description: 'CRM for freelancers and agencies.',
-  url: 'https://reachdesk.esemdot.com',
+  url: 'https://reachdeskcrm.com',
   applicationCategory: 'BusinessApplication',
   offers: {
     '@type': 'Offer',
     priceCurrency: 'USD',
     price: '12.00',
-    url: 'https://reachdesk.esemdot.com/homepage#pricing',
+    url: 'https://reachdeskcrm.com/homepage#pricing',
   },
   // Add aggregateRating once you have user reviews
 });
@@ -51,7 +51,7 @@ export const blogPostSchema = (post) => ({
   '@type': 'BlogPosting',
   headline: post.title,
   description: post.description,
-  image: post.coverImage || 'https://reachdesk.esemdot.com/og-image.png',
+  image: post.coverImage || 'https://reachdeskcrm.com/og-image.png',
   datePublished: post.publishedDate,
   dateModified: post.modifiedDate || post.publishedDate,
   author: {
@@ -60,7 +60,7 @@ export const blogPostSchema = (post) => ({
   },
   mainEntityOfPage: {
     '@type': 'WebPage',
-    '@id': `https://reachdesk.esemdot.com/blog/${post.slug}`,
+    '@id': `https://reachdeskcrm.com/blog/${post.slug}`,
   },
 });
 

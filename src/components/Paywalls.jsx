@@ -654,7 +654,7 @@ export function UpgradePage({ profile, handleLogout, onRefreshProfile, bankAccou
       items: [{ priceId, quantity: 1 }],
       customer: { email: user.email },
       customData: { supabase_user_id: user.id },
-      successUrl: 'https://reachdesk.esemdot.com/dashboard?upgraded=true',
+      successUrl: 'https://reachdeskcrm.com/dashboard?upgraded=true',
     });
   };
 

@@ -5,7 +5,7 @@ keywords: lead prioritization, hot warm cold leads, how to prioritize sales lead
 category: Lead Management
 publishedDate: 2026-01-20
 modifiedDate: 2026-01-20
-coverImage: https://reachdesk.esemdot.com/og-image.png
+coverImage: https://reachdeskcrm.com/og-image.png
 author: ReachDesk
 ---
 

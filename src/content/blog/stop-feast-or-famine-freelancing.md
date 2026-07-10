@@ -5,7 +5,7 @@ keywords: feast or famine freelancing, inconsistent freelance income, freelance 
 category: Freelance Strategy
 publishedDate: 2026-02-05
 modifiedDate: 2026-02-05
-coverImage: https://reachdesk.esemdot.com/og-image.png
+coverImage: https://reachdeskcrm.com/og-image.png
 author: ReachDesk
 ---
 

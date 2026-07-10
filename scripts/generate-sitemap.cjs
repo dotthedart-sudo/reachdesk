@@ -5,7 +5,7 @@ const fs = require('fs');
 const path = require('path');
 const matter = require('gray-matter');
 
-const SITE_URL = 'https://reachdesk.esemdot.com';
+const SITE_URL = 'https://reachdeskcrm.com';
 const PUBLIC_DIR = path.join(__dirname, '../public');
 const BLOG_DIR = path.join(__dirname, '../src/content/blog');
 

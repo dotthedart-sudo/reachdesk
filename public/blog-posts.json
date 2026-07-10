@@ -7,7 +7,7 @@
     "category": "Invoicing & Payments",
     "publishedDate": "2026-01-18T00:00:00.000Z",
     "modifiedDate": "2026-01-18T00:00:00.000Z",
-    "coverImage": "https://reachdesk.esemdot.com/og-image.png",
+    "coverImage": "https://reachdeskcrm.com/og-image.png",
     "author": "ReachDesk"
   },
   {
@@ -18,7 +18,18 @@
     "category": "Lead Management",
     "publishedDate": "2026-02-15T00:00:00.000Z",
     "modifiedDate": "2026-02-15T00:00:00.000Z",
-    "coverImage": "https://reachdesk.esemdot.com/og-image.png",
+    "coverImage": "https://reachdeskcrm.com/og-image.png",
+    "author": "ReachDesk"
+  },
+  {
+    "slug": "crm-that-tells-you-what-to-do-next",
+    "title": "What Should I Do Next? The One Question Your CRM Should Answer Every Morning",
+    "description": "Most CRMs store data. The best ones tell you what to do next. Here's what a CRM that surfaces your next action looks like — and why it changes everything for freelancers.",
+    "keywords": "CRM that tells you what to do next, CRM next action, freelancer CRM daily workflow, CRM that prioritizes leads automatically",
+    "category": "Lead Management",
+    "publishedDate": "2026-03-15T00:00:00.000Z",
+    "modifiedDate": "2026-03-15T00:00:00.000Z",
+    "coverImage": "https://reachdeskcrm.com/og-image.png",
     "author": "ReachDesk"
   },
   {
@@ -29,7 +40,40 @@
     "category": "Communication",
     "publishedDate": "2026-01-22T00:00:00.000Z",
     "modifiedDate": "2026-01-22T00:00:00.000Z",
-    "coverImage": "https://reachdesk.esemdot.com/og-image.png",
+    "coverImage": "https://reachdeskcrm.com/og-image.png",
+    "author": "ReachDesk"
+  },
+  {
+    "slug": "freelancer-context-switching-leads",
+    "title": "Your Brain Has Too Many Tabs Open. Here's Why Your Lead Management Is Costing You Money",
+    "description": "Context switching between leads, apps, and conversations costs freelancers 20-30 minutes per switch. Here's how to consolidate everything and reclaim your focus.",
+    "keywords": "freelancer context switching, too many apps freelancer, consolidate lead management, freelancer productivity leads",
+    "category": "Productivity",
+    "publishedDate": "2026-03-03T00:00:00.000Z",
+    "modifiedDate": "2026-03-03T00:00:00.000Z",
+    "coverImage": "https://reachdeskcrm.com/og-image.png",
+    "author": "ReachDesk"
+  },
+  {
+    "slug": "freelancer-daily-outreach-routine",
+    "title": "You Sit Down to Do Outreach. Now What? (The Daily Clarity System for Freelancers)",
+    "description": "Most freelancers open their laptop for outreach and immediately feel overwhelmed. Here's the system that tells you exactly which lead to contact first — every single day.",
+    "keywords": "freelancer daily outreach routine, freelancer morning outreach, how to start outreach freelancer, daily lead management routine",
+    "category": "Productivity",
+    "publishedDate": "2026-03-01T00:00:00.000Z",
+    "modifiedDate": "2026-03-01T00:00:00.000Z",
+    "coverImage": "https://reachdeskcrm.com/og-image.png",
+    "author": "ReachDesk"
+  },
+  {
+    "slug": "freelancer-morning-outreach-habit",
+    "title": "The 20-Minute Morning Outreach Habit That Actually Gets Done (For Freelancers)",
+    "description": "Most freelancers do outreach when they're desperate, not daily. Here's how to build a 20-minute morning habit that keeps your pipeline full without burning out.",
+    "keywords": "freelancer morning outreach habit, daily outreach routine freelancer, morning marketing habit freelancer, freelancer outreach system",
+    "category": "Productivity",
+    "publishedDate": "2026-03-08T00:00:00.000Z",
+    "modifiedDate": "2026-03-08T00:00:00.000Z",
+    "coverImage": "https://reachdeskcrm.com/og-image.png",
     "author": "ReachDesk"
   },
   {
@@ -40,7 +84,7 @@
     "category": "Lead Management",
     "publishedDate": "2026-01-20T00:00:00.000Z",
     "modifiedDate": "2026-01-20T00:00:00.000Z",
-    "coverImage": "https://reachdesk.esemdot.com/og-image.png",
+    "coverImage": "https://reachdeskcrm.com/og-image.png",
     "author": "ReachDesk"
   },
   {
@@ -51,7 +95,7 @@
     "category": "Follow-Up Strategy",
     "publishedDate": "2026-02-12T00:00:00.000Z",
     "modifiedDate": "2026-02-12T00:00:00.000Z",
-    "coverImage": "https://reachdesk.esemdot.com/og-image.png",
+    "coverImage": "https://reachdeskcrm.com/og-image.png",
     "author": "ReachDesk"
   },
   {
@@ -62,7 +106,7 @@
     "category": "Communication",
     "publishedDate": "2026-02-08T00:00:00.000Z",
     "modifiedDate": "2026-02-08T00:00:00.000Z",
-    "coverImage": "https://reachdesk.esemdot.com/og-image.png",
+    "coverImage": "https://reachdeskcrm.com/og-image.png",
     "author": "ReachDesk"
   },
   {
@@ -73,7 +117,40 @@
     "category": "Lead Management",
     "publishedDate": "2026-01-15T00:00:00.000Z",
     "modifiedDate": "2026-01-15T00:00:00.000Z",
-    "coverImage": "https://reachdesk.esemdot.com/og-image.png",
+    "coverImage": "https://reachdeskcrm.com/og-image.png",
+    "author": "ReachDesk"
+  },
+  {
+    "slug": "manage-30-leads-without-losing-mind",
+    "title": "How to Manage 30+ Leads Without Losing Your Mind (The Solo Freelancer's System)",
+    "description": "Your brain handles 10 leads fine. At 30, it breaks. Here's the system that lets you manage 50+ active conversations without forgetting anyone or dropping follow-ups.",
+    "keywords": "how to manage multiple clients freelancer, manage many leads freelancer, freelancer lead overload, solo freelancer lead system",
+    "category": "Lead Management",
+    "publishedDate": "2026-03-10T00:00:00.000Z",
+    "modifiedDate": "2026-03-10T00:00:00.000Z",
+    "coverImage": "https://reachdeskcrm.com/og-image.png",
+    "author": "ReachDesk"
+  },
+  {
+    "slug": "pick-up-where-you-left-off-leads",
+    "title": "How to Pick Up Exactly Where You Left Off With Every Lead (Without Scrambling)",
+    "description": "\"Where was I with this person?\" is the most common and most expensive question in freelance outreach. Here's how to always have instant context on every lead.",
+    "keywords": "pick up where left off clients, resume outreach freelancer, lead context management, remember lead conversations",
+    "category": "Lead Management",
+    "publishedDate": "2026-03-05T00:00:00.000Z",
+    "modifiedDate": "2026-03-05T00:00:00.000Z",
+    "coverImage": "https://reachdeskcrm.com/og-image.png",
+    "author": "ReachDesk"
+  },
+  {
+    "slug": "stop-checking-5-apps-before-work",
+    "title": "The Hidden Cost of Checking 5 Apps Before You Start Work (And How to Stop)",
+    "description": "Email, Instagram DMs, WhatsApp, calendar, spreadsheet — most freelancers check 5+ apps before they do a single outreach action. Here's what this costs you and how to fix it.",
+    "keywords": "reduce admin work freelancer, too many apps freelancer outreach, simplify freelancer workflow, freelancer productivity system",
+    "category": "Productivity",
+    "publishedDate": "2026-03-12T00:00:00.000Z",
+    "modifiedDate": "2026-03-12T00:00:00.000Z",
+    "coverImage": "https://reachdeskcrm.com/og-image.png",
     "author": "ReachDesk"
   },
   {
@@ -84,7 +161,7 @@
     "category": "Freelance Strategy",
     "publishedDate": "2026-02-05T00:00:00.000Z",
     "modifiedDate": "2026-02-05T00:00:00.000Z",
-    "coverImage": "https://reachdesk.esemdot.com/og-image.png",
+    "coverImage": "https://reachdeskcrm.com/og-image.png",
     "author": "ReachDesk"
   },
   {
@@ -95,7 +172,7 @@
     "category": "Follow-Up Strategy",
     "publishedDate": "2026-01-25T00:00:00.000Z",
     "modifiedDate": "2026-01-25T00:00:00.000Z",
-    "coverImage": "https://reachdesk.esemdot.com/og-image.png",
+    "coverImage": "https://reachdeskcrm.com/og-image.png",
     "author": "ReachDesk"
   },
   {
@@ -106,7 +183,7 @@
     "category": "Client Management",
     "publishedDate": "2026-02-01T00:00:00.000Z",
     "modifiedDate": "2026-02-01T00:00:00.000Z",
-    "coverImage": "https://reachdesk.esemdot.com/og-image.png",
+    "coverImage": "https://reachdeskcrm.com/og-image.png",
     "author": "ReachDesk"
   }
 ]

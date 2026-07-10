@@ -5,7 +5,7 @@ keywords: track client conversations, best way to organize clients, freelance cl
 category: Lead Management
 publishedDate: 2026-02-15
 modifiedDate: 2026-02-15
-coverImage: https://reachdesk.esemdot.com/og-image.png
+coverImage: https://reachdeskcrm.com/og-image.png
 author: ReachDesk
 ---
 

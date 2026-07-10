@@ -5,7 +5,7 @@ keywords: how to follow up without being annoying, follow up email etiquette, pr
 category: Communication
 publishedDate: 2026-02-08
 modifiedDate: 2026-02-08
-coverImage: https://reachdesk.esemdot.com/og-image.png
+coverImage: https://reachdeskcrm.com/og-image.png
 author: ReachDesk
 ---
 

@@ -5,7 +5,7 @@ keywords: why do clients ghost freelancers, client not responding, unresponsive 
 category: Client Management
 publishedDate: 2026-02-01
 modifiedDate: 2026-02-01
-coverImage: https://reachdesk.esemdot.com/og-image.png
+coverImage: https://reachdeskcrm.com/og-image.png
 author: ReachDesk
 ---
 
@@ -105,7 +105,7 @@ A: Respect it immediately. Don't follow up. Mark them as Lost and move on. Ghost
 A: No. Tuesday through Thursday, 9am-11am in their timezone, gets the highest response rates. Avoid Mondays (inbox overload) and Fridays (checked-out mode).
 
 **Q: How do I track all these follow-ups without going crazy?**
-A: Use a CRM with follow-up reminders. [ReachDesk](https://reachdesk.esemdot.com) has built-in checkpoint reminders that tell you when each follow-up is due and suggest what to send. Or use calendar reminders if you're just starting out.
+A: Use a CRM with follow-up reminders. [ReachDesk](https://reachdeskcrm.com) has built-in checkpoint reminders that tell you when each follow-up is due and suggest what to send. Or use calendar reminders if you're just starting out.
 
 ## The Bottom Line
 

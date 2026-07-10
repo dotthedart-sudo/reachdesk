@@ -5,7 +5,7 @@ keywords: lead follow-up system, how many times to follow up, follow-up frequenc
 category: Follow-Up Strategy
 publishedDate: 2026-01-25
 modifiedDate: 2026-01-25
-coverImage: https://reachdesk.esemdot.com/og-image.png
+coverImage: https://reachdeskcrm.com/og-image.png
 author: ReachDesk
 ---
 
