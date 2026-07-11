@@ -50,6 +50,14 @@ const DEFAULT_STATUSES = [
   { label: 'Client', color: '#10b981' }
 ];
 
+const SORT_OPTIONS = [
+  { value: 'newest',    label: 'Newest First' },
+  { value: 'contacted', label: 'Recently Contacted' },
+  { value: 'hot',       label: 'Hot First' },
+  { value: 'name',      label: 'Name A → Z' },
+  { value: 'status',    label: 'By Status' },
+];
+
 export default function CRM({ 
   currentUser, 
   teamProfilesMap = {}, 
@@ -113,8 +121,6 @@ export default function CRM({
   const [templates, setTemplates] = useState([]);
   const [loading, setLoading] = useState(true);
 
-  // Active filters and views
-  const [selectedFolderId, setSelectedFolderId] = useState(null); // null = All Leads
   const [searchQuery, setSearchQuery] = useState('');
   const [statusFilter, setStatusFilter] = useState('');
   const [selectedIds, setSelectedIds] = useState([]);
@@ -123,6 +129,8 @@ export default function CRM({
   const [showSmartFolderModal, setShowSmartFolderModal] = useState(false);
   const [smartFolderForm, setSmartFolderForm] = useState({ name: '', rules: [{ field: 'Status', operator: 'is', value: '' }] });
   const [priorityFilter, setPriorityFilter] = useState('');
+  const [sortOption, setSortOption] = useState('newest');
+  const [sortDropdownOpen, setSortDropdownOpen] = useState(false);
   const [showLeadLimitBlockModal, setShowLeadLimitBlockModal] = useState(false);
   const [toastRemaining, setToastRemaining] = useState(null);
   const [importResult, setImportResult] = useState(null);
@@ -155,9 +163,11 @@ export default function CRM({
     }
   });
 
-  // View state persisted in URL — ?view=contact_details (default) | ?view=pipeline
+  // View and Folder states persisted in URL
   const [searchParams, setSearchParams] = useSearchParams();
   const view = searchParams.get('view') || 'contact_details';
+  const folderParam = searchParams.get('folder');
+  const selectedFolderId = folderParam === 'all' || !folderParam ? null : folderParam;
 
   const handleViewChange = (newView) => {
     setSearchParams(prev => {
@@ -506,7 +516,26 @@ export default function CRM({
       const sData = statusesRes.data || [];
       const tData = templatesRes.data || [];
       const cols = columnsRes.data || [];
-      const lData = leadsRes.data || [];
+      const rawLeads = leadsRes.data || [];
+      const lData = rawLeads.map(lead => {
+        if (lead.priority && /🔥|⚡|📦|🧊/.test(lead.priority)) {
+          let cleanPriority = lead.priority.replace(/🔥|⚡|📦|🧊/g, '').trim();
+          if (cleanPriority.toLowerCase() === 'hot') cleanPriority = 'Hot';
+          else if (cleanPriority.toLowerCase() === 'warm') cleanPriority = 'Warm';
+          else if (cleanPriority.toLowerCase() === 'cold') cleanPriority = 'Cold';
+          
+          // Trigger background update in Supabase
+          supabase
+            .from('leads')
+            .update({ priority: cleanPriority })
+            .eq('id', lead.id)
+            .then(({ error }) => {
+              if (error) console.error(`Failed to migrate priority for lead ${lead.id}:`, error);
+            });
+          return { ...lead, priority: cleanPriority };
+        }
+        return lead;
+      });
       const cData = lData.filter(l => l.status === 'Client');
       const rData = rulesRes.data || [];
 
@@ -542,6 +571,7 @@ export default function CRM({
         };
       });
       setTemplates(parsedTemplates);
+      
       setLeads(lData);
       setClients(cData);
       setSuggestionRules(rData);
@@ -745,6 +775,18 @@ export default function CRM({
     } catch (err) {
       console.error(`Error updating field ${field}:`, err);
     }
+  };
+
+  const handleClearFilters = () => {
+    setStatusFilter('');
+    setPriorityFilter('');
+    setFilterStatuses([]);
+    setFilterPriorities([]);
+    setFilterActions([]);
+    setFilterProjects([]);
+    setFilterDateRange('all');
+    setFilterDateField('created_at');
+    setSearchQuery('');
   };
 
   const handleResetToDefault = async (targetView) => {
@@ -1260,7 +1302,7 @@ export default function CRM({
 
       await supabase.from('folders').delete().eq('id', folderId);
       setFolders(prev => prev.filter(f => f.id !== folderId));
-      if (selectedFolderId === folderId) setSelectedFolderId(null);
+      if (selectedFolderId === folderId) handleSelectFolder(null);
     } catch (err) {
       console.error('Error deleting folder:', err);
     }
@@ -1271,7 +1313,7 @@ export default function CRM({
     try {
       await supabase.from('user_folders').delete().eq('id', folderId);
       setUserFolders(prev => prev.filter(uf => uf.id !== folderId));
-      if (selectedFolderId === folderId) setSelectedFolderId(null);
+      if (selectedFolderId === folderId) handleSelectFolder(null);
     } catch (err) {
       console.error('Error deleting smart folder:', err);
     }
@@ -1640,8 +1682,59 @@ export default function CRM({
         }
       }
     }
-
     return searchMatch && folderMatch && statusMatch && priorityMatch && statusDrawerMatch && priorityDrawerMatch && actionDrawerMatch && projectDrawerMatch && dateRangeMatch;
+  });
+
+  // Apply sort
+  const sortedLeads = [...filteredLeads].sort((a, b) => {
+    switch (sortOption) {
+      case 'newest':
+        return new Date(b.created_at) - new Date(a.created_at) || (a.id || '').localeCompare(b.id || '');
+      
+      case 'contacted': {
+        const aDate = a.last_contacted_at ? new Date(a.last_contacted_at) : new Date(0);
+        const bDate = b.last_contacted_at ? new Date(b.last_contacted_at) : new Date(0);
+        return bDate - aDate;
+      }
+      
+      case 'hot': {
+        const priorityOrder = { 'Hot': 0, 'Warm': 1, 'Cold': 2 };
+        const aPriority = priorityOrder[a.priority] ?? 3;
+        const bPriority = priorityOrder[b.priority] ?? 3;
+        return aPriority - bPriority;
+      }
+      
+      case 'name': {
+        const aName = (a.first_name || '').toLowerCase();
+        const bName = (b.first_name || '').toLowerCase();
+        return aName.localeCompare(bName);
+      }
+      
+      case 'status': {
+        const statusOrder = [
+          'lead',
+          'contacted',
+          'waiting',
+          'positive reply',
+          'proposal sent',
+          'calendly sent',
+          'booked',
+          'no show',
+          'no show / rescheduled',
+          'rescheduled',
+          'followed up',
+          'not interested',
+          'closed won',
+          'client'
+        ];
+        const aStatus = statusOrder.indexOf((a.status || '').toLowerCase().trim());
+        const bStatus = statusOrder.indexOf((b.status || '').toLowerCase().trim());
+        return (aStatus === -1 ? 99 : aStatus) - (bStatus === -1 ? 99 : bStatus);
+      }
+      
+      default:
+        return 0;
+    }
   });
 
   const filteredClients = clients.filter(c => {
@@ -1651,13 +1744,21 @@ export default function CRM({
   });
 
   const handleSelectFolder = (id) => {
-    setSelectedFolderId(id);
+    setSearchParams(prev => {
+      const next = new URLSearchParams(prev);
+      if (id === null || id === 'all') {
+        next.delete('folder');
+      } else {
+        next.set('folder', id);
+      }
+      return next;
+    });
     if (view === 'clients') {
       handleViewChange('contact_details');
     }
   };
 
-  const activeList = view === 'clients' ? filteredClients : filteredLeads;
+  const activeList = view === 'clients' ? filteredClients : sortedLeads;
   const totalFiltered = activeList.length;
   const paginatedList = activeList.slice((currentPage - 1) * pageSize, currentPage * pageSize);
 
@@ -2002,6 +2103,72 @@ export default function CRM({
                 <option value="Medium">Medium</option>
                 <option value="Low">Low</option>
               </select>
+            </div>
+
+            {/* Sort Dropdown */}
+            <div style={{ position: 'relative' }}>
+              <button
+                type="button"
+                className="sort-btn"
+                onClick={() => setSortDropdownOpen(!sortDropdownOpen)}
+                style={{
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: '6px',
+                  padding: '0.35rem 0.75rem',
+                  fontSize: '0.8rem',
+                  height: 'auto',
+                  border: '1px solid var(--border-color)',
+                  borderRadius: '4px',
+                  background: 'var(--bg-secondary)',
+                  color: 'var(--text-primary)',
+                  cursor: 'pointer',
+                  whiteSpace: 'nowrap'
+                }}
+              >
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                  <line x1="3" y1="6" x2="21" y2="6"/>
+                  <line x1="6" y1="12" x2="18" y2="12"/>
+                  <line x1="9" y1="18" x2="15" y2="18"/>
+                </svg>
+                Sort
+                {sortOption !== 'newest' && (
+                  <span className="sort-active-dot" />
+                )}
+                <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                  <polyline points="6,9 12,15 18,9"/>
+                </svg>
+              </button>
+
+              {sortDropdownOpen && (
+                <>
+                  {/* Backdrop to close on outside click */}
+                  <div
+                    style={{ position: 'fixed', inset: 0, zIndex: 99 }}
+                    onClick={() => setSortDropdownOpen(false)}
+                  />
+                  <div className="sort-dropdown" style={{ background: 'var(--bg-secondary)', border: '1px solid var(--border-color)' }}>
+                    {SORT_OPTIONS.map(opt => (
+                      <button
+                        key={opt.value}
+                        type="button"
+                        className={`sort-option ${sortOption === opt.value ? 'active' : ''}`}
+                        onClick={() => {
+                          setSortOption(opt.value);
+                          setSortDropdownOpen(false);
+                        }}
+                      >
+                        <span>{opt.label}</span>
+                        {sortOption === opt.value && (
+                          <svg style={{ marginLeft: 'auto' }} width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
+                            <polyline points="20,6 9,17 4,12"/>
+                          </svg>
+                        )}
+                      </button>
+                    ))}
+                  </div>
+                </>
+              )}
             </div>
 
             {(statusFilter || priorityFilter || filterStatuses.length > 0 || filterPriorities.length > 0 || filterActions.length > 0 || filterProjects.length > 0 || filterDateRange !== 'all') && (

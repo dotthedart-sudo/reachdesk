@@ -2539,3 +2539,77 @@ select option {
   }
 }
 
+/* Sort Button & Dropdown styling */
+.sort-btn {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 6px 12px;
+  border: 0.5px solid var(--border);
+  border-radius: 6px;
+  background: var(--bg-card);
+  color: var(--text-primary);
+  font-size: 13px;
+  cursor: pointer;
+  white-space: nowrap;
+  transition: border-color 0.15s ease;
+  position: relative;
+}
+
+.sort-btn:hover {
+  border-color: var(--accent-blue);
+}
+
+.sort-active-dot {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: var(--accent-blue);
+  display: inline-block;
+}
+
+.sort-dropdown {
+  position: absolute;
+  top: calc(100% + 6px);
+  left: 0;
+  z-index: 100;
+  background: var(--bg-card);
+  border: 0.5px solid var(--border);
+  border-radius: 8px;
+  padding: 4px;
+  min-width: 200px;
+  box-shadow: 0 4px 16px rgba(0,0,0,0.15);
+}
+
+.sort-option {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  width: 100%;
+  padding: 8px 10px;
+  border: none;
+  border-radius: 6px;
+  background: transparent;
+  color: var(--text-primary);
+  font-size: 13px;
+  cursor: pointer;
+  text-align: left;
+  transition: background 0.1s ease;
+}
+
+.sort-option:hover {
+  background: var(--bg-hover);
+}
+
+.sort-option.active {
+  background: var(--bg-selected);
+  color: var(--accent-blue);
+  font-weight: 500;
+}
+
+.sort-option-icon {
+  font-size: 14px;
+  width: 18px;
+  text-align: center;
+}
+

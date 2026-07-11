@@ -19,6 +19,11 @@ const DEFAULT_PRIORITIES = [
   { label: 'Cold', color: '#3b82f6' }
 ];
 
+const stripEmojis = (str) => {
+  if (!str) return '';
+  return str.replace(/[\u2700-\u27BF]|[\uE000-\uF8FF]|\uD83C[\uDC00-\uDFFF]|\uD83D[\uDC00-\uDFFF]|[\u2011-\u26FF]|\uD83E[\uDD10-\uDDFF]|🔥|⚡|📦|🧊/g, '').trim();
+};
+
 export default function PriorityDropdown({ value, onChange, onUpdate }) {
   const [isOpen, setIsOpen] = useState(false);
   const [isEditing, setIsEditing] = useState(false);
@@ -59,13 +64,44 @@ export default function PriorityDropdown({ value, onChange, onUpdate }) {
           .from('column_definitions')
           .select('*')
           .eq('user_id', uid)
-          .eq('column_key', 'priority')
-          .maybeSingle();
+          .eq('column_key', 'priority');
 
-        if (!error && data) {
-          setColumnDefId(data.id);
-          if (data.dropdown_options && data.dropdown_options.length > 0) {
-            setPriorities(data.dropdown_options);
+        if (!error && data && data.length > 0) {
+          // Find the one that has dropdown options or use the first one
+          const targetDef = data.find(d => d.dropdown_options && d.dropdown_options.length > 0) || data[0];
+          setColumnDefId(targetDef.id);
+          
+          if (targetDef.dropdown_options && targetDef.dropdown_options.length > 0) {
+            const strippedOptions = targetDef.dropdown_options.map(opt => ({
+              ...opt,
+              label: stripEmojis(opt.label)
+            }));
+            setPriorities(strippedOptions);
+          }
+
+          // Asynchronously migrate emojis for all found definitions
+          for (const row of data) {
+            if (row.dropdown_options && row.dropdown_options.length > 0) {
+              let hasEmojis = false;
+              const cleanOpts = row.dropdown_options.map(opt => {
+                if (opt.label && /🔥|⚡|📦|🧊/.test(opt.label)) {
+                  hasEmojis = true;
+                }
+                return {
+                  ...opt,
+                  label: stripEmojis(opt.label)
+                };
+              });
+              if (hasEmojis) {
+                supabase
+                  .from('column_definitions')
+                  .update({ dropdown_options: cleanOpts })
+                  .eq('id', row.id)
+                  .then(({ error: upErr }) => {
+                    if (upErr) console.error('Failed to clean emojis from column definitions:', upErr);
+                  });
+              }
+            }
           }
         }
       } catch (err) {
@@ -110,12 +146,13 @@ export default function PriorityDropdown({ value, onChange, onUpdate }) {
   };
 
   const handleAdd = async () => {
-    if (!newLabel.trim()) return;
-    if (priorities.some(p => p.label.toLowerCase() === newLabel.trim().toLowerCase())) {
+    const labelVal = stripEmojis(newLabel.trim());
+    if (!labelVal) return;
+    if (priorities.some(p => p.label.toLowerCase() === labelVal.toLowerCase())) {
       alert('Priority label already exists.');
       return;
     }
-    const updated = [...priorities, { label: newLabel.trim(), color: newColor }];
+    const updated = [...priorities, { label: labelVal, color: newColor }];
     setPriorities(updated);
     setNewLabel('');
     await savePrioritiesToDb(updated);
@@ -129,9 +166,9 @@ export default function PriorityDropdown({ value, onChange, onUpdate }) {
   };
 
   const handleSaveEdit = async (index) => {
-    if (!editingLabel.trim()) return;
+    const newL = stripEmojis(editingLabel.trim());
+    if (!newL) return;
     const oldLabel = priorities[index].label;
-    const newL = editingLabel.trim();
 
     if (priorities.some((p, idx) => idx !== index && p.label.toLowerCase() === newL.toLowerCase())) {
       alert('Priority label already exists.');
@@ -186,7 +223,7 @@ export default function PriorityDropdown({ value, onChange, onUpdate }) {
   };
 
   // Find priority match
-  const normalizedVal = value ? value.trim() : 'Cold';
+  const normalizedVal = value ? stripEmojis(value.trim()) : 'Cold';
   const currentPriority = priorities.find(p => p.label.toLowerCase() === normalizedVal.toLowerCase()) || { label: normalizedVal, color: '#6b7280' };
 
   const getPriorityStyle = (color) => {
@@ -218,7 +255,7 @@ export default function PriorityDropdown({ value, onChange, onUpdate }) {
         style={getPriorityStyle(currentPriority.color)}
       >
         <span style={{ width: '7px', height: '7px', borderRadius: '50%', backgroundColor: currentPriority.color }} />
-        <span>{currentPriority.label}</span>
+        <span>{stripEmojis(currentPriority.label)}</span>
         <ChevronDown size={12} style={{ opacity: 0.7 }} />
       </button>
 
@@ -274,7 +311,7 @@ export default function PriorityDropdown({ value, onChange, onUpdate }) {
                       onMouseLeave={e => e.currentTarget.style.background = isSelected ? 'rgba(255, 255, 255, 0.08)' : 'transparent'}
                     >
                       <span style={{ width: '8px', height: '8px', borderRadius: '50%', backgroundColor: opt.color }} />
-                      <span>{opt.label}</span>
+                      <span>{stripEmojis(opt.label)}</span>
                     </button>
                   );
                 })}
@@ -367,7 +404,7 @@ export default function PriorityDropdown({ value, onChange, onUpdate }) {
                       <>
                         <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
                           <span style={{ width: '8px', height: '8px', borderRadius: '50%', backgroundColor: opt.color }} />
-                          <span style={{ fontSize: '0.8rem', color: 'var(--text-primary)' }}>{opt.label}</span>
+                          <span style={{ fontSize: '0.8rem', color: 'var(--text-primary)' }}>{stripEmojis(opt.label)}</span>
                         </div>
                         <div style={{ display: 'flex', gap: '4px' }}>
                           <button type="button" onClick={() => handleStartEdit(idx)} style={{ background: 'none', border: 'none', color: 'var(--text-muted)', cursor: 'pointer', padding: '2px' }}><Pencil size={11} /></button>

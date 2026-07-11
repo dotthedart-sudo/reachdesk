@@ -59,9 +59,9 @@ export function normalizePriority(value: string, defaultPriority: string): strin
   
   const lower = value.toLowerCase().trim();
   
-  if (lower === "hot" || lower === "🔥" || lower === "🔥 hot") return "🔥 Hot";
-  if (lower === "warm" || lower === "⚡" || lower === "⚡ warm") return "⚡ Warm";
-  if (lower === "cold" || lower === "🧊" || lower === "🧊 cold") return "🧊 Cold";
+  if (lower === "hot" || lower === "🔥" || lower === "🔥 hot") return "Hot";
+  if (lower === "warm" || lower === "⚡" || lower === "⚡ warm") return "Warm";
+  if (lower === "cold" || lower === "🧊" || lower === "🧊 cold") return "Cold";
   
   return defaultPriority;
 }

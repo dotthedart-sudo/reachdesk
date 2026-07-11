@@ -597,7 +597,30 @@ function AppProvider({ children }) {
         userEmail: email
       }));
       setRevenueLogs(mappedRevenue);
-      setLeads(l.data || []);
+      // Client-side priority migration for emojis
+      const leadsData = l.data || [];
+      const updatedLeadsList = [];
+      for (let lead of leadsData) {
+        if (lead.priority && /🔥|⚡|📦|🧊/.test(lead.priority)) {
+          let cleanPriority = lead.priority.replace(/🔥|⚡|📦|🧊/g, '').trim();
+          if (cleanPriority.toLowerCase() === 'hot') cleanPriority = 'Hot';
+          else if (cleanPriority.toLowerCase() === 'warm') cleanPriority = 'Warm';
+          else if (cleanPriority.toLowerCase() === 'cold') cleanPriority = 'Cold';
+          
+          lead = { ...lead, priority: cleanPriority };
+          
+          // Trigger background update in Supabase
+          supabase
+            .from('leads')
+            .update({ priority: cleanPriority })
+            .eq('id', lead.id)
+            .then(({ error }) => {
+              if (error) console.error(`Failed to migrate priority for lead ${lead.id}:`, error);
+            });
+        }
+        updatedLeadsList.push(lead);
+      }
+      setLeads(updatedLeadsList);
 
       const customMapped = (t.data || []).map(tmpl => {
         try {
