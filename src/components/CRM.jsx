@@ -408,6 +408,8 @@ export default function CRM({
   const [replyType, setReplyType] = useState('positive'); // 'positive' | 'negative' | 'skip'
   const [replyTemplateId, setReplyTemplateId] = useState('');
   const [replyNotes, setReplyNotes] = useState('');
+  const [nextStep, setNextStep] = useState(null); // 'proposal' | 'meeting' | 'skip' | null
+  const [nextStepLink, setNextStepLink] = useState('');
 
   // Suggestions & Checkpoints states
   const [suggestionRules, setSuggestionRules] = useState([]);
@@ -492,7 +494,7 @@ export default function CRM({
         supabase.from('custom_statuses').select('*').eq('user_id', currentUser.id).order('sort_order', { ascending: true }),
         supabase.from('templates').select('id, title, platform, is_starter, content').or(`user_id.eq.${currentUser.id},user_id.is.null`),
         supabase.from('column_definitions').select('*').eq('user_id', currentUser.id).order('sort_order', { ascending: true }),
-        supabase.from('leads').select('*').in('user_id', teamIds).order('created_at', { ascending: false }),
+        supabase.from('leads').select('*').in('user_id', teamIds).order('created_at', { ascending: false }).order('id', { ascending: true }),
         supabase.from('action_suggestion_rules').select('*')
       ]);
 
@@ -1064,6 +1066,8 @@ export default function CRM({
       setReplyType('positive');
       setReplyTemplateId('');
       setReplyNotes('');
+      setNextStep(null);
+      setNextStepLink('');
       return;
     }
 
@@ -1087,7 +1091,7 @@ export default function CRM({
   };
 
   // Save Reply Type Prompt
-  const handleSaveReplyPrompt = async () => {
+  const handleSaveReplyPrompt = async (forcedNextStep = null, forcedLink = null) => {
     if (!replyPromptLead) return;
     try {
       const repType = replyType === 'skip' ? null : replyType;
@@ -1106,16 +1110,38 @@ export default function CRM({
 
       if (logErr) throw logErr;
 
+      // Determine next status and custom action_to_take if user chose proposal/meeting step
+      let targetStatus = replyPromptStatus;
+      const extraUpdates = {
+        reply_type: repType,
+        template_used: replyTemplateId || null
+      };
+
+      const isBooked = (replyPromptStatus || '').toLowerCase() === 'booked';
+      const activeNextStep = forcedNextStep !== null ? forcedNextStep : nextStep;
+      const activeLink = forcedLink !== null ? forcedLink : nextStepLink;
+
+      if (replyType === 'positive' && !isBooked) {
+        if (activeNextStep === 'proposal') {
+          targetStatus = 'Proposal Sent';
+          if (activeLink) {
+            extraUpdates.action_to_take = activeLink;
+          }
+        } else if (activeNextStep === 'meeting') {
+          targetStatus = 'Calendly Sent';
+          if (activeLink) {
+            extraUpdates.action_to_take = activeLink;
+          }
+        }
+      }
+
       // 2. Update Lead status and reply details via unified checkpoint logic
       const updatedLead = await updateLeadStatusAndCheckpoint({
         lead: replyPromptLead,
-        newStatus: replyPromptStatus,
+        newStatus: targetStatus,
         suggestionRules,
         currentUser,
-        extraUpdates: {
-          reply_type: repType,
-          template_used: replyTemplateId || null
-        }
+        extraUpdates
       });
 
       if (updatedLead?.draftCreated && showToast) {
@@ -1124,6 +1150,8 @@ export default function CRM({
 
       setLeads(prev => prev.map(l => l.id === replyPromptLead.id ? updatedLead : l));
       setReplyPromptLead(null);
+      setNextStep(null);
+      setNextStepLink('');
       if (onRefreshReminders) onRefreshReminders();
     } catch (err) {
       console.error('Error saving reply prompt:', err);
@@ -3391,35 +3419,98 @@ export default function CRM({
             </div>
             <div className="flex-col gap-3" style={{ textAlign: 'left', marginTop: '1rem' }}>
               
-              <div className="form-group">
-                <label className="form-label">Was this a positive reply?</label>
-                <div className="flex gap-2 w-block" style={{ width: '100%' }}>
-                  <button 
-                    type="button" 
-                    onClick={() => setReplyType('positive')}
-                    className={`btn btn-sm ${replyType === 'positive' ? 'btn-primary' : 'btn-secondary'}`}
-                    style={{ flex: 1, justifyContent: 'center', gap: '0.25rem' }}
-                  >
-                    <ThumbsUp size={14} /> Positive
-                  </button>
-                  <button 
-                    type="button" 
-                    onClick={() => setReplyType('negative')}
-                    className={`btn btn-sm ${replyType === 'negative' ? 'btn-primary' : 'btn-secondary'}`}
-                    style={{ flex: 1, justifyContent: 'center', gap: '0.25rem', borderColor: replyType === 'negative' ? 'var(--danger-color)' : 'var(--border-color)', color: replyType === 'negative' ? '#ef4444' : 'var(--text-primary)' }}
-                  >
-                    <ThumbsDown size={14} /> Negative
-                  </button>
-                  <button 
-                    type="button" 
-                    onClick={() => setReplyType('skip')}
-                    className={`btn btn-sm ${replyType === 'skip' ? 'btn-primary' : 'btn-secondary'}`}
-                    style={{ flex: 1, justifyContent: 'center', gap: '0.25rem' }}
-                  >
-                    <SkipForward size={14} /> Skip
-                  </button>
+              {replyPromptStatus && replyPromptStatus.toLowerCase() !== 'booked' && (
+                <div className="form-group">
+                  <label className="form-label">Was this a positive reply?</label>
+                  <div className="flex gap-2 w-block" style={{ width: '100%' }}>
+                    <button 
+                      type="button" 
+                      onClick={() => {
+                        setReplyType('positive');
+                        setNextStep(null);
+                        setNextStepLink('');
+                      }}
+                      className={`btn btn-sm ${replyType === 'positive' ? 'btn-primary' : 'btn-secondary'}`}
+                      style={{ flex: 1, justifyContent: 'center', gap: '0.25rem' }}
+                    >
+                      <ThumbsUp size={14} /> Positive
+                    </button>
+                    <button 
+                      type="button" 
+                      onClick={() => {
+                        setReplyType('negative');
+                        setNextStep(null);
+                        setNextStepLink('');
+                      }}
+                      className={`btn btn-sm ${replyType === 'negative' ? 'btn-primary' : 'btn-secondary'}`}
+                      style={{ flex: 1, justifyContent: 'center', gap: '0.25rem', borderColor: replyType === 'negative' ? 'var(--danger-color)' : 'var(--border-color)', color: replyType === 'negative' ? '#ef4444' : 'var(--text-primary)' }}
+                    >
+                      <ThumbsDown size={14} /> Negative
+                    </button>
+                    <button 
+                      type="button" 
+                      onClick={() => {
+                        setReplyType('skip');
+                        setNextStep(null);
+                        setNextStepLink('');
+                      }}
+                      className={`btn btn-sm ${replyType === 'skip' ? 'btn-primary' : 'btn-secondary'}`}
+                      style={{ flex: 1, justifyContent: 'center', gap: '0.25rem' }}
+                    >
+                      <SkipForward size={14} /> Skip
+                    </button>
+                  </div>
                 </div>
-              </div>
+              )}
+
+              {replyType === 'positive' && replyPromptStatus && replyPromptStatus.toLowerCase() !== 'booked' && (
+                <div className="form-group" style={{ marginTop: '0.5rem' }}>
+                  <label className="form-label">Great! What's the next step?</label>
+                  <div className="flex gap-2 w-block" style={{ width: '100%' }}>
+                    <button 
+                      type="button" 
+                      onClick={() => setNextStep('proposal')}
+                      className={`btn btn-sm ${nextStep === 'proposal' ? 'btn-primary' : 'btn-secondary'}`}
+                      style={{ flex: 1, justifyContent: 'center' }}
+                    >
+                      Send Proposal
+                    </button>
+                    <button 
+                      type="button" 
+                      onClick={() => setNextStep('meeting')}
+                      className={`btn btn-sm ${nextStep === 'meeting' ? 'btn-primary' : 'btn-secondary'}`}
+                      style={{ flex: 1, justifyContent: 'center' }}
+                    >
+                      Send Meeting Link
+                    </button>
+                    <button 
+                      type="button" 
+                      onClick={() => handleSaveReplyPrompt('skip')}
+                      className={`btn btn-sm btn-secondary`}
+                      style={{ flex: 1, justifyContent: 'center' }}
+                    >
+                      Skip for now
+                    </button>
+                  </div>
+                </div>
+              )}
+
+              {replyType === 'positive' && nextStep && nextStep !== 'skip' && replyPromptStatus && replyPromptStatus.toLowerCase() !== 'booked' && (
+                <div className="form-group" style={{ marginTop: '0.5rem' }}>
+                  <label className="form-label">
+                    {nextStep === 'proposal' 
+                      ? "Paste your proposal link or describe the next step:" 
+                      : "Paste your meeting/calendar link (Calendly, Google Meet, etc.):"}
+                  </label>
+                  <input 
+                    type="text" 
+                    value={nextStepLink} 
+                    onChange={e => setNextStepLink(e.target.value)} 
+                    placeholder={nextStep === 'proposal' ? "e.g. https://proposal.com/123" : "e.g. https://calendly.com/user"}
+                    className="form-input" 
+                  />
+                </div>
+              )}
 
               <div className="form-group">
                 <label className="form-label">Which template did you use? (optional)</label>

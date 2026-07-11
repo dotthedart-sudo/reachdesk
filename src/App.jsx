@@ -554,7 +554,7 @@ function AppProvider({ children }) {
       const [inv, rev, l, t, snip] = await Promise.all([
         supabase.from('invoices').select('*').eq('user_id', userId).order('created_at', { ascending: false }),
         supabase.from('revenue_entries').select('*').eq('user_id', userId).order('paid_at', { ascending: false }),
-        supabase.from('leads').select('*').in('user_id', ids),
+        supabase.from('leads').select('*').in('user_id', ids).order('created_at', { ascending: false }).order('id', { ascending: true }),
         supabase.from('templates').select('*').eq('user_id', userId),
         supabase.from('user_snippets').select('*').eq('user_id', userId).order('created_at', { ascending: true }),
       ]);

@@ -163,7 +163,7 @@ export async function updateLeadStatusAndCheckpoint({
   // Apply suggestions automatically if enabled
   const suggestionsEnabled = currentUser ? currentUser.suggestions_enabled : true;
   const autoApply = currentUser ? currentUser.suggestions_auto_apply !== false : true;
-  if (suggestionsEnabled && autoApply && suggestedAction) {
+  if (suggestionsEnabled && autoApply && suggestedAction && !extraUpdates.action_to_take) {
     leadUpdate.action_to_take = suggestedAction;
   }
 

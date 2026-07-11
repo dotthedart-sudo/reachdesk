@@ -55,7 +55,7 @@ export default function Dashboard({ currentUser, onSelectLead }) {
       const [invoicesRes, rulesRes, leadsRes, remindersRes] = await Promise.all([
         supabase.from('invoices').select('*').eq('user_id', currentUser.id),
         supabase.from('action_suggestion_rules').select('*'),
-        supabase.from('leads').select('id, first_name, last_name, status, created_at, last_contacted_at, action_to_take, next_checkpoint_at, template_used, reply_type').in('user_id', teamIds),
+        supabase.from('leads').select('id, first_name, last_name, status, created_at, last_contacted_at, action_to_take, next_checkpoint_at, template_used, reply_type').in('user_id', teamIds).order('created_at', { ascending: false }).order('id', { ascending: true }),
         supabase.from('follow_up_reminders').select('*').eq('status', 'pending').lte('scheduled_at', new Date().toISOString()).order('scheduled_at', { ascending: true }).limit(3)
       ]);
 
