@@ -1,12 +1,13 @@
 import React, { useState, useEffect } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useLocation } from 'react-router-dom';
 import { supabase } from '../lib/supabase';
 import { useAppContext } from '../App';
 import { PLAN_LIMITS } from '../lib/utils';
 import { 
   Settings, Save, CreditCard, 
   AlertCircle, Users, Mail, UserMinus, User, Upload,
-  Download, FileText, Sparkles, Plus, Trash2, Edit3
+  Download, FileText, Sparkles, Plus, Trash2, Edit3,
+  Calendar, CheckCircle, Unlink
 } from 'lucide-react';
 import { exportLeads, exportNotes } from '../utils/exportUtils';
 import CurrencySelector, { CURRENCY_MAP } from './CurrencySelector';
@@ -33,6 +34,7 @@ export default function Configuration({
   onRefreshProfile
 }) {
   const navigate = useNavigate();
+  const location = useLocation();
   const { userSnippets = [], handleAddSnippet, handleDeleteSnippet, handleUpdateSnippet } = useAppContext();
   const [newKey, setNewKey] = useState('');
   const [newValue, setNewValue] = useState('');
@@ -154,6 +156,12 @@ export default function Configuration({
 
   const [exporting, setExporting] = useState(null); // 'leads' | 'notes' | null
 
+  // ── Google Calendar Integration State ────────────────────────────────────
+  const [calIntegration, setCalIntegration] = useState(null); // row from calendar_integrations
+  const [calLoading, setCalLoading] = useState(true);
+  const [calDisconnecting, setCalDisconnecting] = useState(false);
+  const [calSuccessMsg, setCalSuccessMsg] = useState('');
+
   const handleExportLeadsClick = async () => {
     if (exporting) return;
     setExporting('leads');
@@ -236,6 +244,105 @@ export default function Configuration({
       setMonthlyRevenueTarget(currentUser.monthly_revenue_target || '');
     }
   }, [currentUser]);
+
+  // ── Fetch calendar integration status ────────────────────────────────────
+  useEffect(() => {
+    async function fetchCalIntegration() {
+      if (!currentUser?.id) { setCalLoading(false); return; }
+      const { data } = await supabase
+        .from('calendar_integrations')
+        .select('id, connected_at, watch_expiration, is_active')
+        .eq('user_id', currentUser.id)
+        .eq('provider', 'google')
+        .maybeSingle();
+      setCalIntegration(data?.is_active ? data : null);
+      setCalLoading(false);
+    }
+    fetchCalIntegration();
+  }, [currentUser?.id]);
+
+  // ── Show success banner if redirected back after OAuth ────────────────────
+  useEffect(() => {
+    const params = new URLSearchParams(location.search);
+    if (params.get('connected') === 'google') {
+      setCalSuccessMsg('Google Calendar connected successfully! Leads will now be auto-marked as Booked when they appear in your calendar.');
+      // Clean up URL without triggering a navigation
+      window.history.replaceState({}, '', '/settings?tab=integrations');
+      setTimeout(() => setCalSuccessMsg(''), 8000);
+    }
+  }, [location.search]);
+
+  // ── Connect Google Calendar (initiates OAuth with CSRF state) ────────────
+  const handleConnectCalendar = () => {
+    const state = crypto.randomUUID();
+    sessionStorage.setItem('google_oauth_state', state);
+    const clientId = import.meta.env.VITE_GOOGLE_CLIENT_ID;
+    const redirectUri = encodeURIComponent('https://reachdeskcrm.com/auth/google/callback');
+    const scope = encodeURIComponent(
+      'https://www.googleapis.com/auth/calendar.readonly https://www.googleapis.com/auth/calendar.events.readonly'
+    );
+    window.location.href = [
+      'https://accounts.google.com/o/oauth2/v2/auth',
+      `?client_id=${clientId}`,
+      `&redirect_uri=${redirectUri}`,
+      '&response_type=code',
+      `&scope=${scope}`,
+      '&access_type=offline',
+      '&prompt=consent',
+      `&state=${state}`,
+    ].join('');
+  };
+
+  // ── Disconnect Google Calendar ────────────────────────────────────────────
+  const handleDisconnectCalendar = async () => {
+    if (!confirm('Disconnect Google Calendar? ReachDesk will no longer auto-detect bookings from your calendar.')) return;
+    setCalDisconnecting(true);
+    try {
+      // Step 1: Get the current access token to revoke
+      const { data: integration } = await supabase
+        .from('calendar_integrations')
+        .select('access_token, watch_channel_id, watch_resource_id')
+        .eq('user_id', currentUser.id)
+        .eq('provider', 'google')
+        .single();
+
+      if (integration) {
+        // Step 2: Revoke the token at Google's end
+        try {
+          await fetch(`https://oauth2.googleapis.com/revoke?token=${integration.access_token}`, { method: 'POST' });
+        } catch (revokeErr) {
+          console.warn('Token revocation error (non-fatal):', revokeErr);
+        }
+
+        // Step 3: Stop the active watch channel via edge function
+        if (integration.watch_channel_id) {
+          try {
+            await supabase.functions.invoke('setup-calendar-watch', {
+              body: { action: 'stop', userId: currentUser.id },
+            });
+          } catch (stopErr) {
+            console.warn('Watch stop error (non-fatal):', stopErr);
+          }
+        }
+      }
+
+      // Step 4: Remove/deactivate the DB row
+      await supabase
+        .from('calendar_integrations')
+        .delete()
+        .eq('user_id', currentUser.id)
+        .eq('provider', 'google');
+
+      setCalIntegration(null);
+      setCalSuccessMsg('Google Calendar disconnected. You can reconnect anytime.');
+      setTimeout(() => setCalSuccessMsg(''), 5000);
+    } catch (err) {
+      console.error('Disconnect error:', err);
+      alert('Failed to disconnect: ' + (err.message || String(err)));
+    } finally {
+      setCalDisconnecting(false);
+    }
+  };
 
   const handleProfileAvatarChange = (e) => {
     setProfileError('');
@@ -1182,6 +1289,84 @@ export default function Configuration({
             </button>
           )}
         </div>
+      </div>
+
+      {/* ─── INTEGRATIONS SECTION ─────────────────────────────────────────── */}
+      <div className="card flex-col gap-3" id="integrations">
+        <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', borderBottom: '1px solid var(--border-color)', paddingBottom: '0.5rem', marginBottom: '0.25rem' }}>
+          <Calendar size={18} style={{ color: 'var(--primary-purple)' }} />
+          <h3 style={{ fontSize: '1.1rem' }}>Integrations</h3>
+        </div>
+
+        {calSuccessMsg && (
+          <div style={{ padding: '0.75rem 1rem', borderRadius: '8px', background: 'rgba(16, 185, 129, 0.1)', border: '1px solid rgba(16, 185, 129, 0.2)', color: '#10b981', fontSize: '0.875rem', display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+            <CheckCircle size={16} style={{ flexShrink: 0 }} />
+            <span>{calSuccessMsg}</span>
+          </div>
+        )}
+
+        {/* Google Calendar Row */}
+        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '1rem', flexWrap: 'wrap', padding: '0.75rem 0' }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
+            <div style={{
+              width: '40px', height: '40px', borderRadius: '8px', flexShrink: 0,
+              background: 'linear-gradient(135deg, #4285f4, #34a853)',
+              display: 'flex', alignItems: 'center', justifyContent: 'center'
+            }}>
+              <Calendar size={20} style={{ color: '#fff' }} />
+            </div>
+            <div>
+              <strong style={{ display: 'block', fontSize: '0.95rem' }}>Google Calendar</strong>
+              <span style={{ fontSize: '0.8rem', color: 'var(--text-muted)' }}>
+                {calLoading
+                  ? 'Checking status…'
+                  : calIntegration
+                    ? `Connected · since ${new Date(calIntegration.connected_at).toLocaleDateString()}`
+                    : 'Not connected — leads won\'t be auto-marked as Booked'
+                }
+              </span>
+            </div>
+          </div>
+
+          <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
+            {!calLoading && (
+              calIntegration ? (
+                <>
+                  <span style={{
+                    padding: '0.2rem 0.65rem', borderRadius: '99px', fontSize: '0.75rem', fontWeight: 700,
+                    background: 'rgba(16,185,129,0.12)', color: '#10b981'
+                  }}>
+                    ✓ Connected
+                  </span>
+                  <button
+                    type="button"
+                    onClick={handleDisconnectCalendar}
+                    disabled={calDisconnecting}
+                    className="btn btn-secondary btn-sm"
+                    style={{ display: 'flex', alignItems: 'center', gap: '0.35rem', color: 'var(--danger-color, #ef4444)', borderColor: 'var(--danger-color, #ef4444)' }}
+                  >
+                    <Unlink size={14} />
+                    {calDisconnecting ? 'Disconnecting…' : 'Disconnect'}
+                  </button>
+                </>
+              ) : (
+                <button
+                  type="button"
+                  onClick={handleConnectCalendar}
+                  className="btn btn-primary btn-sm"
+                  style={{ display: 'flex', alignItems: 'center', gap: '0.35rem' }}
+                >
+                  <Calendar size={14} /> Connect
+                </button>
+              )
+            )}
+          </div>
+        </div>
+
+        <p style={{ fontSize: '0.78rem', color: 'var(--text-muted)', margin: 0 }}>
+          Read-only access to your calendar events. ReachDesk never writes to your calendar.
+          Disconnect at any time to revoke all access.
+        </p>
       </div>
 
       {/* Confirmation Modal */}

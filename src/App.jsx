@@ -31,6 +31,7 @@ const TermsOfService = lazy(() => import('./components/LegalPages').then(m => ({
 const PrivacyPolicy = lazy(() => import('./components/LegalPages').then(m => ({ default: m.PrivacyPolicy })));
 const RefundPolicy = lazy(() => import('./components/LegalPages').then(m => ({ default: m.RefundPolicy })));
 const GetStarted = lazy(() => import('./components/GetStarted'));
+const GoogleCalendarCallback = lazy(() => import('./components/GoogleCalendarCallback'));
 import UserNotificationBell from './components/UserNotificationBell';
 import { HelmetProvider } from 'react-helmet-async';
 import GlobalHelmet from './components/GlobalHelmet';
@@ -803,6 +804,52 @@ function AppProvider({ children }) {
       setInvoices(prev => prev.map(i => i.id === id ? mapped : i));
     }
   };
+  const handleUpdateInvoice = async (id, updatedFields) => {
+    const subtotal = (updatedFields.items || []).reduce((sum, item) => sum + (item.quantity * item.rate), 0);
+    const taxAmount = (subtotal * (parseFloat(updatedFields.taxPercent) || 0)) / 100;
+    const total = subtotal + taxAmount;
+
+    const dbFields = {
+      invoice_number: updatedFields.invoiceNumber,
+      client_name: updatedFields.clientName,
+      client_email: updatedFields.clientEmail,
+      issue_date: updatedFields.issueDate,
+      due_date: updatedFields.dueDate || null,
+      currency: updatedFields.currency,
+      items: updatedFields.items,
+      status: updatedFields.status,
+      notes: updatedFields.notes,
+      subtotal,
+      tax: taxAmount,
+      total,
+      payment_instructions: updatedFields.paymentDetails
+    };
+
+    const { data, error } = await supabase.from('invoices').update(dbFields).eq('id', id).select().single();
+    if (!error && data) {
+      const mapped = {
+        id: data.id,
+        user_id: data.user_id,
+        invoiceNumber: data.invoice_number,
+        clientName: data.client_name,
+        clientEmail: data.client_email,
+        issueDate: data.issue_date,
+        dueDate: data.due_date,
+        currency: data.currency,
+        items: data.items || [],
+        status: data.status,
+        notes: data.notes,
+        subtotal: data.subtotal || 0,
+        tax: data.tax || 0,
+        total: data.total || 0,
+        paymentDetails: data.payment_instructions,
+        userEmail: session?.user?.email || profile?.email || ''
+      };
+      setInvoices(prev => prev.map(i => i.id === id ? mapped : i));
+      return { data: mapped, error: null };
+    }
+    return { data: null, error };
+  };
   const handleAddRevenueLog = async (log) => {
     // Map frontend fields → DB columns
     const dbRow = {
@@ -932,7 +979,7 @@ function AppProvider({ children }) {
     adminNotifCount, remindersCount,
     toast, showToast,
     handleLogout, handleRegisterUser, handleLoginUser, handleSaveSettings,
-    handleAddInvoice, handleDeleteInvoice, handleUpdateInvoiceStatus,
+    handleAddInvoice, handleDeleteInvoice, handleUpdateInvoiceStatus, handleUpdateInvoice,
     handleAddRevenueLog, handleDeleteRevenueLog,
     handleAddTemplate, handleDeleteTemplate, handleUpdateTemplate,
     handleAddSnippet, handleDeleteSnippet, handleUpdateSnippet,
@@ -1064,7 +1111,7 @@ function TemplatesPage() {
 }
 
 function InvoicesPage() {
-  const { profile, invoices, leads, currencySymbol, bankAccount, bankIban, handleAddInvoice, handleDeleteInvoice, handleUpdateInvoiceStatus } = useAppContext();
+  const { profile, invoices, leads, currencySymbol, bankAccount, bankIban, handleAddInvoice, handleDeleteInvoice, handleUpdateInvoiceStatus, handleUpdateInvoice } = useAppContext();
   return (
     <InvoiceGenerator
       currentUser={profile}
@@ -1073,6 +1120,7 @@ function InvoicesPage() {
       onAddInvoice={handleAddInvoice}
       onDeleteInvoice={handleDeleteInvoice}
       onUpdateInvoiceStatus={handleUpdateInvoiceStatus}
+      onUpdateInvoice={handleUpdateInvoice}
       currencySymbol={currencySymbol}
       bankAccount={bankAccount}
       bankIban={bankIban}
@@ -1290,6 +1338,7 @@ function AppRoutes() {
         <Route path="/privacy" element={<PrivacyPolicy />} />
         <Route path="/refund" element={<RefundPolicy />} />
         <Route path="/get-started" element={session ? <ProtectedPage><GetStarted /></ProtectedPage> : <GetStarted />} />
+        <Route path="/auth/google/callback" element={<GoogleCalendarCallback />} />
         <Route path="/blog" element={<BlogIndex />} />
         <Route path="/blog/:slug" element={<BlogPost />} />
 

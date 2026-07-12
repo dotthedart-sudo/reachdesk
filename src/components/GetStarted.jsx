@@ -1,7 +1,8 @@
 import React, { useState, useEffect } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
-import { ArrowLeft, Bell, CheckCircle, HelpCircle, Sun, Moon } from 'lucide-react';
+import { ArrowLeft, Bell, CheckCircle, HelpCircle, Sun, Moon, Calendar, ExternalLink, Zap } from 'lucide-react';
 import { useAppContext } from '../App';
+import { supabase } from '../lib/supabase';
 
 const SIDEBAR_ITEMS = [
   { id: 'how-it-works', label: 'How It Works' },
@@ -11,6 +12,7 @@ const SIDEBAR_ITEMS = [
   { id: 'client-invoices', label: 'Client Invoices' },
   { id: 'revenue-tracker', label: 'Revenue Tracker' },
   { id: 'notes', label: 'Notes' },
+  { id: 'google-calendar', label: 'Google Calendar' },
   { id: 'configuration', label: 'Configuration' },
   { id: 'trial-pricing', label: 'Trial & Pricing' },
   { id: 'faq', label: 'FAQ' },
@@ -61,6 +63,7 @@ function StickyNav({ accentColor, activeSection, onScrollTo }) {
 
 function GetStartedContent({ isAppView, theme, navigate }) {
   const [activeSection, setActiveSection] = useState('how-it-works');
+  const [calConnected, setCalConnected] = useState(null); // null=loading, true/false
 
   useEffect(() => {
     const ids = SIDEBAR_ITEMS.map(i => i.id);
@@ -74,6 +77,23 @@ function GetStartedContent({ isAppView, theme, navigate }) {
     );
     ids.forEach(id => { const el = document.getElementById(id); if (el) observer.observe(el); });
     return () => ids.forEach(id => { const el = document.getElementById(id); if (el) observer.unobserve(el); });
+  }, []);
+
+  // Check if Google Calendar is already connected
+  useEffect(() => {
+    async function checkCalendar() {
+      const { data: { session } } = await supabase.auth.getSession();
+      if (!session?.user?.id) { setCalConnected(false); return; }
+      const { data } = await supabase
+        .from('calendar_integrations')
+        .select('id, connected_at')
+        .eq('user_id', session.user.id)
+        .eq('provider', 'google')
+        .eq('is_active', true)
+        .maybeSingle();
+      setCalConnected(!!data);
+    }
+    checkCalendar();
   }, []);
 
   const handleScrollTo = (e, id) => {
@@ -234,6 +254,109 @@ function GetStartedContent({ isAppView, theme, navigate }) {
             <p style={{ color: muted, margin: 0 }}>
               Keep all your outreach notes, scripts, and ideas organized. Create text notes with rich formatting using slash commands (/heading, /todo, /bullet, /toggle). Use the drawing canvas for visual planning. Organize notes into folders.
             </p>
+          </section>
+
+          {/* 7b — Google Calendar Integration */}
+          <section id="google-calendar" style={{ scrollMarginTop: '120px' }}>
+            <h2 style={{ ...sectionTitle(), display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+              <Calendar size={20} /> Google Calendar Integration
+            </h2>
+            <div style={{
+              padding: '1.75rem',
+              backgroundColor: card,
+              border: `1px solid ${border}`,
+              borderRadius: '8px',
+              display: 'flex',
+              flexDirection: 'column',
+              gap: '1rem',
+            }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem', flexWrap: 'wrap' }}>
+                <div style={{
+                  width: '44px', height: '44px', borderRadius: '10px',
+                  background: 'linear-gradient(135deg, #4285f4, #34a853)',
+                  display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0
+                }}>
+                  <Calendar size={22} style={{ color: '#fff' }} />
+                </div>
+                <div>
+                  <strong style={{ color: text, fontSize: '1.05rem', display: 'block' }}>Connect your Google Calendar</strong>
+                  <span style={{ color: muted, fontSize: '0.875rem' }}>
+                    Automatically mark leads as <strong>Booked</strong> when they schedule a meeting — and create draft invoices instantly.
+                  </span>
+                </div>
+                {calConnected && (
+                  <span style={{
+                    marginLeft: 'auto', padding: '0.25rem 0.75rem', borderRadius: '99px',
+                    background: 'rgba(16,185,129,0.12)', color: '#10b981',
+                    fontSize: '0.78rem', fontWeight: 700, whiteSpace: 'nowrap'
+                  }}>
+                    ✓ Connected
+                  </span>
+                )}
+              </div>
+
+              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(200px, 1fr))', gap: '0.6rem' }}>
+                {[
+                  'Auto-detect booked leads via attendee email',
+                  'Create draft invoices on booking',
+                  'Read-only access — no calendar writes',
+                  'Secure OAuth 2.0 — revoke anytime',
+                ].map(feat => (
+                  <div key={feat} style={{ display: 'flex', gap: '0.4rem', alignItems: 'flex-start' }}>
+                    <CheckCircle size={14} style={{ color: accent, flexShrink: 0, marginTop: '2px' }} />
+                    <span style={{ color: muted, fontSize: '0.85rem' }}>{feat}</span>
+                  </div>
+                ))}
+              </div>
+
+              {calConnected ? (
+                <div style={{ display: 'flex', gap: '0.75rem', alignItems: 'center', flexWrap: 'wrap' }}>
+                  <span style={{ color: muted, fontSize: '0.85rem' }}>Google Calendar is connected and watching for bookings.</span>
+                  <button
+                    onClick={() => navigate('/settings?tab=integrations')}
+                    style={{
+                      display: 'inline-flex', alignItems: 'center', gap: '0.4rem',
+                      padding: '0.5rem 1rem', borderRadius: '5px', border: `1px solid ${border}`,
+                      background: 'transparent', color: text, cursor: 'pointer', fontSize: '0.85rem', fontWeight: 600
+                    }}
+                  >
+                    <ExternalLink size={14} /> Manage in Settings
+                  </button>
+                </div>
+              ) : (
+                <div style={{ display: 'flex', gap: '0.75rem', alignItems: 'center', flexWrap: 'wrap' }}>
+                  <button
+                    onClick={() => {
+                      const state = crypto.randomUUID();
+                      sessionStorage.setItem('google_oauth_state', state);
+                      const clientId = import.meta.env.VITE_GOOGLE_CLIENT_ID;
+                      const redirectUri = encodeURIComponent('https://reachdeskcrm.com/auth/google/callback');
+                      const scope = encodeURIComponent('https://www.googleapis.com/auth/calendar.readonly https://www.googleapis.com/auth/calendar.events.readonly');
+                      window.location.href = `https://accounts.google.com/o/oauth2/v2/auth?client_id=${clientId}&redirect_uri=${redirectUri}&response_type=code&scope=${scope}&access_type=offline&prompt=consent&state=${state}`;
+                    }}
+                    style={{
+                      display: 'inline-flex', alignItems: 'center', gap: '0.5rem',
+                      padding: '0.6rem 1.25rem', borderRadius: '5px', border: 'none',
+                      background: accent, color: isAppView ? '#fff' : '#0D1117',
+                      cursor: 'pointer', fontWeight: 700, fontSize: '0.9rem',
+                    }}
+                  >
+                    <Zap size={15} /> Connect Google Calendar
+                  </button>
+                  <button
+                    onClick={() => {
+                      document.getElementById('configuration')?.scrollIntoView({ behavior: 'smooth' });
+                    }}
+                    style={{
+                      background: 'none', border: 'none', color: muted,
+                      cursor: 'pointer', fontSize: '0.85rem', textDecoration: 'underline'
+                    }}
+                  >
+                    Skip for now
+                  </button>
+                </div>
+              )}
+            </div>
           </section>
 
           {/* 8 — Configuration */}

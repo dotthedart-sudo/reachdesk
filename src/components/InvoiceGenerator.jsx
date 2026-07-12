@@ -10,7 +10,9 @@ import {
   Receipt,
   FileText,
   Lock,
-  ArrowLeft
+  ArrowLeft,
+  Edit2,
+  Send
 } from 'lucide-react';
 import { supabase } from '../lib/supabase';
 import CurrencySelector from './CurrencySelector';
@@ -23,6 +25,7 @@ export default function InvoiceGenerator({
   onAddInvoice, 
   onDeleteInvoice,
   onUpdateInvoiceStatus,
+  onUpdateInvoice,
   currencySymbol = 'PKR',
   bankAccount = '',
   bankIban = ''
@@ -30,6 +33,9 @@ export default function InvoiceGenerator({
   const [showCreateForm, setShowCreateForm] = useState(false);
   const [copiedId, setCopiedId] = useState(null);
   const [invoiceTab, setInvoiceTab] = useState('active'); // 'active' | 'drafts'
+  const [editingInvoice, setEditingInvoice] = useState(null); // null = create mode, invoice object = edit mode
+  const [editError, setEditError] = useState(''); // inline validation error for Publish action
+  const [isSaving, setIsSaving] = useState(false);
 
   // Resolve bank details and currency: profile DB values take priority over localStorage props
   const resolvedBankAccount = currentUser?.bank_account || bankAccount || '';
@@ -164,62 +170,138 @@ export default function InvoiceGenerator({
     return subtotal + taxAmount;
   };
 
-  const handleSubmit = (e) => {
-    e.preventDefault();
+  // ── Reset form to blank / create-mode state ────────────────────────────────
+  const handleResetForm = () => {
+    setEditingInvoice(null);
+    setEditError('');
+    setClientName('');
+    setClientEmail('');
+    setInvoiceNumber(`INV-${new Date().getFullYear()}-${Math.floor(1000 + Math.random() * 9000)}`);
+    setIssueDate(new Date().toISOString().split('T')[0]);
+    setDueDate('');
+    setCurrency(resolvedCurrency);
+    setTaxPercent(0);
+    setItems([{ description: 'Freelance Services', quantity: 1, rate: 500 }]);
+    let details = [];
+    if (resolvedBankAccount) details.push(`Bank Account: ${resolvedBankAccount}`);
+    if (resolvedBankIban) details.push(`IBAN: ${resolvedBankIban}`);
+    setPaymentDetails(details.join('\n'));
+    setNotes('Payment due on receipt.');
+  };
+
+  // ── Pre-populate form fields from an existing invoice ─────────────────────
+  const handleEditClick = (invoice) => {
+    setEditingInvoice(invoice);
+    setEditError('');
+    setClientName(invoice.clientName || '');
+    setClientEmail(invoice.clientEmail || '');
+    setInvoiceNumber(invoice.invoiceNumber || '');
+    setIssueDate(invoice.issueDate || new Date().toISOString().split('T')[0]);
+    setDueDate(invoice.dueDate || '');
+    setCurrency(invoice.currency || resolvedCurrency);
+    // Reverse-calculate taxPercent from stored subtotal/tax
+    const sub = invoice.subtotal || 0;
+    const tax = invoice.tax || 0;
+    setTaxPercent(sub > 0 ? parseFloat(((tax / sub) * 100).toFixed(2)) : 0);
+    setItems(invoice.items?.length > 0 ? invoice.items : [{ description: '', quantity: 1, rate: 0 }]);
+    setPaymentDetails(invoice.paymentDetails || '');
+    setNotes(invoice.notes || '');
+    setShowCreateForm(true);
+  };
+
+  const handleSubmit = async (e, publishIntent = false) => {
+    if (e) e.preventDefault();
+    setEditError('');
+
     if (!clientName) {
-      alert("Client name is required");
+      setEditError('Client name is required.');
       return;
     }
     if (!currency) {
-      alert("Please select a currency");
+      setEditError('Please select a currency.');
       return;
     }
     if (items.some(item => !item.description)) {
-      alert("All items must have a description");
+      setEditError('All items must have a description.');
       return;
     }
+
+    // Extra validation when publishing a draft
+    if (publishIntent) {
+      const subtotalCheck = items.reduce((s, i) => s + (i.quantity * i.rate), 0);
+      if (subtotalCheck <= 0) {
+        setEditError('Cannot publish: invoice total must be greater than 0.');
+        return;
+      }
+      if (!clientEmail) {
+        setEditError('Cannot publish: client email is required before sending.');
+        return;
+      }
+    }
+
+    setIsSaving(true);
 
     const subtotal = calculateSubtotal();
     const taxAmount = (subtotal * (parseFloat(taxPercent) || 0)) / 100;
     const total = subtotal + taxAmount;
 
-    const newInvoice = {
-      clientName,
-      clientEmail,
-      invoiceNumber,
-      issueDate,
-      dueDate: dueDate || new Date(Date.now() + 14 * 24 * 60 * 60 * 1000).toISOString().split('T')[0],
-      currency,
-      items,
-      paymentDetails,
-      notes,
-      subtotal,
-      tax: taxAmount,
-      total,
-      status: 'Sent',
-      userEmail: currentUser.email,
-      dateAdded: new Date().toLocaleDateString()
-    };
+    if (editingInvoice) {
+      // ── EDIT MODE ──────────────────────────────────────────────────────────
+      const newStatus = publishIntent ? 'Sent' : editingInvoice.status;
+      const result = await onUpdateInvoice(editingInvoice.id, {
+        invoiceNumber,
+        clientName,
+        clientEmail,
+        issueDate,
+        dueDate: dueDate || null,
+        currency,
+        items,
+        paymentDetails,
+        notes,
+        taxPercent,
+        status: newStatus
+      });
 
-    onAddInvoice(newInvoice);
-    
-    // Reset Form
-    setClientName('');
-    setClientEmail('');
-    setInvoiceNumber(`INV-${new Date().getFullYear()}-${Math.floor(1000 + Math.random() * 9000)}`);
-    setItems([{ description: 'Freelance Services', quantity: 1, rate: 500 }]);
-    
-    let details = [];
-    if (resolvedBankAccount) details.push(`Bank Account: ${resolvedBankAccount}`);
-    if (resolvedBankIban) details.push(`IBAN: ${resolvedBankIban}`);
-    setPaymentDetails(details.join('\n'));
-    
-    setNotes('Payment due on receipt.');
-    setTaxPercent(0);
-    setCurrency('');
-    setShowCreateForm(false);
-    
-    alert("Invoice generated and saved successfully!");
+      setIsSaving(false);
+
+      if (result?.error) {
+        setEditError('Failed to save: ' + (result.error.message || 'Unknown error'));
+        return;
+      }
+
+      handleResetForm();
+      setShowCreateForm(false);
+
+      if (publishIntent) {
+        setInvoiceTab('active');
+        alert('Invoice published! Share Link is now available in the Active Invoices tab.');
+      }
+    } else {
+      // ── CREATE MODE ───────────────────────────────────────────────────────
+      const newInvoice = {
+        clientName,
+        clientEmail,
+        invoiceNumber,
+        issueDate,
+        dueDate: dueDate || new Date(Date.now() + 14 * 24 * 60 * 60 * 1000).toISOString().split('T')[0],
+        currency,
+        items,
+        paymentDetails,
+        notes,
+        subtotal,
+        tax: taxAmount,
+        total,
+        status: 'Sent',
+        userEmail: currentUser.email,
+        dateAdded: new Date().toLocaleDateString()
+      };
+
+      onAddInvoice(newInvoice);
+      handleResetForm();
+      setShowCreateForm(false);
+      setIsSaving(false);
+      alert('Invoice generated and saved successfully!');
+    }
   };
 
   const handleCopyLink = (invoiceId) => {
@@ -267,7 +349,12 @@ export default function InvoiceGenerator({
         /* Invoice Creator Form */
         <div className="card flex-col gap-4" style={{ textAlign: 'left', maxWidth: '800px', margin: '0 auto' }}>
           <h3 style={{ fontSize: '1.25rem', borderBottom: '1px solid var(--border-color)', paddingBottom: '0.75rem', color: 'var(--primary-purple)' }}>
-            New Client Invoice
+            {editingInvoice
+              ? editingInvoice.status?.toLowerCase() === 'draft'
+                ? <span style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}><Edit2 size={18} /> Edit Draft</span>
+                : <span style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}><Edit2 size={18} /> Edit Invoice</span>
+              : 'New Client Invoice'
+            }
           </h3>
           
           <form onSubmit={handleSubmit} className="flex-col gap-4">
@@ -540,17 +627,62 @@ export default function InvoiceGenerator({
               />
             </div>
 
-            <div className="flex justify-between mt-4">
+            {/* Inline validation error */}
+            {editError && (
+              <div style={{ color: 'var(--danger-color, #ef4444)', fontSize: '0.875rem', padding: '0.5rem 0.75rem', background: 'rgba(239,68,68,0.08)', borderRadius: '6px', border: '1px solid rgba(239,68,68,0.25)' }}>
+                ⚠ {editError}
+              </div>
+            )}
+
+            <div className="flex justify-between mt-4" style={{ gap: '0.75rem', flexWrap: 'wrap' }}>
               <button 
                 type="button" 
-                onClick={() => setShowCreateForm(false)} 
+                onClick={() => { handleResetForm(); setShowCreateForm(false); }} 
                 className="btn btn-secondary"
+                disabled={isSaving}
               >
                 Cancel
               </button>
-              <button type="submit" className="btn btn-primary">
-                Save & Generate Shareable Link
-              </button>
+
+              {/* Context-aware submit buttons */}
+              {editingInvoice ? (
+                editingInvoice.status?.toLowerCase() === 'draft' ? (
+                  // Draft edit: Save Draft + Publish & Send
+                  <div className="flex gap-2" style={{ flexWrap: 'wrap' }}>
+                    <button
+                      type="submit"
+                      className="btn btn-secondary"
+                      disabled={isSaving}
+                      onClick={(e) => { handleSubmit(e, false); }}
+                    >
+                      {isSaving ? 'Saving…' : 'Save Draft'}
+                    </button>
+                    <button
+                      type="button"
+                      className="btn btn-primary"
+                      disabled={isSaving}
+                      onClick={(e) => { e.preventDefault(); handleSubmit(null, true); }}
+                    >
+                      <Send size={15} />
+                      {isSaving ? 'Publishing…' : 'Publish & Send'}
+                    </button>
+                  </div>
+                ) : (
+                  // Active invoice edit: Save Changes only
+                  <button
+                    type="submit"
+                    className="btn btn-primary"
+                    disabled={isSaving}
+                  >
+                    {isSaving ? 'Saving…' : 'Save Changes'}
+                  </button>
+                )
+              ) : (
+                // Create mode
+                <button type="submit" className="btn btn-primary" disabled={isSaving}>
+                  {isSaving ? 'Saving…' : 'Save & Generate Shareable Link'}
+                </button>
+              )}
             </div>
           </form>
         </div>
@@ -621,7 +753,9 @@ export default function InvoiceGenerator({
                   </tr>
                 </thead>
                 <tbody>
-                  {displayedInvoices.map(invoice => (
+                  {displayedInvoices.map(invoice => {
+                    const isDraft = invoice.status?.toLowerCase() === 'draft';
+                    return (
                     <tr key={invoice.id}>
                       <td style={{ fontWeight: 600 }}>{invoice.invoiceNumber}</td>
                       <td>
@@ -642,7 +776,7 @@ export default function InvoiceGenerator({
                           value={invoice.status}
                           onChange={(e) => onUpdateInvoiceStatus(invoice.id, e.target.value)}
                         >
-                          {invoice.status?.toLowerCase() === 'draft' && <option value="draft">Draft</option>}
+                          {isDraft && <option value="draft">Draft</option>}
                           <option value="Sent">Sent</option>
                           <option value="Paid">Paid</option>
                           <option value="Overdue">Overdue</option>
@@ -650,23 +784,44 @@ export default function InvoiceGenerator({
                       </td>
                       <td>
                         <div className="flex gap-2">
-                          <button 
-                            className="btn btn-secondary btn-sm"
-                            onClick={() => handleCopyLink(invoice.id)}
-                            title="Copy Client Share Link"
-                          >
-                            {copiedId === invoice.id ? <Check size={14} style={{ color: 'var(--success-color)' }} /> : <Share2 size={14} />}
-                            {copiedId === invoice.id ? 'Copied' : 'Share Link'}
-                          </button>
-                          <a 
-                            href={`/i/${invoice.id}`}
-                            target="_blank"
-                            rel="noopener noreferrer"
-                            className="btn btn-secondary btn-sm"
-                            title="Preview Invoice"
-                          >
-                            <Eye size={14} />
-                          </a>
+                          {isDraft ? (
+                            // Drafts: Edit button only — no public share link
+                            <button
+                              className="btn btn-secondary btn-sm"
+                              onClick={() => handleEditClick(invoice)}
+                              title="Edit Draft"
+                            >
+                              <Edit2 size={14} /> Edit
+                            </button>
+                          ) : (
+                            // Active invoices: Share Link + Preview
+                            <>
+                              <button 
+                                className="btn btn-secondary btn-sm"
+                                onClick={() => handleCopyLink(invoice.id)}
+                                title="Copy Client Share Link"
+                              >
+                                {copiedId === invoice.id ? <Check size={14} style={{ color: 'var(--success-color)' }} /> : <Share2 size={14} />}
+                                {copiedId === invoice.id ? 'Copied' : 'Share Link'}
+                              </button>
+                              <a 
+                                href={`/i/${invoice.id}`}
+                                target="_blank"
+                                rel="noopener noreferrer"
+                                className="btn btn-secondary btn-sm"
+                                title="Preview Invoice"
+                              >
+                                <Eye size={14} />
+                              </a>
+                              <button
+                                className="btn btn-secondary btn-sm"
+                                onClick={() => handleEditClick(invoice)}
+                                title="Edit Invoice"
+                              >
+                                <Edit2 size={14} />
+                              </button>
+                            </>
+                          )}
                           <button 
                             className="btn btn-danger btn-sm"
                             onClick={() => onDeleteInvoice(invoice.id)}
@@ -677,7 +832,8 @@ export default function InvoiceGenerator({
                         </div>
                       </td>
                     </tr>
-                  ))}
+                    );
+                  })}
                 </tbody>
               </table>
             )}

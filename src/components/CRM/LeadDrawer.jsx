@@ -1237,13 +1237,19 @@ export default function LeadDrawer({
                       }}>
                         {inv.status}
                       </span>
-                      <button
-                        onClick={() => window.open(`${window.location.origin}/i/${inv.id}`, '_blank')}
-                        className="btn btn-secondary btn-sm"
-                        style={{ padding: '0.25rem 0.5rem', fontSize: '0.75rem' }}
-                      >
-                        View
-                      </button>
+                      {inv.status?.toLowerCase() === 'draft' ? (
+                        <span style={{ fontSize: '0.72rem', color: 'var(--text-muted)', fontStyle: 'italic' }}>
+                          Draft — not published
+                        </span>
+                      ) : (
+                        <button
+                          onClick={() => window.open(`${window.location.origin}/i/${inv.id}`, '_blank')}
+                          className="btn btn-secondary btn-sm"
+                          style={{ padding: '0.25rem 0.5rem', fontSize: '0.75rem' }}
+                        >
+                          View
+                        </button>
+                      )}
                     </div>
                   </div>
                 ))}
