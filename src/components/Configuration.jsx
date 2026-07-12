@@ -7,7 +7,7 @@ import {
   Settings, Save, CreditCard, 
   AlertCircle, Users, Mail, UserMinus, User, Upload,
   Download, FileText, Sparkles, Plus, Trash2, Edit3,
-  Calendar, CheckCircle, Unlink
+  Calendar, CheckCircle, Unlink, Lock
 } from 'lucide-react';
 import { exportLeads, exportNotes } from '../utils/exportUtils';
 import CurrencySelector, { CURRENCY_MAP } from './CurrencySelector';
@@ -35,7 +35,7 @@ export default function Configuration({
 }) {
   const navigate = useNavigate();
   const location = useLocation();
-  const { userSnippets = [], handleAddSnippet, handleDeleteSnippet, handleUpdateSnippet } = useAppContext();
+  const { userSnippets = [], handleAddSnippet, handleDeleteSnippet, handleUpdateSnippet, theme } = useAppContext();
   const [newKey, setNewKey] = useState('');
   const [newValue, setNewValue] = useState('');
   const [snippetError, setSnippetError] = useState('');
@@ -1292,7 +1292,39 @@ export default function Configuration({
       </div>
 
       {/* ─── INTEGRATIONS SECTION ─────────────────────────────────────────── */}
-      <div className="card flex-col gap-3" id="integrations">
+      <div className="card flex-col gap-3" id="integrations" style={{ position: 'relative', overflow: 'hidden' }}>
+        {/* Locked Overlay */}
+        {!PLAN_LIMITS[(currentUser?.plan || 'trial').toLowerCase()]?.integrations && (
+          <div style={{
+            position: 'absolute',
+            inset: 0,
+            background: theme === 'light' ? 'rgba(255, 255, 255, 0.85)' : 'rgba(22, 27, 34, 0.85)',
+            backdropFilter: 'blur(3px)',
+            display: 'flex',
+            flexDirection: 'column',
+            alignItems: 'center',
+            justifyContent: 'center',
+            zIndex: 10,
+            gap: '0.75rem',
+            textAlign: 'center',
+            padding: '1.5rem'
+          }}>
+            <Lock size={32} style={{ color: 'var(--primary-purple)' }} />
+            <h4 style={{ margin: 0, fontSize: '1rem', fontWeight: 600 }}>Integrations are Locked</h4>
+            <p style={{ margin: 0, fontSize: '0.8rem', color: 'var(--text-muted)', maxWidth: '280px' }}>
+              Google Calendar integration is a Pro feature. Upgrade to Pro or Teams to automatically sync meetings.
+            </p>
+            <button
+              type="button"
+              className="btn btn-primary btn-sm"
+              onClick={() => navigate('/upgrade')}
+              style={{ marginTop: '0.25rem' }}
+            >
+              Upgrade Now
+            </button>
+          </div>
+        )}
+
         <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', borderBottom: '1px solid var(--border-color)', paddingBottom: '0.5rem', marginBottom: '0.25rem' }}>
           <Calendar size={18} style={{ color: 'var(--primary-purple)' }} />
           <h3 style={{ fontSize: '1.1rem' }}>Integrations</h3>

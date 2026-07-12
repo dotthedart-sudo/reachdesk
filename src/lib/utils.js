@@ -2,15 +2,15 @@ import { supabase } from './supabase';
 
 export const PLAN_LIMITS = {
   trial:   { leads: 65,       templates: 2,        users: Infinity,
-             folders: true,  notes: true,  bulkImport: true,  copyAnalytics: true  },
+             folders: true,  notes: true,  bulkImport: true,  copyAnalytics: true, integrations: true },
   starter: { leads: 1000,     templates: 10,       users: 1,
-             folders: true,  notes: true,  bulkImport: false, copyAnalytics: true  },
+             folders: true,  notes: true,  bulkImport: false, copyAnalytics: true, integrations: false },
   pro:     { leads: 5000,     templates: null,     users: 1,
-             folders: true,  notes: true,  bulkImport: true,  copyAnalytics: true  },
+             folders: true,  notes: true,  bulkImport: true,  copyAnalytics: true, integrations: true },
   teams:   { leads: null,     templates: null,     users: 3,
-             folders: true,  notes: true,  bulkImport: true,  copyAnalytics: true  },
+             folders: true,  notes: true,  bulkImport: true,  copyAnalytics: true, integrations: true },
   enterprise: { leads: null,  templates: null,     users: Infinity,
-             folders: true,  notes: true,  bulkImport: true,  copyAnalytics: true  }
+             folders: true,  notes: true,  bulkImport: true,  copyAnalytics: true, integrations: true }
 };
 
 export const getTeamIds = async (userId) => {

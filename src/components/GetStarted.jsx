@@ -1,8 +1,9 @@
 import React, { useState, useEffect } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
-import { ArrowLeft, Bell, CheckCircle, HelpCircle, Sun, Moon, Calendar, ExternalLink, Zap } from 'lucide-react';
+import { ArrowLeft, Bell, CheckCircle, HelpCircle, Sun, Moon, Calendar, ExternalLink, Zap, Lock } from 'lucide-react';
 import { useAppContext } from '../App';
 import { supabase } from '../lib/supabase';
+import { PLAN_LIMITS } from '../lib/utils';
 
 const SIDEBAR_ITEMS = [
   { id: 'how-it-works', label: 'How It Works' },
@@ -62,6 +63,7 @@ function StickyNav({ accentColor, activeSection, onScrollTo }) {
 }
 
 function GetStartedContent({ isAppView, theme, navigate }) {
+  const { profile } = useAppContext() || {};
   const [activeSection, setActiveSection] = useState('how-it-works');
   const [calConnected, setCalConnected] = useState(null); // null=loading, true/false
 
@@ -309,7 +311,25 @@ function GetStartedContent({ isAppView, theme, navigate }) {
                 ))}
               </div>
 
-              {calConnected ? (
+              {/* If locked, show upgrade notice instead of connect buttons */}
+              {!PLAN_LIMITS[(profile?.plan || 'trial').toLowerCase()]?.integrations ? (
+                <div style={{ display: 'flex', gap: '0.75rem', alignItems: 'center', flexWrap: 'wrap', borderTop: `1px solid ${border}`, paddingTop: '1rem' }}>
+                  <span style={{ color: muted, fontSize: '0.85rem', display: 'inline-flex', alignItems: 'center', gap: '0.35rem' }}>
+                    <Lock size={14} style={{ color: 'var(--accent-blue)' }} /> Google Calendar integration is a Pro/Teams feature.
+                  </span>
+                  <button
+                    onClick={() => navigate('/upgrade')}
+                    style={{
+                      display: 'inline-flex', alignItems: 'center', gap: '0.5rem',
+                      padding: '0.5rem 1rem', borderRadius: '5px', border: 'none',
+                      background: accent, color: isAppView ? '#fff' : '#0D1117',
+                      cursor: 'pointer', fontWeight: 600, fontSize: '0.85rem',
+                    }}
+                  >
+                    Upgrade to Unlock
+                  </button>
+                </div>
+              ) : calConnected ? (
                 <div style={{ display: 'flex', gap: '0.75rem', alignItems: 'center', flexWrap: 'wrap' }}>
                   <span style={{ color: muted, fontSize: '0.85rem' }}>Google Calendar is connected and watching for bookings.</span>
                   <button
