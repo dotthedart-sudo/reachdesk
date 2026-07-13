@@ -1085,7 +1085,15 @@ export default function CRM({
 
       if (error) throw error;
       setLeads(prev => prev.map(l => l.id === activeLead.id ? data : l));
-      await handleLeadReminderTrigger(activeLead, { status: leadForm.status }, currentUser.id);
+      // Only re-trigger checkpoint/reminder logic if the status was actually changed
+      if (leadForm.status !== activeLead.status) {
+        await updateLeadStatusAndCheckpoint({
+          lead: data,
+          newStatus: leadForm.status,
+          suggestionRules,
+          currentUser
+        });
+      }
       setShowEditLeadModal(false);
       if (onRefreshReminders) onRefreshReminders();
     } catch (err) {
@@ -1375,7 +1383,7 @@ export default function CRM({
   };
 
   const handleRenameFolder = async (folderId, newName) => {
-    if (['all', 'hot', 'warm', 'cold', 'followup', 'calendly', 'clients'].includes(folderId)) {
+    if (['all', 'hot', 'warm', 'cold', 'needs-followup', 'recently-followed-up', 'calendly', 'clients'].includes(folderId)) {
       setSystemFolderNames(prev => {
         const next = { ...prev, [folderId]: newName };
         localStorage.setItem('crm_system_folder_names', JSON.stringify(next));
@@ -1609,8 +1617,12 @@ export default function CRM({
       folderMatch = l.priority?.toLowerCase() === 'warm';
     } else if (selectedFolderId === 'cold') {
       folderMatch = l.priority?.toLowerCase() === 'cold';
-    } else if (selectedFolderId === 'followup') {
-      folderMatch = [...REPLY_CHECK_STATUSES, ...FOLLOW_UP_CHECK_STATUSES].includes(l.status);
+    } else if (selectedFolderId === 'needs-followup') {
+      folderMatch = l.next_checkpoint_at && new Date(l.next_checkpoint_at) <= new Date();
+    } else if (selectedFolderId === 'recently-followed-up') {
+      const fiveDaysAgo = new Date();
+      fiveDaysAgo.setDate(fiveDaysAgo.getDate() - 5);
+      folderMatch = l.last_contacted_at && new Date(l.last_contacted_at) >= fiveDaysAgo;
     } else if (selectedFolderId === 'calendly') {
       folderMatch = l.status?.toLowerCase() === 'calendly_sent' || l.status === 'Calendly Sent';
     } else if (selectedFolderId === 'clients') {
@@ -1785,7 +1797,8 @@ export default function CRM({
               { id: 'hot', dbId: 'hot', defaultLabel: 'Hot', iconColor: '#EF4444' },
               { id: 'warm', dbId: 'warm', defaultLabel: 'Warm', iconColor: '#F59E0B' },
               { id: 'cold', dbId: 'cold', defaultLabel: 'Cold', iconColor: '#6B7280' },
-              { id: 'followup', dbId: 'followup', defaultLabel: 'Follow-ups', iconColor: '#8b5cf6' },
+              { id: 'needs-followup', dbId: 'needs-followup', defaultLabel: 'Needs Follow-Up', iconColor: '#8b5cf6' },
+              { id: 'recently-followed-up', dbId: 'recently-followed-up', defaultLabel: 'Recently Followed Up', iconColor: '#10B981' },
               { id: 'calendly', dbId: 'calendly', defaultLabel: 'Calendly Sent', iconColor: '#06B6D4' },
               { id: 'clients', dbId: 'clients', defaultLabel: 'Clients', iconColor: '#5B8FB9' }
             ].map(sysFolder => {

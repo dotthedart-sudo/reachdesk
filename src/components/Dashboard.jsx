@@ -20,6 +20,45 @@ import {
 // Use the shared map so any currency code the user picks renders the correct symbol
 const CURRENCY_SYMBOLS = CURRENCY_MAP;
 
+function formatTimePhrasing(targetDateStr, type) {
+  const targetDate = new Date(targetDateStr);
+  const now = new Date();
+  const diffMs = targetDate.getTime() - now.getTime();
+  const diffHours = Math.round(diffMs / (1000 * 60 * 60));
+  
+  if (type === 'invoice') {
+    const diffDays = Math.ceil(diffMs / (1000 * 60 * 60 * 24));
+    const tomorrow = new Date();
+    tomorrow.setDate(now.getDate() + 1);
+    const isTomorrow = targetDate.toDateString() === tomorrow.toDateString();
+    
+    if (isTomorrow || diffDays <= 1) {
+      return "tomorrow";
+    }
+    return `in ${diffDays} days`;
+  } else {
+    if (diffHours < 24) {
+      if (diffHours <= 0) {
+        return "now";
+      }
+      if (diffHours === 1) {
+        return "in 1 hour";
+      }
+      return `in ${diffHours} hours`;
+    }
+    
+    const tomorrow = new Date();
+    tomorrow.setDate(now.getDate() + 1);
+    const isTomorrow = targetDate.toDateString() === tomorrow.toDateString();
+    if (isTomorrow) {
+      return "tomorrow";
+    }
+    
+    const diffDays = Math.ceil(diffMs / (1000 * 60 * 60 * 24));
+    return `in ${diffDays} days`;
+  }
+}
+
 export default function Dashboard({ currentUser, onSelectLead }) {
   const navigate = useNavigate();
   const { showToast } = useAppContext() || {};
@@ -33,6 +72,9 @@ export default function Dashboard({ currentUser, onSelectLead }) {
   const [suggestionRules, setSuggestionRules] = useState([]);
   const [leadsList, setLeadsList] = useState([]);
   const [upNextFeed, setUpNextFeed] = useState([]);
+  const [windowDays, setWindowDays] = useState(2);
+  const [expandedReplies, setExpandedReplies] = useState({});
+  const [ignoredMismatches, setIgnoredMismatches] = useState({});
 
   if (!currentUser) {
     return <div className="loading-container">Loading profile...</div>;
@@ -107,37 +149,39 @@ export default function Dashboard({ currentUser, onSelectLead }) {
         setCopyAnalytics(sortedAnalytics);
       }
 
-      // 3. Compile "Up Next" Chronological Feed Items (priority: checkpoints -> invoices -> mismatches)
-      const nowStr = new Date().toISOString();
-      
-      // A. Due Checkpoints
-      const dueCheckpoints = loadedLeads
-        .filter(l => l.next_checkpoint_at && l.next_checkpoint_at <= nowStr)
+      // 3. Compile "Upcoming Next" Chronological Feed Items (priority: checkpoints -> invoices -> mismatches)
+      const now = new Date();
+      const nowStr = now.toISOString();
+      const windowLimit = new Date(Date.now() + windowDays * 24 * 60 * 60 * 1000);
+      const windowLimitStr = windowLimit.toISOString();
+
+      // A. Upcoming Checkpoints (scheduled in the future, up to window days ahead)
+      const upcomingCheckpoints = loadedLeads
+        .filter(l => l.next_checkpoint_at && l.next_checkpoint_at > nowStr && l.next_checkpoint_at <= windowLimitStr)
         .map(l => ({
           id: `checkpoint-${l.id}`,
           type: 'checkpoint',
           lead: l,
-          title: `Update status for ${l.first_name || ''} ${l.last_name || ''}`,
-          subtitle: `Scheduled check-in due`,
-          severity: 'high',
-          actionLabel: 'Check outcome'
+          title: `Follow up with ${l.first_name || ''} ${l.last_name || ''}`,
+          date: l.next_checkpoint_at,
+          severity: 'high'
         }));
 
-      // B. Overdue unpaid invoices (case-insensitive check)
-      const overdueInvoices = loadedInvoices
+      // B. Upcoming Invoices Due (due_date in the future, up to window days ahead, unpaid)
+      const upcomingInvoices = loadedInvoices
         .filter(inv => {
           if (inv.status?.toLowerCase() === 'paid') return false;
           if (!inv.due_date) return false;
-          return new Date(inv.due_date) < new Date();
+          const dueDate = new Date(inv.due_date);
+          return dueDate > now && dueDate <= windowLimit;
         })
         .map(inv => ({
           id: `invoice-${inv.id}`,
           type: 'invoice',
           invoice: inv,
-          title: `Invoice #${inv.invoice_number} is overdue`,
-          subtitle: `${inv.client_name} owes $${inv.total || 0} (due ${new Date(inv.due_date).toLocaleDateString()})`,
-          severity: 'high',
-          actionLabel: 'Copy reminder'
+          title: `Invoice #${inv.invoice_number} is due`,
+          date: inv.due_date,
+          severity: 'medium'
         }));
 
       // C. Suggestion Mismatches
@@ -151,20 +195,22 @@ export default function Dashboard({ currentUser, onSelectLead }) {
           type: 'mismatch',
           lead: l,
           title: `Suggestion mismatch for ${l.first_name || ''} ${l.last_name || ''}`,
-          subtitle: `Action is "${l.action_to_take || 'None'}", suggested is "${getSuggestionForStatus(l.status, loadedRules)}"`,
           suggestion: getSuggestionForStatus(l.status, loadedRules),
-          severity: 'medium',
-          actionLabel: 'Apply suggestion'
+          severity: 'medium'
         }));
 
-      // Sort and slice top 3+ items
-      const combinedFeed = [...dueCheckpoints, ...overdueInvoices, ...mismatchItems];
+      // Sort and compile chronological feed: soonest first, mismatches last
+      const combinedFeed = [...upcomingCheckpoints, ...upcomingInvoices, ...mismatchItems];
       combinedFeed.sort((a, b) => {
-        const priorityOrder = { 'checkpoint': 1, 'invoice': 2, 'mismatch': 3 };
-        return priorityOrder[a.type] - priorityOrder[b.type];
+        if (a.date && b.date) {
+          return new Date(a.date) - new Date(b.date);
+        }
+        if (a.date && !b.date) return -1;
+        if (!a.date && b.date) return 1;
+        return 0;
       });
 
-      setUpNextFeed(combinedFeed.slice(0, 5));
+      setUpNextFeed(combinedFeed);
 
     } catch (err) {
       console.error('Error loading dashboard analytics:', err);
@@ -177,7 +223,7 @@ export default function Dashboard({ currentUser, onSelectLead }) {
     if (currentUser) {
       loadDashboardData();
     }
-  }, [currentUser]);
+  }, [currentUser, windowDays]);
 
   // Unified Handler: Suggestion mismatch apply
   const handleApplyMismatchSuggestion = async (lead, suggestion) => {
@@ -207,6 +253,18 @@ export default function Dashboard({ currentUser, onSelectLead }) {
       if (updatedLead?.draftCreated && showToast) {
         showToast(`Draft invoice generated for ${[updatedLead.first_name, updatedLead.last_name].filter(Boolean).join(' ') || 'Lead'}`);
       }
+      
+      // Mark corresponding pending reminders as completed
+      const { error: cancelError } = await supabase
+        .from('follow_up_reminders')
+        .update({ status: 'completed', updated_at: new Date().toISOString() })
+        .eq('lead_id', lead.id)
+        .eq('status', 'pending');
+
+      if (cancelError) {
+        console.warn('Could not cancel pending reminders:', cancelError);
+      }
+
       loadDashboardData();
     } catch (err) {
       console.error('Error logging checkpoint outcome:', err);
@@ -489,140 +547,223 @@ export default function Dashboard({ currentUser, onSelectLead }) {
       {/* Main Dual Grid: Column 1 = Up Next chronological feed, Column 2 = Urgent Reminders & Templates */}
       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(320px, 1fr))', gap: '1.5rem', marginTop: '0.5rem' }}>
         
-        {/* Column 1: Up Next Feed */}
+        {/* Column 1: Upcoming Next Feed */}
         <div className="card" style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
           <h3 style={{ fontSize: '1rem', display: 'flex', alignItems: 'center', gap: '0.4rem', borderBottom: '1px solid var(--border)', paddingBottom: '0.5rem' }}>
-            <Activity size={18} style={{ color: 'var(--accent-blue)' }} /> Up Next
+            <Activity size={18} style={{ color: 'var(--accent-blue)' }} /> Upcoming Next
           </h3>
 
-          {upNextFeed.length === 0 ? (
+          {upNextFeed.filter(item => item.type !== 'mismatch' || !ignoredMismatches[item.lead.id]).length === 0 ? (
             <div style={{ padding: '2.5rem', textAlign: 'center', color: 'var(--text-muted)', fontSize: '0.85rem' }}>
-              You're all caught up! No due check-ins, invoice delays, or mismatching status actions.
+              <div>Nothing coming up in the next {windowDays} days.</div>
+              {windowDays === 2 ? (
+                <div style={{ marginTop: '0.75rem' }}>
+                  <button 
+                    onClick={() => setWindowDays(7)} 
+                    className="btn btn-secondary btn-sm"
+                    style={{ fontSize: '0.75rem', display: 'inline-flex', padding: '0.25rem 0.5rem' }}
+                  >
+                    Show more (next 7 days)
+                  </button>
+                </div>
+              ) : (
+                <div style={{ marginTop: '0.75rem' }}>
+                  <button 
+                    onClick={() => setWindowDays(2)} 
+                    className="btn btn-secondary btn-sm"
+                    style={{ fontSize: '0.75rem', display: 'inline-flex', padding: '0.25rem 0.5rem' }}
+                  >
+                    Show less (next 2 days)
+                  </button>
+                </div>
+              )}
             </div>
           ) : (
             <div className="flex-col gap-3">
-              {upNextFeed.map((item) => {
-                const isCheckpoint = item.type === 'checkpoint';
-                const isInvoice = item.type === 'invoice';
-                const isMismatch = item.type === 'mismatch';
+              {upNextFeed
+                .filter(item => item.type !== 'mismatch' || !ignoredMismatches[item.lead.id])
+                .map((item) => {
+                  const isCheckpoint = item.type === 'checkpoint';
+                  const isInvoice = item.type === 'invoice';
+                  const isMismatch = item.type === 'mismatch';
 
-                return (
-                  <div 
-                    key={item.id} 
-                    className="flex-col gap-2" 
-                    style={{ 
-                      padding: '0.85rem 1rem', 
-                      borderRadius: '8px', 
-                      background: 'var(--bg-card-hover)', 
-                      border: '1px solid var(--border)' 
-                    }}
-                  >
-                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'start' }}>
-                      <div>
-                        <div style={{ display: 'flex', alignItems: 'center', gap: '0.4rem' }}>
-                          <span 
-                            style={{ 
-                              width: '6px', 
-                              height: '6px', 
-                              borderRadius: '50%', 
-                              background: item.severity === 'high' ? 'var(--danger-color)' : 'var(--warning-color)' 
-                            }} 
-                          />
-                          <strong style={{ fontSize: '0.85rem', color: 'var(--text-primary)' }}>{item.title}</strong>
-                        </div>
-                        <span style={{ fontSize: '0.75rem', color: 'var(--text-muted)', marginTop: '0.15rem', display: 'block' }}>
-                          {item.subtitle}
-                        </span>
-                      </div>
+                  if (isCheckpoint) {
+                    const firstName = item.lead.first_name || 'they';
+                    const lowerName = firstName.toLowerCase();
+                    const isFemale = ['sarah', 'priya', 'maria', 'anna', 'laura', 'jessica', 'emily', 'elizabeth', 'charlotte'].includes(lowerName);
+                    const pronoun = isFemale ? 'she' : 'they';
+                    const pronounWill = isFemale ? "she'll" : "they'll";
+                    const pronounReplied = isFemale ? "she replied" : "they replied";
+                    const isExpanded = !!expandedReplies[item.lead.id];
 
-                      {/* Pill indicator */}
-                      <span 
+                    return (
+                      <div 
+                        key={item.id} 
+                        className="flex-col gap-2" 
                         style={{ 
-                          fontSize: '0.65rem', 
-                          padding: '0.15rem 0.35rem', 
-                          borderRadius: '4px', 
-                          textTransform: 'uppercase', 
-                          fontWeight: 700,
-                          backgroundColor: isCheckpoint ? 'rgba(91,143,185,0.1)' : isInvoice ? 'rgba(224,82,82,0.1)' : 'rgba(232,168,56,0.1)',
-                          color: isCheckpoint ? 'var(--accent-blue)' : isInvoice ? 'var(--danger-color)' : 'var(--warning-color)'
+                          padding: '0.85rem 1rem', 
+                          borderRadius: '8px', 
+                          background: 'var(--bg-card-hover)', 
+                          border: '1px solid var(--border)' 
                         }}
                       >
-                        {item.type}
-                      </span>
-                    </div>
+                        <div style={{ fontSize: '0.85rem', color: 'var(--text-primary)', lineHeight: '1.4' }}>
+                          Follow up with {item.lead.first_name || ''} {item.lead.last_name || ''} — {pronounWill} need a follow-up {formatTimePhrasing(item.date, 'checkpoint')} if {pronoun} hasn't replied yet.
+                        </div>
 
-                    {/* Inline Actions inside the feed item card */}
-                    <div style={{ display: 'flex', gap: '0.5rem', marginTop: '0.4rem', borderTop: '1px solid var(--border)', paddingTop: '0.5rem' }}>
-                      {isCheckpoint && (
-                        <div className="flex-col gap-2 w-full">
-                          <span style={{ fontSize: '0.7rem', color: 'var(--text-muted)' }}>Select outcome to update lead status:</span>
-                          
-                          {REPLY_CHECK_STATUSES.includes(item.lead.status) ? (
-                            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '0.4rem' }}>
+                        <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem', marginTop: '0.4rem', borderTop: '1px solid var(--border)', paddingTop: '0.5rem' }}>
+                          {!isExpanded ? (
+                            <div style={{ display: 'flex', gap: '0.5rem' }}>
                               <button
-                                onClick={() => handleLogCheckpointOutcome(item.lead, 'Positive Reply', { reply_type: 'positive' })}
+                                onClick={() => handleLogCheckpointOutcome(item.lead, item.lead.status)}
                                 className="btn btn-secondary btn-sm"
-                                style={{ fontSize: '0.75rem', padding: '6px', borderColor: 'var(--success-color)', color: 'var(--success-color)', fontWeight: 600 }}
+                                style={{ flex: 1, justifyContent: 'center', fontSize: '0.75rem', height: '28px' }}
                               >
-                                Positive reply
+                                Not yet
                               </button>
                               <button
-                                onClick={() => handleLogCheckpointOutcome(item.lead, 'Booked', { reply_type: 'positive' })}
-                                className="btn btn-secondary btn-sm"
-                                style={{ fontSize: '0.75rem', padding: '6px', borderColor: '#8b5cf6', color: '#8b5cf6', fontWeight: 600 }}
+                                onClick={() => setExpandedReplies(prev => ({ ...prev, [item.lead.id]: true }))}
+                                className="btn btn-primary btn-sm"
+                                style={{ flex: 1, justifyContent: 'center', fontSize: '0.75rem', height: '28px' }}
                               >
-                                Call booked
-                              </button>
-                              <button
-                                onClick={() => handleLogCheckpointOutcome(item.lead, 'No Show / Rescheduled')}
-                                className="btn btn-secondary btn-sm"
-                                style={{ fontSize: '0.75rem', padding: '6px', borderColor: 'var(--warning-color)', color: 'var(--warning-color)', fontWeight: 600 }}
-                              >
-                                No show
-                              </button>
-                              <button
-                                onClick={() => handleLogCheckpointOutcome(item.lead, 'Not Interested', { reply_type: 'negative' })}
-                                className="btn btn-secondary btn-sm"
-                                style={{ fontSize: '0.75rem', padding: '6px', borderColor: 'var(--danger-color)', color: 'var(--danger-color)', fontWeight: 600 }}
-                              >
-                                Negative reply
+                                Yes, {pronounReplied}
                               </button>
                             </div>
                           ) : (
-                            <button
-                              onClick={() => handleLogCheckpointOutcome(item.lead, item.lead.status)}
-                              className="btn btn-primary btn-sm"
-                              style={{ width: '100%', justifyContent: 'center', fontSize: '0.75rem', padding: '6px', fontWeight: 600 }}
-                            >
-                              Mark checkpoint as done
-                            </button>
+                            <div style={{ display: 'flex', flexDirection: 'column', gap: '0.4rem' }}>
+                              <div style={{ fontSize: '0.75rem', color: 'var(--text-muted)' }}>What was the outcome?</div>
+                              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '0.4rem' }}>
+                                <button
+                                  onClick={() => handleLogCheckpointOutcome(item.lead, 'Positive Reply', { reply_type: 'positive' })}
+                                  className="btn btn-secondary btn-sm"
+                                  style={{ fontSize: '0.72rem', padding: '4px', borderColor: 'var(--success-color)', color: 'var(--success-color)', fontWeight: 600 }}
+                                >
+                                  Positive reply
+                                </button>
+                                <button
+                                  onClick={() => handleLogCheckpointOutcome(item.lead, 'Booked', { reply_type: 'positive' })}
+                                  className="btn btn-secondary btn-sm"
+                                  style={{ fontSize: '0.72rem', padding: '4px', borderColor: '#8b5cf6', color: '#8b5cf6', fontWeight: 600 }}
+                                >
+                                  Call booked
+                                </button>
+                                <button
+                                  onClick={() => handleLogCheckpointOutcome(item.lead, 'Not Interested', { reply_type: 'negative' })}
+                                  className="btn btn-secondary btn-sm"
+                                  style={{ fontSize: '0.72rem', padding: '4px', borderColor: 'var(--danger-color)', color: 'var(--danger-color)', fontWeight: 600 }}
+                                >
+                                  Not interested
+                                </button>
+                                <button
+                                  onClick={() => handleLogCheckpointOutcome(item.lead, 'No Show / Rescheduled')}
+                                  className="btn btn-secondary btn-sm"
+                                  style={{ fontSize: '0.72rem', padding: '4px', borderColor: 'var(--warning-color)', color: 'var(--warning-color)', fontWeight: 600 }}
+                                >
+                                  Other
+                                </button>
+                              </div>
+                              <button
+                                onClick={() => setExpandedReplies(prev => ({ ...prev, [item.lead.id]: false }))}
+                                className="btn btn-secondary btn-sm"
+                                style={{ fontSize: '0.7rem', padding: '2px', border: 'none', color: 'var(--text-muted)' }}
+                              >
+                                Cancel
+                              </button>
+                            </div>
                           )}
                         </div>
-                      )}
+                      </div>
+                    );
+                  }
 
-                      {isMismatch && (
-                        <button 
-                          onClick={() => handleApplyMismatchSuggestion(item.lead, item.suggestion)}
-                          className="btn btn-primary btn-sm" 
-                          style={{ display: 'flex', alignItems: 'center', gap: '0.25rem', width: '100%', justifyContent: 'center', fontSize: '0.7rem', padding: '0.25rem' }}
-                        >
-                          <Check size={12} /> Apply Suggested Action: "{item.suggestion}"
-                        </button>
-                      )}
+                  if (isInvoice) {
+                    return (
+                      <div 
+                        key={item.id} 
+                        className="flex-col gap-2" 
+                        style={{ 
+                          padding: '0.85rem 1rem', 
+                          borderRadius: '8px', 
+                          background: 'var(--bg-card-hover)', 
+                          border: '1px solid var(--border)' 
+                        }}
+                      >
+                        <div style={{ fontSize: '0.85rem', color: 'var(--text-primary)', lineHeight: '1.4' }}>
+                          Invoice #${item.invoice.invoice_number} for {item.invoice.client_name || 'Client'} is due {formatTimePhrasing(item.date, 'invoice')} (${item.invoice.total || 0}).
+                        </div>
 
-                      {isInvoice && (
-                        <button 
-                          onClick={() => handleCopyInvoiceReminder(item.invoice)}
-                          className="btn btn-secondary btn-sm" 
-                          style={{ display: 'flex', alignItems: 'center', gap: '0.25rem', width: '100%', justifyContent: 'center', fontSize: '0.7rem', padding: '0.25rem' }}
-                        >
-                          <Calendar size={12} /> Copy Friendly Reminder template
-                        </button>
-                      )}
-                    </div>
-                  </div>
-                );
-              })}
+                        <div style={{ display: 'flex', gap: '0.5rem', marginTop: '0.4rem', borderTop: '1px solid var(--border)', paddingTop: '0.5rem' }}>
+                          <button
+                            onClick={() => navigate('/invoices')}
+                            className="btn btn-primary btn-sm"
+                            style={{ width: '100%', justifyContent: 'center', fontSize: '0.75rem', height: '28px' }}
+                          >
+                            View Invoice
+                          </button>
+                        </div>
+                      </div>
+                    );
+                  }
+
+                  if (isMismatch) {
+                    return (
+                      <div 
+                        key={item.id} 
+                        className="flex-col gap-2" 
+                        style={{ 
+                          padding: '0.85rem 1rem', 
+                          borderRadius: '8px', 
+                          background: 'var(--bg-card-hover)', 
+                          border: '1px solid var(--border)' 
+                        }}
+                      >
+                        <div style={{ fontSize: '0.85rem', color: 'var(--text-primary)', lineHeight: '1.4' }}>
+                          You marked {item.lead.first_name || ''}'s next step as '{item.lead.action_to_take || 'No Action'}' — we'd suggest '{item.suggestion}' instead.
+                        </div>
+
+                        <div style={{ display: 'flex', gap: '0.5rem', marginTop: '0.4rem', borderTop: '1px solid var(--border)', paddingTop: '0.5rem' }}>
+                          <button 
+                            onClick={() => handleApplyMismatchSuggestion(item.lead, item.suggestion)}
+                            className="btn btn-primary btn-sm" 
+                            style={{ flex: 1, justifyContent: 'center', fontSize: '0.72rem', height: '28px' }}
+                          >
+                            Update to suggestion
+                          </button>
+                          <button 
+                            onClick={() => setIgnoredMismatches(prev => ({ ...prev, [item.lead.id]: true }))}
+                            className="btn btn-secondary btn-sm" 
+                            style={{ flex: 1, justifyContent: 'center', fontSize: '0.72rem', height: '28px' }}
+                          >
+                            Keep as is
+                          </button>
+                        </div>
+                      </div>
+                    );
+                  }
+
+                  return null;
+                })}
+              
+              {/* Show more/less toggle at the bottom of the feed list */}
+              <div style={{ marginTop: '0.5rem', textAlign: 'center' }}>
+                {windowDays === 2 ? (
+                  <button 
+                    onClick={() => setWindowDays(7)}
+                    className="btn btn-secondary btn-sm"
+                    style={{ fontSize: '0.75rem', padding: '0.25rem 0.5rem', width: '100%', justifyContent: 'center' }}
+                  >
+                    Show more (next 7 days)
+                  </button>
+                ) : (
+                  <button 
+                    onClick={() => setWindowDays(2)}
+                    className="btn btn-secondary btn-sm"
+                    style={{ fontSize: '0.75rem', padding: '0.25rem 0.5rem', width: '100%', justifyContent: 'center' }}
+                  >
+                    Show less (next 2 days)
+                  </button>
+                )}
+              </div>
             </div>
           )}
         </div>
