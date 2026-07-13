@@ -167,42 +167,81 @@ export function PrivacyPolicy() {
         These providers process data on our behalf and are bound by their own data protection obligations. We do not share Your Data (leads, contacts, notes) with any other third party, advertiser, or data broker.
       </p>
 
-      <h3 style={{ color: 'var(--text-primary)', marginTop: '1rem', fontFamily: 'var(--font-headers)' }}>4. Data Retention</h3>
+      <h3 style={{ color: 'var(--text-primary)', marginTop: '1rem', fontFamily: 'var(--font-headers)' }}>4. Google User Data</h3>
+      <p>
+        ReachDesk CRM integrates with Google Calendar and Google Sheets to provide features that help you manage your leads and follow-ups.
+      </p>
+      <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
+        <p><strong>What we access:</strong></p>
+        <ul style={{ paddingLeft: '1.5rem', display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
+          <li><strong>Google Calendar:</strong> We access your calendar events (read-only) to automatically detect when a lead has booked a meeting with you.</li>
+          <li><strong>Google Sheets:</strong> We access spreadsheets you explicitly select to export your lead data to, or import lead data from.</li>
+        </ul>
+        <p><strong>How we use it:</strong></p>
+        <ul style={{ paddingLeft: '1.5rem', display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
+          <li>Calendar event data is used solely to match meeting attendees against your existing leads and update their status accordingly.</li>
+          <li>Sheets data is used solely for the export/import actions you initiate — we do not access any other files in your Google Drive.</li>
+        </ul>
+        <p><strong>How we store it:</strong></p>
+        <ul style={{ paddingLeft: '1.5rem', display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
+          <li>We store OAuth access tokens and refresh tokens securely, encrypted, to maintain your connection to Google services.</li>
+          <li>We do not store the content of your calendar events or spreadsheet data beyond what's needed to complete the action you requested.</li>
+        </ul>
+        <p><strong>Sharing:</strong></p>
+        <ul style={{ paddingLeft: '1.5rem', display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
+          <li>We do not share, sell, or transfer your Google user data to any third party.</li>
+          <li>We do not use Google user data for advertising purposes.</li>
+        </ul>
+        <p><strong>Revoking access:</strong></p>
+        <ul style={{ paddingLeft: '1.5rem', display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
+          <li>You can disconnect Google Calendar or Google Sheets at any time from Configuration → Integrations. This revokes our access to your Google account immediately.</li>
+          <li>You can also revoke access directly at <a href="https://myaccount.google.com/permissions" target="_blank" rel="noopener noreferrer" style={{ color: 'var(--primary-purple)', textDecoration: 'none' }}>myaccount.google.com/permissions</a>.</li>
+        </ul>
+        <p>
+          ReachDesk CRM's use and transfer of information received from Google APIs adheres to the{' '}
+          <a href="https://developers.google.com/terms/api-services-user-data-policy" target="_blank" rel="noopener noreferrer" style={{ color: 'var(--primary-purple)', textDecoration: 'none' }}>
+            Google API Services User Data Policy
+          </a>
+          , including the Limited Use requirements.
+        </p>
+      </div>
+
+      <h3 style={{ color: 'var(--text-primary)', marginTop: '1rem', fontFamily: 'var(--font-headers)' }}>5. Data Retention</h3>
       <p>
         We retain your account and CRM data for as long as your account remains active. If you delete your account, we will delete or anonymize your data within a reasonable period, except where retention is required for legal, accounting, or fraud-prevention purposes.
       </p>
 
-      <h3 style={{ color: 'var(--text-primary)', marginTop: '1rem', fontFamily: 'var(--font-headers)' }}>5. Data Security</h3>
+      <h3 style={{ color: 'var(--text-primary)', marginTop: '1rem', fontFamily: 'var(--font-headers)' }}>6. Data Security</h3>
       <p>
         We take reasonable technical and organizational measures to protect your data, including encrypted storage, access controls, and row-level security on our database. However, no method of transmission or storage is 100% secure, and we cannot guarantee absolute security.
       </p>
 
-      <h3 style={{ color: 'var(--text-primary)', marginTop: '1rem', fontFamily: 'var(--font-headers)' }}>6. Your Rights</h3>
+      <h3 style={{ color: 'var(--text-primary)', marginTop: '1rem', fontFamily: 'var(--font-headers)' }}>7. Your Rights</h3>
       <p>
         You may access, update, or request deletion of your personal information at any time by contacting us at <a href="mailto:support@esemdot.com" style={{ color: 'var(--primary-purple)', textDecoration: 'none' }}>support@esemdot.com</a>. You may also export or delete your CRM data directly within the Service where such functionality is available.
       </p>
 
-      <h3 style={{ color: 'var(--text-primary)', marginTop: '1rem', fontFamily: 'var(--font-headers)' }}>7. Cookies and Tracking</h3>
+      <h3 style={{ color: 'var(--text-primary)', marginTop: '1rem', fontFamily: 'var(--font-headers)' }}>8. Cookies and Tracking</h3>
       <p>
         We may use cookies or similar technologies to keep you logged in and to understand basic usage patterns of the Service. We do not use cookies for third-party advertising.
       </p>
 
-      <h3 style={{ color: 'var(--text-primary)', marginTop: '1rem', fontFamily: 'var(--font-headers)' }}>8. Children's Privacy</h3>
+      <h3 style={{ color: 'var(--text-primary)', marginTop: '1rem', fontFamily: 'var(--font-headers)' }}>9. Children's Privacy</h3>
       <p>
         The Service is not directed at individuals under the age of 18, and we do not knowingly collect personal information from minors.
       </p>
 
-      <h3 style={{ color: 'var(--text-primary)', marginTop: '1rem', fontFamily: 'var(--font-headers)' }}>9. Changes to This Policy</h3>
+      <h3 style={{ color: 'var(--text-primary)', marginTop: '1rem', fontFamily: 'var(--font-headers)' }}>10. Changes to This Policy</h3>
       <p>
         We may update this Privacy Policy from time to time. Material changes will be communicated through the Service or via email. Continued use of the Service after changes take effect constitutes acceptance of the revised Policy.
       </p>
 
-      <h3 style={{ color: 'var(--text-primary)', marginTop: '1rem', fontFamily: 'var(--font-headers)' }}>10. Governing Law</h3>
+      <h3 style={{ color: 'var(--text-primary)', marginTop: '1rem', fontFamily: 'var(--font-headers)' }}>11. Governing Law</h3>
       <p>
         This Privacy Policy is governed by the laws of the Islamic Republic of Pakistan.
       </p>
 
-      <h3 style={{ color: 'var(--text-primary)', marginTop: '1rem', fontFamily: 'var(--font-headers)' }}>11. Contact</h3>
+      <h3 style={{ color: 'var(--text-primary)', marginTop: '1rem', fontFamily: 'var(--font-headers)' }}>12. Contact</h3>
       <p>
         For questions about this Privacy Policy or to exercise your data rights, contact us at <a href="mailto:support@esemdot.com" style={{ color: 'var(--primary-purple)', textDecoration: 'none' }}>support@esemdot.com</a>.
       </p>

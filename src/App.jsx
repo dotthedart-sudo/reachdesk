@@ -32,6 +32,7 @@ const PrivacyPolicy = lazy(() => import('./components/LegalPages').then(m => ({ 
 const RefundPolicy = lazy(() => import('./components/LegalPages').then(m => ({ default: m.RefundPolicy })));
 const GetStarted = lazy(() => import('./components/GetStarted'));
 const GoogleCalendarCallback = lazy(() => import('./components/GoogleCalendarCallback'));
+const GoogleSheetsCallback = lazy(() => import('./components/GoogleSheetsCallback'));
 import UserNotificationBell from './components/UserNotificationBell';
 import { HelmetProvider } from 'react-helmet-async';
 import GlobalHelmet from './components/GlobalHelmet';
@@ -1339,6 +1340,7 @@ function AppRoutes() {
         <Route path="/refund" element={<RefundPolicy />} />
         <Route path="/get-started" element={session ? <ProtectedPage><GetStarted /></ProtectedPage> : <GetStarted />} />
         <Route path="/auth/google/callback" element={<GoogleCalendarCallback />} />
+        <Route path="/auth/google-sheets/callback" element={<GoogleSheetsCallback />} />
         <Route path="/blog" element={<BlogIndex />} />
         <Route path="/blog/:slug" element={<BlogPost />} />
 

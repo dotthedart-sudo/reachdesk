@@ -1,0 +1,180 @@
+.sheets-export-backdrop {
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.75);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 100000;
+  padding: 1rem;
+  backdrop-filter: blur(2px);
+}
+
+.sheets-export-card {
+  background: var(--bg-card, #161b22);
+  border: 1px solid var(--border-color, #30363d);
+  border-radius: 12px;
+  width: 100%;
+  max-width: 500px;
+  box-shadow: 0 16px 64px rgba(0, 0, 0, 0.5);
+  display: flex;
+  flex-direction: column;
+  max-height: 90vh;
+  overflow: hidden;
+}
+
+.sheets-export-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 1.25rem 1.5rem;
+  border-bottom: 1px solid var(--border-color, #30363d);
+  flex-shrink: 0;
+}
+
+.sheets-export-body {
+  padding: 1.5rem;
+  overflow-y: auto;
+  flex: 1;
+}
+
+.sheets-export-footer {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.75rem;
+  padding: 1rem 1.5rem;
+  border-top: 1px solid var(--border-color, #30363d);
+  flex-shrink: 0;
+}
+
+.sheets-export-option-btn {
+  width: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.75rem;
+  padding: 1rem;
+  background: var(--bg-secondary, #21262d);
+  border: 1px solid var(--border-color, #30363d);
+  border-radius: 10px;
+  cursor: pointer;
+  color: var(--text-primary, #e6edf3);
+  font-family: inherit;
+  transition: background 0.15s, border-color 0.15s, transform 0.1s;
+}
+
+.sheets-export-option-btn:hover:not(:disabled) {
+  background: var(--bg-hover, #2d333b);
+  border-color: #10b981;
+  transform: translateX(2px);
+}
+
+.sheets-export-option-btn:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
+.sheets-export-icon-box {
+  width: 40px;
+  height: 40px;
+  border-radius: 8px;
+  flex-shrink: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.sheets-export-select {
+  width: 100%;
+  padding: 0.6rem 0.875rem;
+  border-radius: 8px;
+  border: 1px solid var(--border-color, #30363d);
+  background: var(--bg-secondary, #21262d);
+  color: var(--text-primary, #e6edf3);
+  font-size: 0.875rem;
+  font-family: inherit;
+  outline: none;
+  transition: border-color 0.15s;
+}
+
+.sheets-export-select:focus {
+  border-color: #10b981;
+}
+
+.sheets-export-radio-card {
+  display: flex;
+  align-items: flex-start;
+  gap: 0.75rem;
+  padding: 0.75rem 1rem;
+  background: var(--bg-secondary, #21262d);
+  border: 1px solid var(--border-color, #30363d);
+  border-radius: 8px;
+  cursor: pointer;
+  transition: border-color 0.15s, background 0.15s;
+}
+
+.sheets-export-radio-card input[type="radio"] {
+  margin-top: 2px;
+  accent-color: #10b981;
+  flex-shrink: 0;
+}
+
+.sheets-export-radio-card:has(input:checked) {
+  border-color: #10b981;
+  background: rgba(16, 185, 129, 0.05);
+}
+
+.sheets-export-btn-primary {
+  padding: 0.6rem 1.25rem;
+  border-radius: 8px;
+  border: none;
+  background: linear-gradient(135deg, #10b981, #0b8043);
+  color: #fff;
+  font-weight: 600;
+  font-family: inherit;
+  cursor: pointer;
+  font-size: 0.875rem;
+  transition: opacity 0.15s, transform 0.1s;
+}
+
+.sheets-export-btn-primary:hover {
+  opacity: 0.9;
+  transform: translateY(-1px);
+}
+
+.sheets-export-btn-secondary {
+  padding: 0.6rem 1.25rem;
+  border-radius: 8px;
+  border: 1px solid var(--border-color, #30363d);
+  background: transparent;
+  color: var(--text-secondary, #8b949e);
+  font-weight: 500;
+  font-family: inherit;
+  cursor: pointer;
+  font-size: 0.875rem;
+  transition: border-color 0.15s;
+}
+
+.sheets-export-btn-secondary:hover {
+  border-color: var(--text-secondary, #8b949e);
+  color: var(--text-primary, #e6edf3);
+}
+
+.sheets-export-link-btn {
+  display: inline-block;
+  padding: 0.65rem 1.5rem;
+  border-radius: 8px;
+  background: linear-gradient(135deg, #10b981, #0b8043);
+  color: #fff;
+  font-weight: 600;
+  font-family: inherit;
+  font-size: 0.875rem;
+  text-decoration: none;
+  transition: opacity 0.15s, transform 0.1s;
+}
+
+.sheets-export-link-btn:hover {
+  opacity: 0.9;
+  transform: translateY(-1px);
+}

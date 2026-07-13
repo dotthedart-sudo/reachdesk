@@ -16,6 +16,8 @@ import ColumnManager from './CRM/ColumnManager';
 import LeadDrawer from './CRM/LeadDrawer';
 import CSVImporter from './CRM/CSVImporter';
 import CSVImportModal from './CRM/CSVImportModal';
+import ExportSheetsModal from './CRM/ExportSheetsModal';
+import SheetsImportModal from './CRM/SheetsImportModal';
 import ConvertModal from './CRM/ConvertModal';
 import GroupedStatusDropdown from './CRM/GroupedStatusDropdown';
 import GroupedTemplateDropdown from './CRM/GroupedTemplateDropdown';
@@ -408,6 +410,10 @@ export default function CRM({
   const [newFieldType, setNewFieldType] = useState('text');
   const [showImportModal, setShowImportModal] = useState(false);
   const [showNewImportModal, setShowNewImportModal] = useState(false);
+  const [showExportSheetsModal, setShowExportSheetsModal] = useState(false);
+  const [showSheetsImportModal, setShowSheetsImportModal] = useState(false);
+  const [sheetsConnected, setSheetsConnected] = useState(false);
+  const [sheetsConnectedChecked, setSheetsConnectedChecked] = useState(false);
   const [showFolderModal, setShowFolderModal] = useState(false);
   const [activeLead, setActiveLead] = useState(null);
   const [convertingLead, setConvertingLead] = useState(null);
@@ -850,7 +856,34 @@ export default function CRM({
     };
   }, [currentUser]);
 
-  // Lead warnings & locks
+  // Google Sheets: check connection status & handle callback success banner
+  useEffect(() => {
+    async function checkSheetsConnection() {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) return;
+      const { data } = await supabase
+        .from('sheets_integrations')
+        .select('id')
+        .eq('user_id', user.id)
+        .maybeSingle();
+      setSheetsConnected(!!data?.id);
+      setSheetsConnectedChecked(true);
+    }
+    checkSheetsConnection();
+
+    // Handle ?connected=sheets callback after OAuth
+    const connectedParam = new URLSearchParams(window.location.search).get('connected');
+    if (connectedParam === 'sheets') {
+      setSheetsConnected(true);
+      showToast?.('✓ Google Sheets connected successfully!', 'success');
+      // Clean the URL param
+      const nextUrl = new URL(window.location.href);
+      nextUrl.searchParams.delete('connected');
+      window.history.replaceState(null, '', nextUrl.toString());
+    }
+  }, [currentUser]);
+
+
   const totalLeadsCount = leads.length;
   const leadLimit = getPlanLeadLimit(plan, currentUser.billing_cycle) || Infinity;
   const isLeadLimitReached = leadLimit !== Infinity && totalLeadsCount >= leadLimit;
@@ -2022,6 +2055,30 @@ export default function CRM({
               <Upload size={16} /> Import CSV
             </button>
 
+            {/* Import from Google Sheets — additive, separate from CSV import */}
+            <button
+              onClick={() => {
+                if (!sheetsConnected) {
+                  // Start OAuth directly, save CRM path so user returns here
+                  sessionStorage.setItem('sheets_oauth_return', window.location.pathname + window.location.search);
+                  const redirectUri = `${window.location.origin}/auth/google-sheets/callback`;
+                  const clientId = import.meta.env.VITE_GOOGLE_SHEETS_CLIENT_ID;
+                  const scope = 'https://www.googleapis.com/auth/spreadsheets https://www.googleapis.com/auth/drive.readonly';
+                  const authUrl = `https://accounts.google.com/o/oauth2/v2/auth?client_id=${encodeURIComponent(clientId)}&redirect_uri=${encodeURIComponent(redirectUri)}&response_type=code&scope=${encodeURIComponent(scope)}&access_type=offline&prompt=consent`;
+                  window.location.href = authUrl;
+                } else {
+                  setShowSheetsImportModal(true);
+                }
+              }}
+              className="btn btn-secondary"
+              title={!sheetsConnectedChecked ? 'Checking connection…' : undefined}
+              disabled={isLeadLimitReached}
+              style={isLeadLimitReached ? { opacity: 0.5, cursor: 'not-allowed' } : {}}
+            >
+              <Upload size={16} />
+              {sheetsConnected ? 'Import from Sheets' : 'Connect Sheets to Import'}
+            </button>
+
             <div style={{ position: 'relative' }}>
               <button onClick={() => setShowExportDropdown(!showExportDropdown)} className="btn btn-secondary" disabled={!!exporting}>
                 <Download size={16} /> Export Data <ChevronDown size={14} />
@@ -2033,6 +2090,28 @@ export default function CRM({
                   </button>
                   <button onClick={handleExportNotesClick} className="dropdown-item" style={{ display: 'flex', alignItems: 'center', gap: '8px', background: 'transparent', border: 'none', padding: '0.5rem 0.75rem', textAlign: 'left', cursor: 'pointer', color: 'var(--text-primary)', width: '100%' }}>
                     <FileText size={14} /> Export Notes (TXT)
+                  </button>
+                  {/* Google Sheets export — additive, below existing CSV options */}
+                  <div style={{ height: '1px', background: 'var(--border-color)', margin: '0.25rem 0.5rem' }} />
+                  <button
+                    onClick={() => {
+                      setShowExportDropdown(false);
+                      if (!sheetsConnected) {
+                        sessionStorage.setItem('sheets_oauth_return', window.location.pathname + window.location.search);
+                        const redirectUri = `${window.location.origin}/auth/google-sheets/callback`;
+                        const clientId = import.meta.env.VITE_GOOGLE_SHEETS_CLIENT_ID;
+                        const scope = 'https://www.googleapis.com/auth/spreadsheets https://www.googleapis.com/auth/drive.readonly';
+                        const authUrl = `https://accounts.google.com/o/oauth2/v2/auth?client_id=${encodeURIComponent(clientId)}&redirect_uri=${encodeURIComponent(redirectUri)}&response_type=code&scope=${encodeURIComponent(scope)}&access_type=offline&prompt=consent`;
+                        window.location.href = authUrl;
+                      } else {
+                        setShowExportSheetsModal(true);
+                      }
+                    }}
+                    className="dropdown-item"
+                    style={{ display: 'flex', alignItems: 'center', gap: '8px', background: 'transparent', border: 'none', padding: '0.5rem 0.75rem', textAlign: 'left', cursor: 'pointer', color: '#10b981', width: '100%', fontSize: '0.875rem' }}
+                  >
+                    <Download size={14} />
+                    {sheetsConnected ? 'Export to Google Sheets' : 'Connect Sheets to Export'}
                   </button>
                 </div>
               )}
@@ -3793,7 +3872,27 @@ export default function CRM({
         />
       )}
 
-      {/* 📁 Create Smart Folder Modal */}
+      {/* Google Sheets Export Modal */}
+      {showExportSheetsModal && (
+        <ExportSheetsModal
+          leads={leads}
+          currentUser={currentUser}
+          onClose={() => setShowExportSheetsModal(false)}
+        />
+      )}
+
+      {/* Google Sheets Import Modal */}
+      {showSheetsImportModal && (
+        <SheetsImportModal
+          onClose={() => setShowSheetsImportModal(false)}
+          onImportComplete={() => {
+            setShowSheetsImportModal(false);
+            fetchData();
+          }}
+        />
+      )}
+
+
       {showSmartFolderModal && (
         <div className="modal-backdrop">
           <div className="modal-content" style={{ maxWidth: '600px', width: '90%' }}>

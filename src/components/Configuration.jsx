@@ -162,6 +162,12 @@ export default function Configuration({
   const [calDisconnecting, setCalDisconnecting] = useState(false);
   const [calSuccessMsg, setCalSuccessMsg] = useState('');
 
+  // ── Google Sheets Integration State ──────────────────────────────────────
+  const [sheetsIntegration, setSheetsIntegration] = useState(null); // row from sheets_integrations
+  const [sheetsLoading, setSheetsLoading] = useState(true);
+  const [sheetsDisconnecting, setSheetsDisconnecting] = useState(false);
+  const [sheetsSuccessMsg, setSheetsSuccessMsg] = useState('');
+
   const handleExportLeadsClick = async () => {
     if (exporting) return;
     setExporting('leads');
@@ -341,6 +347,86 @@ export default function Configuration({
       alert('Failed to disconnect: ' + (err.message || String(err)));
     } finally {
       setCalDisconnecting(false);
+    }
+  };
+
+  // ── Fetch Sheets integration status ──────────────────────────────────────
+  useEffect(() => {
+    async function fetchSheetsIntegration() {
+      if (!currentUser?.id) { setSheetsLoading(false); return; }
+      const { data } = await supabase
+        .from('sheets_integrations')
+        .select('id, connected_at, is_active')
+        .eq('user_id', currentUser.id)
+        .maybeSingle();
+      setSheetsIntegration(data?.is_active ? data : null);
+      setSheetsLoading(false);
+    }
+    fetchSheetsIntegration();
+  }, [currentUser?.id]);
+
+  // ── Show sheets success banner if redirected back after OAuth ─────────────
+  useEffect(() => {
+    const params = new URLSearchParams(location.search);
+    if (params.get('connected') === 'sheets') {
+      setSheetsSuccessMsg('Google Sheets connected successfully! You can now import and export leads directly.');
+      window.history.replaceState({}, '', '/settings?tab=integrations');
+      setTimeout(() => setSheetsSuccessMsg(''), 8000);
+    }
+  }, [location.search]);
+
+  // ── Connect Google Sheets (initiates OAuth with CSRF state) ──────────────
+  const handleConnectSheets = () => {
+    const state = crypto.randomUUID();
+    sessionStorage.setItem('google_sheets_oauth_state', state);
+    sessionStorage.setItem('google_sheets_oauth_origin', '/settings?tab=integrations');
+    const clientId = import.meta.env.VITE_GOOGLE_SHEETS_CLIENT_ID;
+    const redirectUri = encodeURIComponent(window.location.origin + '/auth/google-sheets/callback');
+    const scope = encodeURIComponent('https://www.googleapis.com/auth/spreadsheets');
+    window.location.href = [
+      'https://accounts.google.com/o/oauth2/v2/auth',
+      `?client_id=${clientId}`,
+      `&redirect_uri=${redirectUri}`,
+      '&response_type=code',
+      `&scope=${scope}`,
+      '&access_type=offline',
+      '&prompt=consent',
+      `&state=${state}`,
+    ].join('');
+  };
+
+  // ── Disconnect Google Sheets ──────────────────────────────────────────────
+  const handleDisconnectSheets = async () => {
+    if (!confirm('Disconnect Google Sheets? ReachDesk will no longer be able to export or import leads from your sheets.')) return;
+    setSheetsDisconnecting(true);
+    try {
+      const { data: integration } = await supabase
+        .from('sheets_integrations')
+        .select('access_token')
+        .eq('user_id', currentUser.id)
+        .maybeSingle();
+
+      if (integration?.access_token) {
+        try {
+          await fetch(`https://oauth2.googleapis.com/revoke?token=${integration.access_token}`, { method: 'POST' });
+        } catch (revokeErr) {
+          console.warn('Token revocation error (non-fatal):', revokeErr);
+        }
+      }
+
+      await supabase
+        .from('sheets_integrations')
+        .delete()
+        .eq('user_id', currentUser.id);
+
+      setSheetsIntegration(null);
+      setSheetsSuccessMsg('Google Sheets disconnected. You can reconnect anytime.');
+      setTimeout(() => setSheetsSuccessMsg(''), 5000);
+    } catch (err) {
+      console.error('Disconnect error:', err);
+      alert('Failed to disconnect: ' + (err.message || String(err)));
+    } finally {
+      setSheetsDisconnecting(false);
     }
   };
 
@@ -1331,9 +1417,16 @@ export default function Configuration({
         </div>
 
         {calSuccessMsg && (
-          <div style={{ padding: '0.75rem 1rem', borderRadius: '8px', background: 'rgba(16, 185, 129, 0.1)', border: '1px solid rgba(16, 185, 129, 0.2)', color: '#10b981', fontSize: '0.875rem', display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+          <div style={{ padding: '0.75rem 1rem', borderRadius: '8px', background: 'rgba(16, 185, 129, 0.1)', border: '1px solid rgba(16, 185, 129, 0.2)', color: '#10b981', fontSize: '0.875rem', display: 'flex', alignItems: 'center', gap: '0.5rem', marginBottom: '0.5rem' }}>
             <CheckCircle size={16} style={{ flexShrink: 0 }} />
             <span>{calSuccessMsg}</span>
+          </div>
+        )}
+
+        {sheetsSuccessMsg && (
+          <div style={{ padding: '0.75rem 1rem', borderRadius: '8px', background: 'rgba(16, 185, 129, 0.1)', border: '1px solid rgba(16, 185, 129, 0.2)', color: '#10b981', fontSize: '0.875rem', display: 'flex', alignItems: 'center', gap: '0.5rem', marginBottom: '0.5rem' }}>
+            <CheckCircle size={16} style={{ flexShrink: 0 }} />
+            <span>{sheetsSuccessMsg}</span>
           </div>
         )}
 
@@ -1389,6 +1482,69 @@ export default function Configuration({
                   style={{ display: 'flex', alignItems: 'center', gap: '0.35rem' }}
                 >
                   <Calendar size={14} /> Connect
+                </button>
+              )
+            )}
+          </div>
+        </div>
+
+        {/* Google Sheets Row */}
+        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '1rem', flexWrap: 'wrap', padding: '0.75rem 0', borderTop: '1px solid var(--border-color, #30363d)' }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
+            <div style={{
+              width: '40px', height: '40px', borderRadius: '8px', flexShrink: 0,
+              background: 'linear-gradient(135deg, #0f9d58, #0b8043)',
+              display: 'flex', alignItems: 'center', justifyContent: 'center'
+            }}>
+              <svg width="20" height="20" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+                <path d="M19 3H5C3.9 3 3 3.9 3 5V19C3 20.1 3.9 21 5 21H19C20.1 21 21 20.1 21 19V5C21 3.9 20.1 3 19 3ZM10 17H7V14H10V17ZM10 12H7V9H10V12ZM17 17H12V14H17V17ZM17 12H12V9H17V12Z" fill="#fff"/>
+              </svg>
+            </div>
+            <div>
+              <strong style={{ display: 'block', fontSize: '0.95rem' }}>Google Sheets</strong>
+              <span style={{ fontSize: '0.8rem', color: 'var(--text-muted)' }}>
+                {sheetsLoading
+                  ? 'Checking status…'
+                  : sheetsIntegration
+                    ? `Connected · since ${new Date(sheetsIntegration.connected_at).toLocaleDateString()}`
+                    : 'Not connected — export and import from Google Sheets'
+                }
+              </span>
+            </div>
+          </div>
+
+          <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
+            {!sheetsLoading && (
+              sheetsIntegration ? (
+                <>
+                  <span style={{
+                    padding: '0.2rem 0.65rem', borderRadius: '99px', fontSize: '0.75rem', fontWeight: 700,
+                    background: 'rgba(16,185,129,0.12)', color: '#10b981'
+                  }}>
+                    ✓ Connected
+                  </span>
+                  <button
+                    type="button"
+                    onClick={handleDisconnectSheets}
+                    disabled={sheetsDisconnecting}
+                    className="btn btn-secondary btn-sm"
+                    style={{ display: 'flex', alignItems: 'center', gap: '0.35rem', color: 'var(--danger-color, #ef4444)', borderColor: 'var(--danger-color, #ef4444)' }}
+                  >
+                    <Unlink size={14} />
+                    {sheetsDisconnecting ? 'Disconnecting…' : 'Disconnect'}
+                  </button>
+                </>
+              ) : (
+                <button
+                  type="button"
+                  onClick={handleConnectSheets}
+                  className="btn btn-primary btn-sm"
+                  style={{ display: 'flex', alignItems: 'center', gap: '0.35rem' }}
+                >
+                  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg" style={{ marginRight: '2px' }}>
+                    <path d="M19 3H5C3.9 3 3 3.9 3 5V19C3 20.1 3.9 21 5 21H19C20.1 21 21 20.1 21 19V5C21 3.9 20.1 3 19 3ZM10 17H7V14H10V17ZM10 12H7V9H10V12ZM17 17H12V14H17V17ZM17 12H12V9H17V12Z" fill="currentColor"/>
+                  </svg>
+                  Connect
                 </button>
               )
             )}
