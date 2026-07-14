@@ -252,22 +252,34 @@ export default function UpgradeLockModal({ profile, handleLogout, theme }) {
               {exporting === 'notes' ? 'Exporting…' : 'Export Notes (TXT)'}
             </button>
 
-            {sheetsConnected && (
-              <button
-                onClick={() => setShowSheetsExportModal(true)}
-                disabled={!!exporting}
-                style={{
-                  ...ghostBtnStyle,
-                  opacity: exporting ? 0.6 : 1
-                }}
-                onMouseEnter={e => { e.currentTarget.style.borderColor = 'var(--accent-blue)'; e.currentTarget.style.color = 'var(--accent-blue)'; }}
-                onMouseLeave={e => { e.currentTarget.style.borderColor = 'var(--border-strong)'; e.currentTarget.style.color = 'var(--text-muted)'; }}
-                title="Export all your leads directly to Google Sheets"
-              >
-                <Database size={12} />
-                <span>Export to Sheets</span>
-              </button>
-            )}
+            <button
+              onClick={async () => {
+                if (!sheetsConnected) {
+                  // Start OAuth — return user to dashboard after connecting
+                  const { data: { session } } = await supabase.auth.getSession();
+                  if (!session) return;
+                  sessionStorage.setItem('sheets_oauth_return', '/dashboard');
+                  const redirectUri = `${window.location.origin}/auth/google-sheets/callback`;
+                  const clientId = import.meta.env.VITE_GOOGLE_SHEETS_CLIENT_ID;
+                  const scope = 'https://www.googleapis.com/auth/spreadsheets https://www.googleapis.com/auth/drive.readonly';
+                  const authUrl = `https://accounts.google.com/o/oauth2/v2/auth?client_id=${encodeURIComponent(clientId)}&redirect_uri=${encodeURIComponent(redirectUri)}&response_type=code&scope=${encodeURIComponent(scope)}&access_type=offline&prompt=consent`;
+                  window.location.href = authUrl;
+                } else {
+                  setShowSheetsExportModal(true);
+                }
+              }}
+              disabled={!!exporting}
+              style={{
+                ...ghostBtnStyle,
+                opacity: exporting ? 0.6 : 1
+              }}
+              onMouseEnter={e => { e.currentTarget.style.borderColor = 'var(--accent-blue)'; e.currentTarget.style.color = 'var(--accent-blue)'; }}
+              onMouseLeave={e => { e.currentTarget.style.borderColor = 'var(--border-strong)'; e.currentTarget.style.color = 'var(--text-muted)'; }}
+              title={sheetsConnected ? 'Export all your leads directly to Google Sheets' : 'Connect Google Sheets to export your leads'}
+            >
+              <Database size={12} />
+              <span>{sheetsConnected ? 'Export to Sheets' : 'Connect Sheets to Export'}</span>
+            </button>
           </div>
         </div>
         {/* ─────────────────────────────────────────────────────────────────── */}
