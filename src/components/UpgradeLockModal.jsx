@@ -1,14 +1,70 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { ShieldAlert, Download, FileText } from 'lucide-react';
+import { ShieldAlert, Download, FileText, Database } from 'lucide-react';
 import { supabase } from '../lib/supabase';
 import { exportLeads, exportNotes } from '../utils/exportUtils';
+import ExportSheetsModal from './CRM/ExportSheetsModal';
 
 // ─────────────────────────────────────────────────────────────────────────────
 
 export default function UpgradeLockModal({ profile, handleLogout, theme }) {
   const navigate = useNavigate();
   const [exporting, setExporting] = useState(null); // 'leads' | 'notes' | null
+  const [sheetsConnected, setSheetsConnected] = useState(false);
+  const [showSheetsExportModal, setShowSheetsExportModal] = useState(false);
+  const [leads, setLeads] = useState([]);
+
+  useEffect(() => {
+    async function checkConnectionAndFetchLeads() {
+      try {
+        const { data: { session } } = await supabase.auth.getSession();
+        if (!session) return;
+        const userId = session.user.id;
+
+        // Check sheets integration
+        const { data: sheetsData } = await supabase
+          .from('sheets_integrations')
+          .select('id')
+          .eq('user_id', userId)
+          .maybeSingle();
+        
+        setSheetsConnected(!!sheetsData);
+
+        // Fetch leads for exporting to Sheets if connected
+        if (sheetsData) {
+          const { data: pProfile } = await supabase
+            .from('user_profiles')
+            .select('team_id')
+            .eq('id', userId)
+            .maybeSingle();
+
+          let ids = [userId];
+          if (pProfile?.team_id) {
+            const { data: members } = await supabase
+              .from('user_profiles')
+              .select('id')
+              .eq('team_id', pProfile.team_id);
+            if (members && members.length > 0) {
+              ids = members.map(m => m.id);
+            }
+          }
+
+          const { data: leadsData } = await supabase
+            .from('leads')
+            .select('*')
+            .in('user_id', ids)
+            .order('created_at', { ascending: false });
+
+          if (leadsData) {
+            setLeads(leadsData);
+          }
+        }
+      } catch (err) {
+        console.error('Error checking sheets connection in UpgradeLockModal:', err);
+      }
+    }
+    checkConnectionAndFetchLeads();
+  }, []);
 
   if (profile?.plan_status === 'active') return null;
   const isTrial = profile?.plan === 'trial';
@@ -195,6 +251,23 @@ export default function UpgradeLockModal({ profile, handleLogout, theme }) {
               <FileText size={12} />
               {exporting === 'notes' ? 'Exporting…' : 'Export Notes (TXT)'}
             </button>
+
+            {sheetsConnected && (
+              <button
+                onClick={() => setShowSheetsExportModal(true)}
+                disabled={!!exporting}
+                style={{
+                  ...ghostBtnStyle,
+                  opacity: exporting ? 0.6 : 1
+                }}
+                onMouseEnter={e => { e.currentTarget.style.borderColor = 'var(--accent-blue)'; e.currentTarget.style.color = 'var(--accent-blue)'; }}
+                onMouseLeave={e => { e.currentTarget.style.borderColor = 'var(--border-strong)'; e.currentTarget.style.color = 'var(--text-muted)'; }}
+                title="Export all your leads directly to Google Sheets"
+              >
+                <Database size={12} />
+                <span>Export to Sheets</span>
+              </button>
+            )}
           </div>
         </div>
         {/* ─────────────────────────────────────────────────────────────────── */}
@@ -216,6 +289,14 @@ export default function UpgradeLockModal({ profile, handleLogout, theme }) {
           Log Out
         </button>
       </div>
+
+      {showSheetsExportModal && (
+        <ExportSheetsModal
+          onClose={() => setShowSheetsExportModal(false)}
+          leads={leads}
+          currentUser={profile}
+        />
+      )}
     </div>
   );
 }

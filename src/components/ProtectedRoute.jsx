@@ -143,7 +143,7 @@ export function UpgradeRoute({ session, profile, subStatus, loading, handleLogou
   }
 
   if (profile?.account_locked) {
-    return <Navigate to="/dashboard" replace />;
+    return children; // let locked/expired users reach /upgrade to complete checkout
   }
 
   if (subStatus === 'denied') {

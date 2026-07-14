@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
-import { ArrowLeft, Bell, CheckCircle, HelpCircle, Sun, Moon, Calendar, ExternalLink, Zap, Lock, Database, Search, MessageSquare, Play, Columns, PenTool } from 'lucide-react';
+import { ArrowLeft, Bell, CheckCircle, HelpCircle, Sun, Moon, Calendar, ExternalLink, Zap, Lock, Database, Search, MessageSquare, Play, Columns, PenTool, Check, Info } from 'lucide-react';
 import { useAppContext } from '../App';
 import { supabase } from '../lib/supabase';
 import { PLAN_LIMITS } from '../lib/utils';
