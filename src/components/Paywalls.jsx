@@ -294,7 +294,7 @@ function PlanCard({ plan, billing, isSelected, onSelect, handlePaddleCheckout, p
     }
   } else {
     // Non-active user (trial/expired)
-    if (id === 'starter' || isEnterprise) {
+    if (!comingSoon || isEnterprise) {
       cardStatus = 'selectable';
       isSelectable = true;
     } else {
@@ -340,8 +340,11 @@ function PlanCard({ plan, billing, isSelected, onSelect, handlePaddleCheckout, p
           padding: '2px 8px',
           borderRadius: '3px',
           letterSpacing: '0.04em',
+          display: 'flex',
+          alignItems: 'center',
+          gap: '3px',
         }}>
-          ✓ Current Plan
+          <Check size={11} /> Current Plan
         </div>
       )}
 
@@ -563,9 +566,13 @@ function PlanCard({ plan, billing, isSelected, onSelect, handlePaddleCheckout, p
               fontWeight: 600,
               cursor: 'not-allowed',
               fontFamily: 'Mattone, sans-serif',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              gap: '6px',
             }}
           >
-            ✓ Current Plan
+            <Check size={14} /> Current Plan
           </button>
           <div style={{
             fontSize: '0.75rem',

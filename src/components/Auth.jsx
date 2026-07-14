@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
-import { Lock, Mail, ShieldAlert, Sparkles, ArrowRight, Eye, EyeOff, User, Upload } from 'lucide-react';
+import { Lock, Mail, ShieldAlert, Sparkles, ArrowRight, Eye, EyeOff, User, Upload, Check } from 'lucide-react';
 import { supabase } from '../lib/supabase';
 
 export default function Auth({ onRegister, onLogin, mode = 'login' }) {
@@ -390,7 +390,7 @@ export default function Auth({ onRegister, onLogin, mode = 'login' }) {
               )}
               {resendSuccess && (
                 <div style={{ padding: '0.75rem 1rem', borderRadius: '4px', background: 'rgba(16, 185, 129, 0.1)', border: '1px solid rgba(16, 185, 129, 0.2)', color: '#10b981', fontSize: '0.875rem', marginBottom: '0.5rem', display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
-                  <span style={{ fontSize: '1.1rem', fontWeight: 700 }}>✓</span>
+                  <Check size={16} style={{ flexShrink: 0 }} />
                   <span>{resendSuccess}</span>
                 </div>
               )}
@@ -459,7 +459,7 @@ export default function Auth({ onRegister, onLogin, mode = 'login' }) {
             <form onSubmit={handleForgotSubmit} className="auth-form" style={{ gap: '0.65rem' }}>
               {forgotSuccess && (
                 <div style={{ padding: '0.75rem 1rem', borderRadius: '4px', background: 'rgba(16, 185, 129, 0.1)', border: '1px solid rgba(16, 185, 129, 0.2)', color: '#10b981', fontSize: '0.875rem', marginBottom: '0.5rem', display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
-                  <span style={{ fontSize: '1.1rem', fontWeight: 700 }}>✓</span>
+                  <Check size={16} style={{ flexShrink: 0 }} />
                   <span>{forgotSuccess}</span>
                 </div>
               )}

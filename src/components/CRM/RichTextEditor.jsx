@@ -31,7 +31,7 @@ import {
   Bold, Italic, Underline as UnderlineIcon, Strikethrough, 
   AlignLeft, AlignCenter, AlignRight, List, ListOrdered, 
   Table as TableIcon, Link as LinkIcon, Minus, Undo2, Redo2, 
-  Clock, X, Check, Save, History
+  Clock, X, Check, Save, History, AlertTriangle
 } from 'lucide-react';
 import { supabase } from '../../lib/supabase';
 
@@ -379,7 +379,7 @@ export default function RichTextEditor({
         }
       }
 
-      setSaveStatus('Saved ✓');
+      setSaveStatus('Saved');
       setTimeout(() => setSaveStatus(''), 2000);
       
       // Refresh version list if history panel is open
@@ -1110,8 +1110,9 @@ export default function RichTextEditor({
               borderRadius: '0 0 8px 8px'
             }}
           >
-            <div style={{ marginBottom: '1rem', color: 'var(--primary-magenta)', fontWeight: 600, fontSize: '0.9rem', display: 'flex', alignContent: 'center', gap: '0.25rem' }}>
-              ⚠️ Previewing Snapshot ({previewVersion.title}). Current editor is read-only.
+            <div style={{ marginBottom: '1rem', color: 'var(--primary-magenta)', fontWeight: 600, fontSize: '0.9rem', display: 'flex', alignContent: 'center', alignItems: 'center', gap: '0.4rem' }}>
+              <AlertTriangle size={15} style={{ flexShrink: 0 }} />
+              <span>Previewing Snapshot ({previewVersion.title}). Current editor is read-only.</span>
             </div>
             
             {/* Render preview text */}

@@ -14,7 +14,7 @@ import {
 import { 
   Users, Mail, MessageSquare, ThumbsUp, Trophy, Bell,
   ArrowRight, Lock, TrendingUp, DollarSign, Activity,
-  ChevronRight, Calendar, AlertCircle, Check, X
+  ChevronRight, Calendar, AlertCircle, Check, X, BarChart2
 } from 'lucide-react';
 
 import HelpPopover from './HelpPopover';
@@ -342,7 +342,9 @@ export default function Dashboard({ currentUser, onSelectLead }) {
 
       {metrics.total === 0 && !loading ? (
         <div className="card" style={{ padding: '3.5rem 2rem', textAlign: 'center', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: '1.5rem', backgroundColor: 'var(--bg-card, #161B22)', border: '1px solid var(--border, #30363D)', borderRadius: '8px', marginTop: '1.5rem' }}>
-          <div style={{ fontSize: '3rem', margin: 0 }}>📊</div>
+          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', width: '64px', height: '64px', borderRadius: '12px', background: 'rgba(91,143,185,0.12)', border: '1px solid rgba(91,143,185,0.2)', margin: '0 auto' }}>
+            <BarChart2 size={30} style={{ color: 'var(--accent-blue, #5B8FB9)' }} />
+          </div>
           <div>
             <h3 style={{ margin: '0 0 0.5rem 0', fontSize: '1.35rem', fontWeight: 700, color: 'var(--text-primary, #FFFFFF)', fontFamily: 'var(--font-heading, Mattone, sans-serif)' }}>
               Your Dashboard is Quiet

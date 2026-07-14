@@ -12,7 +12,8 @@ import {
   Lock,
   ArrowLeft,
   Edit2,
-  Send
+  Send,
+  AlertCircle
 } from 'lucide-react';
 import { supabase } from '../lib/supabase';
 import CurrencySelector from './CurrencySelector';
@@ -629,8 +630,9 @@ export default function InvoiceGenerator({
 
             {/* Inline validation error */}
             {editError && (
-              <div style={{ color: 'var(--danger-color, #ef4444)', fontSize: '0.875rem', padding: '0.5rem 0.75rem', background: 'rgba(239,68,68,0.08)', borderRadius: '6px', border: '1px solid rgba(239,68,68,0.25)' }}>
-                ⚠ {editError}
+              <div style={{ color: 'var(--danger-color, #ef4444)', fontSize: '0.875rem', padding: '0.5rem 0.75rem', background: 'rgba(239,68,68,0.08)', borderRadius: '6px', border: '1px solid rgba(239,68,68,0.25)', display: 'flex', alignItems: 'center', gap: '0.4rem' }}>
+                <AlertCircle size={14} style={{ flexShrink: 0 }} />
+                <span>{editError}</span>
               </div>
             )}
 

@@ -172,7 +172,7 @@ function InteractiveLoopDiagram({ accentColor }) {
           fontSize: '0.8rem',
           color: 'var(--text-secondary, #8B949E)'
         }}>
-          <strong>💡 Pro-tip:</strong> {steps[activeStep].tip}
+          <span style={{ display: 'flex', alignItems: 'flex-start', gap: '0.4rem' }}><Info size={13} style={{ color: accentColor, flexShrink: 0, marginTop: '1px' }} /><span><strong>Pro-tip:</strong> {steps[activeStep].tip}</span></span>
         </div>
       </div>
     </div>
@@ -417,7 +417,7 @@ function GetStartedContent({ isAppView, theme, navigate }) {
           <section id="reach-link" style={{ scrollMarginTop: '120px' }}>
             <h2 style={sectionTitle()}>Reach Launcher</h2>
             <p style={{ color: muted, margin: 0 }}>
-              The Reach icon (📡) in your CRM row opens the lead's social platform (LinkedIn, email, Twitter/X, Instagram) in a new tab. If a template is chosen, it copies to your clipboard. Once clicked, ReachDesk updates the lead's Last Contacted date automatically.
+              The Reach icon in your CRM row opens the lead's social platform (LinkedIn, email, Twitter/X, Instagram) in a new tab. If a template is chosen, it copies to your clipboard. Once clicked, ReachDesk updates the lead's Last Contacted date automatically.
             </p>
           </section>
 
@@ -472,7 +472,7 @@ function GetStartedContent({ isAppView, theme, navigate }) {
                 <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem', marginBottom: '0.75rem' }}>
                   <Calendar size={20} style={{ color: accent }} />
                   <strong style={{ color: text }}>Google Calendar Connection</strong>
-                  {calConnected && <span style={{ marginLeft: 'auto', color: '#10b981', fontSize: '0.75rem', fontWeight: 700 }}>✓ Connected</span>}
+                  {calConnected && <span style={{ marginLeft: 'auto', color: '#10b981', fontSize: '0.75rem', fontWeight: 700, display: 'inline-flex', alignItems: 'center', gap: '3px' }}><Check size={12} /> Connected</span>}
                 </div>
                 <p style={{ margin: '0 0 1rem 0', color: muted, fontSize: '0.85rem' }}>
                   Auto-detects booked leads based on email matches on calendar events and converts status to "Booked" automatically.
@@ -484,7 +484,7 @@ function GetStartedContent({ isAppView, theme, navigate }) {
                 <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem', marginBottom: '0.75rem' }}>
                   <Database size={20} style={{ color: accent }} />
                   <strong style={{ color: text }}>Google Sheets Connection</strong>
-                  {sheetsConnected && <span style={{ marginLeft: 'auto', color: '#10b981', fontSize: '0.75rem', fontWeight: 700 }}>✓ Connected</span>}
+                  {sheetsConnected && <span style={{ marginLeft: 'auto', color: '#10b981', fontSize: '0.75rem', fontWeight: 700, display: 'inline-flex', alignItems: 'center', gap: '3px' }}><Check size={12} /> Connected</span>}
                 </div>
                 <p style={{ margin: '0 0 1rem 0', color: muted, fontSize: '0.85rem' }}>
                   Export your leads or import them from any spreadsheet in your Google Drive seamlessly.

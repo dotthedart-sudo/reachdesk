@@ -239,9 +239,9 @@ export default function SetupModal({ profile, onRefreshProfile, onSaveSettings, 
             </label>
             <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
               {[
-                { id: 'leads', label: '🎯 Lead outreach (finding & pitching clients)' },
-                { id: 'clients', label: '👥 Client management & invoicing' },
-                { id: 'both', label: '⚡ Both (full pipeline & revenue tracking)' }
+                { id: 'leads', label: 'Lead outreach (finding & pitching clients)' },
+                { id: 'clients', label: 'Client management & invoicing' },
+                { id: 'both', label: 'Both (full pipeline & revenue tracking)' }
               ].map((opt) => (
                 <label
                   key={opt.id}

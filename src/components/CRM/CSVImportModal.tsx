@@ -261,8 +261,9 @@ export default function CSVImportModal({ onClose, onImportComplete }: CSVImportM
               </p>
 
               {autoMatchedCount > 0 && (
-                <div style={{ display: 'inline-block', background: 'rgba(16, 185, 129, 0.1)', color: '#10b981', padding: '0.25rem 0.75rem', borderRadius: '999px', fontSize: '0.875rem', marginBottom: '1.5rem', border: '1px solid rgba(16, 185, 129, 0.3)' }}>
-                  ✓ Auto-matched {autoMatchedCount} of {headers.length} columns
+                <div style={{ display: 'inline-flex', alignItems: 'center', gap: '0.25rem', background: 'rgba(16, 185, 129, 0.1)', color: '#10b981', padding: '0.25rem 0.75rem', borderRadius: '999px', fontSize: '0.875rem', marginBottom: '1.5rem', border: '1px solid rgba(16, 185, 129, 0.3)' }}>
+                  <Check size={14} />
+                  <span>Auto-matched {autoMatchedCount} of {headers.length} columns</span>
                 </div>
               )}
 
@@ -372,15 +373,15 @@ export default function CSVImportModal({ onClose, onImportComplete }: CSVImportM
                   
                   <div style={{ display: 'flex', gap: '1rem', justifyContent: 'center' }}>
                     <div className="csv-stat-card">
-                      <div style={{ fontSize: '1.5rem', fontWeight: 700, color: '#10b981', marginBottom: '0.25rem' }}>✓ {importStats.imported}</div>
+                      <div style={{ fontSize: '1.5rem', fontWeight: 700, color: '#10b981', marginBottom: '0.25rem' }}>{importStats.imported}</div>
                       <div style={{ fontSize: '0.875rem', color: '#9ca3af' }}>Imported</div>
                     </div>
                     <div className="csv-stat-card">
-                      <div style={{ fontSize: '1.5rem', fontWeight: 700, color: '#f59e0b', marginBottom: '0.25rem' }}>↷ {importStats.skipped}</div>
+                      <div style={{ fontSize: '1.5rem', fontWeight: 700, color: '#f59e0b', marginBottom: '0.25rem' }}>{importStats.skipped}</div>
                       <div style={{ fontSize: '0.875rem', color: '#9ca3af' }}>Skipped</div>
                     </div>
                     <div className="csv-stat-card">
-                      <div style={{ fontSize: '1.5rem', fontWeight: 700, color: '#ef4444', marginBottom: '0.25rem' }}>✗ {importStats.errors}</div>
+                      <div style={{ fontSize: '1.5rem', fontWeight: 700, color: '#ef4444', marginBottom: '0.25rem' }}>{importStats.errors}</div>
                       <div style={{ fontSize: '0.875rem', color: '#9ca3af' }}>Errors</div>
                     </div>
                   </div>

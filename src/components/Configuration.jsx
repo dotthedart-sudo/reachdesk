@@ -690,7 +690,7 @@ export default function Configuration({
 
           {profileSuccess && (
             <div style={{ padding: '0.75rem 1rem', borderRadius: '8px', background: 'rgba(16, 185, 129, 0.1)', border: '1px solid rgba(16, 185, 129, 0.2)', color: '#10b981', fontSize: '0.875rem', display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
-              <span style={{ fontSize: '1.1rem', fontWeight: 700 }}>✓</span>
+            <Check size={15} style={{ flexShrink: 0 }} />
               <span>{profileSuccess}</span>
             </div>
           )}
@@ -1207,7 +1207,7 @@ export default function Configuration({
 
         {cancelSuccessMsg && (
           <div style={{ padding: '0.75rem 1rem', borderRadius: '8px', background: 'rgba(16, 185, 129, 0.1)', border: '1px solid rgba(16, 185, 129, 0.2)', color: '#10b981', fontSize: '0.875rem', display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
-            <span style={{ fontSize: '1.1rem', fontWeight: 700 }}>✓</span>
+            <Check size={15} style={{ flexShrink: 0 }} />
             <span>{cancelSuccessMsg}</span>
           </div>
         )}
@@ -1430,7 +1430,7 @@ export default function Configuration({
                     padding: '0.2rem 0.65rem', borderRadius: '99px', fontSize: '0.75rem', fontWeight: 700,
                     background: 'rgba(16,185,129,0.12)', color: '#10b981'
                   }}>
-                    ✓ Connected
+                    <Check size={14} style={{ marginRight: '3px' }} /> Connected
                   </span>
                   <button
                     type="button"
@@ -1490,7 +1490,7 @@ export default function Configuration({
                     padding: '0.2rem 0.65rem', borderRadius: '99px', fontSize: '0.75rem', fontWeight: 700,
                     background: 'rgba(16,185,129,0.12)', color: '#10b981'
                   }}>
-                    ✓ Connected
+                    <Check size={14} style={{ marginRight: '3px' }} /> Connected
                   </span>
                   <button
                     type="button"

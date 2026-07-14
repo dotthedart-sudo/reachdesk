@@ -4,7 +4,7 @@ import { supabase } from '../lib/supabase';
 import { 
   Plus, Search, Pin, Trash2, Paintbrush,
   Folder, FolderPlus, Lock, ArrowUpDown, X, PenLine,
-  FileText, Gem
+  FileText, Gem, Info
 } from 'lucide-react';
 
 const FOLDER_COLORS = [
@@ -461,7 +461,9 @@ export default function NotesList({ currentUser }) {
           </div>
         ) : notes.length === 0 ? (
           <div className="card flex align-center justify-center" style={{ minHeight: '300px', padding: '3rem 2rem', background: 'var(--bg-secondary)', border: '1px solid var(--border-color)', borderRadius: '12px', textAlign: 'center', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: '1.25rem' }}>
-            <div style={{ fontSize: '3rem', margin: 0 }}>📝</div>
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', width: '64px', height: '64px', borderRadius: '12px', background: 'rgba(91,143,185,0.12)', border: '1px solid rgba(91,143,185,0.2)', margin: '0 auto' }}>
+              <FileText size={30} style={{ color: 'var(--accent-blue, #5B8FB9)' }} />
+            </div>
             <div>
               <h3 style={{ margin: '0 0 0.5rem 0', fontSize: '1.25rem', fontWeight: 700, color: 'var(--text-primary)' }}>
                 No Notes or Drawings Yet
@@ -489,7 +491,7 @@ export default function NotesList({ currentUser }) {
               maxWidth: '380px',
               textAlign: 'left'
             }}>
-              <strong>💡 Pro-tip:</strong> Inside text notes, type <code>/</code> (slash) to quickly insert formatted headings, todo checklists, bullet lists, or toggles!
+              <span style={{ display: 'flex', alignItems: 'flex-start', gap: '0.4rem' }}><Info size={13} style={{ color: 'var(--accent-blue)', flexShrink: 0, marginTop: '1px' }} /><span><strong>Pro-tip:</strong> Inside text notes, type <code>/</code> (slash) to quickly insert formatted headings, todo checklists, bullet lists, or toggles!</span></span>
             </div>
           </div>
         ) : filteredNotes.length === 0 ? (
@@ -684,8 +686,8 @@ function DrawingPreview({ content }) {
     line: '╱',
     arrow: '→',
     text: 'T',
-    freedraw: '✏',
-    image: '🖼',
+    freedraw: '✎',
+    image: '▩',
     diamond: '◇',
   };
 

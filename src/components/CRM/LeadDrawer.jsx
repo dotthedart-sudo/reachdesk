@@ -1106,7 +1106,7 @@ export default function LeadDrawer({
                         <span style={{ fontSize: '11px', color: '#6B7280' }}>Saving...</span>
                       )}
                       {noteSaveStatus === 'saved' && (
-                        <span style={{ fontSize: '11px', color: '#22C55E' }}>✓ Saved</span>
+                        <span style={{ fontSize: '11px', color: '#22C55E', display: 'inline-flex', alignItems: 'center', gap: '3px' }}><Check size={11} /> Saved</span>
                       )}
                     </div>
                     <div style={{ borderRadius: '8px', overflow: 'hidden' }}>

@@ -441,15 +441,15 @@ export default function SheetsImportModal({ onClose, onImportComplete }: SheetsI
                   <h3 style={{ fontSize: '1.5rem', marginBottom: '2rem' }}>Import Complete!</h3>
                   <div style={{ display: 'flex', gap: '1rem', justifyContent: 'center' }}>
                     <div className="csv-stat-card">
-                      <div style={{ fontSize: '1.5rem', fontWeight: 700, color: '#10b981', marginBottom: '0.25rem' }}>✓ {importStats.imported}</div>
+                      <div style={{ fontSize: '1.5rem', fontWeight: 700, color: '#10b981', marginBottom: '0.25rem' }}>{importStats.imported}</div>
                       <div style={{ fontSize: '0.875rem', color: '#9ca3af' }}>Imported</div>
                     </div>
                     <div className="csv-stat-card">
-                      <div style={{ fontSize: '1.5rem', fontWeight: 700, color: '#f59e0b', marginBottom: '0.25rem' }}>↷ {importStats.skipped}</div>
+                      <div style={{ fontSize: '1.5rem', fontWeight: 700, color: '#f59e0b', marginBottom: '0.25rem' }}>{importStats.skipped}</div>
                       <div style={{ fontSize: '0.875rem', color: '#9ca3af' }}>Skipped</div>
                     </div>
                     <div className="csv-stat-card">
-                      <div style={{ fontSize: '1.5rem', fontWeight: 700, color: '#ef4444', marginBottom: '0.25rem' }}>✗ {importStats.errors}</div>
+                      <div style={{ fontSize: '1.5rem', fontWeight: 700, color: '#ef4444', marginBottom: '0.25rem' }}>{importStats.errors}</div>
                       <div style={{ fontSize: '0.875rem', color: '#9ca3af' }}>Errors</div>
                     </div>
                   </div>

@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
-import { Lock, ShieldAlert, Sparkles, ArrowRight, Eye, EyeOff } from 'lucide-react';
+import { Lock, ShieldAlert, Sparkles, ArrowRight, Eye, EyeOff, Check } from 'lucide-react';
 import { supabase } from '../lib/supabase';
 
 export default function ResetPassword() {
@@ -126,7 +126,7 @@ export default function ResetPassword() {
 
           {success && (
             <div style={{ marginTop: '1rem', padding: '0.75rem 1rem', borderRadius: '8px', background: 'rgba(16, 185, 129, 0.1)', border: '1px solid rgba(16, 185, 129, 0.2)', color: '#10b981', fontSize: '0.875rem', display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
-              <span>✓</span>
+              <Check size={16} style={{ flexShrink: 0 }} />
               <span>{success}</span>
             </div>
           )}

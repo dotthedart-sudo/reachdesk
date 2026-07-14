@@ -8,7 +8,8 @@ import {
   Search, Plus, Download, Upload, Trash2, Edit3, X,
   Filter, CheckSquare, Square, Folder, FolderPlus,
   MoreVertical, Check, ThumbsUp, ThumbsDown, SkipForward, AlertCircle, ChevronDown, FileText,
-  Settings as Gear, MessageCircle, Zap, ExternalLink, Lock, Lightbulb, Copy, Sparkles, Mail
+  Settings as Gear, MessageCircle, Zap, ExternalLink, Lock, Lightbulb, Copy, Sparkles, Mail,
+  Database, Info, Users
 } from 'lucide-react';
 
 import EditableDropdown from './CRM/EditableDropdown';
@@ -868,7 +869,7 @@ export default function CRM({
     const connectedParam = new URLSearchParams(window.location.search).get('connected');
     if (connectedParam === 'sheets') {
       setSheetsConnected(true);
-      showToast?.('✓ Google Sheets connected successfully!', 'success');
+      showToast?.('Google Sheets connected successfully!', 'success');
       // Clean the URL param
       const nextUrl = new URL(window.location.href);
       nextUrl.searchParams.delete('connected');
@@ -2078,7 +2079,7 @@ export default function CRM({
               disabled={isLeadLimitReached}
               style={isLeadLimitReached ? { opacity: 0.5, cursor: 'not-allowed' } : {}}
             >
-              <Upload size={16} />
+              <Database size={16} />
               {sheetsConnected ? 'Import from Sheets' : 'Connect Sheets to Import'}
             </button>
 
@@ -2367,7 +2368,7 @@ export default function CRM({
                 color: 'var(--text-secondary, #C9D1D9)'
               }}>
                 <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
-                  <span>💡</span>
+                  <Info size={13} style={{ color: 'var(--accent-blue, #5B8FB9)', flexShrink: 0 }} />
                   <span>
                     Great start! Now mark <strong>{[leads[0].first_name, leads[0].last_name].filter(Boolean).join(' ') || 'your lead'}</strong> as <strong>"Contacted"</strong> to start your automated follow-up sequence.
                   </span>
@@ -2401,7 +2402,9 @@ export default function CRM({
         {/* Lead Table or Empty State */}
         {leads.length === 0 && !loading ? (
           <div className="card" style={{ padding: '4rem 2rem', textAlign: 'center', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: '1.5rem', backgroundColor: 'var(--bg-card, #161B22)', border: '1px solid var(--border, #30363D)', borderRadius: '8px' }}>
-            <div style={{ fontSize: '3rem', margin: 0 }}>📋</div>
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', width: '64px', height: '64px', borderRadius: '12px', background: 'rgba(91,143,185,0.12)', border: '1px solid rgba(91,143,185,0.2)', margin: '0 auto' }}>
+              <Users size={30} style={{ color: 'var(--accent-blue, #5B8FB9)' }} />
+            </div>
             <div>
               <h3 style={{ margin: '0 0 0.5rem 0', fontSize: '1.35rem', fontWeight: 700, color: 'var(--text-primary, #FFFFFF)', fontFamily: 'var(--font-heading, Mattone, sans-serif)' }}>
                 Your CRM is Empty
@@ -2419,7 +2422,7 @@ export default function CRM({
               </button>
               {PLAN_LIMITS[(currentUser?.plan || 'trial').toLowerCase()]?.integrations && (
                 <button onClick={() => setShowSheetsImportModal(true)} className="btn btn-secondary" style={{ padding: '0.6rem 1.25rem', fontSize: '0.85rem', fontWeight: 600, display: 'inline-flex', alignItems: 'center', gap: '0.35rem' }}>
-                  📊 Import from Sheets
+                  <Database size={14} /> Import from Sheets
                 </button>
               )}
             </div>
@@ -3096,7 +3099,7 @@ export default function CRM({
                         </option>
                       ))}
                       {plan === 'starter' && userFolders.length === 0 && (
-                        <option value="" disabled>🔒 Upgrade to Pro to use Smart Folders</option>
+                        <option value="" disabled>Upgrade to Pro to use Smart Folders</option>
                       )}
                     </optgroup>
                   </select>
@@ -3500,7 +3503,7 @@ export default function CRM({
                         </option>
                       ))}
                       {plan === 'starter' && (
-                        <option value="" disabled={true}>🔒 Smart Folders (Pro Only)</option>
+                        <option value="" disabled={true}>Smart Folders (Pro Only)</option>
                       )}
                     </optgroup>
                   </select>
@@ -4315,7 +4318,7 @@ export default function CRM({
 
                 {!(!['trial', 'starter'].includes((currentUser?.plan || 'trial').toLowerCase())) ? (
                   <div style={{ fontSize: '0.75rem', color: 'var(--text-muted)', fontStyle: 'italic', background: 'var(--bg-secondary)', padding: '0.5rem', borderRadius: '4px', border: '1px dashed var(--border)' }}>
-                    🔒 Gated feature. Upgrade to Pro/Teams to categorize and filter leads by project.
+                    Gated feature. Upgrade to Pro/Teams to categorize and filter leads by project.
                   </div>
                 ) : (
                   <div style={{ display: 'flex', flexDirection: 'column', gap: '0.4rem', maxHeight: '120px', overflowY: 'auto', border: '1px solid var(--border)', padding: '0.5rem', borderRadius: '4px' }}>
