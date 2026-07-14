@@ -1367,7 +1367,7 @@ export default function Configuration({
             <Lock size={32} style={{ color: 'var(--primary-purple)' }} />
             <h4 style={{ margin: 0, fontSize: '1rem', fontWeight: 600 }}>Integrations are Locked</h4>
             <p style={{ margin: 0, fontSize: '0.8rem', color: 'var(--text-muted)', maxWidth: '280px' }}>
-              Google Calendar integration is a Pro feature. Upgrade to Pro or Teams to automatically sync meetings.
+              Google Calendar and Google Sheets integrations are available on Pro plan and above. Upgrade to unlock automatic calendar sync and Sheets import/export.
             </p>
             <button
               type="button"

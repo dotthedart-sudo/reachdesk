@@ -881,6 +881,7 @@ export default function CRM({
   const totalLeadsCount = leads.length;
   const leadLimit = getPlanLeadLimit(plan, currentUser.billing_cycle) || Infinity;
   const isLeadLimitReached = leadLimit !== Infinity && totalLeadsCount >= leadLimit;
+  const canUseIntegrations = PLAN_LIMITS[(currentUser?.plan || 'trial').toLowerCase()]?.integrations ?? false;
 
   const leadLimitTooltip = 'Lead limit reached. Delete leads or upgrade.';
 
@@ -2059,29 +2060,31 @@ export default function CRM({
               <Upload size={16} /> Import CSV
             </button>
 
-            {/* Import from Google Sheets — additive, separate from CSV import */}
-            <button
-              onClick={() => {
-                if (!sheetsConnected) {
-                  // Start OAuth directly, save CRM path so user returns here
-                  sessionStorage.setItem('sheets_oauth_return', window.location.pathname + window.location.search);
-                  const redirectUri = `${window.location.origin}/auth/google-sheets/callback`;
-                  const clientId = import.meta.env.VITE_GOOGLE_SHEETS_CLIENT_ID;
-                  const scope = 'https://www.googleapis.com/auth/spreadsheets https://www.googleapis.com/auth/drive.readonly';
-                  const authUrl = `https://accounts.google.com/o/oauth2/v2/auth?client_id=${encodeURIComponent(clientId)}&redirect_uri=${encodeURIComponent(redirectUri)}&response_type=code&scope=${encodeURIComponent(scope)}&access_type=offline&prompt=consent`;
-                  window.location.href = authUrl;
-                } else {
-                  setShowSheetsImportModal(true);
-                }
-              }}
-              className="btn btn-secondary"
-              title={!sheetsConnectedChecked ? 'Checking connection…' : undefined}
-              disabled={isLeadLimitReached}
-              style={isLeadLimitReached ? { opacity: 0.5, cursor: 'not-allowed' } : {}}
-            >
-              <Database size={16} />
-              {sheetsConnected ? 'Import from Sheets' : 'Connect Sheets to Import'}
-            </button>
+            {/* Import from Google Sheets — Pro+ only */}
+            {canUseIntegrations && (
+              <button
+                onClick={() => {
+                  if (!sheetsConnected) {
+                    // Start OAuth directly, save CRM path so user returns here
+                    sessionStorage.setItem('sheets_oauth_return', window.location.pathname + window.location.search);
+                    const redirectUri = `${window.location.origin}/auth/google-sheets/callback`;
+                    const clientId = import.meta.env.VITE_GOOGLE_SHEETS_CLIENT_ID;
+                    const scope = 'https://www.googleapis.com/auth/spreadsheets https://www.googleapis.com/auth/drive.readonly';
+                    const authUrl = `https://accounts.google.com/o/oauth2/v2/auth?client_id=${encodeURIComponent(clientId)}&redirect_uri=${encodeURIComponent(redirectUri)}&response_type=code&scope=${encodeURIComponent(scope)}&access_type=offline&prompt=consent`;
+                    window.location.href = authUrl;
+                  } else {
+                    setShowSheetsImportModal(true);
+                  }
+                }}
+                className="btn btn-secondary"
+                title={!sheetsConnectedChecked ? 'Checking connection…' : undefined}
+                disabled={isLeadLimitReached}
+                style={isLeadLimitReached ? { opacity: 0.5, cursor: 'not-allowed' } : {}}
+              >
+                <Database size={16} />
+                {sheetsConnected ? 'Import from Sheets' : 'Connect Sheets to Import'}
+              </button>
+            )}
 
             <div style={{ position: 'relative' }}>
               <button onClick={() => setShowExportDropdown(!showExportDropdown)} className="btn btn-secondary" disabled={!!exporting}>
@@ -2095,28 +2098,32 @@ export default function CRM({
                   <button onClick={handleExportNotesClick} className="dropdown-item" style={{ display: 'flex', alignItems: 'center', gap: '8px', background: 'transparent', border: 'none', padding: '0.5rem 0.75rem', textAlign: 'left', cursor: 'pointer', color: 'var(--text-primary)', width: '100%' }}>
                     <FileText size={14} /> Export Notes (TXT)
                   </button>
-                  {/* Google Sheets export — additive, below existing CSV options */}
-                  <div style={{ height: '1px', background: 'var(--border-color)', margin: '0.25rem 0.5rem' }} />
-                  <button
-                    onClick={() => {
-                      setShowExportDropdown(false);
-                      if (!sheetsConnected) {
-                        sessionStorage.setItem('sheets_oauth_return', window.location.pathname + window.location.search);
-                        const redirectUri = `${window.location.origin}/auth/google-sheets/callback`;
-                        const clientId = import.meta.env.VITE_GOOGLE_SHEETS_CLIENT_ID;
-                        const scope = 'https://www.googleapis.com/auth/spreadsheets https://www.googleapis.com/auth/drive.readonly';
-                        const authUrl = `https://accounts.google.com/o/oauth2/v2/auth?client_id=${encodeURIComponent(clientId)}&redirect_uri=${encodeURIComponent(redirectUri)}&response_type=code&scope=${encodeURIComponent(scope)}&access_type=offline&prompt=consent`;
-                        window.location.href = authUrl;
-                      } else {
-                        setShowExportSheetsModal(true);
-                      }
-                    }}
-                    className="dropdown-item"
-                    style={{ display: 'flex', alignItems: 'center', gap: '8px', background: 'transparent', border: 'none', padding: '0.5rem 0.75rem', textAlign: 'left', cursor: 'pointer', color: '#10b981', width: '100%', fontSize: '0.875rem' }}
-                  >
-                    <Download size={14} />
-                    {sheetsConnected ? 'Export to Google Sheets' : 'Connect Sheets to Export'}
-                  </button>
+                  {/* Google Sheets export — Pro+ only */}
+                  {canUseIntegrations && (
+                    <>
+                      <div style={{ height: '1px', background: 'var(--border-color)', margin: '0.25rem 0.5rem' }} />
+                      <button
+                        onClick={() => {
+                          setShowExportDropdown(false);
+                          if (!sheetsConnected) {
+                            sessionStorage.setItem('sheets_oauth_return', window.location.pathname + window.location.search);
+                            const redirectUri = `${window.location.origin}/auth/google-sheets/callback`;
+                            const clientId = import.meta.env.VITE_GOOGLE_SHEETS_CLIENT_ID;
+                            const scope = 'https://www.googleapis.com/auth/spreadsheets https://www.googleapis.com/auth/drive.readonly';
+                            const authUrl = `https://accounts.google.com/o/oauth2/v2/auth?client_id=${encodeURIComponent(clientId)}&redirect_uri=${encodeURIComponent(redirectUri)}&response_type=code&scope=${encodeURIComponent(scope)}&access_type=offline&prompt=consent`;
+                            window.location.href = authUrl;
+                          } else {
+                            setShowExportSheetsModal(true);
+                          }
+                        }}
+                        className="dropdown-item"
+                        style={{ display: 'flex', alignItems: 'center', gap: '8px', background: 'transparent', border: 'none', padding: '0.5rem 0.75rem', textAlign: 'left', cursor: 'pointer', color: '#10b981', width: '100%', fontSize: '0.875rem' }}
+                      >
+                        <Download size={14} />
+                        {sheetsConnected ? 'Export to Google Sheets' : 'Connect Sheets to Export'}
+                      </button>
+                    </>
+                  )}
                 </div>
               )}
             </div>

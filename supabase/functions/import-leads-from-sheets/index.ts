@@ -93,6 +93,26 @@ serve(async (req) => {
       Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!
     );
 
+    // ── Plan check: Sheets import requires trial/Pro/Enterprise ─────────────
+    const { data: importUserProfile } = await supabaseAdmin
+      .from('user_profiles')
+      .select('plan, role, email')
+      .eq('id', userId)
+      .maybeSingle();
+
+    const importAllowedPlans = ['trial', 'pro', 'enterprise'];
+    const importAccessAllowed =
+      importUserProfile?.role === 'admin' ||
+      importUserProfile?.email === 'dotthedart@gmail.com' ||
+      importAllowedPlans.includes(importUserProfile?.plan ?? '');
+
+    if (!importAccessAllowed) {
+      return new Response(
+        JSON.stringify({ error: 'Google Sheets import requires a Pro plan or higher' }),
+        { status: 403, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      );
+    }
+
     const { data: integration, error: fetchErr } = await supabaseAdmin
       .from('sheets_integrations')
       .select('*')

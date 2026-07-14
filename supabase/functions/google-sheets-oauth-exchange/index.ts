@@ -28,6 +28,26 @@ serve(async (req) => {
       );
     }
 
+    // ── Plan check: Sheets integration requires trial/Pro/Enterprise ──────────
+    const { data: userProfile } = await supabase
+      .from('user_profiles')
+      .select('plan, role, email')
+      .eq('id', userId)
+      .maybeSingle();
+
+    const sheetsAllowedPlans = ['trial', 'pro', 'enterprise'];
+    const sheetsAccessAllowed =
+      userProfile?.role === 'admin' ||
+      userProfile?.email === 'dotthedart@gmail.com' ||
+      sheetsAllowedPlans.includes(userProfile?.plan ?? '');
+
+    if (!sheetsAccessAllowed) {
+      return new Response(
+        JSON.stringify({ error: 'Google Sheets integration requires a Pro plan or higher' }),
+        { status: 403, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      );
+    }
+
     // ── Step 1: Exchange authorization code for tokens ────────────────────────
     const tokenResponse = await fetch(GOOGLE_TOKEN_URL, {
       method: 'POST',

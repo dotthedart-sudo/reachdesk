@@ -30,6 +30,26 @@ serve(async (req) => {
       );
     }
 
+    // ── Plan check: Calendar integration requires trial/Pro/Enterprise ─────────
+    const { data: userProfile } = await supabase
+      .from('user_profiles')
+      .select('plan, role, email')
+      .eq('id', userId)
+      .maybeSingle();
+
+    const calAllowedPlans = ['trial', 'pro', 'enterprise'];
+    const calAccessAllowed =
+      userProfile?.role === 'admin' ||
+      userProfile?.email === 'dotthedart@gmail.com' ||
+      calAllowedPlans.includes(userProfile?.plan ?? '');
+
+    if (!calAccessAllowed) {
+      return new Response(
+        JSON.stringify({ error: 'Google Calendar integration requires a Pro plan or higher' }),
+        { status: 403, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      );
+    }
+
     // ── Step 1: Exchange authorization code for tokens ────────────────────────
     const tokenResponse = await fetch(GOOGLE_TOKEN_URL, {
       method: 'POST',
