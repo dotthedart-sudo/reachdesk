@@ -1058,7 +1058,7 @@ function ProtectedPage({ children }) {
 // Upgrade page route wrapper
 function UpgradeRoutePage() {
   const { session, profile, subStatus, loading, handleLogout, fetchProfile, bankAccount, bankIban } = useAppContext();
-  const isForcedPaywall = subStatus === 'trial_expired' || subStatus === 'subscription_expired';
+  const isForcedPaywall = subStatus === 'trial_expired' || subStatus === 'subscription_expired' || !!profile?.account_locked;
 
   const pageContent = (
     <UpgradePage
