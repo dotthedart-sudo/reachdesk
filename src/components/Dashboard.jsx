@@ -17,6 +17,8 @@ import {
   ChevronRight, Calendar, AlertCircle, Check, X
 } from 'lucide-react';
 
+import HelpPopover from './HelpPopover';
+
 // Use the shared map so any currency code the user picks renders the correct symbol
 const CURRENCY_SYMBOLS = CURRENCY_MAP;
 
@@ -338,8 +340,27 @@ export default function Dashboard({ currentUser, onSelectLead }) {
         <p className="color-muted">Outreach engine tracking, conversions, and follow-ups status.</p>
       </div>
 
-      {/* Primary KPIs Row — uses dash-kpi-grid so the mobile @media override
-          (max-width 768px → 1-column stack) applies correctly */}
+      {metrics.total === 0 && !loading ? (
+        <div className="card" style={{ padding: '3.5rem 2rem', textAlign: 'center', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: '1.5rem', backgroundColor: 'var(--bg-card, #161B22)', border: '1px solid var(--border, #30363D)', borderRadius: '8px', marginTop: '1.5rem' }}>
+          <div style={{ fontSize: '3rem', margin: 0 }}>📊</div>
+          <div>
+            <h3 style={{ margin: '0 0 0.5rem 0', fontSize: '1.35rem', fontWeight: 700, color: 'var(--text-primary, #FFFFFF)', fontFamily: 'var(--font-heading, Mattone, sans-serif)' }}>
+              Your Dashboard is Quiet
+            </h3>
+            <p style={{ margin: 0, fontSize: '0.9rem', color: 'var(--text-secondary, #8B949E)', maxWidth: '440px', lineHeight: '1.5', margin: '0 auto' }}>
+              Once you add leads and log interactions, your conversion metrics, pitching velocity, and pipeline progression will light up here.
+            </p>
+          </div>
+          <div>
+            <button onClick={() => navigate('/leads')} className="btn btn-primary" style={{ padding: '0.65rem 1.5rem', fontSize: '0.9rem', fontWeight: 600 }}>
+              Go to CRM Leads →
+            </button>
+          </div>
+        </div>
+      ) : (
+        <>
+          {/* Primary KPIs Row — uses dash-kpi-grid so the mobile @media override
+              (max-width 768px → 1-column stack) applies correctly */}
       <div className="dash-kpi-grid">
         
         {/* Leads card */}
@@ -551,6 +572,9 @@ export default function Dashboard({ currentUser, onSelectLead }) {
         <div className="card" style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
           <h3 style={{ fontSize: '1rem', display: 'flex', alignItems: 'center', gap: '0.4rem', borderBottom: '1px solid var(--border)', paddingBottom: '0.5rem' }}>
             <Activity size={18} style={{ color: 'var(--accent-blue)' }} /> Upcoming Next
+            <HelpPopover title="Upcoming Next Feed">
+              Shows upcoming follow-up checkpoints, invoice due dates, and suggestion mismatches within the next N days. Use the days dropdown to widen or narrow the window.
+            </HelpPopover>
           </h3>
 
           {upNextFeed.filter(item => item.type !== 'mismatch' || !ignoredMismatches[item.lead.id]).length === 0 ? (
@@ -890,7 +914,8 @@ export default function Dashboard({ currentUser, onSelectLead }) {
         </div>
 
       </div>
-
+      </>
+      )}
     </div>
   );
 }

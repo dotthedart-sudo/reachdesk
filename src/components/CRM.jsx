@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { useSearchParams, useNavigate } from 'react-router-dom';
+import { useSearchParams, useNavigate, Link } from 'react-router-dom';
 import { supabase } from '../lib/supabase';
 import { useAppContext } from '../App';
 import { getTeamIds, PLAN_LIMITS } from '../lib/utils';
@@ -22,6 +22,7 @@ import ConvertModal from './CRM/ConvertModal';
 import GroupedStatusDropdown from './CRM/GroupedStatusDropdown';
 import GroupedTemplateDropdown from './CRM/GroupedTemplateDropdown';
 import CheckpointPopover from './CRM/CheckpointPopover';
+import HelpPopover from './HelpPopover';
 import { ReachIcons, PhonePopup, detectDomainIcon, detectPlatformLabel } from './icons/PlatformIcons';
 import { updateLeadStatusAndCheckpoint, getSuggestionForStatus, REPLY_CHECK_STATUSES, FOLLOW_UP_CHECK_STATUSES } from '../lib/reminders';
 import PriorityDropdown from './CRM/PriorityDropdown';
@@ -42,14 +43,15 @@ const PRESET_COLORS = [
 const DEFAULT_STATUSES = [
   { label: 'Lead', color: '#3b82f6' },
   { label: 'Contacted', color: '#f59e0b' },
-  { label: 'Waiting', color: '#10b981' },
   { label: 'Positive Reply', color: '#8b5cf6' },
   { label: 'Proposal Sent', color: '#06b6d4' },
   { label: 'Calendly Sent', color: '#6B9FD4' },
+  { label: 'Followed up', color: '#10b981' },
   { label: 'Booked', color: '#ec4899' },
-  { label: 'No Show / Rescheduled', color: '#ef4444' },
+  { label: 'No show', color: '#ef4444' },
+  { label: 'Rescheduled', color: '#a855f7' },
   { label: 'Not Interested', color: '#6b7280' },
-  { label: 'Client', color: '#10b981' }
+  { label: 'Closed Won', color: '#22c55e' }
 ];
 
 const SORT_OPTIONS = [
@@ -91,33 +93,24 @@ export default function CRM({
   const [userFolders, setUserFolders] = useState([]);
   const [clients, setClients] = useState([]);
   const [statuses, setStatuses] = useState(() => {
+    const defaults = [
+      { label: 'Lead', color: '#3b82f6' },
+      { label: 'Contacted', color: '#f59e0b' },
+      { label: 'Positive Reply', color: '#8b5cf6' },
+      { label: 'Proposal Sent', color: '#06b6d4' },
+      { label: 'Calendly Sent', color: '#6B9FD4' },
+      { label: 'Followed up', color: '#10b981' },
+      { label: 'Booked', color: '#ec4899' },
+      { label: 'No show', color: '#ef4444' },
+      { label: 'Rescheduled', color: '#a855f7' },
+      { label: 'Not Interested', color: '#6b7280' },
+      { label: 'Closed Won', color: '#22c55e' }
+    ];
     try {
       const saved = localStorage.getItem('crm_custom_statuses');
-      return saved ? JSON.parse(saved) : [
-        { label: 'Lead', color: '#3b82f6' },
-        { label: 'Contacted', color: '#f59e0b' },
-        { label: 'Waiting', color: '#10b981' },
-        { label: 'Positive Reply', color: '#8b5cf6' },
-        { label: 'Proposal Sent', color: '#06b6d4' },
-        { label: 'Calendly Sent', color: '#6B9FD4' },
-        { label: 'Booked', color: '#ec4899' },
-        { label: 'No Show / Rescheduled', color: '#ef4444' },
-        { label: 'Not Interested', color: '#6b7280' },
-        { label: 'Client', color: '#10b981' }
-      ];
+      return saved ? JSON.parse(saved) : defaults;
     } catch (e) {
-      return [
-        { label: 'Lead', color: '#3b82f6' },
-        { label: 'Contacted', color: '#f59e0b' },
-        { label: 'Waiting', color: '#10b981' },
-        { label: 'Positive Reply', color: '#8b5cf6' },
-        { label: 'Proposal Sent', color: '#06b6d4' },
-        { label: 'Calendly Sent', color: '#6B9FD4' },
-        { label: 'Booked', color: '#ec4899' },
-        { label: 'No Show / Rescheduled', color: '#ef4444' },
-        { label: 'Not Interested', color: '#6b7280' },
-        { label: 'Client', color: '#10b981' }
-      ];
+      return defaults;
     }
   });
   const [templates, setTemplates] = useState([]);
@@ -371,7 +364,7 @@ export default function CRM({
       } else if (sysType === 'calendly') {
         setLeadForm(prev => ({ ...prev, folder_id: '', status: 'Calendly Sent' }));
       } else if (sysType === 'clients') {
-        setLeadForm(prev => ({ ...prev, folder_id: '', status: 'client' }));
+        setLeadForm(prev => ({ ...prev, folder_id: '', status: 'Closed Won' }));
       }
     } else if (value.startsWith('manual:')) {
       const folderId = value.split(':')[1];
@@ -435,7 +428,7 @@ export default function CRM({
   // Form states
   const [leadForm, setLeadForm] = useState({
     name: '', email: '', phone: '', company: '', niche: '',
-    priority: 'Warm', status: 'lead', notes: '', folder_id: '',
+    priority: 'Warm', status: 'Lead', notes: '', folder_id: '',
     template_used: '',
     links: [],
     custom_fields: {}
@@ -897,7 +890,7 @@ export default function CRM({
     }
     setLeadForm({
       name: '', email: '', phone: '', company: '', niche: '',
-      priority: 'Warm', status: 'lead', notes: '', folder_id: selectedFolderId || '',
+      priority: 'Warm', status: 'Lead', notes: '', folder_id: selectedFolderId || '',
       template_used: '',
       links: [],
       custom_fields: {}
@@ -939,7 +932,7 @@ export default function CRM({
           twitter_url: twitter,
           website: website,
           priority: leadForm.priority || 'Warm',
-          status: leadForm.status || 'lead',
+          status: leadForm.status || 'Lead',
           notes: leadForm.notes || null,
           user_id: currentUser.id,
           folder_id: leadForm.folder_id || null,
@@ -980,7 +973,7 @@ export default function CRM({
         .insert({
           first_name: quickAddForm.first_name,
           priority: quickAddForm.priority,
-          status: 'lead', // Status defaults to lead (lowercase as per db requirement)
+          status: 'Lead',
           user_id: currentUser.id,
           folder_id: selectedFolderId || null
         })
@@ -1064,7 +1057,7 @@ export default function CRM({
       company: lead.company || '',
       niche: lead.niche || '',
       priority: lead.priority || 'Warm',
-      status: lead.status || 'lead',
+      status: lead.status || 'Lead',
       notes: lead.notes || '',
       folder_id: lead.folder_id || '',
       template_used: lead.template_used || '',
@@ -1106,7 +1099,7 @@ export default function CRM({
           twitter_url: twitter,
           website: website,
           priority: leadForm.priority || 'Warm',
-          status: leadForm.status || 'lead',
+          status: leadForm.status || 'Lead',
           notes: leadForm.notes || null,
           folder_id: leadForm.folder_id || null,
           template_used: leadForm.template_used || null,
@@ -1822,7 +1815,12 @@ export default function CRM({
       >
         {limits.folders ? (
           <>
-            <h4 style={{ fontSize: '0.65rem', letterSpacing: '0.1em', textTransform: 'uppercase', color: 'var(--text-muted)', fontWeight: 600, marginTop: '8px', marginBottom: '6px', paddingLeft: '8px' }}>System Folders</h4>
+            <h4 style={{ fontSize: '0.65rem', letterSpacing: '0.1em', textTransform: 'uppercase', color: 'var(--text-muted)', fontWeight: 600, marginTop: '8px', marginBottom: '6px', paddingLeft: '8px', display: 'flex', alignItems: 'center', gap: '0.25rem' }}>
+              System Folders
+              <HelpPopover title="System Folders">
+                System folders (Hot, Warm, Cold, Clients, Calendly Sent) are auto-populated by lead Priority and Status. They can't be deleted but their names can be changed in Configuration.
+              </HelpPopover>
+            </h4>
             
             {/* System Folders */}
             {[
@@ -1866,7 +1864,12 @@ export default function CRM({
 
             <div style={{ borderTop: '0.5px solid var(--border)', margin: '0.5rem 0' }}></div>
 
-            <h4 style={{ fontSize: '0.65rem', letterSpacing: '0.1em', textTransform: 'uppercase', color: 'var(--text-muted)', fontWeight: 600, marginTop: '24px', marginBottom: '6px', paddingLeft: '8px' }}>Smart Folders</h4>
+            <h4 style={{ fontSize: '0.65rem', letterSpacing: '0.1em', textTransform: 'uppercase', color: 'var(--text-muted)', fontWeight: 600, marginTop: '24px', marginBottom: '6px', paddingLeft: '8px', display: 'flex', alignItems: 'center', gap: '0.25rem' }}>
+              Smart Folders
+              <HelpPopover title="Smart Folders">
+                Smart folders auto-filter leads using rules you define (e.g. Status = Contacted). They update live as your leads change. Create them with the + Smart Folder button.
+              </HelpPopover>
+            </h4>
             {userFolders.map(uf => {
               const count = leads.filter(l => {
                 const config = uf.filter_config || {};
@@ -2344,9 +2347,89 @@ export default function CRM({
           </div>
         )}
 
-        {/* Lead Table */}
-        <div className="card" style={{ padding: 0, overflowX: 'auto', overflowY: 'visible', height: 'auto' }}>
-          <table className="w-full" style={{ borderCollapse: 'collapse' }}>
+        {/* First Lead Prompt Banner */}
+        {(() => {
+          const hasOneLeadInState = leads.length === 1 && (leads[0].status || '').toLowerCase() === 'lead';
+          const isPromptDismissed = localStorage.getItem('rd_first_lead_prompt_dismissed') === 'true';
+          if (hasOneLeadInState && !isPromptDismissed) {
+            return (
+              <div style={{
+                background: 'rgba(59, 130, 246, 0.08)',
+                border: '1px solid var(--accent-blue, #5B8FB9)',
+                borderRadius: '6px',
+                padding: '0.75rem 1.25rem',
+                marginBottom: '1.25rem',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'space-between',
+                gap: '1rem',
+                fontSize: '0.85rem',
+                color: 'var(--text-secondary, #C9D1D9)'
+              }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+                  <span>💡</span>
+                  <span>
+                    Great start! Now mark <strong>{[leads[0].first_name, leads[0].last_name].filter(Boolean).join(' ') || 'your lead'}</strong> as <strong>"Contacted"</strong> to start your automated follow-up sequence.
+                  </span>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => {
+                    localStorage.setItem('rd_first_lead_prompt_dismissed', 'true');
+                    // force re-render
+                    setLeads([...leads]);
+                  }}
+                  style={{
+                    background: 'none',
+                    border: 'none',
+                    color: 'var(--text-muted, #8B949E)',
+                    cursor: 'pointer',
+                    fontSize: '1rem',
+                    fontWeight: 600,
+                    padding: '2px 6px'
+                  }}
+                  title="Dismiss"
+                >
+                  ✕
+                </button>
+              </div>
+            );
+          }
+          return null;
+        })()}
+
+        {/* Lead Table or Empty State */}
+        {leads.length === 0 && !loading ? (
+          <div className="card" style={{ padding: '4rem 2rem', textAlign: 'center', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: '1.5rem', backgroundColor: 'var(--bg-card, #161B22)', border: '1px solid var(--border, #30363D)', borderRadius: '8px' }}>
+            <div style={{ fontSize: '3rem', margin: 0 }}>📋</div>
+            <div>
+              <h3 style={{ margin: '0 0 0.5rem 0', fontSize: '1.35rem', fontWeight: 700, color: 'var(--text-primary, #FFFFFF)', fontFamily: 'var(--font-heading, Mattone, sans-serif)' }}>
+                Your CRM is Empty
+              </h3>
+              <p style={{ margin: 0, fontSize: '0.9rem', color: 'var(--text-secondary, #8B949E)', maxWidth: '400px', lineHeight: '1.5' }}>
+                Add your first lead to start tracking outreach, template performance, and automated follow-ups.
+              </p>
+            </div>
+            <div style={{ display: 'flex', gap: '1rem', flexWrap: 'wrap', justifyContent: 'center', marginTop: '0.5rem' }}>
+              <button onClick={() => setShowAddLeadModal(true)} className="btn btn-primary" style={{ padding: '0.6rem 1.25rem', fontSize: '0.85rem', fontWeight: 600, display: 'inline-flex', alignItems: 'center', gap: '0.35rem' }}>
+                <Plus size={14} /> Add Lead Manually
+              </button>
+              <button onClick={() => setShowCSVImporter(true)} className="btn btn-secondary" style={{ padding: '0.6rem 1.25rem', fontSize: '0.85rem', fontWeight: 600, display: 'inline-flex', alignItems: 'center', gap: '0.35rem' }}>
+                <Upload size={14} /> Import CSV
+              </button>
+              {PLAN_LIMITS[(currentUser?.plan || 'trial').toLowerCase()]?.integrations && (
+                <button onClick={() => setShowSheetsImportModal(true)} className="btn btn-secondary" style={{ padding: '0.6rem 1.25rem', fontSize: '0.85rem', fontWeight: 600, display: 'inline-flex', alignItems: 'center', gap: '0.35rem' }}>
+                  📊 Import from Sheets
+                </button>
+              )}
+            </div>
+            <p style={{ margin: 0, fontSize: '0.82rem', color: 'var(--text-muted, #8B949E)' }}>
+              Need help? Read our <Link to="/get-started#how-it-works" style={{ color: 'var(--accent-blue, #5B8FB9)', textDecoration: 'underline' }}>quick-start guide</Link>.
+            </p>
+          </div>
+        ) : (
+          <div className="card" style={{ padding: 0, overflowX: 'auto', overflowY: 'visible', height: 'auto' }}>
+            <table className="w-full" style={{ borderCollapse: 'collapse' }}>
             <thead>
               <tr style={{ borderBottom: '1px solid var(--border-color)', textAlign: 'left', background: 'var(--bg-tertiary)' }}>
                 <th style={{ padding: '0.75rem 1rem', width: '40px' }}>
@@ -2384,7 +2467,21 @@ export default function CRM({
                     return (
                       <th key={col.id} style={{ padding: '0.75rem 1rem' }}>
                         <div style={{ display: 'inline-flex', alignItems: 'center', gap: '0.25rem' }}>
-                          {col.column_key === 'platform' ? 'Reach' : col.column_label}
+                          {col.column_key === 'status' ? (
+                            <>
+                              Status
+                              <HelpPopover title="Status & Checkpoints" align="left">
+                                The checkpoint bubble next to Status tracks whether a lead has replied or needs a follow-up check. Click it to log outcomes and automatically schedule/cancel reminders.
+                              </HelpPopover>
+                            </>
+                          ) : col.column_key === 'platform' ? (
+                            <>
+                              Reach
+                              <HelpPopover title="Reach Link System" align="left">
+                                Click a lead's Reach icon to open their outreach channel (LinkedIn, email, etc.) and optionally select a template. The app tracks that you reached out and updates Last Contacted.
+                              </HelpPopover>
+                            </>
+                          ) : col.column_label}
                           {isProject && !isProjectUnlocked && (
                             <Lock size={12} style={{ color: 'var(--text-muted)' }} title="Locked on Starter/Trial plans" />
                           )}
@@ -2397,6 +2494,9 @@ export default function CRM({
                 {isTeamView && <th style={{ padding: '0.75rem 1rem' }}>Added By</th>}
                 <th style={{ padding: '0.75rem 1rem', textAlign: 'right' }}>
                   <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'flex-end', gap: '0.5rem' }}>
+                    <HelpPopover title="Column Manager" align="right">
+                      Customise which columns appear in your CRM table, in what order, and for which view (Contact Details / Pipeline / Clients). Add custom columns on Pro/Teams.
+                    </HelpPopover>
                     <button 
                       type="button"
                       onClick={() => setShowColumnManager(true)}
@@ -2758,6 +2858,7 @@ export default function CRM({
             </tbody>
           </table>
         </div>
+        )}
 
         {/* Pagination Section */}
         <div className="flex justify-between align-center" style={{ marginTop: '1rem', padding: '0.5rem 1rem', background: 'var(--bg-secondary)', borderRadius: '8px', border: '1px solid var(--border-color)', flexWrap: 'wrap', gap: '1rem' }}>

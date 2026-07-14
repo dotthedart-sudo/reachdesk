@@ -1,22 +1,23 @@
 import React, { useState, useEffect } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
-import { ArrowLeft, Bell, CheckCircle, HelpCircle, Sun, Moon, Calendar, ExternalLink, Zap, Lock } from 'lucide-react';
+import { ArrowLeft, Bell, CheckCircle, HelpCircle, Sun, Moon, Calendar, ExternalLink, Zap, Lock, Database, Search, MessageSquare, Play, Columns, PenTool } from 'lucide-react';
 import { useAppContext } from '../App';
 import { supabase } from '../lib/supabase';
 import { PLAN_LIMITS } from '../lib/utils';
 
 const SIDEBAR_ITEMS = [
-  { id: 'how-it-works', label: 'How It Works' },
-  { id: 'follow-up-reminders', label: 'Follow-up Reminders' },
-  { id: 'pipeline-stages', label: 'Pipeline Stages' },
-  { id: 'templates', label: 'Templates' },
-  { id: 'client-invoices', label: 'Client Invoices' },
-  { id: 'revenue-tracker', label: 'Revenue Tracker' },
-  { id: 'notes', label: 'Notes' },
-  { id: 'google-calendar', label: 'Google Calendar' },
-  { id: 'configuration', label: 'Configuration' },
-  { id: 'trial-pricing', label: 'Trial & Pricing' },
-  { id: 'faq', label: 'FAQ' },
+  { id: 'how-it-works', label: '01. How It Works' },
+  { id: 'dashboard', label: '02. Dashboard' },
+  { id: 'folders-pipelines', label: '03. Folders & Pipelines' },
+  { id: 'templates', label: '04. Templates' },
+  { id: 'reach-link', label: '05. Reach Launcher' },
+  { id: 'snippets', label: '06. Snippet Keys' },
+  { id: 'column-manager', label: '07. Column Manager' },
+  { id: 'client-invoices', label: '08. Invoices' },
+  { id: 'revenue-tracker', label: '09. Revenue' },
+  { id: 'notes-drawing', label: '10. Notes & Canvas' },
+  { id: 'integrations', label: '11. Integrations' },
+  { id: 'faq', label: '12. FAQ' },
 ];
 
 function StickyNav({ accentColor, activeSection, onScrollTo }) {
@@ -25,7 +26,7 @@ function StickyNav({ accentColor, activeSection, onScrollTo }) {
       position: 'sticky',
       top: '120px',
       alignSelf: 'flex-start',
-      width: '200px',
+      width: '210px',
       flexShrink: 0,
       display: 'flex',
       flexDirection: 'column',
@@ -44,7 +45,7 @@ function StickyNav({ accentColor, activeSection, onScrollTo }) {
               textDecoration: 'none',
               fontWeight: isActive ? 700 : 500,
               color: isActive ? accentColor : 'var(--gs-muted)',
-              padding: '5px 10px',
+              padding: '6px 10px',
               borderRadius: '4px',
               backgroundColor: isActive ? 'var(--gs-active-bg)' : 'transparent',
               transition: 'all 0.15s ease',
@@ -62,10 +63,208 @@ function StickyNav({ accentColor, activeSection, onScrollTo }) {
   );
 }
 
+function InteractiveLoopDiagram({ accentColor }) {
+  const [activeStep, setActiveStep] = useState(0);
+
+  const steps = [
+    {
+      title: "Add Lead",
+      desc: "Create prospects manually, import a CSV list, or pull directly from Google Sheets.",
+      tip: "Include details like platform, niche, and client name to personalize future pitches."
+    },
+    {
+      title: "Mark Contacted",
+      desc: "When you send your pitch, set status to 'Contacted'. This acts as the trigger for the system.",
+      tip: "Marking as contacted sets the initial last-contacted timestamp."
+    },
+    {
+      title: "Auto Reminders",
+      desc: "ReachDesk schedules 7 automatic reminders at crucial intervals (Day 2, 4, 7, 10, 14, 21, 23).",
+      tip: "You get notified when it is time to follow up so you never lose the conversation."
+    },
+    {
+      title: "Lead Replies",
+      desc: "The lead responds! Update their status to 'Positive Reply' or another outcome.",
+      tip: "Any status update to a terminal reply state instantly cancels future reminders."
+    },
+    {
+      title: "Auto-detected Booking",
+      desc: "If connected, Google Calendar detects their booking and auto-updates the lead status to 'Booked'.",
+      tip: "No manual status changes needed when they pick a time on your calendar link."
+    },
+    {
+      title: "Draft Invoice",
+      desc: "Upon booking, the system creates a draft client invoice ready for your review.",
+      tip: "Includes client email, services, and default currency settings pre-filled."
+    }
+  ];
+
+  return (
+    <div style={{
+      background: 'var(--bg-card, #161B22)',
+      border: '1px solid var(--border, #30363D)',
+      borderRadius: '8px',
+      padding: '1.5rem',
+      marginTop: '1rem'
+    }}>
+      <div style={{
+        display: 'flex',
+        overflowX: 'auto',
+        gap: '0.5rem',
+        paddingBottom: '1rem',
+        borderBottom: '1px solid var(--border, #30363D)',
+        WebkitOverflowScrolling: 'touch'
+      }}>
+        {steps.map((step, index) => {
+          const isActive = index === activeStep;
+          return (
+            <button
+              key={index}
+              onClick={() => setActiveStep(index)}
+              style={{
+                padding: '0.5rem 1rem',
+                borderRadius: '6px',
+                border: '1px solid',
+                borderColor: isActive ? accentColor : 'var(--border, #30363D)',
+                backgroundColor: isActive ? 'rgba(59, 130, 246, 0.1)' : 'transparent',
+                color: isActive ? 'var(--text-primary, #FFFFFF)' : 'var(--text-secondary, #8B949E)',
+                fontWeight: 600,
+                fontSize: '0.8rem',
+                cursor: 'pointer',
+                whiteSpace: 'nowrap',
+                transition: 'all 0.15s ease',
+                display: 'flex',
+                alignItems: 'center',
+                gap: '0.35rem'
+              }}
+            >
+              <span style={{
+                width: '18px',
+                height: '18px',
+                borderRadius: '50%',
+                backgroundColor: isActive ? accentColor : 'var(--border-strong, #484F58)',
+                color: '#fff',
+                fontSize: '0.65rem',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center'
+              }}>
+                {index + 1}
+              </span>
+              {step.title}
+            </button>
+          );
+        })}
+      </div>
+
+      <div style={{ padding: '1.25rem 0.25rem 0.25rem 0.25rem', textAlign: 'left' }}>
+        <h4 style={{ margin: '0 0 0.5rem 0', fontSize: '1.05rem', color: 'var(--text-primary, #FFFFFF)' }}>
+          {steps[activeStep].title}
+        </h4>
+        <p style={{ margin: '0 0 1rem 0', fontSize: '0.9rem', color: 'var(--text-secondary, #8B949E)', lineHeight: 1.5 }}>
+          {steps[activeStep].desc}
+        </p>
+        <div style={{
+          backgroundColor: 'var(--bg-primary, #0D1117)',
+          padding: '0.75rem 1rem',
+          borderRadius: '6px',
+          borderLeft: `3px solid ${accentColor}`,
+          fontSize: '0.8rem',
+          color: 'var(--text-secondary, #8B949E)'
+        }}>
+          <strong>💡 Pro-tip:</strong> {steps[activeStep].tip}
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function TemplateLivePreview({ accentColor }) {
+  const [name, setName] = useState('Sarah');
+  const [niche, setNiche] = useState('E-commerce brands');
+  const [result, setResult] = useState('40% higher email response rate');
+
+  const templateBody = "Hey [Name],\n\nCame across your profile. I specialize in helping [niche] achieve [result] with automated workflows.\n\nWould it make sense to connect?";
+
+  const getMergedOutput = () => {
+    return templateBody
+      .replace(/\[Name\]/g, name || '[Name]')
+      .replace(/\[niche\]/g, niche || '[niche]')
+      .replace(/\[result\]/g, result || '[result]');
+  };
+
+  return (
+    <div style={{
+      display: 'grid',
+      gridTemplateColumns: 'repeat(auto-fit, minmax(240px, 1fr))',
+      gap: '1.5rem',
+      background: 'var(--bg-card, #161B22)',
+      border: '1px solid var(--border, #30363D)',
+      borderRadius: '8px',
+      padding: '1.5rem',
+      marginTop: '1rem'
+    }}>
+      <div style={{ display: 'flex', flexDirection: 'column', gap: '0.85rem', textAlign: 'left' }}>
+        <h4 style={{ margin: '0 0 0.25rem 0', fontSize: '0.95rem', color: 'var(--text-primary, #FFFFFF)' }}>1. Enter Lead Details</h4>
+        
+        <div style={{ display: 'flex', flexDirection: 'column', gap: '0.25rem' }}>
+          <label style={{ fontSize: '0.75rem', color: 'var(--text-muted, #8B949E)' }}>Lead Name</label>
+          <input
+            type="text"
+            value={name}
+            onChange={(e) => setName(e.target.value)}
+            style={{ padding: '6px 10px', background: 'var(--bg-primary, #0D1117)', border: '1px solid var(--border, #30363D)', borderRadius: '4px', color: '#fff', fontSize: '0.85rem' }}
+          />
+        </div>
+
+        <div style={{ display: 'flex', flexDirection: 'column', gap: '0.25rem' }}>
+          <label style={{ fontSize: '0.75rem', color: 'var(--text-muted, #8B949E)' }}>Niche</label>
+          <input
+            type="text"
+            value={niche}
+            onChange={(e) => setNiche(e.target.value)}
+            style={{ padding: '6px 10px', background: 'var(--bg-primary, #0D1117)', border: '1px solid var(--border, #30363D)', borderRadius: '4px', color: '#fff', fontSize: '0.85rem' }}
+          />
+        </div>
+
+        <div style={{ display: 'flex', flexDirection: 'column', gap: '0.25rem' }}>
+          <label style={{ fontSize: '0.75rem', color: 'var(--text-muted, #8B949E)' }}>Desired Result</label>
+          <input
+            type="text"
+            value={result}
+            onChange={(e) => setResult(e.target.value)}
+            style={{ padding: '6px 10px', background: 'var(--bg-primary, #0D1117)', border: '1px solid var(--border, #30363D)', borderRadius: '4px', color: '#fff', fontSize: '0.85rem' }}
+          />
+        </div>
+      </div>
+
+      <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem', textAlign: 'left' }}>
+        <h4 style={{ margin: '0 0 0.25rem 0', fontSize: '0.95rem', color: 'var(--text-primary, #FFFFFF)' }}>2. Live Personalized Output</h4>
+        <pre style={{
+          flex: 1,
+          margin: 0,
+          background: 'var(--bg-primary, #0D1117)',
+          border: '1px solid var(--border, #30363D)',
+          borderRadius: '6px',
+          padding: '1rem',
+          color: 'var(--text-primary, #F0F6FC)',
+          fontSize: '0.8rem',
+          fontFamily: 'monospace',
+          whiteSpace: 'pre-wrap',
+          lineHeight: '1.4'
+        }}>
+          {getMergedOutput()}
+        </pre>
+      </div>
+    </div>
+  );
+}
+
 function GetStartedContent({ isAppView, theme, navigate }) {
   const { profile } = useAppContext() || {};
   const [activeSection, setActiveSection] = useState('how-it-works');
-  const [calConnected, setCalConnected] = useState(null); // null=loading, true/false
+  const [calConnected, setCalConnected] = useState(null);
+  const [sheetsConnected, setSheetsConnected] = useState(null);
 
   useEffect(() => {
     const ids = SIDEBAR_ITEMS.map(i => i.id);
@@ -81,21 +280,22 @@ function GetStartedContent({ isAppView, theme, navigate }) {
     return () => ids.forEach(id => { const el = document.getElementById(id); if (el) observer.unobserve(el); });
   }, []);
 
-  // Check if Google Calendar is already connected
   useEffect(() => {
-    async function checkCalendar() {
+    async function checkConnections() {
       const { data: { session } } = await supabase.auth.getSession();
-      if (!session?.user?.id) { setCalConnected(false); return; }
-      const { data } = await supabase
-        .from('calendar_integrations')
-        .select('id, connected_at')
-        .eq('user_id', session.user.id)
-        .eq('provider', 'google')
-        .eq('is_active', true)
-        .maybeSingle();
-      setCalConnected(!!data);
+      if (!session?.user?.id) {
+        setCalConnected(false);
+        setSheetsConnected(false);
+        return;
+      }
+      const [calRes, sheetsRes] = await Promise.all([
+        supabase.from('calendar_integrations').select('id').eq('user_id', session.user.id).eq('provider', 'google').eq('is_active', true).maybeSingle(),
+        supabase.from('sheets_integrations').select('id').eq('user_id', session.user.id).maybeSingle()
+      ]);
+      setCalConnected(!!calRes.data);
+      setSheetsConnected(!!sheetsRes.data);
     }
-    checkCalendar();
+    checkConnections();
   }, []);
 
   const handleScrollTo = (e, id) => {
@@ -133,6 +333,24 @@ function GetStartedContent({ isAppView, theme, navigate }) {
         }
       `}</style>
 
+      {/* Reading Progress Indicator */}
+      <div style={{
+        position: 'fixed',
+        top: 0,
+        left: 0,
+        width: '100%',
+        height: '4px',
+        backgroundColor: 'var(--border-strong, #30363D)',
+        zIndex: 10000
+      }}>
+        <div style={{
+          height: '100%',
+          backgroundColor: accent,
+          width: `${(SIDEBAR_ITEMS.findIndex(s => s.id === activeSection) + 1) / SIDEBAR_ITEMS.length * 100}%`,
+          transition: 'width 0.3s ease'
+        }}></div>
+      </div>
+
       <div style={{ display: 'flex', gap: '2.5rem', width: '100%', alignItems: 'flex-start' }}>
         {/* Sticky sidebar — desktop only */}
         <div className="gs-sidebar">
@@ -145,304 +363,156 @@ function GetStartedContent({ isAppView, theme, navigate }) {
           {/* 1 — How It Works */}
           <section id="how-it-works" style={{ scrollMarginTop: '120px' }}>
             <h2 style={sectionTitle()}>How ReachDesk CRM Works</h2>
-            <div style={{ display: 'flex', flexDirection: 'column', gap: '1.75rem' }}>
-              {[{
-                n: '1', title: 'Add your first lead',
-                body: 'Quickly add new prospects manually via the CRM dashboard or import your contact list in bulk using standard CSV file uploads.',
-              }, {
-                n: '2', title: 'Send a message using a ready-made template',
-                body: 'Select an outreach template, customize it with smart tags like name or niche, and copy the body to paste into your favorite outreach channel.',
-              }, {
-                n: '3', title: 'Set a follow-up reminder so nothing slips through',
-                body: 'Set status to Contacted to kick off automated task reminders that prompt you to re-engage with leads at key intervals until they reply.',
-              }].map(({ n, title, body }) => (
-                <div key={n} style={{ display: 'flex', gap: '1rem', alignItems: 'flex-start' }}>
-                  <div style={{ backgroundColor: 'var(--gs-active-bg)', color: accent, padding: '0.5rem 0.75rem', borderRadius: '4px', fontWeight: 700, minWidth: '40px', textAlign: 'center', border: `1px solid ${border}` }}>{n}</div>
-                  <div>
-                    <h3 style={{ margin: '0 0 0.4rem 0', fontSize: '1.05rem', color: text, fontWeight: 600 }}>{title}</h3>
-                    <p style={{ margin: 0, color: muted }}>{body}</p>
-                  </div>
-                </div>
-              ))}
-            </div>
+            <p style={{ color: muted, margin: '0 0 1.5rem 0' }}>
+              ReachDesk matches cold outreach with calendar tracking. Click on the steps below to see the sequence:
+            </p>
+            <InteractiveLoopDiagram accentColor={accent} />
           </section>
 
-          {/* 2 — Follow-up Reminders */}
-          <section id="follow-up-reminders" style={{ scrollMarginTop: '120px', padding: '1.5rem', backgroundColor: card, border: `1px solid ${border}`, borderRadius: '6px' }}>
-            <h2 style={{ ...sectionTitle(), display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
-              <Bell size={18} /> How Follow-up Reminders Work
-            </h2>
+          {/* 2 — Dashboard */}
+          <section id="dashboard" style={{ scrollMarginTop: '120px' }}>
+            <h2 style={sectionTitle()}>Dashboard Overview</h2>
             <p style={{ color: muted, margin: '0 0 1rem 0' }}>
-              ReachDesk CRM features an automated task scheduling system to keep your prospect outreach active. When a lead's status is updated to <strong>Contacted</strong> (or their last contacted date changes), the system automatically schedules a series of <strong>7 follow-up reminders</strong>:
+              Your dashboard aggregates pipeline metrics, pitching velocity, and tasks.
             </p>
-            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(180px, 1fr))', gap: '0.75rem', color: text, fontSize: '0.9rem', marginBottom: '1rem' }}>
-              {[
-                'Day 2 (Reminder #1)',
-                'Day 4 (Reminder #2)',
-                'Day 7 (Reminder #3)',
-                'Day 10 (Reminder #4)',
-                'Day 14 (Reminder #5)',
-                'Day 21 (Reminder #6)',
-                'Day 23 (Reminder #7 — Breakup)',
-              ].map(label => (
-                <div key={label} style={{ display: 'flex', gap: '0.5rem', alignItems: 'center' }}>
-                  <CheckCircle size={14} style={{ color: accent }} /> {label}
-                </div>
-              ))}
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))', gap: '1rem', color: text }}>
+              <div style={{ padding: '1rem', backgroundColor: card, border: `1px solid ${border}`, borderRadius: '6px' }}>
+                <strong style={{ display: 'block', marginBottom: '0.25rem' }}>Primary Metrics</strong>
+                <span style={{ fontSize: '0.8rem', color: muted }}>Track total leads, contacted status, total replies, and positive reply count in one glance.</span>
+              </div>
+              <div style={{ padding: '1rem', backgroundColor: card, border: `1px solid ${border}`, borderRadius: '6px' }}>
+                <strong style={{ display: 'block', marginBottom: '0.25rem' }}>Upcoming Next Feed</strong>
+                <span style={{ fontSize: '0.8rem', color: muted }}>A list of due follow-up tasks, pending invoices, and warning indicators of rule mismatches.</span>
+              </div>
+              <div style={{ padding: '1rem', backgroundColor: card, border: `1px solid ${border}`, borderRadius: '6px' }}>
+                <strong style={{ display: 'block', marginBottom: '0.25rem' }}>Outreach Velocity</strong>
+                <span style={{ fontSize: '0.8rem', color: muted }}>Measures how active you've been (new leads created or contacted) in the last 7 days.</span>
+              </div>
             </div>
-            <p style={{ color: muted, margin: 0 }}>
-              To stop the reminders, simply update the lead's status to a terminal stop status (e.g. <strong>Positive Reply</strong>, <strong>Booked</strong>, <strong>Client</strong>, or <strong>Not Interested</strong>), and the pending reminders will be automatically dismissed.
-            </p>
           </section>
 
-          {/* 3 — Pipeline Stages */}
-          <section id="pipeline-stages" style={{ scrollMarginTop: '120px' }}>
-            <h2 style={sectionTitle()}>Pipeline Stages</h2>
-            <p style={{ color: muted, marginBottom: '1.5rem', marginTop: 0 }}>
-              ReachDesk CRM uses fully customizable pipeline stages. Default stages include: Lead, Contacted, Positive Reply, Booked, Calendly Sent, Call Booked, Client, Follow Up, No Show, Not Interested. Add, rename, or reorder stages from Configuration Settings.
+          {/* 3 — Folders & Pipelines */}
+          <section id="folders-pipelines" style={{ scrollMarginTop: '120px' }}>
+            <h2 style={sectionTitle()}>Folders & Pipelines</h2>
+            <p style={{ color: muted, margin: '0 0 1rem 0' }}>
+              Organize leads in flexible views using three folder modes:
             </p>
-            <div style={{ display: 'flex', flexDirection: 'column', gap: '0.9rem' }}>
-              {[{
-                color: '#3b82f6', name: 'Lead', desc: 'Initial status when a new prospect is added to your CRM.',
-              }, {
-                color: '#f59e0b', name: 'Contacted', desc: 'You have sent the initial outreach message.',
-              }, {
-                color: '#8b5cf6', name: 'Positive Reply', desc: 'Lead replied with interest, dismissing pending reminders.',
-              }, {
-                color: '#ec4899', name: 'Booked', desc: 'Meeting or discovery call booked.',
-              }, {
-                color: '#06b6d4', name: 'Client', desc: 'Lead converted successfully into a paying customer.',
-              }].map(({ color, name, desc }) => (
-                <div key={name} style={{ borderLeft: `3px solid ${color}`, paddingLeft: '1rem' }}>
-                  <strong style={{ color: text }}>{name}:</strong>{' '}
-                  <span style={{ color: muted }}>{desc}</span>
-                </div>
-              ))}
-            </div>
+            <ul style={{ color: muted, paddingLeft: '1.25rem', margin: 0, display: 'flex', flexDirection: 'column', gap: '0.75rem' }}>
+              <li><strong>System Folders:</strong> Automatic folders based on Priority (Hot, Warm, Cold) and converting statuses.</li>
+              <li><strong>Manual Folders:</strong> Drag-and-drop groups. Useful for individual campaign sorting or client tags.</li>
+              <li><strong>Smart Folders:</strong> Rule-based lists. For example: <code>Status is "Positive Reply" AND Priority is "Hot"</code>. Leads automatically match the filter rules.</li>
+            </ul>
           </section>
 
           {/* 4 — Templates */}
           <section id="templates" style={{ scrollMarginTop: '120px' }}>
-            <h2 style={sectionTitle()}>Custom & Starter Templates</h2>
+            <h2 style={sectionTitle()}>Templates & Live Preview</h2>
             <p style={{ color: muted, margin: '0 0 1rem 0' }}>
-              Save time and keep your messaging consistent by utilizing ReachDesk CRM's template library:
+              Create message templates using placeholders like <code>[Name]</code>, <code>[niche]</code>, and <code>[result]</code>. Test it in the preview tool below:
             </p>
-            <ul style={{ color: muted, paddingLeft: '1.25rem', margin: 0, display: 'flex', flexDirection: 'column', gap: '0.75rem' }}>
-              <li><strong>Starter Library:</strong> 18 pre-built starter templates in 5 sections: Initial Templates, Follow Ups, Booking Messages, After Booked, After Client Booked.</li>
-              <li><strong>Custom Templates:</strong> Create custom templates with <code>[Name]</code>, <code>[niche]</code>, and <code>[result]</code> placeholders that load prospect information automatically.</li>
-              <li><strong>One-Click Copy:</strong> Copy template bodies instantly with a single click to paste directly into your active outreach channels.</li>
-            </ul>
+            <TemplateLivePreview accentColor={accent} />
           </section>
 
-          {/* 5 — Client Invoices */}
+          {/* 5 — Reach Link */}
+          <section id="reach-link" style={{ scrollMarginTop: '120px' }}>
+            <h2 style={sectionTitle()}>Reach Launcher</h2>
+            <p style={{ color: muted, margin: 0 }}>
+              The Reach icon (📡) in your CRM row opens the lead's social platform (LinkedIn, email, Twitter/X, Instagram) in a new tab. If a template is chosen, it copies to your clipboard. Once clicked, ReachDesk updates the lead's Last Contacted date automatically.
+            </p>
+          </section>
+
+          {/* 6 — Snippets */}
+          <section id="snippets" style={{ scrollMarginTop: '120px' }}>
+            <h2 style={sectionTitle()}>Snippet Keys</h2>
+            <p style={{ color: muted, margin: 0 }}>
+              Go to Configuration → Snippets to create custom replacement tags. E.g. save key <code>calendly</code> with your booking URL. In any template, type <code>{"{"}{"{"}calendly{"}"}{"}"}</code> and it will auto-populate during outreach.
+            </p>
+          </section>
+
+          {/* 7 — Column Manager */}
+          <section id="column-manager" style={{ scrollMarginTop: '120px' }}>
+            <h2 style={sectionTitle()}>Column Manager</h2>
+            <p style={{ color: muted, margin: 0 }}>
+              Toggle visibility, sort order, and custom column definitions. Click the Gear icon in the CRM table header to select which columns to show or create custom ones for your workflow.
+            </p>
+          </section>
+
+          {/* 8 — Client Invoices */}
           <section id="client-invoices" style={{ scrollMarginTop: '120px' }}>
             <h2 style={sectionTitle()}>Client Invoices</h2>
             <p style={{ color: muted, margin: 0 }}>
-              Generate professional invoices for your clients directly from ReachDesk. Select a client from your CRM leads, auto-fill their email, add line items with quantities and rates, apply tax, and download or share a public invoice link. Supports multiple currencies.
+              Select a lead, convert them to Client status, and draft invoices with customizable lines, rates, tax calculations, and currency selection. You can download invoices or copy a public link.
             </p>
           </section>
 
-          {/* 6 — Revenue Tracker */}
+          {/* 9 — Revenue Tracker */}
           <section id="revenue-tracker" style={{ scrollMarginTop: '120px' }}>
             <h2 style={sectionTitle()}>Revenue Tracker</h2>
             <p style={{ color: muted, margin: 0 }}>
-              Log your freelance earnings in one place. Record payments by client name, amount, currency, service type, and date. View earnings breakdown by client and currency. Track your income across PKR, USD, GBP, and more.
+              Log payments against client profiles. Compiles currency-adjusted revenue reports and measures progression against your Monthly Revenue Target.
             </p>
           </section>
 
-          {/* 7 — Notes & Drawing Board */}
-          <section id="notes" style={{ scrollMarginTop: '120px' }}>
-            <h2 style={sectionTitle()}>Notes & Drawing Board</h2>
+          {/* 10 — Notes & Drawing Canvas */}
+          <section id="notes-drawing" style={{ scrollMarginTop: '120px' }}>
+            <h2 style={sectionTitle()}>Notes & Drawing Canvas</h2>
             <p style={{ color: muted, margin: 0 }}>
-              Keep all your outreach notes, scripts, and ideas organized. Create text notes with rich formatting using slash commands (/heading, /todo, /bullet, /toggle). Use the drawing canvas for visual planning. Organize notes into folders.
+              Notes include rich formatting using slash commands (e.g. <code>/todo</code>, <code>/heading</code>, <code>/bullet</code>, <code>/toggle</code>). You also have access to a drawing canvas for mapping processes, timelines, or whiteboard designs.
             </p>
           </section>
 
-          {/* 7b — Google Calendar Integration */}
-          <section id="google-calendar" style={{ scrollMarginTop: '120px' }}>
-            <h2 style={{ ...sectionTitle(), display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
-              <Calendar size={20} /> Google Calendar Integration
-            </h2>
-            <div style={{
-              padding: '1.75rem',
-              backgroundColor: card,
-              border: `1px solid ${border}`,
-              borderRadius: '8px',
-              display: 'flex',
-              flexDirection: 'column',
-              gap: '1rem',
-            }}>
-              <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem', flexWrap: 'wrap' }}>
-                <div style={{
-                  width: '44px', height: '44px', borderRadius: '10px',
-                  background: 'linear-gradient(135deg, #4285f4, #34a853)',
-                  display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0
-                }}>
-                  <Calendar size={22} style={{ color: '#fff' }} />
+          {/* 11 — Integrations */}
+          <section id="integrations" style={{ scrollMarginTop: '120px' }}>
+            <h2 style={sectionTitle()}>Integrations</h2>
+            
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '1.5rem' }}>
+              
+              {/* Google Calendar */}
+              <div style={{ padding: '1.25rem', backgroundColor: card, border: `1px solid ${border}`, borderRadius: '6px' }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem', marginBottom: '0.75rem' }}>
+                  <Calendar size={20} style={{ color: accent }} />
+                  <strong style={{ color: text }}>Google Calendar Connection</strong>
+                  {calConnected && <span style={{ marginLeft: 'auto', color: '#10b981', fontSize: '0.75rem', fontWeight: 700 }}>✓ Connected</span>}
                 </div>
-                <div>
-                  <strong style={{ color: text, fontSize: '1.05rem', display: 'block' }}>Connect your Google Calendar</strong>
-                  <span style={{ color: muted, fontSize: '0.875rem' }}>
-                    Automatically mark leads as <strong>Booked</strong> when they schedule a meeting — and create draft invoices instantly.
-                  </span>
-                </div>
-                {calConnected && (
-                  <span style={{
-                    marginLeft: 'auto', padding: '0.25rem 0.75rem', borderRadius: '99px',
-                    background: 'rgba(16,185,129,0.12)', color: '#10b981',
-                    fontSize: '0.78rem', fontWeight: 700, whiteSpace: 'nowrap'
-                  }}>
-                    ✓ Connected
-                  </span>
-                )}
+                <p style={{ margin: '0 0 1rem 0', color: muted, fontSize: '0.85rem' }}>
+                  Auto-detects booked leads based on email matches on calendar events and converts status to "Booked" automatically.
+                </p>
               </div>
 
-              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(200px, 1fr))', gap: '0.6rem' }}>
-                {[
-                  'Auto-detect booked leads via attendee email',
-                  'Create draft invoices on booking',
-                  'Read-only access — no calendar writes',
-                  'Secure OAuth 2.0 — revoke anytime',
-                ].map(feat => (
-                  <div key={feat} style={{ display: 'flex', gap: '0.4rem', alignItems: 'flex-start' }}>
-                    <CheckCircle size={14} style={{ color: accent, flexShrink: 0, marginTop: '2px' }} />
-                    <span style={{ color: muted, fontSize: '0.85rem' }}>{feat}</span>
-                  </div>
-                ))}
+              {/* Google Sheets */}
+              <div style={{ padding: '1.25rem', backgroundColor: card, border: `1px solid ${border}`, borderRadius: '6px' }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem', marginBottom: '0.75rem' }}>
+                  <Database size={20} style={{ color: accent }} />
+                  <strong style={{ color: text }}>Google Sheets Connection</strong>
+                  {sheetsConnected && <span style={{ marginLeft: 'auto', color: '#10b981', fontSize: '0.75rem', fontWeight: 700 }}>✓ Connected</span>}
+                </div>
+                <p style={{ margin: '0 0 1rem 0', color: muted, fontSize: '0.85rem' }}>
+                  Export your leads or import them from any spreadsheet in your Google Drive seamlessly.
+                </p>
               </div>
 
-              {/* If locked, show upgrade notice instead of connect buttons */}
-              {!PLAN_LIMITS[(profile?.plan || 'trial').toLowerCase()]?.integrations ? (
-                <div style={{ display: 'flex', gap: '0.75rem', alignItems: 'center', flexWrap: 'wrap', borderTop: `1px solid ${border}`, paddingTop: '1rem' }}>
-                  <span style={{ color: muted, fontSize: '0.85rem', display: 'inline-flex', alignItems: 'center', gap: '0.35rem' }}>
-                    <Lock size={14} style={{ color: 'var(--accent-blue)' }} /> Google Calendar integration is a Pro/Teams feature.
-                  </span>
-                  <button
-                    onClick={() => navigate('/upgrade')}
-                    style={{
-                      display: 'inline-flex', alignItems: 'center', gap: '0.5rem',
-                      padding: '0.5rem 1rem', borderRadius: '5px', border: 'none',
-                      background: accent, color: isAppView ? '#fff' : '#0D1117',
-                      cursor: 'pointer', fontWeight: 600, fontSize: '0.85rem',
-                    }}
-                  >
-                    Upgrade to Unlock
-                  </button>
-                </div>
-              ) : calConnected ? (
-                <div style={{ display: 'flex', gap: '0.75rem', alignItems: 'center', flexWrap: 'wrap' }}>
-                  <span style={{ color: muted, fontSize: '0.85rem' }}>Google Calendar is connected and watching for bookings.</span>
-                  <button
-                    onClick={() => navigate('/settings?tab=integrations')}
-                    style={{
-                      display: 'inline-flex', alignItems: 'center', gap: '0.4rem',
-                      padding: '0.5rem 1rem', borderRadius: '5px', border: `1px solid ${border}`,
-                      background: 'transparent', color: text, cursor: 'pointer', fontSize: '0.85rem', fontWeight: 600
-                    }}
-                  >
-                    <ExternalLink size={14} /> Manage in Settings
-                  </button>
-                </div>
-              ) : (
-                <div style={{ display: 'flex', gap: '0.75rem', alignItems: 'center', flexWrap: 'wrap' }}>
-                  <button
-                    onClick={() => {
-                      const state = crypto.randomUUID();
-                      sessionStorage.setItem('google_oauth_state', state);
-                      const clientId = import.meta.env.VITE_GOOGLE_CLIENT_ID;
-                      const redirectUri = encodeURIComponent('https://reachdeskcrm.com/auth/google/callback');
-                      const scope = encodeURIComponent('https://www.googleapis.com/auth/calendar.readonly https://www.googleapis.com/auth/calendar.events.readonly');
-                      window.location.href = `https://accounts.google.com/o/oauth2/v2/auth?client_id=${clientId}&redirect_uri=${redirectUri}&response_type=code&scope=${scope}&access_type=offline&prompt=consent&state=${state}`;
-                    }}
-                    style={{
-                      display: 'inline-flex', alignItems: 'center', gap: '0.5rem',
-                      padding: '0.6rem 1.25rem', borderRadius: '5px', border: 'none',
-                      background: accent, color: isAppView ? '#fff' : '#0D1117',
-                      cursor: 'pointer', fontWeight: 700, fontSize: '0.9rem',
-                    }}
-                  >
-                    <Zap size={15} /> Connect Google Calendar
-                  </button>
-                  <button
-                    onClick={() => {
-                      document.getElementById('configuration')?.scrollIntoView({ behavior: 'smooth' });
-                    }}
-                    style={{
-                      background: 'none', border: 'none', color: muted,
-                      cursor: 'pointer', fontSize: '0.85rem', textDecoration: 'underline'
-                    }}
-                  >
-                    Skip for now
-                  </button>
-                </div>
-              )}
             </div>
           </section>
 
-          {/* 8 — Configuration */}
-          <section id="configuration" style={{ scrollMarginTop: '120px' }}>
-            <h2 style={sectionTitle()}>Configuration & Settings</h2>
-            <p style={{ color: muted, marginBottom: '1rem', marginTop: 0 }}>Customize ReachDesk CRM to your workflow:</p>
-            <ul style={{ color: muted, paddingLeft: '1.25rem', margin: 0, display: 'flex', flexDirection: 'column', gap: '0.75rem' }}>
-              <li><strong>Profile:</strong> Set your full name and profile photo.</li>
-              <li><strong>Pipeline Stages:</strong> Add, rename, reorder your CRM stages.</li>
-              <li><strong>Billing:</strong> View your current plan, usage (leads/templates), and manage subscription.</li>
-              <li><strong>Bank Details:</strong> Save your bank account and IBAN for auto-fill in invoices.</li>
-              <li><strong>Default Currency:</strong> Set your preferred currency for invoices and revenue tracking.</li>
-            </ul>
-          </section>
-
-          {/* 9 — Trial & Pricing */}
-          <section id="trial-pricing" style={{ scrollMarginTop: '120px', borderTop: `1px solid ${border}`, paddingTop: '2.5rem' }}>
-            <h2 style={sectionTitle()}>Free Trial & Pricing</h2>
-            <p style={{ color: muted, marginTop: 0, marginBottom: '1.5rem' }}>
-              All new ReachDesk CRM accounts start on a <strong>7-day free trial</strong> with full access — no credit card required.
-            </p>
-            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(190px, 1fr))', gap: '1.25rem' }}>
-              {[{
-                name: 'Free Trial', price: '7 days free', sub: 'No card required', limits: '50 leads, 5 custom templates',
-              }, {
-                name: 'Starter', price: '$0.95/mo', sub: '', limits: '600 leads, 10 custom templates',
-              }, {
-                name: 'Pro', price: '$3.40/mo', sub: '', limits: '2,500 leads, unlimited templates',
-              }, {
-                name: 'Teams', price: '$7.00/mo', sub: '', limits: '10,000 leads, 3 users',
-              }].map(plan => (
-                <div key={plan.name} style={{ padding: '1.25rem', backgroundColor: card, border: `1px solid ${border}`, borderRadius: '4px' }}>
-                  <h3 style={{ margin: '0 0 0.4rem 0', fontSize: '1rem', color: text }}>{plan.name}</h3>
-                  <p style={{ margin: '0 0 0.3rem 0', fontSize: '1rem', fontWeight: 700, color: accent }}>{plan.price}</p>
-                  {plan.sub && <p style={{ margin: '0 0 0.4rem 0', fontSize: '0.8rem', color: muted }}>{plan.sub}</p>}
-                  <p style={{ margin: 0, fontSize: '0.85rem', color: muted }}>{plan.limits}</p>
-                </div>
-              ))}
-            </div>
-          </section>
-
-          {/* 10 — FAQ */}
+          {/* 12 — FAQ */}
           <section id="faq" style={{ scrollMarginTop: '120px' }}>
             <h2 style={sectionTitle()}>Frequently Asked Questions</h2>
-            <div style={{ display: 'flex', flexDirection: 'column', gap: '1.5rem' }}>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '1.25rem' }}>
               {[{
                 q: 'Can I export my leads?',
-                a: 'Yes! ReachDesk CRM provides built-in export functionality allowing you to download all leads as a CSV file at any time.',
+                a: 'Yes! Export all lead details to a standard CSV file from the Configuration page or CRM toolbar.',
               }, {
                 q: 'What happens when my trial ends?',
-                a: 'Your account is locked but data is preserved for 30 days. Export your leads anytime from the lock screen.',
+                a: 'Your account locks. However, all lead records are securely preserved for 30 days. You can upgrade or export leads from the lock screen.',
               }, {
-                q: 'What payment methods are supported?',
-                a: 'All major credit/debit cards and PayPal via Paddle.',
-              }, {
-                q: 'Can I cancel anytime?',
-                a: 'Yes. Cancel from Settings → Billing. Your plan stays active until the end of the billing period.',
-              }, {
-                q: 'Is my data safe?',
-                a: 'Yes. All data is stored securely on Supabase with row-level security. Only you can access your data.',
+                q: 'How safe is my lead data?',
+                a: 'Extremely. Data is stored on Supabase using row-level security policies (RLS). Nobody except you has access to your records.',
               }].map(({ q, a }) => (
                 <div key={q}>
-                  <h4 style={{ margin: '0 0 0.5rem 0', color: text, display: 'flex', alignItems: 'center', gap: '0.5rem', fontWeight: 600 }}>
-                    <HelpCircle size={16} style={{ color: accent }} /> {q}
+                  <h4 style={{ margin: '0 0 0.35rem 0', color: text, display: 'flex', alignItems: 'center', gap: '0.4rem', fontWeight: 600 }}>
+                    <HelpCircle size={15} style={{ color: accent }} /> {q}
                   </h4>
-                  <p style={{ margin: 0, color: muted }}>{a}</p>
+                  <p style={{ margin: 0, color: muted, fontSize: '0.88rem' }}>{a}</p>
                 </div>
               ))}
             </div>
@@ -454,9 +524,9 @@ function GetStartedContent({ isAppView, theme, navigate }) {
               Still have questions?
             </h3>
             <p style={{ color: muted, marginBottom: '1.5rem', fontSize: '0.95rem' }}>
-              We are here to help you get the most out of ReachDesk CRM.
+              Our support team is here to assist.
             </p>
-            <div style={{ display: 'flex', gap: '1rem', justifyContent: 'center', flexWrap: 'wrap', marginBottom: '1.2rem' }}>
+            <div style={{ display: 'flex', gap: '1rem', justifyContent: 'center', flexWrap: 'wrap' }}>
               <a
                 href="mailto:support@esemdot.com"
                 style={{
@@ -475,29 +545,7 @@ function GetStartedContent({ isAppView, theme, navigate }) {
               >
                 Email Us
               </a>
-              <a
-                href="mailto:support@esemdot.com?subject=Demo Request"
-                style={{
-                  textDecoration: 'none',
-                  display: 'inline-flex',
-                  alignItems: 'center',
-                  justifyContent: 'center',
-                  height: '40px',
-                  padding: '0 1.5rem',
-                  fontWeight: 600,
-                  borderRadius: '3px',
-                  border: `1px solid ${border}`,
-                  color: text,
-                  fontSize: '0.88rem',
-                  backgroundColor: 'transparent',
-                }}
-              >
-                Book a Demo
-              </a>
             </div>
-            <p style={{ fontSize: '0.82rem', color: muted, margin: 0 }}>
-              Or watch our <a href="#" onClick={e => e.preventDefault()} style={{ color: accent, textDecoration: 'underline' }}>walkthrough video</a>
-            </p>
           </section>
 
         </div>

@@ -459,6 +459,39 @@ export default function NotesList({ currentUser }) {
             ></div>
             <p className="color-muted">Loading notes...</p>
           </div>
+        ) : notes.length === 0 ? (
+          <div className="card flex align-center justify-center" style={{ minHeight: '300px', padding: '3rem 2rem', background: 'var(--bg-secondary)', border: '1px solid var(--border-color)', borderRadius: '12px', textAlign: 'center', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: '1.25rem' }}>
+            <div style={{ fontSize: '3rem', margin: 0 }}>📝</div>
+            <div>
+              <h3 style={{ margin: '0 0 0.5rem 0', fontSize: '1.25rem', fontWeight: 700, color: 'var(--text-primary)' }}>
+                No Notes or Drawings Yet
+              </h3>
+              <p className="color-muted" style={{ fontSize: '0.9rem', marginTop: '0.25rem', maxWidth: '380px', lineHeight: '1.5', margin: '0 auto' }}>
+                Create a text note or visual drawing board to keep track of templates, outreach scripts, and client planning notes.
+              </p>
+            </div>
+            <div style={{ display: 'flex', gap: '0.75rem', marginTop: '0.5rem' }}>
+              <button onClick={() => createNote('text')} className="btn btn-primary" style={{ padding: '0.5rem 1rem', fontSize: '0.85rem', display: 'inline-flex', alignItems: 'center', gap: '0.25rem' }}>
+                <Plus size={14} /> Create Text Note
+              </button>
+              <button onClick={() => createNote('canvas')} className="btn btn-secondary" style={{ padding: '0.5rem 1rem', fontSize: '0.85rem', display: 'inline-flex', alignItems: 'center', gap: '0.25rem' }}>
+                <Paintbrush size={14} /> Drawing Board
+              </button>
+            </div>
+            <div style={{ 
+              marginTop: '1rem', 
+              padding: '0.75rem 1.25rem', 
+              backgroundColor: 'var(--bg-tertiary)', 
+              borderRadius: '8px', 
+              border: '1px solid var(--border-color)',
+              fontSize: '0.8rem',
+              color: 'var(--text-secondary)',
+              maxWidth: '380px',
+              textAlign: 'left'
+            }}>
+              <strong>💡 Pro-tip:</strong> Inside text notes, type <code>/</code> (slash) to quickly insert formatted headings, todo checklists, bullet lists, or toggles!
+            </div>
+          </div>
         ) : filteredNotes.length === 0 ? (
           <div className="card flex align-center justify-center" style={{ minHeight: '200px', padding: '2rem', background: 'var(--bg-secondary)', border: '1px solid var(--border-color)' }}>
             <div style={{ textAlign: 'center' }}>

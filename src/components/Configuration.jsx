@@ -127,8 +127,6 @@ export default function Configuration({
   const [localBrand, setLocalBrand] = useState(brandName);
   const [localCurrency, setLocalCurrency] = useState(currencySymbol);
   const [localWebhook, setLocalWebhook] = useState(webhookUrl);
-  const [localBankAccount, setLocalBankAccount] = useState(bankAccount || '');
-  const [localBankIban, setLocalBankIban] = useState(bankIban || '');
 
   // Cancellation States
   const [cancelModalOpen, setCancelModalOpen] = useState(false);
@@ -141,8 +139,6 @@ export default function Configuration({
   const [profileAvatarUrl, setProfileAvatarUrl] = useState(currentUser?.avatar_url || '');
   const [profileAvatarFile, setProfileAvatarFile] = useState(null);
   const [profileAvatarPreview, setProfileAvatarPreview] = useState('');
-  const [profileBankAccount, setProfileBankAccount] = useState(currentUser?.bank_account || '');
-  const [profileBankIban, setProfileBankIban] = useState(currentUser?.bank_iban || '');
   const [profileDefaultCurrency, setProfileDefaultCurrency] = useState(currentUser?.default_currency || 'PKR');
   const [profileSuccess, setProfileSuccess] = useState('');
   const [profileError, setProfileError] = useState('');
@@ -241,8 +237,6 @@ export default function Configuration({
       setProfileAvatarUrl(currentUser.avatar_url || '');
       setProfileAvatarFile(null);
       setProfileAvatarPreview('');
-      setProfileBankAccount(currentUser.bank_account || '');
-      setProfileBankIban(currentUser.bank_iban || '');
       setProfileDefaultCurrency(currentUser.default_currency || 'PKR');
       setRemindersEnabled(currentUser.reminders_enabled !== false);
       setSuggestionsEnabled(currentUser.suggestions_enabled !== false);
@@ -499,8 +493,6 @@ export default function Configuration({
         .update({
           full_name: trimmedName,
           avatar_url: finalAvatarUrl,
-          bank_account: profileBankAccount.trim() || null,
-          bank_iban: profileBankIban.trim() || null,
           default_currency: profileDefaultCurrency || 'PKR',
           reminders_enabled: remindersEnabled,
           suggestions_enabled: suggestionsEnabled,
@@ -546,8 +538,6 @@ export default function Configuration({
       }
 
       // Also sync to localStorage so Invoice Generator picks it up immediately
-      if (profileBankAccount) localStorage.setItem('reachdesk_bank_account', profileBankAccount.trim());
-      if (profileBankIban) localStorage.setItem('reachdesk_bank_iban', profileBankIban.trim());
       if (profileDefaultCurrency) localStorage.setItem('reachdesk_currency_symbol', profileDefaultCurrency);
 
       setProfileSuccess('Profile updated successfully!');
@@ -566,7 +556,7 @@ export default function Configuration({
 
   const handleSubmitSettings = (e) => {
     e.preventDefault();
-    onSaveSettings(localBrand, localCurrency, localWebhook, localBankAccount, localBankIban);
+    onSaveSettings(localBrand, localCurrency, localWebhook, '', '');
   };
 
 
@@ -1125,28 +1115,7 @@ export default function Configuration({
             </div>
           )}
 
-          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1.5rem' }}>
-            <div className="form-group">
-              <label className="form-label">Bank Account Number</label>
-              <input
-                type="text"
-                className="form-input"
-                value={localBankAccount}
-                onChange={(e) => setLocalBankAccount(e.target.value)}
-                placeholder="e.g. 05200112553962"
-              />
-            </div>
-            <div className="form-group">
-              <label className="form-label">Bank IBAN</label>
-              <input
-                type="text"
-                className="form-input"
-                value={localBankIban}
-                onChange={(e) => setLocalBankIban(e.target.value)}
-                placeholder="e.g. PK78MEZN0005200112553962"
-              />
-            </div>
-          </div>
+          {/* Bank Details section removed */}
           
           <div style={{ display: 'flex', justifyContent: 'flex-end', marginTop: '0.5rem' }}>
             <button type="submit" className="btn btn-primary">

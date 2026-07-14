@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef, createContext, useContext, lazy, Suspense } from 'react';
-import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
+import { BrowserRouter, Routes, Route, Navigate, useNavigate } from 'react-router-dom';
 import { supabase } from './lib/supabase';
 import { getTeamIds, PLAN_LIMITS } from './lib/utils';
 import { Lock } from 'lucide-react';
@@ -34,6 +34,7 @@ const GetStarted = lazy(() => import('./components/GetStarted'));
 const GoogleCalendarCallback = lazy(() => import('./components/GoogleCalendarCallback'));
 const GoogleSheetsCallback = lazy(() => import('./components/GoogleSheetsCallback'));
 import UserNotificationBell from './components/UserNotificationBell';
+import SetupModal from './components/SetupModal';
 import { HelmetProvider } from 'react-helmet-async';
 import GlobalHelmet from './components/GlobalHelmet';
 
@@ -223,8 +224,6 @@ function AppProvider({ children }) {
   const [brandName, setBrandName] = useState('ReachDesk');
   const [currencySymbol, setCurrencySymbol] = useState('PKR');
   const [webhookUrl, setWebhookUrl] = useState('');
-  const [bankAccount, setBankAccount] = useState('');
-  const [bankIban, setBankIban] = useState('');
   const [teamIds, setTeamIds] = useState([]);
   const [teamProfilesMap, setTeamProfilesMap] = useState({});
   const [leads, setLeads] = useState([]);
@@ -292,8 +291,6 @@ function AppProvider({ children }) {
     setBrandName(localStorage.getItem('reachdesk_brand_name') || 'ReachDesk');
     setCurrencySymbol(localStorage.getItem('reachdesk_currency_symbol') || 'PKR');
     setWebhookUrl(localStorage.getItem('reachdesk_webhook_url') || '');
-    setBankAccount(localStorage.getItem('reachdesk_bank_account') || '');
-    setBankIban(localStorage.getItem('reachdesk_bank_iban') || '');
   }, []);
 
   // Auth listener
@@ -722,17 +719,13 @@ function AppProvider({ children }) {
     else document.documentElement.classList.remove('light');
   };
 
-  const handleSaveSettings = (newBrand, newCurrency, newWebhook, newBankAccount, newBankIban) => {
+  const handleSaveSettings = (newBrand, newCurrency, newWebhook) => {
     localStorage.setItem('reachdesk_brand_name', newBrand);
     localStorage.setItem('reachdesk_currency_symbol', newCurrency);
     localStorage.setItem('reachdesk_webhook_url', newWebhook);
-    localStorage.setItem('reachdesk_bank_account', newBankAccount || '');
-    localStorage.setItem('reachdesk_bank_iban', newBankIban || '');
     setBrandName(newBrand);
     setCurrencySymbol(newCurrency);
     setWebhookUrl(newWebhook);
-    setBankAccount(newBankAccount || '');
-    setBankIban(newBankIban || '');
     alert('Settings saved successfully!');
   };
 
@@ -975,7 +968,7 @@ function AppProvider({ children }) {
 
   const value = {
     session, profile, subStatus, loading,
-    theme, toggleTheme, brandName, currencySymbol, webhookUrl, bankAccount, bankIban,
+    theme, toggleTheme, brandName, currencySymbol, webhookUrl,
     teamIds, teamProfilesMap, leads, templates, userSnippets, invoices, revenueLogs,
     adminNotifCount, remindersCount,
     toast, showToast,
@@ -1072,8 +1065,8 @@ function UpgradeRoutePage() {
       profile={profile}
       handleLogout={handleLogout}
       onRefreshProfile={fetchProfile}
-      bankAccount={bankAccount}
-      bankIban={bankIban}
+      bankAccount=""
+      bankIban=""
       isEmbedded={!isForcedPaywall}
     />
   );
@@ -1123,8 +1116,8 @@ function InvoicesPage() {
       onUpdateInvoiceStatus={handleUpdateInvoiceStatus}
       onUpdateInvoice={handleUpdateInvoice}
       currencySymbol={currencySymbol}
-      bankAccount={bankAccount}
-      bankIban={bankIban}
+      bankAccount=""
+      bankIban=""
     />
   );
 }
@@ -1178,15 +1171,13 @@ function RemindersPage() {
 }
 
 function SettingsPage() {
-  const { profile, brandName, currencySymbol, webhookUrl, bankAccount, bankIban, leads, templates, handleSaveSettings, fetchAllData, fetchProfile } = useAppContext();
+  const { profile, brandName, currencySymbol, webhookUrl, leads, templates, handleSaveSettings, fetchAllData, fetchProfile } = useAppContext();
   const userTemplatesCount = (templates || []).filter(t => t.user_id === profile?.id && !t.is_starter).length;
   return (
     <Configuration
       brandName={brandName}
       currencySymbol={currencySymbol}
       webhookUrl={webhookUrl}
-      bankAccount={bankAccount}
-      bankIban={bankIban}
       onSaveSettings={handleSaveSettings}
       currentUser={profile}
       leadsCount={leads.length}
@@ -1319,13 +1310,24 @@ export default function App() {
 }
 
 function AppRoutes() {
-  const { loading, session, profile, fetchProfile } = useAppContext();
+  const { loading, session, profile, fetchProfile, handleSaveSettings } = useAppContext();
+  const navigate = useNavigate();
   if (loading) return <LoadingSpinner />;
+
+  const showSetupModal = session && profile && !profile.has_completed_setup;
 
   return (
     <Suspense fallback={<LoadingSpinner />}>
       {session && profile && (
         <UserNotificationBell profile={profile} onRefreshProfile={fetchProfile} />
+      )}
+      {showSetupModal && (
+        <SetupModal
+          profile={profile}
+          onRefreshProfile={fetchProfile}
+          onSaveSettings={handleSaveSettings}
+          navigate={navigate}
+        />
       )}
       <Routes>
         {/* Public routes */}
