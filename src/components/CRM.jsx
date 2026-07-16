@@ -56,7 +56,7 @@ const DEFAULT_STATUSES = [
 ];
 
 const SORT_OPTIONS = [
-  { value: 'newest',    label: 'Newest First' },
+  { value: 'newest',    label: 'Recently Added' },
   { value: 'contacted', label: 'Recently Contacted' },
   { value: 'hot',       label: 'Hot First' },
   { value: 'name',      label: 'Name A → Z' },

@@ -18,7 +18,7 @@ import { CheckCircle, XCircle, Loader } from 'lucide-react';
  */
 export default function GoogleCalendarCallback() {
   const navigate = useNavigate();
-  const [status, setStatus] = useState<'loading' | 'success' | 'error'>('loading');
+  const [status, setStatus] = useState('loading');
   const [errorMessage, setErrorMessage] = useState('');
 
   useEffect(() => {
