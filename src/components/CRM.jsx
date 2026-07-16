@@ -2069,7 +2069,7 @@ export default function CRM({
                     sessionStorage.setItem('sheets_oauth_return', window.location.pathname + window.location.search);
                     const redirectUri = `${window.location.origin}/auth/google-sheets/callback`;
                     const clientId = import.meta.env.VITE_GOOGLE_SHEETS_CLIENT_ID;
-                    const scope = 'https://www.googleapis.com/auth/spreadsheets https://www.googleapis.com/auth/drive.readonly';
+                    const scope = 'https://www.googleapis.com/auth/spreadsheets https://www.googleapis.com/auth/drive.file';
                     const authUrl = `https://accounts.google.com/o/oauth2/v2/auth?client_id=${encodeURIComponent(clientId)}&redirect_uri=${encodeURIComponent(redirectUri)}&response_type=code&scope=${encodeURIComponent(scope)}&access_type=offline&prompt=consent`;
                     window.location.href = authUrl;
                   } else {
@@ -2109,7 +2109,7 @@ export default function CRM({
                             sessionStorage.setItem('sheets_oauth_return', window.location.pathname + window.location.search);
                             const redirectUri = `${window.location.origin}/auth/google-sheets/callback`;
                             const clientId = import.meta.env.VITE_GOOGLE_SHEETS_CLIENT_ID;
-                            const scope = 'https://www.googleapis.com/auth/spreadsheets https://www.googleapis.com/auth/drive.readonly';
+                            const scope = 'https://www.googleapis.com/auth/spreadsheets https://www.googleapis.com/auth/drive.file';
                             const authUrl = `https://accounts.google.com/o/oauth2/v2/auth?client_id=${encodeURIComponent(clientId)}&redirect_uri=${encodeURIComponent(redirectUri)}&response_type=code&scope=${encodeURIComponent(scope)}&access_type=offline&prompt=consent`;
                             window.location.href = authUrl;
                           } else {

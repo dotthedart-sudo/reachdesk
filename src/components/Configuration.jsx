@@ -7,7 +7,7 @@ import {
   Settings, Save, CreditCard, 
   AlertCircle, Users, Mail, UserMinus, User, Upload,
   Download, FileText, Sparkles, Plus, Trash2, Edit3,
-  Calendar, CheckCircle, Unlink, Lock
+  Calendar, CheckCircle, Unlink, Lock, Check
 } from 'lucide-react';
 import { exportLeads, exportNotes } from '../utils/exportUtils';
 import CurrencySelector, { CURRENCY_MAP } from './CurrencySelector';
@@ -376,7 +376,7 @@ export default function Configuration({
     sessionStorage.setItem('google_sheets_oauth_origin', '/settings?tab=integrations');
     const clientId = import.meta.env.VITE_GOOGLE_SHEETS_CLIENT_ID;
     const redirectUri = encodeURIComponent(window.location.origin + '/auth/google-sheets/callback');
-    const scope = encodeURIComponent('https://www.googleapis.com/auth/spreadsheets');
+    const scope = encodeURIComponent('https://www.googleapis.com/auth/spreadsheets https://www.googleapis.com/auth/drive.file');
     window.location.href = [
       'https://accounts.google.com/o/oauth2/v2/auth',
       `?client_id=${clientId}`,
