@@ -1,11 +1,13 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
-import { Sun, Moon, Columns, Clock, PenTool, FileText, TrendingUp, BookOpen } from 'lucide-react';
+import { Sun, Moon, Columns, Clock, PenTool, FileText, TrendingUp, BookOpen, Calendar, FileSpreadsheet } from 'lucide-react';
 import { useAppContext } from '../App';
 import { BILLING } from './Paywalls';
 import { useLocalCurrency } from '../utils/useLocalCurrency';
 import heroDark from '../assets/hero.png';
 import heroLight from '../assets/hero_light.png';
+import { Helmet } from 'react-helmet-async';
+import { siteMeta, generateOGTags } from '../config/metadata';
 
 export default function Homepage({ currentUserEmail }) {
   const navigate = useNavigate();
@@ -36,8 +38,8 @@ export default function Homepage({ currentUserEmail }) {
   const tabContents = {
     pipeline: {
       eyebrow: '// CRM for freelancers & agency owners',
-      title: 'Your leads.\nYour pipeline.\nYour clients.',
-      subhead: 'Manage leads, track every touchpoint, and turn prospects into paying clients — all from one dashboard you control.',
+      title: 'Stop ghosting your own leads.',
+      subhead: 'ReachDesk CRM tells you exactly which lead to follow up with today. You write and send every message yourself — we just make sure nothing falls through the cracks.',
     },
     reminders: {
       eyebrow: '// Never forget to follow up',
@@ -116,6 +118,14 @@ export default function Homepage({ currentUserEmail }) {
 
   return (
     <div className="hp-root" data-theme={theme}>
+      <Helmet>
+        <title>{siteMeta.pages.homepage.title}</title>
+        <meta name="description" content={siteMeta.pages.homepage.description} />
+        <meta name="keywords" content={siteMeta.pages.homepage.keywords} />
+        {Object.entries(generateOGTags(siteMeta.pages.homepage.title, siteMeta.pages.homepage.description)).map(([key, value]) => (
+          <meta key={key} property={key} content={value} />
+        ))}
+      </Helmet>
       {/* ── 1. NAV ── */}
       <nav className="hp-nav">
         <div 
@@ -323,7 +333,44 @@ export default function Homepage({ currentUserEmail }) {
         </div>
       </section>
 
-      {/* ── 5. PRICING ── */}
+      {/* ── 5. INTEGRATIONS ── */}
+      <section id="integrations" className="hp-integrations-section">
+        <span className="hp-section-label">// INTEGRATIONS</span>
+        <h2 className="hp-section-h2">
+          Works with tools you already use
+        </h2>
+        <p className="hp-integrations-subhead">
+          Connect Google Calendar — leads get marked &quot;Booked&quot; automatically 
+          when they schedule a meeting with you. Import and export leads 
+          directly with Google Sheets — no CSV juggling required.
+        </p>
+
+        <div className="hp-integrations-grid">
+          {/* Card 1: Google Calendar */}
+          <div className="hp-integrations-card">
+            <div className="hp-integration-icon-wrapper">
+              <Calendar size={18} />
+            </div>
+            <div className="hp-integration-card-content">
+              <span className="hp-integration-name">Google Calendar</span>
+              <span className="hp-integration-desc">Auto-detects booked meetings</span>
+            </div>
+          </div>
+
+          {/* Card 2: Google Sheets */}
+          <div className="hp-integrations-card">
+            <div className="hp-integration-icon-wrapper">
+              <FileSpreadsheet size={18} />
+            </div>
+            <div className="hp-integration-card-content">
+              <span className="hp-integration-name">Google Sheets</span>
+              <span className="hp-integration-desc">Import &amp; export leads instantly</span>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      {/* ── 6. PRICING ── */}
       <section id="pricing" className="hp-pricing-section">
         <span className="hp-section-label">// PRICING</span>
         <div style={{ width: '100%', display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', flexWrap: 'wrap', gap: '1rem', marginBottom: '3rem' }}>

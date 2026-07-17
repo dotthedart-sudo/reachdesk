@@ -1446,6 +1446,87 @@ select option {
   font-size: 11px;
   color: var(--text-muted);
 }
+/* ── INTEGRATIONS ── */
+.hp-integrations-section {
+  padding: 60px 40px;
+  border-top: 1px solid var(--border);
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  width: 100%;
+  box-sizing: border-box;
+}
+
+.hp-integrations-subhead {
+  font-family: 'Mattone', sans-serif;
+  font-size: 12.5px;
+  line-height: 1.5;
+  color: var(--text-muted);
+  margin-bottom: 2.5rem;
+  max-width: 800px;
+}
+
+.hp-integrations-grid {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 1.25rem;
+  width: 100%;
+}
+
+.hp-integrations-card {
+  border: 0.5px solid var(--border);
+  border-radius: 3px;
+  background-color: var(--bg-card, var(--bg-elevated));
+  padding: 1.5rem;
+  display: flex;
+  align-items: center;
+  gap: 1.25rem;
+  transition: border-color 0.2s ease, background-color 0.2s ease;
+}
+
+.hp-integrations-card:hover {
+  background-color: var(--bg-card-hover, var(--bg-elevated));
+  border-color: var(--border-strong, var(--border));
+}
+
+.hp-integration-icon-wrapper {
+  width: 36px;
+  height: 36px;
+  border-radius: 3px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+}
+
+.hp-integrations-card:nth-child(odd) .hp-integration-icon-wrapper {
+  background-color: rgba(91, 143, 185, 0.12);
+  color: var(--accent-blue);
+}
+
+.hp-integrations-card:nth-child(even) .hp-integration-icon-wrapper {
+  background-color: rgba(127, 181, 160, 0.12);
+  color: var(--accent-sage);
+}
+
+.hp-integration-card-content {
+  display: flex;
+  flex-direction: column;
+  gap: 0.25rem;
+}
+
+.hp-integration-name {
+  font-family: 'Mattone', sans-serif;
+  font-size: 12.5px;
+  color: var(--white);
+  font-weight: normal;
+}
+
+.hp-integration-desc {
+  font-family: 'Mattone', sans-serif;
+  font-size: 11px;
+  color: var(--text-muted);
+}
 
 /* ── PRICING ── */
 .hp-pricing-section {
@@ -1694,6 +1775,11 @@ select option {
   .hp-feature-row-title {
     min-width: unset;
   }
+
+  .hp-integrations-grid {
+    grid-template-columns: 1fr;
+    gap: 1rem;
+  }
 }
 
 @media (max-width: 600px) {
@@ -1722,6 +1808,10 @@ select option {
   }
 
   .hp-features-section {
+    padding: 40px 20px;
+  }
+
+  .hp-integrations-section {
     padding: 40px 20px;
   }
 
