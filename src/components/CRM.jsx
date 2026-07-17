@@ -9,7 +9,8 @@ import {
   Filter, CheckSquare, Square, Folder, FolderPlus,
   MoreVertical, Check, ThumbsUp, ThumbsDown, SkipForward, AlertCircle, ChevronDown, FileText,
   Settings as Gear, MessageCircle, Zap, ExternalLink, Lock, Lightbulb, Copy, Sparkles, Mail,
-  Database, Info, Users
+  Database, Info, Users,
+  User, Phone, Building2, Tag, Link2, Globe, Flag, CircleDot, StickyNote
 } from 'lucide-react';
 
 import EditableDropdown from './CRM/EditableDropdown';
@@ -911,14 +912,28 @@ export default function CRM({
       const first_name = parts[0] || '';
       const last_name = parts.slice(1).join(' ') || null;
 
-      const linkedin = (leadForm.links || []).find(l => l.label === 'LinkedIn')?.url || null;
-      const instagram = (leadForm.links || []).find(l => l.label === 'Instagram')?.url || null;
-      const twitter = (leadForm.links || []).find(l => l.label === 'Twitter')?.url || null;
-      const website = (leadForm.links || []).find(l => l.label === 'Website')?.url || null;
+      const linksArray = [...(leadForm.links || [])];
+      if (pastedLink && pastedLink.trim()) {
+        const val = pastedLink.trim();
+        const cleanUrl = val.startsWith('http') ? val : `https://${val}`;
+        const label = detectPlatformLabel(val);
+        if (!linksArray.some(l => l.url === cleanUrl)) {
+          linksArray.push({ url: cleanUrl, label });
+        }
+      }
+
+      const urlUpdates = { linkedin_url: null, instagram_url: null, twitter_url: null, website: null };
+      linksArray.forEach(link => {
+        const url = typeof link === 'string' ? link : link.url;
+        if (url.includes('linkedin.com')) urlUpdates.linkedin_url = url;
+        else if (url.includes('instagram.com')) urlUpdates.instagram_url = url;
+        else if (url.includes('twitter.com') || url.includes('x.com')) urlUpdates.twitter_url = url;
+        else urlUpdates.website = url;
+      });
 
       const finalCustomFields = {
         ...(leadForm.custom_fields || {}),
-        links: leadForm.links || []
+        links: linksArray
       };
 
       const { data, error } = await supabase.from('leads')
@@ -929,10 +944,10 @@ export default function CRM({
           phone: leadForm.phone || null,
           company: leadForm.company || null,
           niche: leadForm.niche || null,
-          linkedin_url: linkedin,
-          instagram_url: instagram,
-          twitter_url: twitter,
-          website: website,
+          linkedin_url: urlUpdates.linkedin_url,
+          instagram_url: urlUpdates.instagram_url,
+          twitter_url: urlUpdates.twitter_url,
+          website: urlUpdates.website,
           priority: leadForm.priority || 'Warm',
           status: leadForm.status || 'Lead',
           notes: leadForm.notes || null,
@@ -1045,12 +1060,18 @@ export default function CRM({
   const handleOpenEditLead = (lead) => {
     setActiveLead(lead);
     const existingLinks = lead.custom_fields?.links ? [...lead.custom_fields.links] : [];
-    if (existingLinks.length === 0) {
-      if (lead.linkedin_url) existingLinks.push({ url: lead.linkedin_url, label: 'LinkedIn' });
-      if (lead.instagram_url) existingLinks.push({ url: lead.instagram_url, label: 'Instagram' });
-      if (lead.twitter_url) existingLinks.push({ url: lead.twitter_url, label: 'Twitter' });
-      if (lead.website) existingLinks.push({ url: lead.website, label: 'Website' });
-    }
+    
+    // Ensure all URL columns are also present in existingLinks to pre-populate correctly
+    const addIfMissing = (url, label) => {
+      if (url && !existingLinks.some(l => l.url === url)) {
+        existingLinks.push({ url, label });
+      }
+    };
+    
+    addIfMissing(lead.linkedin_url, 'LinkedIn');
+    addIfMissing(lead.instagram_url, 'Instagram');
+    addIfMissing(lead.twitter_url, 'Twitter');
+    addIfMissing(lead.website, 'Website');
 
     setLeadForm({
       name: `${lead.first_name || ''} ${lead.last_name || ''}`.trim(),
@@ -1078,14 +1099,28 @@ export default function CRM({
       const first_name = parts[0] || '';
       const last_name = parts.slice(1).join(' ') || null;
 
-      const linkedin = (leadForm.links || []).find(l => l.label === 'LinkedIn')?.url || null;
-      const instagram = (leadForm.links || []).find(l => l.label === 'Instagram')?.url || null;
-      const twitter = (leadForm.links || []).find(l => l.label === 'Twitter')?.url || null;
-      const website = (leadForm.links || []).find(l => l.label === 'Website')?.url || null;
+      const linksArray = [...(leadForm.links || [])];
+      if (pastedLink && pastedLink.trim()) {
+        const val = pastedLink.trim();
+        const cleanUrl = val.startsWith('http') ? val : `https://${val}`;
+        const label = detectPlatformLabel(val);
+        if (!linksArray.some(l => l.url === cleanUrl)) {
+          linksArray.push({ url: cleanUrl, label });
+        }
+      }
+
+      const urlUpdates = { linkedin_url: null, instagram_url: null, twitter_url: null, website: null };
+      linksArray.forEach(link => {
+        const url = typeof link === 'string' ? link : link.url;
+        if (url.includes('linkedin.com')) urlUpdates.linkedin_url = url;
+        else if (url.includes('instagram.com')) urlUpdates.instagram_url = url;
+        else if (url.includes('twitter.com') || url.includes('x.com')) urlUpdates.twitter_url = url;
+        else urlUpdates.website = url;
+      });
 
       const finalCustomFields = {
         ...(leadForm.custom_fields || {}),
-        links: leadForm.links || []
+        links: linksArray
       };
 
       const { data, error } = await supabase.from('leads')
@@ -1096,10 +1131,10 @@ export default function CRM({
           phone: leadForm.phone || null,
           company: leadForm.company || null,
           niche: leadForm.niche || null,
-          linkedin_url: linkedin,
-          instagram_url: instagram,
-          twitter_url: twitter,
-          website: website,
+          linkedin_url: urlUpdates.linkedin_url,
+          instagram_url: urlUpdates.instagram_url,
+          twitter_url: urlUpdates.twitter_url,
+          website: urlUpdates.website,
           priority: leadForm.priority || 'Warm',
           status: leadForm.status || 'Lead',
           notes: leadForm.notes || null,
@@ -2923,10 +2958,12 @@ export default function CRM({
               <h3>Add Lead</h3>
               <button onClick={() => setShowAddLeadModal(false)} className="theme-toggle"><X size={18} /></button>
             </div>
-            <form onSubmit={handleAddLead} className="flex-col gap-3">
+            <form onSubmit={handleAddLead} style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
               {/* Row 1: Name */}
-              <div className="form-group">
-                <label className="form-label">Name *</label>
+              <div className="form-group" style={{ marginBottom: '0.4rem', gap: '4px' }}>
+                <label className="form-label" style={{ display: 'flex', alignItems: 'center', gap: '4px', marginBottom: '2px' }}>
+                  <User size={14} style={{ color: 'var(--text-muted)' }} /> Name *
+                </label>
                 <input
                   type="text"
                   required
@@ -2934,141 +2971,190 @@ export default function CRM({
                   value={leadForm.name}
                   onChange={e => setLeadForm({...leadForm, name: e.target.value})}
                   className="form-input"
+                  style={{ padding: '0.35rem 0.5rem', fontSize: '0.875rem' }}
                 />
               </div>
 
               {/* Row 2: Email | Phone */}
-              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1rem' }}>
-                <div className="form-group">
-                  <label className="form-label">Email Address</label>
+              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '0.75rem' }}>
+                <div className="form-group" style={{ marginBottom: '0.4rem', gap: '4px' }}>
+                  <label className="form-label" style={{ display: 'flex', alignItems: 'center', gap: '4px', marginBottom: '2px' }}>
+                    <Mail size={14} style={{ color: 'var(--text-muted)' }} /> Email Address
+                  </label>
                   <input
                     type="email"
                     value={leadForm.email}
                     onChange={e => setLeadForm({...leadForm, email: e.target.value})}
                     className="form-input"
+                    style={{ padding: '0.35rem 0.5rem', fontSize: '0.875rem' }}
                   />
                 </div>
-                <div className="form-group">
-                  <label className="form-label">Phone</label>
+                <div className="form-group" style={{ marginBottom: '0.4rem', gap: '4px' }}>
+                  <label className="form-label" style={{ display: 'flex', alignItems: 'center', gap: '4px', marginBottom: '2px' }}>
+                    <Phone size={14} style={{ color: 'var(--text-muted)' }} /> Phone
+                  </label>
                   <input
                     type="text"
                     value={leadForm.phone}
                     onChange={e => setLeadForm({...leadForm, phone: e.target.value})}
                     className="form-input"
+                    style={{ padding: '0.35rem 0.5rem', fontSize: '0.875rem' }}
                   />
                 </div>
               </div>
 
               {/* Row 3: Company | Niche */}
-              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1rem' }}>
-                <div className="form-group">
-                  <label className="form-label">Company Name</label>
+              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '0.75rem' }}>
+                <div className="form-group" style={{ marginBottom: '0.4rem', gap: '4px' }}>
+                  <label className="form-label" style={{ display: 'flex', alignItems: 'center', gap: '4px', marginBottom: '2px' }}>
+                    <Building2 size={14} style={{ color: 'var(--text-muted)' }} /> Company Name
+                  </label>
                   <input
                     type="text"
                     value={leadForm.company}
                     onChange={e => setLeadForm({...leadForm, company: e.target.value})}
                     className="form-input"
+                    style={{ padding: '0.35rem 0.5rem', fontSize: '0.875rem' }}
                   />
                 </div>
-                <div className="form-group">
-                  <label className="form-label">Niche</label>
+                <div className="form-group" style={{ marginBottom: '0.4rem', gap: '4px' }}>
+                  <label className="form-label" style={{ display: 'flex', alignItems: 'center', gap: '4px', marginBottom: '2px' }}>
+                    <Tag size={14} style={{ color: 'var(--text-muted)' }} /> Niche
+                  </label>
                   <input
                     type="text"
                     placeholder="e.g. SaaS Founders"
                     value={leadForm.niche}
                     onChange={e => setLeadForm({...leadForm, niche: e.target.value})}
                     className="form-input"
+                    style={{ padding: '0.35rem 0.5rem', fontSize: '0.875rem' }}
                   />
                 </div>
               </div>
 
               {/* Links Section */}
-              <div className="form-group" style={{ marginTop: '0.5rem', marginBottom: '1rem' }}>
-                <label className="form-label">Links — paste any URL</label>
-                <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem', marginBottom: '0.5rem' }}>
-                  {(leadForm.links || []).map((link, idx) => {
-                    const detected = detectDomainIcon(link.url);
-                    const IconComp = detected.icon;
-                    return (
-                      <div
-                        key={idx}
-                        style={{
-                          display: 'flex',
-                          alignItems: 'center',
-                          gap: '0.5rem',
-                          background: 'rgba(255, 255, 255, 0.02)',
-                          padding: '0.4rem 0.6rem',
-                          borderRadius: '6px',
-                          border: '1px solid var(--border)'
-                        }}
-                      >
-                        <IconComp size={15} color={detected.color} style={{ flexShrink: 0 }} />
-                        <span
+              <div className="form-group" style={{ marginBottom: '0.4rem', gap: '4px' }}>
+                <label className="form-label" style={{ display: 'flex', alignItems: 'center', gap: '4px', marginBottom: '2px' }}>
+                  <Link2 size={14} style={{ color: 'var(--text-muted)' }} /> Links
+                </label>
+                {leadForm.links && leadForm.links.length > 0 && (
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: '4px', marginBottom: '4px' }}>
+                    {leadForm.links.map((link, idx) => {
+                      const detected = detectDomainIcon(link.url);
+                      const IconComp = detected.icon;
+                      return (
+                        <div
+                          key={idx}
                           style={{
-                            fontSize: '0.82rem',
-                            color: 'var(--text-secondary)',
-                            flex: 1,
-                            overflow: 'hidden',
-                            textOverflow: 'ellipsis',
-                            whiteSpace: 'nowrap'
-                          }}
-                          title={link.url}
-                        >
-                          {link.url}
-                        </span>
-                        <button
-                          type="button"
-                          onClick={() => {
-                            setLeadForm(prev => ({
-                              ...prev,
-                              links: prev.links.filter((_, i) => i !== idx)
-                            }));
-                          }}
-                          style={{
-                            background: 'none',
-                            border: 'none',
-                            color: 'var(--status-hot, #ef4444)',
-                            cursor: 'pointer',
-                            fontSize: '0.9rem',
-                            padding: '0 4px',
                             display: 'flex',
-                            alignItems: 'center'
+                            alignItems: 'center',
+                            gap: '0.5rem',
+                            background: 'rgba(255, 255, 255, 0.01)',
+                            padding: '0.25rem 0.5rem',
+                            borderRadius: '4px',
+                            border: '1px solid var(--border-strong, #30363d)',
                           }}
-                          title="Remove link"
                         >
-                          ×
-                        </button>
-                      </div>
-                    );
-                  })}
+                          <IconComp size={14} color={detected.color} style={{ flexShrink: 0 }} />
+                          <span
+                            style={{
+                              fontSize: '0.8rem',
+                              color: 'var(--text-secondary)',
+                              flex: 1,
+                              overflow: 'hidden',
+                              textOverflow: 'ellipsis',
+                              whiteSpace: 'nowrap'
+                            }}
+                            title={link.url}
+                          >
+                            {link.url}
+                          </span>
+                          <button
+                            type="button"
+                            onClick={() => {
+                              setLeadForm(prev => ({
+                                ...prev,
+                                links: prev.links.filter((_, i) => i !== idx)
+                              }));
+                            }}
+                            style={{
+                              background: 'none',
+                              border: 'none',
+                              color: 'var(--status-hot, #ef4444)',
+                              cursor: 'pointer',
+                              display: 'flex',
+                              alignItems: 'center',
+                              padding: '0 2px'
+                            }}
+                            title="Remove link"
+                          >
+                            <X size={12} />
+                          </button>
+                        </div>
+                      );
+                    })}
+                  </div>
+                )}
+                <div style={{ display: 'flex', gap: '0.25rem', alignItems: 'center' }}>
+                  <input
+                    type="text"
+                    placeholder="Paste any link..."
+                    value={pastedLink}
+                    onChange={e => setPastedLink(e.target.value)}
+                    onKeyDown={handleAddPastedLink}
+                    className="form-input"
+                    style={{
+                      flex: 1,
+                      padding: '0.35rem 0.5rem',
+                      fontSize: '0.82rem',
+                      height: '30px'
+                    }}
+                  />
+                  <button
+                    type="button"
+                    onClick={() => {
+                      handleAddPastedLink({
+                        key: 'Enter',
+                        preventDefault: () => {}
+                      });
+                    }}
+                    className="btn btn-secondary"
+                    style={{
+                      height: '30px',
+                      padding: '0 0.5rem',
+                      display: 'flex',
+                      alignItems: 'center',
+                      justifyContent: 'center',
+                      borderColor: 'var(--border-strong)'
+                    }}
+                    title="Add link"
+                  >
+                    <Plus size={14} />
+                  </button>
                 </div>
-                <input
-                  type="text"
-                  placeholder="+ Paste any link and press Enter..."
-                  value={pastedLink}
-                  onChange={e => setPastedLink(e.target.value)}
-                  onKeyDown={handleAddPastedLink}
-                  className="form-input"
-                  style={{ borderStyle: 'dashed', borderColor: 'var(--border)' }}
-                />
               </div>
 
               {/* Row 5: Priority | Status */}
-              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1rem' }}>
-                <div className="form-group">
-                  <label className="form-label">Priority</label>
+              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '0.75rem' }}>
+                <div className="form-group" style={{ marginBottom: '0.4rem', gap: '4px' }}>
+                  <label className="form-label" style={{ display: 'flex', alignItems: 'center', gap: '4px', marginBottom: '2px' }}>
+                    <Flag size={14} style={{ color: 'var(--text-muted)' }} /> Priority
+                  </label>
                   <select
                     value={leadForm.priority}
                     onChange={e => setLeadForm({...leadForm, priority: e.target.value})}
                     className="form-select"
+                    style={{ padding: '0.35rem 0.5rem', fontSize: '0.875rem', height: '32px' }}
                   >
                     <option value="Cold">Cold</option>
                     <option value="Warm">Warm</option>
                     <option value="Hot">Hot</option>
                   </select>
                 </div>
-                <div className="form-group">
-                  <label className="form-label">Status</label>
+                <div className="form-group" style={{ marginBottom: '0.4rem', gap: '4px' }}>
+                  <label className="form-label" style={{ display: 'flex', alignItems: 'center', gap: '4px', marginBottom: '2px' }}>
+                    <CircleDot size={14} style={{ color: 'var(--text-muted)' }} /> Status
+                  </label>
                   <GroupedStatusDropdown
                     value={leadForm.status}
                     onChange={val => setLeadForm({...leadForm, status: val})}
@@ -3078,13 +3164,16 @@ export default function CRM({
               </div>
 
               {/* Row 6: Assign to Folder | Template Used */}
-              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1rem' }}>
-                <div className="form-group">
-                  <label className="form-label">Assign to Folder</label>
+              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '0.75rem' }}>
+                <div className="form-group" style={{ marginBottom: '0.4rem', gap: '4px' }}>
+                  <label className="form-label" style={{ display: 'flex', alignItems: 'center', gap: '4px', marginBottom: '2px' }}>
+                    <Folder size={14} style={{ color: 'var(--text-muted)' }} /> Assign to Folder
+                  </label>
                   <select
                     value={getFolderSelectValue()}
                     onChange={e => handleFolderChange(e.target.value)}
                     className="form-select"
+                    style={{ padding: '0.35rem 0.5rem', fontSize: '0.875rem', height: '32px' }}
                   >
                     <option value="">(No Folder / All Leads)</option>
                     <optgroup label="System Folders">
@@ -3111,8 +3200,10 @@ export default function CRM({
                     </optgroup>
                   </select>
                 </div>
-                <div className="form-group">
-                  <label className="form-label">Template Used</label>
+                <div className="form-group" style={{ marginBottom: '0.4rem', gap: '4px' }}>
+                  <label className="form-label" style={{ display: 'flex', alignItems: 'center', gap: '4px', marginBottom: '2px' }}>
+                    <FileText size={14} style={{ color: 'var(--text-muted)' }} /> Template Used
+                  </label>
                   <GroupedTemplateDropdown
                     value={leadForm.template_used}
                     onChange={val => setLeadForm({...leadForm, template_used: val})}
@@ -3123,28 +3214,30 @@ export default function CRM({
               </div>
 
               {/* Row 7: Notes textarea (full width) */}
-              <div className="form-group">
-                <label className="form-label">Notes</label>
+              <div className="form-group" style={{ marginBottom: '0.4rem', gap: '4px' }}>
+                <label className="form-label" style={{ display: 'flex', alignItems: 'center', gap: '4px', marginBottom: '2px' }}>
+                  <StickyNote size={14} style={{ color: 'var(--text-muted)' }} /> Notes
+                </label>
                 <textarea
                   value={leadForm.notes}
                   onChange={e => setLeadForm({...leadForm, notes: e.target.value})}
                   className="form-textarea"
-                  style={{ minHeight: '80px' }}
+                  style={{ minHeight: '60px', height: '60px', padding: '0.35rem 0.5rem', fontSize: '0.85rem' }}
                 />
               </div>
 
               {/* Custom Fields Section */}
-              <div style={{ borderTop: '0.5px solid var(--border)', marginTop: '1.5rem', paddingTop: '1rem' }}>
+              <div style={{ borderTop: '0.5px solid var(--border)', marginTop: '0.5rem', paddingTop: '0.5rem' }}>
                 <span style={{ fontSize: '0.75rem', letterSpacing: '0.1em', textTransform: 'uppercase', color: 'var(--text-muted)', fontWeight: 600 }}>Custom Fields</span>
               </div>
 
               {/* Render existing custom fields */}
-              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1rem', marginTop: '0.75rem' }}>
+              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '0.75rem', marginTop: '0.4rem' }}>
                 {columnDefs.filter(c => !c.is_default && c.table_view === (view === 'pipeline' ? 'pipeline' : 'contact_details')).map(col => {
                   const val = leadForm.custom_fields?.[col.column_key] || '';
                   return (
-                    <div key={col.id} className="form-group" style={{ position: 'relative' }}>
-                      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '0.25rem' }}>
+                    <div key={col.id} className="form-group" style={{ position: 'relative', marginBottom: '0.4rem', gap: '4px' }}>
+                      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '2px' }}>
                         <label className="form-label" style={{ marginBottom: 0 }}>{col.column_label}</label>
                         <button
                           type="button"
@@ -3161,7 +3254,7 @@ export default function CRM({
                           }}
                           title="Clear value"
                         >
-                          ×
+                          <X size={12} />
                         </button>
                       </div>
                       <input
@@ -3176,6 +3269,7 @@ export default function CRM({
                         }))}
                         className="form-input"
                         placeholder={`Enter ${col.column_label.toLowerCase()}...`}
+                        style={{ padding: '0.35rem 0.5rem', fontSize: '0.875rem' }}
                       />
                     </div>
                   );
@@ -3183,23 +3277,25 @@ export default function CRM({
               </div>
 
               {/* Add Custom Field Inline Form */}
-              <div style={{ display: 'flex', gap: '0.75rem', alignItems: 'flex-end', marginTop: '1rem', background: 'rgba(255, 255, 255, 0.02)', padding: '0.75rem', borderRadius: '8px', border: '1px dashed var(--border)' }}>
+              <div style={{ display: 'flex', gap: '0.5rem', alignItems: 'flex-end', marginTop: '0.5rem', background: 'rgba(255, 255, 255, 0.02)', padding: '0.5rem', borderRadius: '6px', border: '1px dashed var(--border)' }}>
                 <div style={{ flex: 2 }}>
-                  <label className="form-label" style={{ color: 'var(--text-secondary)' }}>New Field Name</label>
+                  <label className="form-label" style={{ color: 'var(--text-secondary)', marginBottom: '2px' }}>New Field Name</label>
                   <input
                     type="text"
                     value={newFieldName}
                     onChange={e => setNewFieldName(e.target.value)}
                     placeholder="e.g. TikTok, Skype..."
                     className="form-input"
+                    style={{ padding: '0.25rem 0.4rem', fontSize: '0.82rem', height: '30px' }}
                   />
                 </div>
                 <div style={{ flex: 1.5 }}>
-                  <label className="form-label" style={{ color: 'var(--text-secondary)' }}>Type</label>
+                  <label className="form-label" style={{ color: 'var(--text-secondary)', marginBottom: '2px' }}>Type</label>
                   <select
                     value={newFieldType}
                     onChange={e => setNewFieldType(e.target.value)}
                     className="form-select"
+                    style={{ padding: '0.25rem 0.4rem', fontSize: '0.82rem', height: '30px' }}
                   >
                     <option value="text">Text</option>
                     <option value="link">Link</option>
@@ -3213,9 +3309,9 @@ export default function CRM({
                     setNewFieldName('');
                   }}
                   className="btn btn-secondary"
-                  style={{ height: '38px', whiteSpace: 'nowrap', display: 'flex', alignItems: 'center', gap: '4px' }}
+                  style={{ height: '30px', padding: '0 0.5rem', whiteSpace: 'nowrap', display: 'flex', alignItems: 'center', gap: '4px', fontSize: '0.82rem' }}
                 >
-                  <Plus size={14} /> Add Field
+                  <Plus size={12} /> Add Field
                 </button>
               </div>
 
@@ -3224,14 +3320,14 @@ export default function CRM({
                   type="button"
                   onClick={() => setShowAddLeadModal(false)}
                   className="btn"
-                  style={{ background: 'transparent', color: 'var(--text-primary)', border: '0.5px solid var(--border)' }}
+                  style={{ background: 'transparent', color: 'var(--text-primary)', border: '0.5px solid var(--border)', fontSize: '0.875rem', padding: '0.4rem 0.8rem' }}
                 >
                   Cancel
                 </button>
                 <button
                   type="submit"
                   className="btn"
-                  style={{ backgroundColor: 'var(--accent-blue)', color: '#0D1117', backgroundImage: 'none', border: 'none', fontWeight: 600 }}
+                  style={{ backgroundColor: 'var(--accent-blue)', color: '#0D1117', backgroundImage: 'none', border: 'none', fontWeight: 600, fontSize: '0.875rem', padding: '0.4rem 0.8rem' }}
                 >
                   Add Lead
                 </button>
@@ -3322,10 +3418,12 @@ export default function CRM({
               <h3>Edit Lead</h3>
               <button onClick={() => setShowEditLeadModal(false)} className="theme-toggle"><X size={18} /></button>
             </div>
-            <form onSubmit={handleEditLead} className="flex-col gap-3">
+            <form onSubmit={handleEditLead} style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
               {/* Row 1: Name */}
-              <div className="form-group">
-                <label className="form-label">Name *</label>
+              <div className="form-group" style={{ marginBottom: '0.4rem', gap: '4px' }}>
+                <label className="form-label" style={{ display: 'flex', alignItems: 'center', gap: '4px', marginBottom: '2px' }}>
+                  <User size={14} style={{ color: 'var(--text-muted)' }} /> Name *
+                </label>
                 <input
                   type="text"
                   required
@@ -3333,145 +3431,190 @@ export default function CRM({
                   value={leadForm.name}
                   onChange={e => setLeadForm({...leadForm, name: e.target.value})}
                   className="form-input"
+                  style={{ padding: '0.35rem 0.5rem', fontSize: '0.875rem' }}
                 />
               </div>
 
               {/* Row 2: Email | Phone */}
-              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1rem' }}>
-                <div className="form-group">
-                  <label className="form-label">Email Address</label>
+              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '0.75rem' }}>
+                <div className="form-group" style={{ marginBottom: '0.4rem', gap: '4px' }}>
+                  <label className="form-label" style={{ display: 'flex', alignItems: 'center', gap: '4px', marginBottom: '2px' }}>
+                    <Mail size={14} style={{ color: 'var(--text-muted)' }} /> Email Address
+                  </label>
                   <input
                     type="email"
                     value={leadForm.email}
                     onChange={e => setLeadForm({...leadForm, email: e.target.value})}
                     className="form-input"
+                    style={{ padding: '0.35rem 0.5rem', fontSize: '0.875rem' }}
                   />
                 </div>
-                <div className="form-group">
-                  <label className="form-label">Phone</label>
+                <div className="form-group" style={{ marginBottom: '0.4rem', gap: '4px' }}>
+                  <label className="form-label" style={{ display: 'flex', alignItems: 'center', gap: '4px', marginBottom: '2px' }}>
+                    <Phone size={14} style={{ color: 'var(--text-muted)' }} /> Phone
+                  </label>
                   <input
                     type="text"
                     value={leadForm.phone}
                     onChange={e => setLeadForm({...leadForm, phone: e.target.value})}
                     className="form-input"
+                    style={{ padding: '0.35rem 0.5rem', fontSize: '0.875rem' }}
                   />
                 </div>
               </div>
 
               {/* Row 3: Company | Niche */}
-              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1rem' }}>
-                <div className="form-group">
-                  <label className="form-label">Company Name</label>
+              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '0.75rem' }}>
+                <div className="form-group" style={{ marginBottom: '0.4rem', gap: '4px' }}>
+                  <label className="form-label" style={{ display: 'flex', alignItems: 'center', gap: '4px', marginBottom: '2px' }}>
+                    <Building2 size={14} style={{ color: 'var(--text-muted)' }} /> Company Name
+                  </label>
                   <input
                     type="text"
                     value={leadForm.company}
                     onChange={e => setLeadForm({...leadForm, company: e.target.value})}
                     className="form-input"
+                    style={{ padding: '0.35rem 0.5rem', fontSize: '0.875rem' }}
                   />
                 </div>
-                <div className="form-group">
-                  <label className="form-label">Niche</label>
+                <div className="form-group" style={{ marginBottom: '0.4rem', gap: '4px' }}>
+                  <label className="form-label" style={{ display: 'flex', alignItems: 'center', gap: '4px', marginBottom: '2px' }}>
+                    <Tag size={14} style={{ color: 'var(--text-muted)' }} /> Niche
+                  </label>
                   <input
                     type="text"
                     placeholder="e.g. SaaS Founders"
                     value={leadForm.niche}
                     onChange={e => setLeadForm({...leadForm, niche: e.target.value})}
                     className="form-input"
+                    style={{ padding: '0.35rem 0.5rem', fontSize: '0.875rem' }}
                   />
                 </div>
               </div>
 
               {/* Row 4: Links section */}
-              <div className="form-group" style={{ marginTop: '1rem', marginBottom: '1rem' }}>
-                <label className="form-label">Links — paste any URL</label>
-                <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem', marginBottom: '0.5rem' }}>
-                  {(leadForm.links || []).map((link, idx) => {
-                    const detected = detectDomainIcon(link.url);
-                    const IconComp = detected.icon;
-                    return (
-                      <div 
-                        key={idx}
-                        style={{
-                          display: 'flex',
-                          alignItems: 'center',
-                          gap: '0.5rem',
-                          background: 'rgba(255, 255, 255, 0.02)',
-                          padding: '0.4rem 0.6rem',
-                          borderRadius: '6px',
-                          border: '1px solid var(--border)'
-                        }}
-                      >
-                        <IconComp size={15} color={detected.color} style={{ flexShrink: 0 }} />
-                        <span 
+              <div className="form-group" style={{ marginBottom: '0.4rem', gap: '4px' }}>
+                <label className="form-label" style={{ display: 'flex', alignItems: 'center', gap: '4px', marginBottom: '2px' }}>
+                  <Link2 size={14} style={{ color: 'var(--text-muted)' }} /> Links
+                </label>
+                {leadForm.links && leadForm.links.length > 0 && (
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: '4px', marginBottom: '4px' }}>
+                    {leadForm.links.map((link, idx) => {
+                      const detected = detectDomainIcon(link.url);
+                      const IconComp = detected.icon;
+                      return (
+                        <div
+                          key={idx}
                           style={{
-                            fontSize: '0.82rem',
-                            color: 'var(--text-secondary)',
-                            flex: 1,
-                            overflow: 'hidden',
-                            textOverflow: 'ellipsis',
-                            whiteSpace: 'nowrap'
-                          }}
-                          title={link.url}
-                        >
-                          {link.url}
-                        </span>
-                        <button
-                          type="button"
-                          onClick={() => {
-                            setLeadForm(prev => ({
-                              ...prev,
-                              links: prev.links.filter((_, i) => i !== idx)
-                            }));
-                          }}
-                          style={{
-                            background: 'none',
-                            border: 'none',
-                            color: 'var(--status-hot, #ef4444)',
-                            cursor: 'pointer',
-                            fontSize: '0.9rem',
-                            padding: '0 4px',
                             display: 'flex',
-                            alignItems: 'center'
+                            alignItems: 'center',
+                            gap: '0.5rem',
+                            background: 'rgba(255, 255, 255, 0.01)',
+                            padding: '0.25rem 0.5rem',
+                            borderRadius: '4px',
+                            border: '1px solid var(--border-strong, #30363d)',
                           }}
-                          title="Remove link"
                         >
-                          ×
-                        </button>
-                      </div>
-                    );
-                  })}
+                          <IconComp size={14} color={detected.color} style={{ flexShrink: 0 }} />
+                          <span
+                            style={{
+                              fontSize: '0.8rem',
+                              color: 'var(--text-secondary)',
+                              flex: 1,
+                              overflow: 'hidden',
+                              textOverflow: 'ellipsis',
+                              whiteSpace: 'nowrap'
+                            }}
+                            title={link.url}
+                          >
+                            {link.url}
+                          </span>
+                          <button
+                            type="button"
+                            onClick={() => {
+                              setLeadForm(prev => ({
+                                ...prev,
+                                links: prev.links.filter((_, i) => i !== idx)
+                              }));
+                            }}
+                            style={{
+                              background: 'none',
+                              border: 'none',
+                              color: 'var(--status-hot, #ef4444)',
+                              cursor: 'pointer',
+                              display: 'flex',
+                              alignItems: 'center',
+                              padding: '0 2px'
+                            }}
+                            title="Remove link"
+                          >
+                            <X size={12} />
+                          </button>
+                        </div>
+                      );
+                    })}
+                  </div>
+                )}
+                <div style={{ display: 'flex', gap: '0.25rem', alignItems: 'center' }}>
+                  <input
+                    type="text"
+                    placeholder="Paste any link..."
+                    value={pastedLink}
+                    onChange={e => setPastedLink(e.target.value)}
+                    onKeyDown={handleAddPastedLink}
+                    className="form-input"
+                    style={{
+                      flex: 1,
+                      padding: '0.35rem 0.5rem',
+                      fontSize: '0.82rem',
+                      height: '30px'
+                    }}
+                  />
+                  <button
+                    type="button"
+                    onClick={() => {
+                      handleAddPastedLink({
+                        key: 'Enter',
+                        preventDefault: () => {}
+                      });
+                    }}
+                    className="btn btn-secondary"
+                    style={{
+                      height: '30px',
+                      padding: '0 0.5rem',
+                      display: 'flex',
+                      alignItems: 'center',
+                      justifyContent: 'center',
+                      borderColor: 'var(--border-strong)'
+                    }}
+                    title="Add link"
+                  >
+                    <Plus size={14} />
+                  </button>
                 </div>
-                
-                <input
-                  type="text"
-                  placeholder="+ Paste any link..."
-                  value={pastedLink}
-                  onChange={e => setPastedLink(e.target.value)}
-                  onKeyDown={handleAddPastedLink}
-                  className="form-input"
-                  style={{
-                    borderStyle: 'dashed',
-                    borderColor: 'var(--border)'
-                  }}
-                />
               </div>
 
               {/* Row 5: Priority | Status */}
-              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1rem' }}>
-                <div className="form-group">
-                  <label className="form-label">Priority</label>
+              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '0.75rem' }}>
+                <div className="form-group" style={{ marginBottom: '0.4rem', gap: '4px' }}>
+                  <label className="form-label" style={{ display: 'flex', alignItems: 'center', gap: '4px', marginBottom: '2px' }}>
+                    <Flag size={14} style={{ color: 'var(--text-muted)' }} /> Priority
+                  </label>
                   <select
                     value={leadForm.priority}
                     onChange={e => setLeadForm({...leadForm, priority: e.target.value})}
                     className="form-select"
+                    style={{ padding: '0.35rem 0.5rem', fontSize: '0.875rem', height: '32px' }}
                   >
                     <option value="Cold">Cold</option>
                     <option value="Warm">Warm</option>
                     <option value="Hot">Hot</option>
                   </select>
                 </div>
-                <div className="form-group">
-                  <label className="form-label">Status</label>
+                <div className="form-group" style={{ marginBottom: '0.4rem', gap: '4px' }}>
+                  <label className="form-label" style={{ display: 'flex', alignItems: 'center', gap: '4px', marginBottom: '2px' }}>
+                    <CircleDot size={14} style={{ color: 'var(--text-muted)' }} /> Status
+                  </label>
                   <GroupedStatusDropdown
                     value={leadForm.status}
                     onChange={val => setLeadForm({...leadForm, status: val})}
@@ -3481,16 +3624,18 @@ export default function CRM({
               </div>
 
               {/* Row 6: Template Used / Assign to Folder */}
-              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1rem' }}>
-                <div className="form-group">
-                  <label className="form-label">Assign to Folder</label>
+              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '0.75rem' }}>
+                <div className="form-group" style={{ marginBottom: '0.4rem', gap: '4px' }}>
+                  <label className="form-label" style={{ display: 'flex', alignItems: 'center', gap: '4px', marginBottom: '2px' }}>
+                    <Folder size={14} style={{ color: 'var(--text-muted)' }} /> Assign to Folder
+                  </label>
                   <select
                     value={getFolderSelectValue()}
                     onChange={e => handleFolderChange(e.target.value)}
                     className="form-select"
+                    style={{ padding: '0.35rem 0.5rem', fontSize: '0.875rem', height: '32px' }}
                   >
                     <option value="">(No Folder / All Leads)</option>
-                    
                     <optgroup label="System Folders">
                       <option value="sys:hot">Hot</option>
                       <option value="sys:warm">Warm</option>
@@ -3498,11 +3643,9 @@ export default function CRM({
                       <option value="sys:calendly">Calendly Sent</option>
                       <option value="sys:clients">Clients</option>
                     </optgroup>
-                    
                     <optgroup label="Manual Folders">
                       {folders.map(f => <option key={f.id} value={`manual:${f.id}`}>{f.name}</option>)}
                     </optgroup>
-                    
                     <optgroup label="Smart Folders">
                       {userFolders.map(uf => (
                         <option key={uf.id} value={`smart:${uf.id}`} disabled={true}>
@@ -3515,8 +3658,10 @@ export default function CRM({
                     </optgroup>
                   </select>
                 </div>
-                <div className="form-group">
-                  <label className="form-label">Template Used</label>
+                <div className="form-group" style={{ marginBottom: '0.4rem', gap: '4px' }}>
+                  <label className="form-label" style={{ display: 'flex', alignItems: 'center', gap: '4px', marginBottom: '2px' }}>
+                    <FileText size={14} style={{ color: 'var(--text-muted)' }} /> Template Used
+                  </label>
                   <GroupedTemplateDropdown
                     value={leadForm.template_used}
                     onChange={val => setLeadForm({...leadForm, template_used: val})}
@@ -3527,13 +3672,15 @@ export default function CRM({
               </div>
 
               {/* Row 7: Notes textarea (full width) */}
-              <div className="form-group">
-                <label className="form-label">Notes</label>
+              <div className="form-group" style={{ marginBottom: '0.4rem', gap: '4px' }}>
+                <label className="form-label" style={{ display: 'flex', alignItems: 'center', gap: '4px', marginBottom: '2px' }}>
+                  <StickyNote size={14} style={{ color: 'var(--text-muted)' }} /> Notes
+                </label>
                 <textarea
                   value={leadForm.notes}
                   onChange={e => setLeadForm({...leadForm, notes: e.target.value})}
                   className="form-textarea"
-                  style={{ minHeight: '80px' }}
+                  style={{ minHeight: '60px', height: '60px', padding: '0.35rem 0.5rem', fontSize: '0.85rem' }}
                 />
               </div>
 
@@ -3542,14 +3689,14 @@ export default function CRM({
                   type="button"
                   onClick={() => setShowEditLeadModal(false)}
                   className="btn"
-                  style={{ background: 'transparent', color: 'var(--text-primary)', border: '0.5px solid var(--border)' }}
+                  style={{ background: 'transparent', color: 'var(--text-primary)', border: '0.5px solid var(--border)', fontSize: '0.875rem', padding: '0.4rem 0.8rem' }}
                 >
                   Cancel
                 </button>
                 <button
                   type="submit"
                   className="btn"
-                  style={{ backgroundColor: 'var(--accent-blue)', color: '#0D1117', backgroundImage: 'none', border: 'none', fontWeight: 600 }}
+                  style={{ backgroundColor: 'var(--accent-blue)', color: '#0D1117', backgroundImage: 'none', border: 'none', fontWeight: 600, fontSize: '0.875rem', padding: '0.4rem 0.8rem' }}
                 >
                   Save Lead
                 </button>
