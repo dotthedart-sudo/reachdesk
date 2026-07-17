@@ -13,9 +13,9 @@ export const siteMeta = {
   
   pages: {
     homepage: {
-      title: 'ReachDesk CRM — CRM for Freelancers Who Hate Losing Leads',
-      description: 'ReachDesk CRM centralizes every lead, note, and follow-up in one place. Built-in reminders, email sequences, and multi-channel tracking for freelancers and agencies.',
-      keywords: 'CRM, freelancer, lead management, follow-up reminders',
+      title: 'ReachDesk CRM — Stop Ghosting Your Own Leads',
+      description: 'ReachDesk CRM tells freelancers exactly which lead to follow up with today. You send every message yourself — we just make sure nothing falls through the cracks. Free trial.',
+      keywords: 'CRM, freelancer, lead follow-up, lead tracking, follow-up reminders',
     },
     
     pricing: {

@@ -99,7 +99,7 @@ export default function Dashboard({ currentUser, onSelectLead }) {
       const [invoicesRes, rulesRes, leadsRes, remindersRes] = await Promise.all([
         supabase.from('invoices').select('*').eq('user_id', currentUser.id),
         supabase.from('action_suggestion_rules').select('*'),
-        supabase.from('leads').select('id, first_name, last_name, status, created_at, last_contacted_at, action_to_take, next_checkpoint_at, template_used, reply_type').in('user_id', teamIds).order('created_at', { ascending: false }).order('id', { ascending: true }),
+        supabase.from('leads').select('id, first_name, last_name, status, created_at, last_contacted_at, action_to_take, next_checkpoint_at, template_used, reply_type, meeting_ends_at').in('user_id', teamIds).order('created_at', { ascending: false }).order('id', { ascending: true }),
         supabase.from('follow_up_reminders').select('*').eq('status', 'pending').lte('scheduled_at', new Date().toISOString()).order('scheduled_at', { ascending: true }).limit(3)
       ]);
 
@@ -201,8 +201,20 @@ export default function Dashboard({ currentUser, onSelectLead }) {
           severity: 'medium'
         }));
 
+      // D. Post-Meeting Check-Ins (lead status is 'Booked' and meeting_ends_at has already elapsed)
+      const postMeetingCheckIns = loadedLeads
+        .filter(l => l.status === 'Booked' && l.meeting_ends_at && l.meeting_ends_at <= nowStr)
+        .map(l => ({
+          id: `meeting-checkin-${l.id}`,
+          type: 'meeting-checkin',
+          lead: l,
+          title: `How did your meeting with ${l.first_name || ''} go?`,
+          date: l.meeting_ends_at,
+          severity: 'high'
+        }));
+
       // Sort and compile chronological feed: soonest first, mismatches last
-      const combinedFeed = [...upcomingCheckpoints, ...upcomingInvoices, ...mismatchItems];
+      const combinedFeed = [...upcomingCheckpoints, ...upcomingInvoices, ...mismatchItems, ...postMeetingCheckIns];
       combinedFeed.sort((a, b) => {
         if (a.date && b.date) {
           return new Date(a.date) - new Date(b.date);
@@ -270,6 +282,42 @@ export default function Dashboard({ currentUser, onSelectLead }) {
       loadDashboardData();
     } catch (err) {
       console.error('Error logging checkpoint outcome:', err);
+      alert('Failed to update: ' + err.message);
+    }
+  };
+
+  // Unified Handler: Log Meeting Outcome
+  const handleLogMeetingOutcome = async (lead, targetStatus) => {
+    try {
+      const todayStr = new Date().toISOString().split('T')[0];
+      const updatedLead = await updateLeadStatusAndCheckpoint({
+        lead,
+        newStatus: targetStatus,
+        suggestionRules,
+        currentUser,
+        extraUpdates: {
+          last_contacted_at: todayStr,
+          meeting_ends_at: null
+        }
+      });
+      if (updatedLead?.draftCreated && showToast) {
+        showToast(`Draft invoice generated for ${[updatedLead.first_name, updatedLead.last_name].filter(Boolean).join(' ') || 'Lead'}`);
+      }
+      
+      // Mark corresponding pending reminders as completed
+      const { error: cancelError } = await supabase
+        .from('follow_up_reminders')
+        .update({ status: 'completed', updated_at: new Date().toISOString() })
+        .eq('lead_id', lead.id)
+        .eq('status', 'pending');
+
+      if (cancelError) {
+        console.warn('Could not cancel pending reminders:', cancelError);
+      }
+
+      loadDashboardData();
+    } catch (err) {
+      console.error('Error logging meeting outcome:', err);
       alert('Failed to update: ' + err.message);
     }
   };
@@ -612,6 +660,58 @@ export default function Dashboard({ currentUser, onSelectLead }) {
                   const isCheckpoint = item.type === 'checkpoint';
                   const isInvoice = item.type === 'invoice';
                   const isMismatch = item.type === 'mismatch';
+                  const isMeetingCheckIn = item.type === 'meeting-checkin';
+
+                  if (isMeetingCheckIn) {
+                    const firstName = item.lead.first_name || 'they';
+                    return (
+                      <div 
+                        key={item.id} 
+                        className="flex-col gap-2" 
+                        style={{ 
+                          padding: '0.85rem 1rem', 
+                          borderRadius: '8px', 
+                          background: 'var(--bg-card-hover)', 
+                          border: '1px solid var(--border)' 
+                        }}
+                      >
+                        <div style={{ fontSize: '0.85rem', color: 'var(--text-primary)', lineHeight: '1.4' }}>
+                          How did your meeting with {firstName} go?
+                        </div>
+
+                        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '0.4rem', marginTop: '0.4rem', borderTop: '1px solid var(--border)', paddingTop: '0.5rem' }}>
+                          <button
+                            onClick={() => handleLogMeetingOutcome(item.lead, 'Closed Won')}
+                            className="btn btn-primary btn-sm"
+                            style={{ fontSize: '0.72rem', padding: '4px', justifyContent: 'center', height: '28px' }}
+                          >
+                            Closed Won
+                          </button>
+                          <button
+                            onClick={() => handleLogMeetingOutcome(item.lead, 'Not Interested')}
+                            className="btn btn-secondary btn-sm"
+                            style={{ fontSize: '0.72rem', padding: '4px', justifyContent: 'center', height: '28px' }}
+                          >
+                            Not Interested
+                          </button>
+                          <button
+                            onClick={() => handleLogMeetingOutcome(item.lead, 'Rescheduled')}
+                            className="btn btn-secondary btn-sm"
+                            style={{ fontSize: '0.72rem', padding: '4px', justifyContent: 'center', height: '28px' }}
+                          >
+                            Rescheduled
+                          </button>
+                          <button
+                            onClick={() => handleLogMeetingOutcome(item.lead, 'Positive Reply')}
+                            className="btn btn-secondary btn-sm"
+                            style={{ fontSize: '0.72rem', padding: '4px', justifyContent: 'center', height: '28px' }}
+                          >
+                            Still Deciding
+                          </button>
+                        </div>
+                      </div>
+                    );
+                  }
 
                   if (isCheckpoint) {
                     const firstName = item.lead.first_name || 'they';

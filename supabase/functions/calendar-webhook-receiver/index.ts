@@ -172,12 +172,27 @@ serve(async (req) => {
       continue;
     }
 
-    // Update lead status to Booked
+    // Find the calendar event matching this lead's email
+    const leadEmailLower = lead.email?.toLowerCase();
+    const matchingEvent = events.find((event: any) => {
+      const attendees = event.attendees || [];
+      const hasEmailInAttendees = attendees.some((attendee: any) => attendee.email && attendee.email.toLowerCase() === leadEmailLower);
+      const hasEmailInOrganizer = event.organizer?.email && event.organizer.email.toLowerCase() === leadEmailLower;
+      return hasEmailInAttendees || hasEmailInOrganizer;
+    });
+
+    let meetingEndsAt: string | null = null;
+    if (matchingEvent) {
+      meetingEndsAt = matchingEvent.end?.dateTime || matchingEvent.end?.date || null;
+    }
+
+    // Update lead status to Booked and set the meeting's end time
     const { data: updatedLead, error: updateErr } = await supabase
       .from('leads')
       .update({
         status: 'Booked',
         last_contacted_at: new Date().toISOString().split('T')[0],
+        meeting_ends_at: meetingEndsAt,
       })
       .eq('id', lead.id)
       .select()
