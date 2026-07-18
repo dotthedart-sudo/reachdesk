@@ -9,6 +9,8 @@ import GroupedTemplateDropdown from './GroupedTemplateDropdown';
 import { updateLeadStatusAndCheckpoint, getSuggestionForStatus } from '../../lib/reminders';
 import PriorityDropdown from './PriorityDropdown';
 import { mergeTemplateFields } from '../../utils/templateMerge';
+import { celebrateClosedWon } from '../../utils/celebrateWin';
+
 
 
 
@@ -408,6 +410,9 @@ export default function LeadDrawer({
         });
         if (data?.draftCreated && showToast) {
           showToast(`Draft invoice generated for ${[data.first_name, data.last_name].filter(Boolean).join(' ') || 'Lead'}`);
+        }
+        if (updateValue === 'Closed Won' && lead.status !== 'Closed Won') {
+          celebrateClosedWon();
         }
       } else {
         const { data: updatedData, error } = await supabase

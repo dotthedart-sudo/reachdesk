@@ -32,6 +32,7 @@
     "@tiptap/starter-kit": "^3.27.0",
     "@tiptap/suggestion": "^3.27.0",
     "@tldraw/tldraw": "^5.1.1",
+    "canvas-confetti": "^1.9.4",
     "gray-matter": "^4.0.3",
     "lucide-react": "^1.21.0",
     "papaparse": "^5.5.3",

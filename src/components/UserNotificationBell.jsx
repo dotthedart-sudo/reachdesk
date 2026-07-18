@@ -3,6 +3,7 @@ import { Bell, Check, X, Clock, CheckCircle, Users } from 'lucide-react';
 import { supabase } from '../lib/supabase';
 import { useNavigate } from 'react-router-dom';
 import { updateLeadStatusAndCheckpoint, REPLY_CHECK_STATUSES, FOLLOW_UP_CHECK_STATUSES } from '../lib/reminders';
+import { celebrateClosedWon } from '../utils/celebrateWin';
 
 export default function UserNotificationBell({ profile, onRefreshProfile }) {
   const navigate = useNavigate();
@@ -342,6 +343,10 @@ export default function UserNotificationBell({ profile, onRefreshProfile }) {
 
       if (error) throw error;
       setDueReminders(prev => prev.filter(r => r.id !== reminderId));
+
+      if (newStatus === 'Closed Won' && leadObj.status !== 'Closed Won') {
+        celebrateClosedWon();
+      }
     } catch (err) {
       console.error('Error completing reminder outcome:', err);
     }

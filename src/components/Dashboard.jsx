@@ -18,6 +18,8 @@ import {
 } from 'lucide-react';
 
 import HelpPopover from './HelpPopover';
+import { celebrateClosedWon } from '../utils/celebrateWin';
+
 
 // Use the shared map so any currency code the user picks renders the correct symbol
 const CURRENCY_SYMBOLS = CURRENCY_MAP;
@@ -280,6 +282,9 @@ export default function Dashboard({ currentUser, onSelectLead }) {
       }
 
       loadDashboardData();
+      if (targetStatus === 'Closed Won' && lead.status !== 'Closed Won') {
+        celebrateClosedWon();
+      }
     } catch (err) {
       console.error('Error logging checkpoint outcome:', err);
       alert('Failed to update: ' + err.message);
@@ -316,6 +321,9 @@ export default function Dashboard({ currentUser, onSelectLead }) {
       }
 
       loadDashboardData();
+      if (targetStatus === 'Closed Won' && lead.status !== 'Closed Won') {
+        celebrateClosedWon();
+      }
     } catch (err) {
       console.error('Error logging meeting outcome:', err);
       alert('Failed to update: ' + err.message);

@@ -2,6 +2,7 @@ import React, { useState, useEffect, useRef } from 'react';
 import { createPortal } from 'react-dom';
 import { Check, X } from 'lucide-react';
 import { updateLeadStatusAndCheckpoint, applySuggestion, REPLY_CHECK_STATUSES, FOLLOW_UP_CHECK_STATUSES } from '../../lib/reminders';
+import { celebrateClosedWon } from '../../utils/celebrateWin';
 
 // ConfettiBurst component rendering flat squares in brand colors bursting outwards
 function ConfettiBurst() {
@@ -140,6 +141,11 @@ export default function CheckpointPopover({
       const isConfettiOutcome = ['Positive Reply', 'Booked'].includes(newStatus);
       if (isConfettiOutcome) {
         setShowConfetti(true);
+        setTimeout(() => {
+          onClose();
+        }, 1300);
+      } else if (newStatus === 'Closed Won' && lead.status !== 'Closed Won') {
+        celebrateClosedWon();
         setTimeout(() => {
           onClose();
         }, 1300);

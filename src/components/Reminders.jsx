@@ -4,6 +4,7 @@ import { supabase } from '../lib/supabase';
 import { getTeamIds } from '../lib/utils';
 import { Bell, CheckCircle, Clock, Check, X } from 'lucide-react';
 import { updateLeadStatusAndCheckpoint, REPLY_CHECK_STATUSES, FOLLOW_UP_CHECK_STATUSES } from '../lib/reminders';
+import { celebrateClosedWon } from '../utils/celebrateWin';
 
 export default function Reminders({ currentUser, onSelectLead }) {
   const navigate = useNavigate();
@@ -75,6 +76,10 @@ export default function Reminders({ currentUser, onSelectLead }) {
 
       if (error) throw error;
       setReminders(prev => prev.filter(r => r.id !== reminderId));
+
+      if (newStatus === 'Closed Won' && leadObj.status !== 'Closed Won') {
+        celebrateClosedWon();
+      }
     } catch (err) {
       console.error('Error completing reminder outcome:', err);
     }

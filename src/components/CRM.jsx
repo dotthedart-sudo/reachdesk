@@ -30,6 +30,7 @@ import { updateLeadStatusAndCheckpoint, getSuggestionForStatus, REPLY_CHECK_STAT
 import PriorityDropdown from './CRM/PriorityDropdown';
 import { exportLeads, exportNotes } from '../utils/exportUtils';
 import { mergeTemplateFields, normalizePhoneNumber, generatePrefilledUrl } from '../utils/templateMerge';
+import { celebrateClosedWon } from '../utils/celebrateWin';
 
 const PRESET_COLORS = [
   '#ef4444', // Red
@@ -1156,6 +1157,9 @@ export default function CRM({
           suggestionRules,
           currentUser
         });
+        if (leadForm.status === 'Closed Won') {
+          celebrateClosedWon();
+        }
       }
       setShowEditLeadModal(false);
       if (onRefreshReminders) onRefreshReminders();
@@ -1198,6 +1202,10 @@ export default function CRM({
 
       setLeads(prev => prev.map(l => l.id === leadId ? updatedLead : l));
       if (onRefreshReminders) onRefreshReminders();
+
+      if (newStatus === 'Closed Won' && lead.status !== 'Closed Won') {
+        celebrateClosedWon();
+      }
     } catch (err) {
       console.error('Error updating status:', err);
     }
@@ -1530,6 +1538,18 @@ export default function CRM({
         const u = updatedLeads.find(item => item.id === l.id);
         return u ? u : l;
       }));
+
+      // Trigger confetti if status changed to Closed Won
+      if (newStatus === 'Closed Won') {
+        const anyChangedToClosedWon = selectedIds.some(id => {
+          const lead = leads.find(l => l.id === id);
+          return lead && lead.status !== 'Closed Won';
+        });
+        if (anyChangedToClosedWon) {
+          celebrateClosedWon();
+        }
+      }
+
       setSelectedIds([]);
       setShowBulkStatusMenu(false);
       if (onRefreshReminders) onRefreshReminders();
