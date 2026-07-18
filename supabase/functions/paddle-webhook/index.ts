@@ -9,13 +9,85 @@ const corsHeaders = {
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
 }
 
+async function verifySignature(
+  rawBody: string,
+  signatureHeader: string,
+  secretKey: string
+): Promise<boolean> {
+  const parts = signatureHeader.split(';');
+  let ts = '';
+  let h1 = '';
+  for (const part of parts) {
+    const [key, val] = part.split('=');
+    if (key === 'ts') ts = val;
+    if (key === 'h1') h1 = val;
+  }
+
+  if (!ts || !h1) {
+    return false;
+  }
+
+  const payload = `${ts}:${rawBody}`;
+  const encoder = new TextEncoder();
+  
+  const keyBuf = encoder.encode(secretKey);
+  const dataBuf = encoder.encode(payload);
+
+  const cryptoKey = await crypto.subtle.importKey(
+    'raw',
+    keyBuf,
+    { name: 'HMAC', hash: 'SHA-256' },
+    false,
+    ['sign']
+  );
+
+  const signatureBuf = await crypto.subtle.sign(
+    'HMAC',
+    cryptoKey,
+    dataBuf
+  );
+
+  const hashArray = Array.from(new Uint8Array(signatureBuf));
+  const expectedHash = hashArray.map(b => b.toString(16).padStart(2, '0')).join('');
+
+  if (expectedHash.length !== h1.length) {
+    return false;
+  }
+  let result = 0;
+  for (let i = 0; i < expectedHash.length; i++) {
+    result |= expectedHash.charCodeAt(i) ^ h1.charCodeAt(i);
+  }
+  return result === 0;
+}
+
 serve(async (req) => {
   if (req.method === 'OPTIONS') {
     return new Response('ok', { headers: corsHeaders })
   }
 
   try {
-    const payload = await req.json()
+    const rawBody = await req.text()
+    const signatureHeader = req.headers.get('Paddle-Signature')
+    const secretKey = Deno.env.get('PADDLE_WEBHOOK_SECRET')
+
+    if (!signatureHeader || !secretKey) {
+      console.error('[Webhook] Missing Paddle-Signature header or PADDLE_WEBHOOK_SECRET secret')
+      return new Response(
+        JSON.stringify({ success: false, error: 'Unauthorized' }),
+        { headers: { ...corsHeaders, 'Content-Type': 'application/json' }, status: 401 }
+      )
+    }
+
+    const isValid = await verifySignature(rawBody, signatureHeader, secretKey)
+    if (!isValid) {
+      console.error('[Webhook] Invalid signature check')
+      return new Response(
+        JSON.stringify({ success: false, error: 'Invalid signature' }),
+        { headers: { ...corsHeaders, 'Content-Type': 'application/json' }, status: 401 }
+      )
+    }
+
+    const payload = JSON.parse(rawBody)
     const eventType = payload.event_type || payload.alert_name
 
     const supabaseUrl = Deno.env.get('SUPABASE_URL') ?? ''
