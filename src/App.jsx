@@ -1381,7 +1381,7 @@ function AppRoutes() {
           path="/"
           element={
             !isLocalDev() && appMode === 'app' ? (
-              session ? <Navigate to="/dashboard" replace /> : <Navigate to="/login" replace />
+              session ? <Navigate to="/dashboard" replace /> : <HomepagePage />
             ) : (
               <Navigate to="/homepage" replace />
             )
@@ -1421,7 +1421,7 @@ function AppRoutes() {
           path="*"
           element={
             !isLocalDev() && appMode === 'app' ? (
-              session ? <Navigate to="/dashboard" replace /> : <Navigate to="/login" replace />
+              session ? <Navigate to="/dashboard" replace /> : <HomepagePage />
             ) : (
               <Navigate to="/homepage" replace />
             )
