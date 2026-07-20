@@ -2,7 +2,7 @@ import React, { useState, useEffect, useRef } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
 import { Lock, Mail, ShieldAlert, Sparkles, ArrowRight, Eye, EyeOff, User, Upload, Check } from 'lucide-react';
 import { supabase } from '../lib/supabase';
-import { getAppUrl } from '../utils/domain';
+import { getAppUrl, getMarketingUrl } from '../utils/domain';
 
 export default function Auth({ onRegister, onLogin, mode = 'login' }) {
   const navigate = useNavigate();
