@@ -3,6 +3,7 @@ import { useNavigate, useLocation } from 'react-router-dom';
 import { supabase } from '../lib/supabase';
 import { useAppContext } from '../App';
 import { PLAN_LIMITS } from '../lib/utils';
+import { getAppUrl } from '../utils/domain';
 import { 
   Settings, Save, CreditCard, 
   AlertCircle, Users, Mail, UserMinus, User, Upload,
@@ -277,7 +278,7 @@ export default function Configuration({
     const state = crypto.randomUUID();
     sessionStorage.setItem('google_oauth_state', state);
     const clientId = import.meta.env.VITE_GOOGLE_CLIENT_ID;
-    const redirectUri = encodeURIComponent('https://reachdeskcrm.com/auth/google/callback');
+    const redirectUri = encodeURIComponent(getAppUrl('/auth/google/callback'));
     const scope = encodeURIComponent(
       'https://www.googleapis.com/auth/calendar.readonly https://www.googleapis.com/auth/calendar.events.readonly'
     );

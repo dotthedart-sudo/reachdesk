@@ -2,6 +2,7 @@ import React, { useState, useEffect, useRef } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
 import { Lock, Mail, ShieldAlert, Sparkles, ArrowRight, Eye, EyeOff, User, Upload, Check } from 'lucide-react';
 import { supabase } from '../lib/supabase';
+import { getAppUrl } from '../utils/domain';
 
 export default function Auth({ onRegister, onLogin, mode = 'login' }) {
   const navigate = useNavigate();
@@ -112,7 +113,7 @@ export default function Auth({ onRegister, onLogin, mode = 'login' }) {
 
     try {
       const { error: resetErr } = await supabase.auth.resetPasswordForEmail(forgotEmail.trim(), {
-        redirectTo: 'https://reachdesk.vercel.app/reset-password'
+        redirectTo: getAppUrl('/reset-password')
       });
       if (resetErr) throw resetErr;
       setForgotSuccess('Check your email for the reset link!');
@@ -211,7 +212,7 @@ export default function Auth({ onRegister, onLogin, mode = 'login' }) {
       const { error: oAuthErr } = await supabase.auth.signInWithOAuth({
         provider: 'google',
         options: {
-          redirectTo: `${window.location.origin}/dashboard`
+          redirectTo: getAppUrl('/dashboard')
         }
       });
       if (oAuthErr) throw oAuthErr;
@@ -324,12 +325,12 @@ export default function Auth({ onRegister, onLogin, mode = 'login' }) {
     <div className="landing-container">
       {/* Mini Nav */}
       <nav className="landing-nav">
-        <Link to="/homepage" className="landing-nav-logo" style={{ cursor: 'pointer', textDecoration: 'none', display: 'flex', alignItems: 'center' }}>
+        <a href={getMarketingUrl('/homepage')} className="landing-nav-logo" style={{ cursor: 'pointer', textDecoration: 'none', display: 'flex', alignItems: 'center' }}>
           <span style={{fontFamily:'Mattone, sans-serif', textTransform:'uppercase', letterSpacing:'0.08em', fontSize:'11px', color:'var(--text-primary)', fontWeight:'400'}}>ReachDesk</span>
-        </Link>
-        <Link to="/homepage" className="btn btn-secondary btn-sm" style={{ textDecoration: 'none', borderRadius: '4px', padding: '3px 8px', fontSize: '0.7rem' }}>
+        </a>
+        <a href={getMarketingUrl('/homepage')} className="btn btn-secondary btn-sm" style={{ textDecoration: 'none', borderRadius: '4px', padding: '3px 8px', fontSize: '0.7rem' }}>
           Back to Home
-        </Link>
+        </a>
       </nav>
 
       {/* Main Container */}
@@ -794,7 +795,7 @@ export default function Auth({ onRegister, onLogin, mode = 'login' }) {
                       disabled={loading}
                     />
                     <label htmlFor="agreeConsent" style={{ color: 'var(--text-secondary)', cursor: 'pointer', userSelect: 'none', lineHeight: '1.4' }}>
-                      I agree to the <a href="/terms" target="_blank" rel="noopener noreferrer" style={{ color: 'var(--primary-purple)', textDecoration: 'none', fontWeight: 600 }}>Terms of Service</a>, <a href="/privacy" target="_blank" rel="noopener noreferrer" style={{ color: 'var(--primary-purple)', textDecoration: 'none', fontWeight: 600 }}>Privacy Policy</a>, and <a href="/refund" target="_blank" rel="noopener noreferrer" style={{ color: 'var(--primary-purple)', textDecoration: 'none', fontWeight: 600 }}>Refund Policy</a>.
+                      I agree to the <a href={getMarketingUrl('/terms')} target="_blank" rel="noopener noreferrer" style={{ color: 'var(--primary-purple)', textDecoration: 'none', fontWeight: 600 }}>Terms of Service</a>, <a href={getMarketingUrl('/privacy')} target="_blank" rel="noopener noreferrer" style={{ color: 'var(--primary-purple)', textDecoration: 'none', fontWeight: 600 }}>Privacy Policy</a>, and <a href={getMarketingUrl('/refund')} target="_blank" rel="noopener noreferrer" style={{ color: 'var(--primary-purple)', textDecoration: 'none', fontWeight: 600 }}>Refund Policy</a>.
                     </label>
                   </div>
                 </div>

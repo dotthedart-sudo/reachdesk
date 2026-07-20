@@ -1,9 +1,10 @@
 import React, { useState, useEffect, useRef, createContext, useContext, lazy, Suspense } from 'react';
-import { BrowserRouter, Routes, Route, Navigate, useNavigate } from 'react-router-dom';
+import { BrowserRouter, Routes, Route, Navigate, useNavigate, useLocation } from 'react-router-dom';
 import { supabase } from './lib/supabase';
 import { getTeamIds, PLAN_LIMITS } from './lib/utils';
 import { Lock } from 'lucide-react';
 import { subscribeToPush } from './utils/pushNotifications';
+import { isLocalDev, getAppUrl, getMarketingUrl } from './utils/domain';
 
 // Components
 // Lazy‑loaded route components for better initial load performance
@@ -1312,9 +1313,46 @@ export default function App() {
 function AppRoutes() {
   const { loading, session, profile, fetchProfile, handleSaveSettings } = useAppContext();
   const navigate = useNavigate();
+  const location = useLocation();
+
+  useEffect(() => {
+    if (isLocalDev()) return;
+
+    const mode = import.meta.env.VITE_APP_MODE;
+    if (!mode) return;
+
+    const path = location.pathname;
+
+    if (mode === 'marketing') {
+      const isMarketingPath =
+        path === '/' ||
+        path === '/homepage' ||
+        path.startsWith('/blog') ||
+        path === '/terms' ||
+        path === '/privacy' ||
+        path === '/refund';
+
+      if (!isMarketingPath) {
+        window.location.href = `https://app.reachdeskcrm.com${path}${location.search}${location.hash}`;
+      }
+    } else if (mode === 'app') {
+      const isMarketingPath =
+        path === '/homepage' ||
+        path.startsWith('/blog') ||
+        path === '/terms' ||
+        path === '/privacy' ||
+        path === '/refund';
+
+      if (isMarketingPath) {
+        window.location.href = `https://reachdeskcrm.com${path}${location.search}${location.hash}`;
+      }
+    }
+  }, [location]);
+
   if (loading) return <LoadingSpinner />;
 
   const showSetupModal = session && profile && !profile.has_completed_setup;
+  const appMode = import.meta.env.VITE_APP_MODE;
 
   return (
     <Suspense fallback={<LoadingSpinner />}>
@@ -1331,7 +1369,16 @@ function AppRoutes() {
       )}
       <Routes>
         {/* Public routes */}
-        <Route path="/" element={<Navigate to="/homepage" replace />} />
+        <Route
+          path="/"
+          element={
+            !isLocalDev() && appMode === 'app' ? (
+              session ? <Navigate to="/dashboard" replace /> : <Navigate to={getMarketingUrl('/')} replace />
+            ) : (
+              <Navigate to="/homepage" replace />
+            )
+          }
+        />
         <Route path="/homepage" element={<HomepagePage />} />
         <Route path="/login" element={<AuthPage mode="login" />} />
         <Route path="/signup" element={<AuthPage mode="signup" />} />
@@ -1362,7 +1409,16 @@ function AppRoutes() {
         <Route path="/admin" element={<ProtectedPage><AdminPanelPage /></ProtectedPage>} />
 
         {/* Catch-all */}
-        <Route path="*" element={<Navigate to="/homepage" replace />} />
+        <Route
+          path="*"
+          element={
+            !isLocalDev() && appMode === 'app' ? (
+              session ? <Navigate to="/dashboard" replace /> : <Navigate to="/login" replace />
+            ) : (
+              <Navigate to="/homepage" replace />
+            )
+          }
+        />
       </Routes>
     </Suspense>
   );

@@ -8,6 +8,7 @@ import heroDark from '../assets/hero.png';
 import heroLight from '../assets/hero_light.png';
 import { Helmet } from 'react-helmet-async';
 import { siteMeta, generateOGTags } from '../config/metadata';
+import { getAppUrl, getMarketingUrl, isLocalDev } from '../utils/domain';
 
 export default function Homepage({ currentUserEmail }) {
   const navigate = useNavigate();
@@ -29,8 +30,21 @@ export default function Homepage({ currentUserEmail }) {
   };
 
   const isLoggedIn = !!currentUserEmail;
-  const handleSignUpClick = () => navigate(isLoggedIn ? '/dashboard' : '/signup');
-  const handleLoginClick  = () => navigate(isLoggedIn ? '/dashboard' : '/login');
+  const handleSignUpClick = () => {
+    if (isLocalDev()) {
+      navigate(isLoggedIn ? '/dashboard' : '/signup');
+    } else {
+      window.location.href = getAppUrl(isLoggedIn ? '/dashboard' : '/signup');
+    }
+  };
+
+  const handleLoginClick = () => {
+    if (isLocalDev()) {
+      navigate(isLoggedIn ? '/dashboard' : '/login');
+    } else {
+      window.location.href = getAppUrl(isLoggedIn ? '/dashboard' : '/login');
+    }
+  };
 
   // ── Hero Tab State ─────────────────────────────────────────────────────────
   const [activeTab, setActiveTab] = useState('pipeline'); // 'pipeline' | 'reminders' | 'templates'
@@ -98,11 +112,11 @@ export default function Homepage({ currentUserEmail }) {
     if (country === 'BD') {
       return billing === 'monthly'
         ? `৳${BILLING.monthly[planId].bdtTotal.toFixed(0)} billed monthly`
-        : `৳${BILLING[billing][planId].bdtTotal.toFixed(0)} billed every 12 months`;
+        : `৳${BILLING.monthly[planId].bdtTotal.toFixed(0)} billed every 12 months`;
     }
     return billing === 'monthly'
       ? `$${BILLING.monthly[planId].usdTotal} billed monthly`
-      : `$${BILLING[billing][planId].usdTotal} billed every 12 months`;
+      : `$${BILLING.monthly[planId].usdTotal} billed every 12 months`;
   };
 
   const renderPlanBillingCycleSub = (planId) => {
@@ -130,7 +144,7 @@ export default function Homepage({ currentUserEmail }) {
       <nav className="hp-nav">
         <div 
           style={{ display: 'flex', alignItems: 'center', cursor: 'pointer' }} 
-          onClick={() => navigate('/homepage')}
+          onClick={() => isLocalDev() ? navigate('/homepage') : (window.location.href = getMarketingUrl('/homepage'))}
         >
           <span className="hp-logo">REACHDESK CRM</span>
         </div>
@@ -138,7 +152,7 @@ export default function Homepage({ currentUserEmail }) {
         <div className="hp-nav-center">
           <a href="#features" className="hp-nav-link">Features</a>
           <a href="#pricing" className="hp-nav-link">Pricing</a>
-          <Link to="/blog" className="hp-nav-link">Blog</Link>
+          <a href={getMarketingUrl('/blog')} className="hp-nav-link">Blog</a>
           <button onClick={handleLoginClick} className="hp-nav-link">Log in</button>
         </div>
 
@@ -298,9 +312,9 @@ export default function Homepage({ currentUserEmail }) {
               <FileText size={16} />
             </div>
             <div className="hp-feature-row-content">
-              <span className="hp-feature-row-title">Instant invoices</span>
+              <span className="hp-feature-row-title">Notes & Scratchpad</span>
               <span className="hp-feature-row-desc">
-                Add services, apply tax, share a payment link — PKR, USD, GBP, EUR and more.
+                Jot down call notes or draw wireframes without leaving your CRM.
               </span>
             </div>
           </div>
@@ -311,9 +325,9 @@ export default function Homepage({ currentUserEmail }) {
               <TrendingUp size={16} />
             </div>
             <div className="hp-feature-row-content">
-              <span className="hp-feature-row-title">Earnings, tracked</span>
+              <span className="hp-feature-row-title">Revenue Tracking</span>
               <span className="hp-feature-row-desc">
-                See what you've made by client and currency, at a glance.
+                Log closed deals, track monthly progress, and watch your income grow.
               </span>
             </div>
           </div>
@@ -370,48 +384,67 @@ export default function Homepage({ currentUserEmail }) {
         </div>
       </section>
 
-      {/* ── 6. PRICING ── */}
+      {/* ── 5. PRICING ── */}
       <section id="pricing" className="hp-pricing-section">
-        <span className="hp-section-label">// PRICING</span>
-        <div style={{ width: '100%', display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', flexWrap: 'wrap', gap: '1rem', marginBottom: '3rem' }}>
-          <h2 className="hp-section-h2" style={{ margin: 0 }}>
-            Simple pricing.<br />
-            <span className="hp-section-h2-accent">No surprises.</span>
-          </h2>
+        <span className="hp-section-label">// SIMPLE PRICING</span>
+        <h2 className="hp-section-h2">
+          One low price.<br />
+          <span className="hp-section-h2-accent">No surprise tier upgrades.</span>
+        </h2>
 
-          {/* Billing Toggle Selector */}
-          <div style={{ display: 'flex', border: '1px solid var(--border)', borderRadius: '3px', padding: '2px', background: 'var(--bg-elevated)' }}>
-            <button 
+        {/* Billing Toggle (Monthly / Yearly) */}
+        <div style={{ display: 'flex', justifyContent: 'center', marginBottom: '2.5rem' }}>
+          <div style={{
+            display: 'inline-flex',
+            alignItems: 'center',
+            backgroundColor: 'var(--hp-card-bg)',
+            border: '1px solid var(--hp-border)',
+            borderRadius: '24px',
+            padding: '4px',
+            gap: '4px'
+          }}>
+            <button
               onClick={() => setBilling('monthly')}
               style={{
-                fontFamily: 'Mattone, sans-serif',
-                fontSize: '10px',
+                padding: '6px 16px',
+                borderRadius: '20px',
                 border: 'none',
-                background: billing === 'monthly' ? 'var(--accent-blue)' : 'transparent',
-                color: billing === 'monthly' ? '#0d1117' : 'var(--text-muted)',
-                padding: '4px 10px',
-                borderRadius: '2px',
+                backgroundColor: billing === 'monthly' ? 'var(--accent-blue)' : 'transparent',
+                color: billing === 'monthly' ? '#0D1117' : 'var(--hp-text)',
+                fontWeight: 600,
+                fontSize: '0.85rem',
                 cursor: 'pointer',
-                fontWeight: 600
+                transition: 'all 0.15s ease'
               }}
             >
               Monthly
             </button>
-            <button 
+            <button
               onClick={() => setBilling('yearly')}
               style={{
-                fontFamily: 'Mattone, sans-serif',
-                fontSize: '10px',
+                padding: '6px 16px',
+                borderRadius: '20px',
                 border: 'none',
-                background: billing === 'yearly' ? 'var(--accent-blue)' : 'transparent',
-                color: billing === 'yearly' ? '#0d1117' : 'var(--text-muted)',
-                padding: '4px 10px',
-                borderRadius: '2px',
+                backgroundColor: billing === 'yearly' ? 'var(--accent-blue)' : 'transparent',
+                color: billing === 'yearly' ? '#0D1117' : 'var(--hp-text)',
+                fontWeight: 600,
+                fontSize: '0.85rem',
                 cursor: 'pointer',
-                fontWeight: 600
+                transition: 'all 0.15s ease',
+                display: 'flex',
+                alignItems: 'center',
+                gap: '6px'
               }}
             >
               Yearly
+              <span style={{
+                backgroundColor: billing === 'yearly' ? '#0D1117' : 'var(--accent-blue)',
+                color: billing === 'yearly' ? '#ffffff' : '#0D1117',
+                fontSize: '0.7rem',
+                padding: '2px 6px',
+                borderRadius: '10px',
+                fontWeight: 700
+              }}>Save 20%</span>
             </button>
           </div>
         </div>
@@ -572,9 +605,9 @@ export default function Homepage({ currentUserEmail }) {
       <footer className="hp-footer">
         <span className="hp-footer-logo-text">REACHDESK CRM</span>
         <div className="hp-footer-links-row">
-          <Link to="/terms" className="hp-footer-link-item">Terms of Service</Link>
-          <Link to="/privacy" className="hp-footer-link-item">Privacy Policy</Link>
-          <Link to="/refund" className="hp-footer-link-item">Refund Policy</Link>
+          <a href={getMarketingUrl('/terms')} className="hp-footer-link-item">Terms of Service</a>
+          <a href={getMarketingUrl('/privacy')} className="hp-footer-link-item">Privacy Policy</a>
+          <a href={getMarketingUrl('/refund')} className="hp-footer-link-item">Refund Policy</a>
           <a href="mailto:support@esemdot.com" className="hp-footer-link-item">support@esemdot.com</a>
         </div>
       </footer>

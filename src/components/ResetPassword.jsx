@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
 import { Lock, ShieldAlert, Sparkles, ArrowRight, Eye, EyeOff, Check } from 'lucide-react';
 import { supabase } from '../lib/supabase';
+import { getMarketingUrl } from '../utils/domain';
 
 export default function ResetPassword() {
   const navigate = useNavigate();
@@ -95,9 +96,9 @@ export default function ResetPassword() {
   return (
     <div className="landing-container">
       <nav className="landing-nav">
-        <Link to="/homepage" className="landing-nav-logo" style={{ cursor: 'pointer', textDecoration: 'none', display: 'flex', alignItems: 'center' }}>
+        <a href={getMarketingUrl('/homepage')} className="landing-nav-logo" style={{ cursor: 'pointer', textDecoration: 'none', display: 'flex', alignItems: 'center' }}>
           <span className="landing-logo-text" style={{ fontSize: '11px' }}>ReachDesk CRM</span>
-        </Link>
+        </a>
         <Link to="/login" className="btn btn-secondary btn-sm" style={{ textDecoration: 'none', borderRadius: '4px', padding: '3px 8px', fontSize: '0.7rem' }}>
           Back to Login
         </Link>

@@ -4,6 +4,7 @@ import { ArrowLeft, Bell, CheckCircle, HelpCircle, Sun, Moon, Calendar, External
 import { useAppContext } from '../App';
 import { supabase } from '../lib/supabase';
 import { PLAN_LIMITS } from '../lib/utils';
+import { getMarketingUrl } from '../utils/domain';
 
 const SIDEBAR_ITEMS = [
   { id: 'how-it-works', label: '01. How It Works' },
@@ -603,9 +604,9 @@ export default function GetStarted() {
         zIndex: 1000,
         backdropFilter: 'blur(10px)'
       }}>
-        <Link to="/homepage" style={{ display: 'flex', alignItems: 'center', textDecoration: 'none', cursor: 'pointer' }}>
+        <a href={getMarketingUrl('/homepage')} style={{ display: 'flex', alignItems: 'center', textDecoration: 'none', cursor: 'pointer' }}>
           <span style={{ fontSize: '1.15rem', fontWeight: 800, color: 'var(--hp-text)', fontFamily: 'Mattone, sans-serif', textTransform: 'uppercase', letterSpacing: '0.05em' }}>ReachDesk CRM</span>
-        </Link>
+        </a>
         <div style={{ display: 'flex', alignItems: 'center', gap: '1rem' }}>
           {toggleTheme && (
             <button
@@ -616,7 +617,7 @@ export default function GetStarted() {
               {theme === 'dark' ? <Sun size={16} /> : <Moon size={16} />}
             </button>
           )}
-          <Link to="/homepage" style={{
+          <a href={getMarketingUrl('/homepage')} style={{
             display: 'inline-flex',
             alignItems: 'center',
             gap: '0.5rem',
@@ -641,7 +642,7 @@ export default function GetStarted() {
           }}
           >
             <ArrowLeft size={14} /> Back to Home
-          </Link>
+          </a>
         </div>
       </nav>
 
