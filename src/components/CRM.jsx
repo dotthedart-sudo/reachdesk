@@ -2892,7 +2892,7 @@ export default function CRM({
                       })}
 
                       {isTeamView && (
-                        <td style={{ padding: '0.75rem 1rem', fontSize: '0.85rem', color: 'var(--text-secondary)' }} data-ph-mask>
+                        <td style={{ padding: '0.75rem 1rem', fontSize: '0.85rem', color: 'var(--text-secondary)' }}>
                           {addedByEmail || 'Unknown'}
                         </td>
                       )}

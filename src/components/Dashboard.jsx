@@ -392,7 +392,7 @@ export default function Dashboard({ currentUser, onSelectLead }) {
   return (
     <div className="flex-col gap-4" style={{ textAlign: 'left' }}>
       <div style={{ marginBottom: '1.5rem' }}>
-        <h2>Welcome back, <span data-ph-mask>{currentUser.full_name ? currentUser.full_name.trim().split(' ')[0] : currentUser.email.split('@')[0]}</span>!</h2>
+        <h2>Welcome back, <span>{currentUser.full_name ? currentUser.full_name.trim().split(' ')[0] : currentUser.email.split('@')[0]}</span>!</h2>
         <p className="color-muted">Outreach engine tracking, conversions, and follow-ups status.</p>
       </div>
 

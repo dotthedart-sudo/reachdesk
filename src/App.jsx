@@ -1381,7 +1381,7 @@ function AppRoutes() {
           path="/"
           element={
             !isLocalDev() && appMode === 'app' ? (
-              session ? <Navigate to="/dashboard" replace /> : <Navigate to={getMarketingUrl('/')} replace />
+              session ? <Navigate to="/dashboard" replace /> : <Navigate to="/login" replace />
             ) : (
               <Navigate to="/homepage" replace />
             )

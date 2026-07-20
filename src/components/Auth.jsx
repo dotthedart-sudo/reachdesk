@@ -845,6 +845,18 @@ export default function Auth({ onRegister, onLogin, mode = 'login' }) {
           )}
         </div>
       </div>
+      <p style={{
+        marginTop: '1.25rem',
+        fontSize: '0.72rem',
+        color: 'var(--text-muted)',
+        textAlign: 'center',
+        lineHeight: 1.6
+      }}>
+        By continuing, you agree to our{' '}
+        <a href={getMarketingUrl('/terms')} target="_blank" rel="noopener noreferrer" style={{ color: 'var(--text-muted)', textDecoration: 'underline' }}>Terms</a>,{' '}
+        <a href={getMarketingUrl('/privacy')} target="_blank" rel="noopener noreferrer" style={{ color: 'var(--text-muted)', textDecoration: 'underline' }}>Privacy Policy</a>, and{' '}
+        <a href={getMarketingUrl('/refund')} target="_blank" rel="noopener noreferrer" style={{ color: 'var(--text-muted)', textDecoration: 'underline' }}>Refund Policy</a>.
+      </p>
     </div>
   );
 }
