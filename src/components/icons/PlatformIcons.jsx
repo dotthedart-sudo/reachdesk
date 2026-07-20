@@ -145,6 +145,7 @@ export const PhonePopup = ({ phone }) => {
         onClick={(e) => { e.stopPropagation(); setOpen(!open); }}
         style={{ cursor: 'pointer', color: 'var(--text-primary)' }}
         title="Click to call or WhatsApp"
+        data-ph-mask
       >
         {phone}
       </span>

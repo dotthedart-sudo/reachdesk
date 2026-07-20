@@ -5,6 +5,7 @@ import { getTeamIds, PLAN_LIMITS } from './lib/utils';
 import { Lock } from 'lucide-react';
 import { subscribeToPush } from './utils/pushNotifications';
 import { isLocalDev, getAppUrl, getMarketingUrl } from './utils/domain';
+import { identifyUser, resetPostHog } from './utils/posthog';
 
 // Components
 // Lazy‑loaded route components for better initial load performance
@@ -514,6 +515,12 @@ function AppProvider({ children }) {
           setProfile(profileToSet);
           // Mark this user's profile as loaded so future auth events are ignored
           loadedUserIdRef.current = userId;
+          identifyUser(userId, {
+            email: profileToSet.email,
+            plan: profileToSet.plan,
+            role: profileToSet.role,
+            status: profileToSet.status,
+          });
           const status = await checkSubscriptionStatus(profileToSet);
           setSubStatus(status);
 
@@ -680,6 +687,7 @@ function AppProvider({ children }) {
   };
 
   const handleLogout = async () => {
+    resetPostHog();
     await supabase.auth.signOut();
     setSession(null);
     setProfile(null);

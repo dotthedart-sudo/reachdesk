@@ -107,7 +107,7 @@ export default function RevenueTracker({
             Object.keys(currencyTotals).map(curr => (
               <div className="card" key={curr} style={{ textAlign: 'left' }}>
                 <span className="card-title">Total {curr} Earnings</span>
-                <div className="card-value" style={{ color: curr === 'USD' ? 'var(--primary-magenta)' : 'var(--primary-purple)' }}>
+                <div className="card-value" style={{ color: curr === 'USD' ? 'var(--primary-magenta)' : 'var(--primary-purple)' }} data-ph-mask>
                   {CURRENCY_MAP[curr] || curr} 
                   {currencyTotals[curr].toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
                 </div>
@@ -245,15 +245,15 @@ export default function RevenueTracker({
                   {userLogs.map(log => (
                     <tr key={log.id}>
                       <td style={{ fontWeight: 600 }}>{log.date}</td>
-                      <td>{log.source}</td>
-                      <td style={{ fontSize: '0.85rem', color: 'var(--text-muted)' }}>{log.service || '—'}</td>
-                      <td style={{ fontWeight: 700, color: 'var(--success-color)' }}>
+                      <td data-ph-mask>{log.source}</td>
+                      <td style={{ fontSize: '0.85rem', color: 'var(--text-muted)' }} data-ph-mask>{log.service || '—'}</td>
+                      <td style={{ fontWeight: 700, color: 'var(--success-color)' }} data-ph-mask>
                         {(log.amount || 0).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
                       </td>
                       <td>
                         <span className="badge badge-starter">{log.currency}</span>
                       </td>
-                      <td style={{ fontSize: '0.8rem', color: 'var(--text-muted)', maxWidth: '150px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                      <td style={{ fontSize: '0.8rem', color: 'var(--text-muted)', maxWidth: '150px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }} data-ph-mask>
                         {log.description || '—'}
                       </td>
                       <td style={{ fontSize: '0.8rem', color: 'var(--text-muted)' }}>{log.dateAdded}</td>

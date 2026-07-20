@@ -392,7 +392,7 @@ export default function Dashboard({ currentUser, onSelectLead }) {
   return (
     <div className="flex-col gap-4" style={{ textAlign: 'left' }}>
       <div style={{ marginBottom: '1.5rem' }}>
-        <h2>Welcome back, {currentUser.full_name ? currentUser.full_name.trim().split(' ')[0] : currentUser.email.split('@')[0]}!</h2>
+        <h2>Welcome back, <span data-ph-mask>{currentUser.full_name ? currentUser.full_name.trim().split(' ')[0] : currentUser.email.split('@')[0]}</span>!</h2>
         <p className="color-muted">Outreach engine tracking, conversions, and follow-ups status.</p>
       </div>
 
@@ -464,8 +464,8 @@ export default function Dashboard({ currentUser, onSelectLead }) {
                 {revenueTarget > 0 ? (
                   <div style={{ marginTop: '0.5rem', width: '100%' }}>
                     <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline' }}>
-                      <span style={{ fontSize: '1.5rem', fontWeight: 700 }}>{userCurrency}{totalRevenueCollected}</span>
-                      <span style={{ fontSize: '0.85rem', color: 'var(--text-muted)' }}>target: {userCurrency}{revenueTarget}</span>
+                      <span style={{ fontSize: '1.5rem', fontWeight: 700 }} data-ph-mask>{userCurrency}{totalRevenueCollected}</span>
+                      <span style={{ fontSize: '0.85rem', color: 'var(--text-muted)' }} data-ph-mask>target: {userCurrency}{revenueTarget}</span>
                     </div>
                     <div style={{ width: '100%', height: '8px', background: 'var(--border-strong)', borderRadius: '4px', marginTop: '0.5rem', overflow: 'hidden' }}>
                       <div style={{ width: `${targetPct}%`, height: '100%', background: 'var(--success-color)', borderRadius: '4px', transition: 'width 0.4s ease' }} />
@@ -684,7 +684,7 @@ export default function Dashboard({ currentUser, onSelectLead }) {
                         }}
                       >
                         <div style={{ fontSize: '0.85rem', color: 'var(--text-primary)', lineHeight: '1.4' }}>
-                          How did your meeting with {firstName} go?
+                          How did your meeting with <span data-ph-mask>{firstName}</span> go?
                         </div>
 
                         <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '0.4rem', marginTop: '0.4rem', borderTop: '1px solid var(--border)', paddingTop: '0.5rem' }}>
@@ -742,7 +742,7 @@ export default function Dashboard({ currentUser, onSelectLead }) {
                         }}
                       >
                         <div style={{ fontSize: '0.85rem', color: 'var(--text-primary)', lineHeight: '1.4' }}>
-                          Follow up with {item.lead.first_name || ''} {item.lead.last_name || ''} — {pronounWill} need a follow-up {formatTimePhrasing(item.date, 'checkpoint')} if {pronoun} hasn't replied yet.
+                          Follow up with <span data-ph-mask>{item.lead.first_name || ''} {item.lead.last_name || ''}</span> — {pronounWill} need a follow-up {formatTimePhrasing(item.date, 'checkpoint')} if {pronoun} hasn't replied yet.
                         </div>
 
                         <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem', marginTop: '0.4rem', borderTop: '1px solid var(--border)', paddingTop: '0.5rem' }}>

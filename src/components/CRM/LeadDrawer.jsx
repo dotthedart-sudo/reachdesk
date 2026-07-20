@@ -522,10 +522,10 @@ export default function LeadDrawer({
       >
         <div style={{ display: 'flex', alignItems: 'center', gap: '1rem' }}>
           <div>
-            <h3 style={{ fontSize: '1.2rem', fontWeight: 700 }}>
+            <h3 style={{ fontSize: '1.2rem', fontWeight: 700 }} data-ph-mask>
               {isClientView ? formData.name || 'Unnamed Client' : (formData.name !== undefined ? formData.name : `${formData.first_name || ''} ${formData.last_name || ''}`.trim()) || 'Unnamed Lead'}
             </h3>
-            <span style={{ fontSize: '0.8rem', color: 'var(--text-muted)' }}>
+            <span style={{ fontSize: '0.8rem', color: 'var(--text-muted)' }} data-ph-mask>
               {!isClientView && (formData.company || 'No Company')}
             </span>
           </div>
@@ -667,7 +667,7 @@ export default function LeadDrawer({
             </div>
             
             {/* Single Name Field */}
-            <div className="form-group">
+            <div className="form-group" data-ph-mask>
               <label className="form-label">Name</label>
               <input
                 type="text"
@@ -684,7 +684,7 @@ export default function LeadDrawer({
               const val = formData[col.column_key] || '';
               
               return (
-                <div key={col.id} className="form-group">
+                <div key={col.id} className="form-group" data-ph-mask>
                   <label className="form-label">{col.column_label}</label>
                   {col.column_key === 'priority' || col.column_type === 'priority' ? (
                     <PriorityDropdown
@@ -724,7 +724,7 @@ export default function LeadDrawer({
             <div style={{ borderTop: '0.5px solid var(--border)', marginTop: '0.75rem', paddingTop: '1rem' }}>
               <span style={{ fontSize: '0.65rem', letterSpacing: '0.1em', textTransform: 'uppercase', color: 'var(--text-muted)', fontWeight: 600, fontFamily: 'var(--font-body)' }}>Links & Contact</span>
             </div>
-            <div className="form-group">
+            <div className="form-group" data-ph-mask>
               <label className="form-label">LinkedIn</label>
               <input
                 type="url"
@@ -735,7 +735,7 @@ export default function LeadDrawer({
                 className="form-input"
               />
             </div>
-            <div className="form-group">
+            <div className="form-group" data-ph-mask>
               <label className="form-label">Instagram</label>
               <input
                 type="url"
@@ -746,7 +746,7 @@ export default function LeadDrawer({
                 className="form-input"
               />
             </div>
-            <div className="form-group">
+            <div className="form-group" data-ph-mask>
               <label className="form-label">Twitter / X</label>
               <input
                 type="url"
@@ -757,7 +757,7 @@ export default function LeadDrawer({
                 className="form-input"
               />
             </div>
-            <div className="form-group">
+            <div className="form-group" data-ph-mask>
               <label className="form-label">Website</label>
               <input
                 type="url"
@@ -768,7 +768,7 @@ export default function LeadDrawer({
                 className="form-input"
               />
             </div>
-            <div className="form-group">
+            <div className="form-group" data-ph-mask>
               <label className="form-label">Phone</label>
               <input
                 type="text"
@@ -801,7 +801,7 @@ export default function LeadDrawer({
             {contactCols.filter(c => !c.is_default).map(col => {
               const val = formData.custom_fields?.[col.column_key] || '';
               return (
-                <div key={col.id} className="form-group">
+                <div key={col.id} className="form-group" data-ph-mask>
                   <label className="form-label">{col.column_label}</label>
                   {col.column_type === 'dropdown' ? (
                     <EditableDropdown
@@ -1073,7 +1073,7 @@ export default function LeadDrawer({
                             style={{ flex: 1, background: 'var(--bg-secondary)', border: '1px solid var(--primary-purple)', borderRadius: '4px', padding: '0.15rem 0.35rem', fontSize: '0.82rem', color: 'var(--text-primary)', outline: 'none' }}
                           />
                         ) : (
-                          <span style={{ flex: 1, fontSize: '0.82rem', color: selectedNoteId === n.id ? 'var(--primary-purple)' : 'var(--text-secondary)', fontWeight: selectedNoteId === n.id ? 600 : 400, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                          <span style={{ flex: 1, fontSize: '0.82rem', color: selectedNoteId === n.id ? 'var(--primary-purple)' : 'var(--text-secondary)', fontWeight: selectedNoteId === n.id ? 600 : 400, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }} data-ph-mask>
                             {n.title || 'Untitled'}
                           </span>
                         )}
@@ -1105,7 +1105,7 @@ export default function LeadDrawer({
                   <div style={{ display: 'flex', flexDirection: 'column', gap: '0.4rem' }}>
                     <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', minHeight: '16px' }}>
                       <span style={{ fontSize: '0.78rem', color: 'var(--text-muted)' }}>
-                        Editing: <strong>{selectedNote.title || 'Untitled'}</strong>
+                        Editing: <strong data-ph-mask>{selectedNote.title || 'Untitled'}</strong>
                       </span>
                       {noteSaveStatus === 'saving' && (
                         <span style={{ fontSize: '11px', color: '#6B7280' }}>Saving...</span>
@@ -1177,7 +1177,7 @@ export default function LeadDrawer({
                     </strong>
                     
                     {act.action_detail && (
-                      <div style={{ fontSize: '0.8rem', color: 'var(--text-secondary)', marginTop: '0.1rem' }}>
+                      <div style={{ fontSize: '0.8rem', color: 'var(--text-secondary)', marginTop: '0.1rem' }} data-ph-mask>
                         {act.action_type === 'Field Updated' && (
                           <span>
                             Changed <em>{act.action_detail.field}</em> from <strong>"{act.action_detail.from}"</strong> to <strong>"{act.action_detail.to}"</strong>
@@ -1226,11 +1226,11 @@ export default function LeadDrawer({
                 {invoices.map(inv => (
                   <div key={inv.id} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '0.75rem 1rem', backgroundColor: 'var(--bg-secondary)', border: '1px solid var(--border-color)', borderRadius: '6px' }}>
                     <div className="flex-col" style={{ gap: '0.2rem' }}>
-                      <span style={{ fontWeight: 600, fontSize: '0.85rem', color: 'var(--text-primary)' }}>{inv.invoice_number}</span>
+                      <span style={{ fontWeight: 600, fontSize: '0.85rem', color: 'var(--text-primary)' }} data-ph-mask>{inv.invoice_number}</span>
                       <span style={{ fontSize: '0.75rem', color: 'var(--text-muted)' }}>Created {new Date(inv.created_at).toLocaleDateString()}</span>
                     </div>
                     <div className="flex align-center gap-3">
-                      <span style={{ fontWeight: 700, fontSize: '0.9rem', color: 'var(--text-primary)' }}>{inv.total?.toLocaleString() || 0} {inv.currency || 'USD'}</span>
+                      <span style={{ fontWeight: 700, fontSize: '0.9rem', color: 'var(--text-primary)' }} data-ph-mask>{inv.total?.toLocaleString() || 0} {inv.currency || 'USD'}</span>
                       <span style={{
                         padding: '0.2rem 0.5rem',
                         borderRadius: '4px',
@@ -1276,7 +1276,7 @@ export default function LeadDrawer({
             </div>
 
             <form onSubmit={handleConvertSubmit} className="modal-body" style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
-              <div className="form-group">
+              <div className="form-group" data-ph-mask>
                 <label className="form-label">Company Name</label>
                 <input 
                   type="text"
@@ -1287,7 +1287,7 @@ export default function LeadDrawer({
                 />
               </div>
 
-              <div className="form-group">
+              <div className="form-group" data-ph-mask>
                 <label className="form-label">Phone</label>
                 <input 
                   type="text"
@@ -1321,7 +1321,7 @@ export default function LeadDrawer({
                 />
               </div>
 
-              <div className="form-group">
+              <div className="form-group" data-ph-mask>
                 <label className="form-label">Contract Value</label>
                 <input 
                   type="number"
@@ -1331,7 +1331,7 @@ export default function LeadDrawer({
                 />
               </div>
 
-              <div className="form-group">
+              <div className="form-group" data-ph-mask>
                 <label className="form-label">Invoice/Billing Link</label>
                 <input 
                   type="url"

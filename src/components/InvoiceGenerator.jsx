@@ -761,14 +761,14 @@ export default function InvoiceGenerator({
                     <tr key={invoice.id}>
                       <td style={{ fontWeight: 600 }}>{invoice.invoiceNumber}</td>
                       <td>
-                        <div className="flex-col">
+                        <div className="flex-col" data-ph-mask>
                           <span>{invoice.clientName}</span>
                           <span style={{ fontSize: '0.75rem', color: 'var(--text-muted)' }}>{invoice.clientEmail}</span>
                         </div>
                       </td>
                       <td>{invoice.issueDate}</td>
                       <td>{invoice.dueDate}</td>
-                      <td style={{ fontWeight: 600 }}>
+                      <td style={{ fontWeight: 600 }} data-ph-mask>
                         {invoice.total.toLocaleString()} {invoice.currency}
                       </td>
                       <td>
@@ -908,11 +908,11 @@ export function PublicInvoiceView({ invoiceId, invoices }) {
             <h3 style={{ fontSize: '0.9rem', textTransform: 'uppercase', letterSpacing: '0.05em', color: '#475569', marginBottom: '0.5rem' }}>
               Bill To
             </h3>
-            <h4 style={{ fontSize: '1.1rem', fontWeight: 700, color: '#0f172a' }}>
+            <h4 style={{ fontSize: '1.1rem', fontWeight: 700, color: '#0f172a' }} data-ph-mask>
               {invoice.clientName}
             </h4>
             {invoice.clientEmail && (
-              <p style={{ fontSize: '0.9rem', color: '#475569', marginTop: '0.25rem' }}>
+              <p style={{ fontSize: '0.9rem', color: '#475569', marginTop: '0.25rem' }} data-ph-mask>
                 {invoice.clientEmail}
               </p>
             )}
@@ -955,10 +955,10 @@ export function PublicInvoiceView({ invoiceId, invoices }) {
           <tbody>
             {invoice.items.map((item, index) => (
               <tr key={index}>
-                <td style={{ textAlign: 'left', fontWeight: 500 }}>{item.description}</td>
+                <td style={{ textAlign: 'left', fontWeight: 500 }} data-ph-mask>{item.description}</td>
                 <td style={{ textAlign: 'center' }}>{item.quantity}</td>
-                <td style={{ textAlign: 'right' }}>{item.rate.toLocaleString()} {invoice.currency}</td>
-                <td style={{ textAlign: 'right', fontWeight: 600 }}>{(item.quantity * item.rate).toLocaleString()} {invoice.currency}</td>
+                <td style={{ textAlign: 'right' }} data-ph-mask>{item.rate.toLocaleString()} {invoice.currency}</td>
+                <td style={{ textAlign: 'right', fontWeight: 600 }} data-ph-mask>{(item.quantity * item.rate).toLocaleString()} {invoice.currency}</td>
               </tr>
             ))}
           </tbody>
@@ -968,15 +968,15 @@ export function PublicInvoiceView({ invoiceId, invoices }) {
         <div className="invoice-totals">
           <div className="invoice-totals-row">
             <span>Subtotal</span>
-            <span>{(invoice.subtotal || invoice.total || 0).toLocaleString()} {invoice.currency}</span>
+            <span data-ph-mask>{(invoice.subtotal || invoice.total || 0).toLocaleString()} {invoice.currency}</span>
           </div>
           <div className="invoice-totals-row" style={{ color: '#64748b' }}>
             <span>Tax ({(((invoice.tax || 0) / (invoice.subtotal || invoice.total || 1)) * 100).toFixed(1).replace('.0', '')}%)</span>
-            <span>{(invoice.tax || 0).toLocaleString()} {invoice.currency}</span>
+            <span data-ph-mask>{(invoice.tax || 0).toLocaleString()} {invoice.currency}</span>
           </div>
           <div className="invoice-totals-row grand-total">
             <span>Amount Due</span>
-            <span>{invoice.total.toLocaleString()} {invoice.currency}</span>
+            <span data-ph-mask>{invoice.total.toLocaleString()} {invoice.currency}</span>
           </div>
         </div>
 
@@ -988,7 +988,7 @@ export function PublicInvoiceView({ invoiceId, invoices }) {
                 <h4 style={{ fontSize: '0.85rem', textTransform: 'uppercase', letterSpacing: '0.05em', color: '#475569', marginBottom: '0.5rem' }}>
                   Payment Instructions
                 </h4>
-                <p style={{ whiteSpace: 'pre-wrap', lineHeight: 1.5, color: '#334155' }}>
+                <p style={{ whiteSpace: 'pre-wrap', lineHeight: 1.5, color: '#334155' }} data-ph-mask>
                   {invoice.paymentDetails}
                 </p>
               </div>
@@ -999,7 +999,7 @@ export function PublicInvoiceView({ invoiceId, invoices }) {
                 <h4 style={{ fontSize: '0.85rem', textTransform: 'uppercase', letterSpacing: '0.05em', color: '#475569', marginBottom: '0.25rem' }}>
                   Notes & Terms
                 </h4>
-                <p style={{ color: '#475569' }}>{invoice.notes}</p>
+                <p style={{ color: '#475569' }} data-ph-mask>{invoice.notes}</p>
               </div>
             )}
           </div>

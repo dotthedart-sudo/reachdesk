@@ -2432,7 +2432,7 @@ export default function CRM({
                 <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
                   <Info size={13} style={{ color: 'var(--accent-blue, #5B8FB9)', flexShrink: 0 }} />
                   <span>
-                    Great start! Now mark <strong>{[leads[0].first_name, leads[0].last_name].filter(Boolean).join(' ') || 'your lead'}</strong> as <strong>"Contacted"</strong> to start your automated follow-up sequence.
+                    Great start! Now mark <strong data-ph-mask>{[leads[0].first_name, leads[0].last_name].filter(Boolean).join(' ') || 'your lead'}</strong> as <strong>"Contacted"</strong> to start your automated follow-up sequence.
                   </span>
                 </div>
                 <button
@@ -2633,7 +2633,7 @@ export default function CRM({
                           return (
                             <td key={col.id} style={{ padding: '0.75rem 1rem' }}>
                               <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
-                                <span style={{ fontWeight: 600 }}>
+                                <span style={{ fontWeight: 600 }} data-ph-mask>
                                   {`${lead.first_name || ''} ${lead.last_name || ''}`.trim() || '—'}
                                 </span>
                                 {folder && (
@@ -2854,7 +2854,8 @@ export default function CRM({
                           return (
                             <td key={col.id} style={{ padding: '0.75rem 1rem' }} onClick={(e) => e.stopPropagation()}>
                               <a href={url} target="_blank" rel="noopener noreferrer"
-                                style={{ color: 'var(--accent-blue)', textDecoration: 'none', fontSize: '0.85rem' }}>
+                                style={{ color: 'var(--accent-blue)', textDecoration: 'none', fontSize: '0.85rem' }}
+                                data-ph-mask>
                                 {cellValue}
                               </a>
                             </td>
@@ -2866,7 +2867,8 @@ export default function CRM({
                           return (
                             <td key={col.id} style={{ padding: '0.75rem 1rem' }} onClick={(e) => e.stopPropagation()}>
                               <a href={`mailto:${cellValue}`}
-                                style={{ color: 'var(--accent-blue)', textDecoration: 'none', fontSize: '0.85rem' }}>
+                                style={{ color: 'var(--accent-blue)', textDecoration: 'none', fontSize: '0.85rem' }}
+                                data-ph-mask>
                                 {cellValue}
                               </a>
                             </td>
@@ -2876,21 +2878,21 @@ export default function CRM({
                         // ── Phone popup ────────────────────────────────────────
                         if (col.column_key === 'phone') {
                           return (
-                            <td key={col.id} style={{ padding: '0.75rem 1rem' }} onClick={(e) => e.stopPropagation()}>
+                            <td key={col.id} style={{ padding: '0.75rem 1rem' }} onClick={(e) => e.stopPropagation()} data-ph-mask>
                               <PhonePopup phone={cellValue} />
                             </td>
                           );
                         }
 
                         return (
-                          <td key={col.id} style={{ padding: '0.75rem 1rem' }}>
+                          <td key={col.id} style={{ padding: '0.75rem 1rem' }} data-ph-mask>
                             {cellValue || '—'}
                           </td>
                         );
                       })}
 
                       {isTeamView && (
-                        <td style={{ padding: '0.75rem 1rem', fontSize: '0.85rem', color: 'var(--text-secondary)' }}>
+                        <td style={{ padding: '0.75rem 1rem', fontSize: '0.85rem', color: 'var(--text-secondary)' }} data-ph-mask>
                           {addedByEmail || 'Unknown'}
                         </td>
                       )}

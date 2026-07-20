@@ -1149,7 +1149,7 @@ export default function Configuration({
               {teamMembers.map(member => (
                 <div key={member.id} className="flex justify-between align-center" style={{ padding: '0.5rem 0.75rem', background: 'var(--bg-tertiary)', border: '1px solid var(--border-color)', borderRadius: '6px' }}>
                   <div>
-                    <span style={{ fontWeight: 600 }}>{member.email}</span>
+                    <span style={{ fontWeight: 600 }} data-ph-mask>{member.email}</span>
                     {member.id === currentUser.id && <span className="badge badge-approved" style={{ marginLeft: '0.5rem', fontSize: '0.7rem' }}>You</span>}
                     <span style={{ fontSize: '0.75rem', color: 'var(--text-muted)', marginLeft: '0.5rem' }}>({member.team_role})</span>
                   </div>
@@ -1168,7 +1168,7 @@ export default function Configuration({
               {teamInvitations.map(invite => (
                 <div key={invite.id} className="flex justify-between align-center" style={{ padding: '0.5rem 0.75rem', background: 'var(--bg-tertiary)', border: '1px dashed var(--border-color)', borderRadius: '6px', opacity: 0.7 }}>
                   <div>
-                    <span className="color-muted">{invite.invited_email}</span>
+                    <span className="color-muted" data-ph-mask>{invite.invited_email}</span>
                     <span className="badge badge-pending" style={{ marginLeft: '0.5rem', fontSize: '0.7rem' }}>Pending Invite</span>
                   </div>
                 </div>
