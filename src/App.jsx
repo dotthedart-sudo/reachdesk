@@ -1342,7 +1342,7 @@ function AppRoutes() {
         path === '/refund';
 
       if (!isMarketingPath) {
-        window.location.href = `https://app.reachdeskcrm.com${path}${location.search}${location.hash}`;
+        window.location.href = `${getAppUrl(path)}${location.search}${location.hash}`;
       }
     } else if (mode === 'app') {
       const isMarketingPath =
@@ -1353,7 +1353,7 @@ function AppRoutes() {
         path === '/refund';
 
       if (isMarketingPath) {
-        window.location.href = `https://reachdeskcrm.com${path}${location.search}${location.hash}`;
+        window.location.href = `${getMarketingUrl(path)}${location.search}${location.hash}`;
       }
     }
   }, [location]);
