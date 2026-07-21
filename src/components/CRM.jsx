@@ -31,6 +31,7 @@ import PriorityDropdown from './CRM/PriorityDropdown';
 import { exportLeads, exportNotes } from '../utils/exportUtils';
 import { mergeTemplateFields, normalizePhoneNumber, generatePrefilledUrl } from '../utils/templateMerge';
 import { celebrateClosedWon } from '../utils/celebrateWin';
+import { generateAIDraft } from '../utils/aiDraft';
 
 const PRESET_COLORS = [
   '#ef4444', // Red
@@ -85,6 +86,9 @@ export default function CRM({
   const [reachTemplateSubject, setReachTemplateSubject] = useState('');
   const [reachWarning, setReachWarning] = useState('');
   const [reachDestination, setReachDestination] = useState('mailto');
+  const [reachAiLoading, setReachAiLoading] = useState(false);
+  const [reachAiError, setReachAiError] = useState('');
+  const [reachAiInstructions, setReachAiInstructions] = useState('');
   const [folders, setFolders] = useState(() => {
     try {
       const saved = localStorage.getItem('crm_folders');
@@ -269,6 +273,9 @@ export default function CRM({
       setReachTemplateBody(initialBody);
       setReachWarning(warningMsg);
       setReachDestination(channelKey === 'email' ? localStorage.getItem(`reach_last_dest_${currentUser?.id}_${channelKey}`) || 'mailto' : channelKey);
+      setReachAiError('');
+      setReachAiInstructions('');
+      setReachAiLoading(false);
       setReachModalOpen(true);
     } else {
       // Auto-send (direct prefill url opening or clipboard copying)
@@ -303,6 +310,26 @@ export default function CRM({
       setReachTemplateSubject(found.subject || '');
       setReachTemplateBody(mergedBody);
       localStorage.setItem(`reach_last_tmpl_${currentUser?.id}_${reachChannel}`, templateId);
+    }
+  };
+
+  const handleGenerateReachAI = async () => {
+    if (reachAiLoading || !reachLead) return;
+    setReachAiLoading(true);
+    setReachAiError('');
+
+    try {
+      const draft = await generateAIDraft({
+        leadContext: reachLead,
+        platform: reachChannel,
+        extraInstructions: reachAiInstructions,
+      });
+      setReachTemplateBody(draft);
+    } catch (err) {
+      console.error('[Reach Modal AI] Error:', err);
+      setReachAiError("Couldn't generate, try again");
+    } finally {
+      setReachAiLoading(false);
     }
   };
 
@@ -500,9 +527,7 @@ export default function CRM({
         rulesRes
       ] = await Promise.all([
         supabase.from('folders').select('*').eq('user_id', currentUser.id).order('sort_order', { ascending: true }),
-        plan !== 'starter'
-          ? supabase.from('user_folders').select('*').eq('user_id', currentUser.id).order('created_at', { ascending: true })
-          : Promise.resolve({ data: [] }),
+        supabase.from('user_folders').select('*').eq('user_id', currentUser.id).order('created_at', { ascending: true }),
         supabase.from('custom_statuses').select('*').eq('user_id', currentUser.id).order('sort_order', { ascending: true }),
         supabase.from('templates').select('id, title, platform, is_starter, content').or(`user_id.eq.${currentUser.id},user_id.is.null`),
         supabase.from('column_definitions').select('*').eq('user_id', currentUser.id).order('sort_order', { ascending: true }),
@@ -883,7 +908,7 @@ export default function CRM({
   const totalLeadsCount = leads.length;
   const leadLimit = getPlanLeadLimit(plan, currentUser.billing_cycle) || Infinity;
   const isLeadLimitReached = leadLimit !== Infinity && totalLeadsCount >= leadLimit;
-  const canUseIntegrations = PLAN_LIMITS[(currentUser?.plan || 'trial').toLowerCase()]?.integrations ?? false;
+  const canUseIntegrations = PLAN_LIMITS[(currentUser?.plan || 'trial').toLowerCase()]?.sheetsIntegration ?? false;
 
   const leadLimitTooltip = 'Lead limit reached. Delete leads or upgrade.';
 
@@ -1964,34 +1989,16 @@ export default function CRM({
                 </div>
               );
             })}
-            {plan === 'starter' ? (
-              <div 
-                style={{ 
-                  display: 'flex', 
-                  alignItems: 'center', 
-                  gap: '0.35rem', 
-                  color: 'var(--text-muted)', 
-                  fontSize: '0.75rem', 
-                  marginTop: '0.5rem', 
-                  paddingLeft: '8px'
-                }}
-                title="Available on Pro plan"
-              >
-                <Lock size={12} />
-                <span>Available on Pro plan</span>
-              </div>
-            ) : (
-              <button 
-                onClick={() => {
-                  setSmartFolderForm({ name: '', rules: [{ field: 'Status', operator: 'is', value: '' }] });
-                  setShowSmartFolderModal(true);
-                }}
-                className="btn btn-secondary btn-sm"
-                style={{ marginTop: '0.25rem', fontSize: '0.75rem', justifyContent: 'center' }}
-              >
-                <FolderPlus size={14} /> + Smart Folder
-              </button>
-            )}
+            <button 
+              onClick={() => {
+                setSmartFolderForm({ name: '', rules: [{ field: 'Status', operator: 'is', value: '' }] });
+                setShowSmartFolderModal(true);
+              }}
+              className="btn btn-secondary btn-sm"
+              style={{ marginTop: '0.25rem', fontSize: '0.75rem', justifyContent: 'center' }}
+            >
+              <FolderPlus size={14} /> + Smart Folder
+            </button>
 
             <div style={{ borderTop: '0.5px solid var(--border)', margin: '0.5rem 0' }}></div>
 
@@ -2482,7 +2489,7 @@ export default function CRM({
               <button onClick={() => setShowCSVImporter(true)} className="btn btn-secondary" style={{ padding: '0.6rem 1.25rem', fontSize: '0.85rem', fontWeight: 600, display: 'inline-flex', alignItems: 'center', gap: '0.35rem' }}>
                 <Upload size={14} /> Import CSV
               </button>
-              {PLAN_LIMITS[(currentUser?.plan || 'trial').toLowerCase()]?.integrations && (
+              {PLAN_LIMITS[(currentUser?.plan || 'trial').toLowerCase()]?.sheetsIntegration && (
                 <button onClick={() => setShowSheetsImportModal(true)} className="btn btn-secondary" style={{ padding: '0.6rem 1.25rem', fontSize: '0.85rem', fontWeight: 600, display: 'inline-flex', alignItems: 'center', gap: '0.35rem' }}>
                   <Database size={14} /> Import from Sheets
                 </button>
@@ -2696,6 +2703,18 @@ export default function CRM({
                           );
                         }
 
+                        if (col.column_key === 'priority') {
+                          return (
+                            <td key={col.id} style={{ padding: '0.75rem 1rem' }} onClick={(e) => e.stopPropagation()}>
+                              <PriorityDropdown
+                                value={lead.priority}
+                                onChange={(val) => handleDropdownChange(lead.id, 'priority', val)}
+                                onUpdate={fetchData}
+                              />
+                            </td>
+                          );
+                        }
+
                         if (col.column_type === 'dropdown') {
                           const isActionToTake = col.column_key === 'action_to_take';
                           const expectedSuggestion = isActionToTake ? getSuggestionForStatus(lead.status, suggestionRules) : null;
@@ -2805,45 +2824,6 @@ export default function CRM({
                           return (
                             <td key={col.id} style={{ padding: '0.75rem 1rem' }} onClick={(e) => e.stopPropagation()}>
                               <ReachIcons lead={lead} columnDefs={columnDefs} onReachClick={handleReachClick} />
-                            </td>
-                          );
-                        }
-
-                        if (col.column_key === 'status') {
-                          return (
-                            <td key={col.id} style={{ padding: '0.75rem 1rem' }}>
-                              {(() => {
-                                const match = statuses.find(s => s.label.toLowerCase() === (lead.status || '').toLowerCase());
-                                const bg = match ? `${match.color}22` : '#374151';
-                                const text = match ? match.color : '#D1D5DB';
-                                const label = match ? match.label : (lead.status || '—');
-                                return (
-                                  <span style={{
-                                    background: bg,
-                                    color: text,
-                                    padding: '2px 10px',
-                                    borderRadius: '12px',
-                                    fontSize: '12px',
-                                    fontWeight: 500,
-                                    whiteSpace: 'nowrap',
-                                    display: 'inline-block'
-                                  }}>
-                                    {label}
-                                  </span>
-                                );
-                              })()}
-                            </td>
-                          );
-                        }
-
-                        if (col.column_key === 'priority') {
-                          return (
-                            <td key={col.id} style={{ padding: '0.75rem 1rem' }} onClick={(e) => e.stopPropagation()}>
-                              <PriorityDropdown
-                                value={lead.priority}
-                                onChange={(val) => handleDropdownChange(lead.id, 'priority', val)}
-                                onUpdate={fetchData}
-                              />
                             </td>
                           );
                         }
@@ -3831,9 +3811,33 @@ export default function CRM({
                 </div>
               )}
 
-              {/* Template Picker */}
+              {/* Template Picker & AI Option */}
               <div className="form-group">
-                <label className="form-label" style={{ fontWeight: 600, fontSize: '0.85rem', color: 'var(--text-secondary)' }}>Select Template</label>
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '0.25rem' }}>
+                  <label className="form-label" style={{ fontWeight: 600, fontSize: '0.85rem', color: 'var(--text-secondary)', margin: 0 }}>Select Template</label>
+                  {['trial', 'pro', 'teams', 'enterprise'].includes((currentUser?.plan || 'trial').toLowerCase()) ? (
+                    <button
+                      type="button"
+                      onClick={handleGenerateReachAI}
+                      disabled={reachAiLoading}
+                      className="btn btn-secondary btn-sm"
+                      style={{ display: 'inline-flex', alignItems: 'center', gap: '0.3rem', fontSize: '0.78rem', padding: '0.25rem 0.5rem' }}
+                    >
+                      <Sparkles size={12} style={{ color: 'var(--accent-blue)' }} />
+                      {reachAiLoading ? 'Generating...' : 'Generate with AI'}
+                    </button>
+                  ) : (
+                    <button
+                      type="button"
+                      disabled
+                      title="Available on Pro plan"
+                      className="btn btn-secondary btn-sm"
+                      style={{ display: 'inline-flex', alignItems: 'center', gap: '0.35rem', fontSize: '0.78rem', padding: '0.25rem 0.5rem', opacity: 0.7, cursor: 'not-allowed' }}
+                    >
+                      <Lock size={12} /> Available on Pro
+                    </button>
+                  )}
+                </div>
                 <select
                   value={selectedReachTemplateId}
                   onChange={(e) => handleReachTemplateChange(e.target.value)}
@@ -3845,6 +3849,23 @@ export default function CRM({
                     <option key={t.id} value={t.id}>{t.title} ({t.platform})</option>
                   ))}
                 </select>
+                <div style={{ marginTop: '0.4rem', display: 'flex', gap: '0.4rem', alignItems: 'center' }}>
+                  <input
+                    type="text"
+                    className="form-input"
+                    placeholder='AI prompt instructions (optional, e.g. "mention 20% discount")'
+                    value={reachAiInstructions}
+                    onChange={(e) => setReachAiInstructions(e.target.value)}
+                    onKeyDown={(e) => { if (e.key === 'Enter' && !reachAiLoading) handleGenerateReachAI(); }}
+                    disabled={reachAiLoading}
+                    style={{ flex: 1, fontSize: '0.78rem', height: '30px', background: 'var(--bg-page)', border: '1px solid var(--border)', borderRadius: '4px', padding: '0 8px' }}
+                  />
+                </div>
+                {reachAiError && (
+                  <div style={{ color: 'var(--danger-color)', fontSize: '0.75rem', marginTop: '0.35rem', display: 'flex', alignItems: 'center', gap: '0.25rem' }}>
+                    <AlertCircle size={12} /> {reachAiError}
+                  </div>
+                )}
               </div>
 
               {/* Subject (Email Only) */}

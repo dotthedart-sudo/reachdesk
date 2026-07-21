@@ -481,11 +481,9 @@ export default function LeadDrawer({
           zIndex: 999,
           display: 'flex',
           flexDirection: 'column',
-          animation: 'slideInRight 0.25s ease-out',
           textAlign: 'left'
         }}
       >
-
       {/* Dynamic Slide In CSS */}
       <style>{`
         @keyframes slideInRight {
@@ -839,6 +837,7 @@ export default function LeadDrawer({
                 </div>
               );
             })}
+
           </div>
         )}
 

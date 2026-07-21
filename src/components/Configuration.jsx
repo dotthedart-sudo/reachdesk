@@ -613,7 +613,7 @@ export default function Configuration({
           team_role: 'owner', 
           plan: 'trial',
           status: 'approved',
-          trial_ends_at: new Date(Date.now() + 168*60*60*1000).toISOString() // 7-day trial
+          trial_ends_at: new Date(Date.now() + 14 * 24 * 60 * 60 * 1000).toISOString() // 14-day trial
         })
         .eq('id', memberId);
 
@@ -1348,39 +1348,7 @@ export default function Configuration({
       </div>
 
       {/* ─── INTEGRATIONS SECTION ─────────────────────────────────────────── */}
-      <div className="card flex-col gap-3" id="integrations" style={{ position: 'relative', overflow: 'hidden' }}>
-        {/* Locked Overlay */}
-        {!PLAN_LIMITS[(currentUser?.plan || 'trial').toLowerCase()]?.integrations && (
-          <div style={{
-            position: 'absolute',
-            inset: 0,
-            background: theme === 'light' ? 'rgba(255, 255, 255, 0.85)' : 'rgba(22, 27, 34, 0.85)',
-            backdropFilter: 'blur(3px)',
-            display: 'flex',
-            flexDirection: 'column',
-            alignItems: 'center',
-            justifyContent: 'center',
-            zIndex: 10,
-            gap: '0.75rem',
-            textAlign: 'center',
-            padding: '1.5rem'
-          }}>
-            <Lock size={32} style={{ color: 'var(--primary-purple)' }} />
-            <h4 style={{ margin: 0, fontSize: '1rem', fontWeight: 600 }}>Integrations are Locked</h4>
-            <p style={{ margin: 0, fontSize: '0.8rem', color: 'var(--text-muted)', maxWidth: '280px' }}>
-              Google Calendar and Google Sheets integrations are available on Pro plan and above. Upgrade to unlock automatic calendar sync and Sheets import/export.
-            </p>
-            <button
-              type="button"
-              className="btn btn-primary btn-sm"
-              onClick={() => navigate('/upgrade')}
-              style={{ marginTop: '0.25rem' }}
-            >
-              Upgrade Now
-            </button>
-          </div>
-        )}
-
+      <div className="card flex-col gap-3" id="integrations">
         <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', borderBottom: '1px solid var(--border-color)', paddingBottom: '0.5rem', marginBottom: '0.25rem' }}>
           <Calendar size={18} style={{ color: 'var(--primary-purple)' }} />
           <h3 style={{ fontSize: '1.1rem' }}>Integrations</h3>
@@ -1424,7 +1392,16 @@ export default function Configuration({
           </div>
 
           <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
-            {!calLoading && (
+            {!PLAN_LIMITS[(currentUser?.plan || 'trial').toLowerCase()]?.calendarIntegration ? (
+              <button
+                type="button"
+                onClick={() => navigate('/upgrade')}
+                className="btn btn-secondary btn-sm"
+                style={{ display: 'flex', alignItems: 'center', gap: '0.35rem' }}
+              >
+                <Lock size={12} /> Available on Pro plan
+              </button>
+            ) : !calLoading && (
               calIntegration ? (
                 <>
                   <span style={{

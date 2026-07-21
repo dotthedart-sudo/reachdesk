@@ -14,8 +14,10 @@ import {
   ChevronDown,
   ChevronRight,
   ClipboardList,
-  Lock
+  Lock,
+  AlertCircle
 } from 'lucide-react';
+import { generateAIDraft } from '../utils/aiDraft';
 import { PLAN_LIMITS } from '../lib/utils';
 import { NEXT_PLAN, PLAN_LIMITS as LIMITS_NEW } from '../lib/leadLimits';
 
@@ -53,6 +55,11 @@ export default function Templates({
   const [newSnippetValue, setNewSnippetValue] = useState('');
   const [snippetError, setSnippetError] = useState('');
   const snippetDropdownRef = useRef(null);
+
+  // AI draft states
+  const [templateAiLoading, setTemplateAiLoading] = useState(false);
+  const [templateAiError, setTemplateAiError] = useState('');
+  const [templateAiInstructions, setTemplateAiInstructions] = useState('');
 
   useEffect(() => {
     if (!currentUser?.id) return;
@@ -131,6 +138,9 @@ export default function Templates({
     const defaultPlatform = SECTIONS.includes(sectionName) ? sectionName : 'INITIAL TEMPLATES';
     setFormState({ title: '', subject: '', body: '', platform: defaultPlatform, tagsInput: '' });
     setEditingTemplate(null);
+    setTemplateAiError('');
+    setTemplateAiInstructions('');
+    setTemplateAiLoading(false);
     setShowEditor(true);
   };
 
@@ -143,6 +153,9 @@ export default function Templates({
       platform: template.platform || 'INITIAL TEMPLATES',
       tagsInput: (template.tags || []).join(', ')
     });
+    setTemplateAiError('');
+    setTemplateAiInstructions('');
+    setTemplateAiLoading(false);
     setShowEditor(true);
   };
 
@@ -170,6 +183,26 @@ export default function Templates({
       ...formState,
       ...updatePayload
     });
+  };
+
+  const handleGenerateTemplateAI = async () => {
+    if (templateAiLoading) return;
+    setTemplateAiLoading(true);
+    setTemplateAiError('');
+
+    try {
+      const draft = await generateAIDraft({
+        platform: formState.platform,
+        extraInstructions: templateAiInstructions,
+      });
+      setFormState(prev => ({ ...prev, body: draft }));
+      handleFieldBlur('body', draft);
+    } catch (err) {
+      console.error('[Template Editor AI] Error:', err);
+      setTemplateAiError("Couldn't generate, try again");
+    } finally {
+      setTemplateAiLoading(false);
+    }
   };
 
   const handleSave = async (e) => {
@@ -1233,7 +1266,52 @@ export default function Templates({
               {/* Grid: Editor Left, Live Preview Right */}
               <div className="template-editor-container" style={{ marginTop: '0.5rem' }}>
                 <div className="form-group">
-                  <label className="form-label" style={{ color: 'var(--text-secondary)' }}>Body Template *</label>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '0.25rem' }}>
+                    <label className="form-label" style={{ color: 'var(--text-secondary)', margin: 0 }}>Body Template *</label>
+                    {!editingTemplate?.is_starter && (
+                      ['trial', 'pro', 'teams', 'enterprise'].includes((currentUser?.plan || 'trial').toLowerCase()) ? (
+                        <button
+                          type="button"
+                          onClick={handleGenerateTemplateAI}
+                          disabled={templateAiLoading}
+                          className="btn btn-secondary btn-sm"
+                          style={{ display: 'inline-flex', alignItems: 'center', gap: '0.3rem', fontSize: '0.75rem', padding: '0.2rem 0.5rem', borderRadius: '3px' }}
+                        >
+                          <Sparkles size={12} style={{ color: 'var(--accent-blue)' }} />
+                          {templateAiLoading ? 'Generating...' : 'Generate with AI'}
+                        </button>
+                      ) : (
+                        <button
+                          type="button"
+                          disabled
+                          title="Available on Pro plan"
+                          className="btn btn-secondary btn-sm"
+                          style={{ display: 'inline-flex', alignItems: 'center', gap: '0.35rem', fontSize: '0.75rem', padding: '0.2rem 0.5rem', borderRadius: '3px', opacity: 0.7, cursor: 'not-allowed' }}
+                        >
+                          <Lock size={12} /> Available on Pro
+                        </button>
+                      )
+                    )}
+                  </div>
+                  {!editingTemplate?.is_starter && (
+                    <div style={{ marginBottom: '0.4rem', display: 'flex', gap: '0.4rem', alignItems: 'center' }}>
+                      <input
+                        type="text"
+                        className="form-input"
+                        placeholder='AI prompt instructions (optional, e.g. "for cold outreach to SaaS founder")'
+                        value={templateAiInstructions}
+                        onChange={(e) => setTemplateAiInstructions(e.target.value)}
+                        onKeyDown={(e) => { if (e.key === 'Enter' && !templateAiLoading) handleGenerateTemplateAI(); }}
+                        disabled={templateAiLoading}
+                        style={{ flex: 1, fontSize: '0.78rem', height: '30px', background: 'var(--bg-page)', border: '1px solid var(--border)', borderRadius: '3px', padding: '0 8px' }}
+                      />
+                    </div>
+                  )}
+                  {templateAiError && (
+                    <div style={{ color: 'var(--danger-color)', fontSize: '0.75rem', marginBottom: '0.35rem', display: 'flex', alignItems: 'center', gap: '0.25rem' }}>
+                      <AlertCircle size={12} /> {templateAiError}
+                    </div>
+                  )}
                   <textarea 
                     className="form-textarea"
                     required

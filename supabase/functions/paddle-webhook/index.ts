@@ -2,7 +2,7 @@ import { serve } from "https://deno.land/std@0.168.0/http/server.ts"
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.7.1"
 // ⚠️  SYNC WARNING: STARTER_MONTHLY_USD is mirrored in src/components/Paywalls.jsx
 //     (BILLING.monthly.starter.usdTotal). Keep both files in sync when prices change.
-import { STARTER_MONTHLY_USD } from '../_shared/prices.ts'
+import { STARTER_MONTHLY_USD, getPlanFromPriceId } from '../_shared/prices.ts'
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
@@ -159,13 +159,29 @@ serve(async (req) => {
         .eq('email', customerEmail)
         .maybeSingle()
 
-      // Extract Paddle IDs
+      // Extract Paddle IDs & item details
       const paddleCustomerId = payload.data?.customer?.id || payload.data?.customer_id
       const paddleSubscriptionId = payload.data?.subscription_id || payload.data?.items?.[0]?.subscription_id
+      const priceId = payload.data?.items?.[0]?.price_id || payload.data?.items?.[0]?.price?.id
+      const rawProductName = payload.data?.items?.[0]?.price?.product?.name || ''
 
-      // 1. Update user profile to active Starter plan
+      // Dynamically resolve plan from single source of truth (prices.ts)
+      let resolvedPlan = getPlanFromPriceId(priceId)
+      if (!resolvedPlan) {
+        // Fallback: check product name if priceId was not matched
+        const nameLower = rawProductName.toLowerCase()
+        if (nameLower.includes('pro')) resolvedPlan = 'pro'
+        else if (nameLower.includes('teams') || nameLower.includes('team')) resolvedPlan = 'teams'
+        else if (nameLower.includes('starter')) resolvedPlan = 'starter'
+        else {
+          console.error('[Webhook] UNKNOWN price ID or product name received:', { priceId, rawProductName })
+          resolvedPlan = 'starter' // Safe fallback for unrecognized products
+        }
+      }
+
+      // 1. Update user profile to active plan
       const updateData: any = {
-        plan: 'starter',
+        plan: resolvedPlan,
         plan_status: 'active',
         trial_ends_at: null
       }

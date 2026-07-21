@@ -185,7 +185,7 @@ const PLANS = [
       { label: 'AI CRM Commands', badge: 'Coming Soon' },
       { label: 'MCP / Claude Connect', badge: 'Coming Soon' },
     ],
-    comingSoon: true, // Locked until Google OAuth verification completes
+    comingSoon: false,
     isEnterprise: false,
     highlighted: false, // Ensure Pro is not highlighted
   },

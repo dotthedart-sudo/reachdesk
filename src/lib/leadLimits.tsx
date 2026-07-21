@@ -17,7 +17,7 @@ import { supabase } from './supabase' // matches src/lib/supabase.js
 // Mirrors the CASE branches in check_lead_limit() / check_template_limit() in Supabase —
 // keep both in sync if these numbers change.
 export const PLAN_LIMITS: Record<string, { leads: number | null; templates: number | null }> = {
-  trial:      { leads: 65,   templates: 2 },
+  trial:      { leads: 65,   templates: 3 },
   starter:    { leads: 1000, templates: 10 },
   pro:        { leads: 5000, templates: null }, // unlimited templates on Pro
   teams:      { leads: null, templates: null }, // unlimited leads + templates on Teams

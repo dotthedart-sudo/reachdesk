@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react';
+import { createPortal } from 'react-dom';
 import { Pencil, Plus, Trash2, ChevronUp, ChevronDown, X, Lock } from 'lucide-react';
 import { supabase } from '../../lib/supabase';
 
@@ -49,7 +50,9 @@ export default function EditableDropdown({
 }) {
   const [isOpen, setIsOpen] = useState(false);
   const [showEditModal, setShowEditModal] = useState(false);
+  const [dropdownPos, setDropdownPos] = useState({ top: 0, left: 0, width: 180, openUp: false });
   const dropdownRef = useRef(null);
+  const triggerRef = useRef(null);
 
   // Modal State
   const [options, setOptions] = useState([]);
@@ -62,13 +65,33 @@ export default function EditableDropdown({
   // Close dropdown on click outside
   useEffect(() => {
     function handleClickOutside(event) {
-      if (dropdownRef.current && !dropdownRef.current.contains(event.target)) {
+      const isInsideTrigger = triggerRef.current && triggerRef.current.contains(event.target);
+      const isInsideDropdown = dropdownRef.current && dropdownRef.current.contains(event.target);
+      if (!isInsideTrigger && !isInsideDropdown) {
         setIsOpen(false);
       }
     }
     document.addEventListener('mousedown', handleClickOutside);
     return () => document.removeEventListener('mousedown', handleClickOutside);
   }, []);
+
+  const openDropdown = (e) => {
+    if (e) e.stopPropagation();
+    if (triggerRef.current) {
+      const rect = triggerRef.current.getBoundingClientRect();
+      const dropdownHeight = 220;
+      const spaceBelow = window.innerHeight - rect.bottom;
+      const openUp = spaceBelow < dropdownHeight && rect.top > dropdownHeight;
+      const width = Math.max(rect.width, 180);
+      setDropdownPos({
+        left: Math.min(rect.left, window.innerWidth - width - 8),
+        width,
+        openUp,
+        top: openUp ? rect.top - 4 : rect.bottom + 4
+      });
+    }
+    setIsOpen(prev => !prev);
+  };
 
   const handleOpenEditOptions = (e) => {
     e.stopPropagation();
@@ -166,90 +189,94 @@ const ACTION_COLORS = {
     whiteSpace: 'nowrap'
   };
 
+  const dropdownMenu = isOpen && createPortal(
+    <div
+      ref={dropdownRef}
+      onClick={e => e.stopPropagation()}
+      style={{
+        position: 'fixed',
+        top: dropdownPos.openUp ? undefined : dropdownPos.top,
+        bottom: dropdownPos.openUp ? window.innerHeight - dropdownPos.top : undefined,
+        left: dropdownPos.left,
+        zIndex: 99999,
+        minWidth: `${dropdownPos.width}px`,
+        backgroundColor: 'var(--bg-card, #161B22)',
+        border: '1px solid var(--border-strong, #30363D)',
+        borderRadius: '8px',
+        boxShadow: '0 8px 32px rgba(0,0,0,0.35)',
+        padding: '4px',
+        maxHeight: '220px',
+        overflowY: 'auto',
+        display: 'flex',
+        flexDirection: 'column'
+      }}
+    >
+      {rawOptions.map(opt => (
+        <button
+          key={opt.label}
+          type="button"
+          className="dropdown-item"
+          onClick={() => {
+            onChange(opt.label);
+            setIsOpen(false);
+          }}
+          style={{
+            display: 'flex',
+            alignItems: 'center',
+            gap: '0.5rem',
+            padding: '0.5rem 0.75rem',
+            border: 'none',
+            background: value === opt.label ? 'rgba(139, 92, 246, 0.1)' : 'transparent',
+            color: 'var(--text-primary)',
+            textAlign: 'left',
+            cursor: 'pointer',
+            borderRadius: '6px',
+            fontSize: '0.85rem'
+          }}
+        >
+          <span style={{ width: '6px', height: '6px', borderRadius: '50%', backgroundColor: opt.color }} />
+          {opt.label}
+        </button>
+      ))}
+      {rawOptions.length === 0 && (
+        <div style={{ padding: '0.5rem 0.75rem', fontSize: '0.8rem', color: 'var(--text-muted)' }}>
+          No options configured.
+        </div>
+      )}
+      <div style={{ borderTop: '1px solid var(--border-color)', margin: '4px 0' }} />
+      <button
+        type="button"
+        className="dropdown-item text-primary"
+        onClick={handleOpenEditOptions}
+        style={{
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'center',
+          gap: '0.35rem',
+          padding: '0.4rem 0.75rem',
+          border: 'none',
+          background: 'transparent',
+          color: 'var(--primary-purple, #8b5cf6)',
+          cursor: 'pointer',
+          borderRadius: '6px',
+          fontSize: '0.8rem',
+          fontWeight: 600
+        }}
+      >
+        <Pencil size={12} /> Edit Options
+      </button>
+    </div>,
+    document.body
+  );
+
   return (
-    <div style={{ position: 'relative', display: 'inline-block' }} ref={dropdownRef}>
-      <button onClick={() => setIsOpen(!isOpen)} style={chipStyle} type="button">
+    <div style={{ position: 'relative', display: 'inline-block' }} onClick={e => e.stopPropagation()}>
+      <button ref={triggerRef} onClick={openDropdown} style={chipStyle} type="button">
         <span style={{ width: '6px', height: '6px', borderRadius: '50%', backgroundColor: currentOpt.color }} />
         {currentOpt.label}
       </button>
 
-      {isOpen && (
-        <div 
-          className="dropdown-menu"
-          style={{
-            position: 'absolute',
-            top: '100%',
-            left: 0,
-            background: 'var(--bg-tertiary)',
-            border: '1px solid var(--border-color)',
-            borderRadius: '8px',
-            boxShadow: 'var(--glow-shadow)',
-            zIndex: 1000,
-            minWidth: '160px',
-            marginTop: '4px',
-            maxHeight: '220px',
-            overflowY: 'auto',
-            display: 'flex',
-            flexDirection: 'column',
-            padding: '4px'
-          }}
-        >
-          {rawOptions.map(opt => (
-            <button
-              key={opt.label}
-              type="button"
-              className="dropdown-item"
-              onClick={() => {
-                onChange(opt.label);
-                setIsOpen(false);
-              }}
-              style={{
-                display: 'flex',
-                alignItems: 'center',
-                gap: '0.5rem',
-                padding: '0.5rem 0.75rem',
-                border: 'none',
-                background: value === opt.label ? 'rgba(139, 92, 246, 0.1)' : 'transparent',
-                color: 'var(--text-primary)',
-                textAlign: 'left',
-                cursor: 'pointer',
-                borderRadius: '6px',
-                fontSize: '0.85rem'
-              }}
-            >
-              <span style={{ width: '6px', height: '6px', borderRadius: '50%', backgroundColor: opt.color }} />
-              {opt.label}
-            </button>
-          ))}
-          {rawOptions.length === 0 && (
-            <div style={{ padding: '0.5rem 0.75rem', fontSize: '0.8rem', color: 'var(--text-muted)' }}>
-              No options configured.
-            </div>
-          )}
-          <div style={{ borderTop: '1px solid var(--border-color)', margin: '4px 0' }} />
-          <button
-            type="button"
-            className="dropdown-item text-primary"
-            onClick={handleOpenEditOptions}
-            style={{
-              display: 'flex',
-              alignItems: 'center',
-              justifyContent: 'center',
-              gap: '0.35rem',
-              padding: '0.4rem 0.75rem',
-              border: 'none',
-              background: 'transparent',
-              color: 'var(--primary-purple)',
-              cursor: 'pointer',
-              borderRadius: '6px',
-              fontSize: '0.8rem',
-              fontWeight: 600
-            }}
-          >
-            <Pencil size={12} /> Edit Options
-          </button>
-        </div>
-      )}
+      {dropdownMenu}
 
       {/* Edit Options Modal */}
       {showEditModal && (

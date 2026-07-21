@@ -506,8 +506,7 @@ export default function Homepage({ currentUserEmail }) {
           </div>
 
           {/* PRO */}
-          <div className="hp-pricing-card disabled">
-            <span className="hp-plan-tag">Coming Soon</span>
+          <div className="hp-pricing-card">
             <div>
               <div className="hp-plan-name">Pro</div>
               <div className="hp-plan-price-label">
@@ -547,8 +546,12 @@ export default function Homepage({ currentUserEmail }) {
               </li>
             </ul>
             
-            <button className="hp-plan-cta-btn disabled" disabled>
-              Coming soon
+            <button 
+              onClick={handleSignUpClick} 
+              className="hp-plan-cta-btn"
+              style={{ backgroundColor: 'var(--accent-blue)', color: '#0D1117' }}
+            >
+              Get Pro
             </button>
           </div>
 

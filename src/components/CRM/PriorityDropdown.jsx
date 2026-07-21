@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react';
+import { createPortal } from 'react-dom';
 import { Flame, Sun, Snowflake, ChevronDown, Pencil, Plus, Trash2, Check, X } from 'lucide-react';
 import { supabase } from '../../lib/supabase';
 
@@ -30,7 +31,8 @@ export default function PriorityDropdown({ value, onChange, onUpdate }) {
   const [priorities, setPriorities] = useState(DEFAULT_PRIORITIES);
   const [columnDefId, setColumnDefId] = useState(null);
   const [userId, setUserId] = useState(null);
-  
+  const [dropdownPos, setDropdownPos] = useState({ top: 0, left: 0, width: 220, openUp: false });
+
   // Edit mode inputs
   const [editingIndex, setEditingIndex] = useState(null);
   const [editingLabel, setEditingLabel] = useState('');
@@ -39,10 +41,13 @@ export default function PriorityDropdown({ value, onChange, onUpdate }) {
   const [newColor, setNewColor] = useState(PRESET_COLORS[0]);
 
   const dropdownRef = useRef(null);
+  const triggerRef = useRef(null);
 
   useEffect(() => {
     function handleClickOutside(e) {
-      if (dropdownRef.current && !dropdownRef.current.contains(e.target)) {
+      const isInsideTrigger = triggerRef.current && triggerRef.current.contains(e.target);
+      const isInsideDropdown = dropdownRef.current && dropdownRef.current.contains(e.target);
+      if (!isInsideTrigger && !isInsideDropdown) {
         setIsOpen(false);
         setIsEditing(false);
       }
@@ -50,6 +55,25 @@ export default function PriorityDropdown({ value, onChange, onUpdate }) {
     document.addEventListener('mousedown', handleClickOutside);
     return () => document.removeEventListener('mousedown', handleClickOutside);
   }, []);
+
+  const openDropdown = (e) => {
+    if (e) e.stopPropagation();
+    if (triggerRef.current) {
+      const rect = triggerRef.current.getBoundingClientRect();
+      const dropdownHeight = 280;
+      const spaceBelow = window.innerHeight - rect.bottom;
+      const openUp = spaceBelow < dropdownHeight && rect.top > dropdownHeight;
+      const width = Math.max(rect.width, 220);
+      setDropdownPos({
+        left: Math.min(rect.left, window.innerWidth - width - 8),
+        width,
+        openUp,
+        top: openUp ? rect.top - 4 : rect.bottom + 4
+      });
+    }
+    setIsOpen(prev => !prev);
+    setIsEditing(false);
+  };
 
   // Fetch current user and column definition for priorities
   useEffect(() => {
@@ -244,14 +268,250 @@ export default function PriorityDropdown({ value, onChange, onUpdate }) {
     };
   };
 
+  const dropdownPanel = isOpen && createPortal(
+    <div
+      ref={dropdownRef}
+      onClick={e => e.stopPropagation()}
+      style={{
+        position: 'fixed',
+        top: dropdownPos.openUp ? undefined : dropdownPos.top,
+        bottom: dropdownPos.openUp ? window.innerHeight - dropdownPos.top : undefined,
+        left: dropdownPos.left,
+        zIndex: 99999,
+        width: `${dropdownPos.width}px`,
+        backgroundColor: 'var(--bg-card, #161B22)',
+        border: '1px solid var(--border-strong, #30363D)',
+        borderRadius: '8px',
+        boxShadow: '0 8px 32px rgba(0,0,0,0.35)',
+        padding: '8px',
+        display: 'flex',
+        flexDirection: 'column',
+        gap: '4px'
+      }}
+    >
+      {!isEditing ? (
+        <>
+          {/* Normal Selection List */}
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '2px', maxHeight: '180px', overflowY: 'auto' }}>
+            {priorities.map(opt => {
+              const isSelected = normalizedVal.toLowerCase() === opt.label.toLowerCase();
+              return (
+                <button
+                  key={opt.label}
+                  type="button"
+                  onClick={() => {
+                    onChange(opt.label);
+                    setIsOpen(false);
+                  }}
+                  style={{
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: '0.5rem',
+                    padding: '0.45rem 0.65rem',
+                    border: 'none',
+                    background: isSelected ? 'rgba(255, 255, 255, 0.08)' : 'transparent',
+                    color: opt.color,
+                    textAlign: 'left',
+                    cursor: 'pointer',
+                    borderRadius: '6px',
+                    fontSize: '0.82rem',
+                    fontWeight: 600,
+                    width: '100%'
+                  }}
+                  onMouseEnter={e => e.currentTarget.style.background = 'rgba(255,255,255,0.05)'}
+                  onMouseLeave={e => e.currentTarget.style.background = isSelected ? 'rgba(255, 255, 255, 0.08)' : 'transparent'}
+                >
+                  <span style={{ width: '8px', height: '8px', borderRadius: '50%', backgroundColor: opt.color }} />
+                  <span>{stripEmojis(opt.label)}</span>
+                </button>
+              );
+            })}
+          </div>
+
+          <div style={{ borderTop: '1px solid var(--border-color, #30363D)', margin: '4px 0' }} />
+          
+          <button
+            type="button"
+            onClick={() => setIsEditing(true)}
+            style={{
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              gap: '4px',
+              background: 'transparent',
+              border: 'none',
+              color: 'var(--primary-purple, #8b5cf6)',
+              fontSize: '0.78rem',
+              fontWeight: 600,
+              cursor: 'pointer',
+              padding: '6px',
+              width: '100%',
+              borderRadius: '4px'
+            }}
+            onMouseEnter={e => e.currentTarget.style.background = 'rgba(139, 92, 246, 0.08)'}
+            onMouseLeave={e => e.currentTarget.style.background = 'transparent'}
+          >
+            <Pencil size={12} />
+            Edit Priorities
+          </button>
+        </>
+      ) : (
+        /* Editable Management Mode */
+        <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+            <span style={{ fontSize: '0.78rem', fontWeight: 700, color: 'var(--text-primary)' }}>Manage Priorities</span>
+            <div style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
+              <button
+                type="button"
+                onClick={handleResetToDefaults}
+                style={{ background: 'none', border: 'none', color: 'var(--primary-purple, #8b5cf6)', cursor: 'pointer', fontSize: '0.75rem', fontWeight: 600 }}
+              >
+                Reset
+              </button>
+              <span style={{ color: 'var(--text-muted)', fontSize: '0.75rem' }}>|</span>
+              <button
+                type="button"
+                onClick={() => setIsEditing(false)}
+                style={{ background: 'none', border: 'none', color: 'var(--text-muted)', cursor: 'pointer', fontSize: '0.75rem', fontWeight: 600 }}
+              >
+                Back
+              </button>
+            </div>
+          </div>
+
+          {/* Editable Option List */}
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '4px', maxHeight: '140px', overflowY: 'auto' }}>
+            {priorities.map((opt, idx) => (
+              <div key={opt.label} style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                {editingIndex === idx ? (
+                  <>
+                    <input
+                      type="text"
+                      value={editingLabel}
+                      onChange={(e) => setEditingLabel(e.target.value)}
+                      style={{
+                        flex: 1,
+                        background: 'var(--bg-primary, #0D1117)',
+                        border: '1px solid var(--border-color, #30363D)',
+                        color: '#fff',
+                        borderRadius: '4px',
+                        padding: '2px 6px',
+                        fontSize: '0.78rem'
+                      }}
+                    />
+                    <button
+                      type="button"
+                      onClick={() => handleSaveEdit(idx)}
+                      style={{ background: 'none', border: 'none', color: '#10b981', cursor: 'pointer', padding: 0 }}
+                    >
+                      <Check size={12} />
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setEditingIndex(null)}
+                      style={{ background: 'none', border: 'none', color: '#ef4444', cursor: 'pointer', padding: 0 }}
+                    >
+                      <X size={12} />
+                    </button>
+                  </>
+                ) : (
+                  <>
+                    <span style={{ width: '8px', height: '8px', borderRadius: '50%', backgroundColor: opt.color, flexShrink: 0 }} />
+                    <span style={{ flex: 1, fontSize: '0.78rem', color: opt.color, fontWeight: 500 }}>{stripEmojis(opt.label)}</span>
+                    <button
+                      type="button"
+                      onClick={() => handleStartEdit(idx)}
+                      style={{ background: 'none', border: 'none', color: 'var(--text-muted)', cursor: 'pointer', padding: 0 }}
+                    >
+                      <Pencil size={12} />
+                    </button>
+                    {priorities.length > 1 && (
+                      <button
+                        type="button"
+                        onClick={() => handleDelete(idx)}
+                        style={{ background: 'none', border: 'none', color: '#ef4444', cursor: 'pointer', padding: 0 }}
+                      >
+                        <Trash2 size={12} />
+                      </button>
+                    )}
+                  </>
+                )}
+              </div>
+            ))}
+          </div>
+
+          <div style={{ borderTop: '1px solid var(--border-color, #30363D)', margin: '2px 0' }} />
+
+          {/* Add Option */}
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
+            <div style={{ display: 'flex', gap: '4px' }}>
+              <input
+                type="text"
+                placeholder="New priority name..."
+                value={newLabel}
+                onChange={(e) => setNewLabel(e.target.value)}
+                onKeyDown={(e) => { if (e.key === 'Enter') handleAdd(); }}
+                style={{
+                  flex: 1,
+                  background: 'var(--bg-primary, #0D1117)',
+                  border: '1px solid var(--border-color, #30363D)',
+                  color: '#fff',
+                  borderRadius: '4px',
+                  padding: '4px 6px',
+                  fontSize: '0.78rem'
+                }}
+              />
+              <button
+                type="button"
+                onClick={handleAdd}
+                style={{
+                  background: 'var(--primary-purple, #8b5cf6)',
+                  border: 'none',
+                  color: '#fff',
+                  borderRadius: '4px',
+                  padding: '4px 8px',
+                  cursor: 'pointer',
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center'
+                }}
+              >
+                <Plus size={12} />
+              </button>
+            </div>
+
+            {/* Preset Colors */}
+            <div style={{ display: 'flex', gap: '4px', flexWrap: 'wrap', marginTop: '2px' }}>
+              {PRESET_COLORS.map(c => (
+                <button
+                  key={c}
+                  type="button"
+                  onClick={() => setNewColor(c)}
+                  style={{
+                    width: '12px',
+                    height: '12px',
+                    borderRadius: '50%',
+                    backgroundColor: c,
+                    border: newColor === c ? '1.5px solid white' : 'none',
+                    cursor: 'pointer',
+                    padding: 0
+                  }}
+                />
+              ))}
+            </div>
+          </div>
+        </div>
+      )}
+    </div>,
+    document.body
+  );
+
   return (
-    <div style={{ position: 'relative', display: 'inline-block' }} ref={dropdownRef} onClick={e => e.stopPropagation()}>
+    <div style={{ position: 'relative', display: 'inline-block' }} onClick={e => e.stopPropagation()}>
       <button
+        ref={triggerRef}
         type="button"
-        onClick={() => {
-          setIsOpen(!isOpen);
-          setIsEditing(false);
-        }}
+        onClick={openDropdown}
         style={getPriorityStyle(currentPriority.color)}
       >
         <span style={{ width: '7px', height: '7px', borderRadius: '50%', backgroundColor: currentPriority.color }} />
@@ -259,234 +519,7 @@ export default function PriorityDropdown({ value, onChange, onUpdate }) {
         <ChevronDown size={12} style={{ opacity: 0.7 }} />
       </button>
 
-      {isOpen && (
-        <div
-          style={{
-            position: 'absolute',
-            top: '100%',
-            left: 0,
-            background: 'var(--bg-tertiary, #161B22)',
-            border: '1px solid var(--border-color, #30363D)',
-            borderRadius: '8px',
-            boxShadow: '0 8px 24px rgba(0,0,0,0.5)',
-            zIndex: 9999,
-            minWidth: '220px',
-            marginTop: '4px',
-            padding: '8px',
-            display: 'flex',
-            flexDirection: 'column',
-            gap: '4px'
-          }}
-        >
-          {!isEditing ? (
-            <>
-              {/* Normal Selection List */}
-              <div style={{ display: 'flex', flexDirection: 'column', gap: '2px', maxHeight: '180px', overflowY: 'auto' }}>
-                {priorities.map(opt => {
-                  const isSelected = normalizedVal.toLowerCase() === opt.label.toLowerCase();
-                  return (
-                    <button
-                      key={opt.label}
-                      type="button"
-                      onClick={() => {
-                        onChange(opt.label);
-                        setIsOpen(false);
-                      }}
-                      style={{
-                        display: 'flex',
-                        alignItems: 'center',
-                        gap: '0.5rem',
-                        padding: '0.45rem 0.65rem',
-                        border: 'none',
-                        background: isSelected ? 'rgba(255, 255, 255, 0.08)' : 'transparent',
-                        color: opt.color,
-                        textAlign: 'left',
-                        cursor: 'pointer',
-                        borderRadius: '6px',
-                        fontSize: '0.82rem',
-                        fontWeight: 600,
-                        width: '100%'
-                      }}
-                      onMouseEnter={e => e.currentTarget.style.background = 'rgba(255,255,255,0.05)'}
-                      onMouseLeave={e => e.currentTarget.style.background = isSelected ? 'rgba(255, 255, 255, 0.08)' : 'transparent'}
-                    >
-                      <span style={{ width: '8px', height: '8px', borderRadius: '50%', backgroundColor: opt.color }} />
-                      <span>{stripEmojis(opt.label)}</span>
-                    </button>
-                  );
-                })}
-              </div>
-
-              <div style={{ borderTop: '1px solid var(--border-color, #30363D)', margin: '4px 0' }} />
-              
-              <button
-                type="button"
-                onClick={() => setIsEditing(true)}
-                style={{
-                  display: 'flex',
-                  alignItems: 'center',
-                  justifyContent: 'center',
-                  gap: '4px',
-                  background: 'transparent',
-                  border: 'none',
-                  color: 'var(--primary-purple, #8b5cf6)',
-                  fontSize: '0.78rem',
-                  fontWeight: 600,
-                  cursor: 'pointer',
-                  padding: '6px',
-                  width: '100%',
-                  borderRadius: '4px'
-                }}
-                onMouseEnter={e => e.currentTarget.style.background = 'rgba(139, 92, 246, 0.08)'}
-                onMouseLeave={e => e.currentTarget.style.background = 'transparent'}
-              >
-                <Pencil size={12} />
-                Edit Priorities
-              </button>
-            </>
-          ) : (
-            /* Editable Management Mode */
-            <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
-              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                <span style={{ fontSize: '0.78rem', fontWeight: 700, color: 'var(--text-secondary)' }}>Manage Priorities</span>
-                <button
-                  type="button"
-                  onClick={() => setIsEditing(false)}
-                  style={{ background: 'none', border: 'none', color: 'var(--text-muted)', cursor: 'pointer', fontSize: '0.75rem', fontWeight: 600 }}
-                >
-                  Back
-                </button>
-              </div>
-
-              {/* Editable Option List */}
-              <div style={{ display: 'flex', flexDirection: 'column', gap: '4px', maxHeight: '140px', overflowY: 'auto' }}>
-                {priorities.map((opt, idx) => (
-                  <div
-                    key={idx}
-                    style={{
-                      display: 'flex',
-                      alignItems: 'center',
-                      justifyContent: 'space-between',
-                      background: 'rgba(255,255,255,0.03)',
-                      padding: '4px 6px',
-                      borderRadius: '4px',
-                      gap: '4px'
-                    }}
-                  >
-                    {editingIndex === idx ? (
-                      <div style={{ display: 'flex', alignItems: 'center', gap: '4px', flex: 1 }}>
-                        <div style={{ position: 'relative', width: '16px', height: '16px', borderRadius: '50%', background: editingColor }}>
-                          <input
-                            type="color"
-                            value={editingColor}
-                            onChange={e => setEditingColor(e.target.value)}
-                            style={{ opacity: 0, position: 'absolute', inset: 0, cursor: 'pointer', width: '100%', height: '100%' }}
-                          />
-                        </div>
-                        <input
-                          type="text"
-                          value={editingLabel}
-                          onChange={e => setEditingLabel(e.target.value)}
-                          style={{
-                            background: 'var(--bg-secondary)',
-                            border: '1px solid var(--border-color)',
-                            color: 'var(--text-primary)',
-                            fontSize: '0.78rem',
-                            padding: '2px 4px',
-                            borderRadius: '3px',
-                            width: '80px'
-                          }}
-                        />
-                        <button type="button" onClick={() => handleSaveEdit(idx)} style={{ background: 'none', border: 'none', color: '#10b981', cursor: 'pointer', padding: '2px' }}><Check size={12} /></button>
-                        <button type="button" onClick={() => setEditingIndex(null)} style={{ background: 'none', border: 'none', color: '#ef4444', cursor: 'pointer', padding: '2px' }}><X size={12} /></button>
-                      </div>
-                    ) : (
-                      <>
-                        <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
-                          <span style={{ width: '8px', height: '8px', borderRadius: '50%', backgroundColor: opt.color }} />
-                          <span style={{ fontSize: '0.8rem', color: 'var(--text-primary)' }}>{stripEmojis(opt.label)}</span>
-                        </div>
-                        <div style={{ display: 'flex', gap: '4px' }}>
-                          <button type="button" onClick={() => handleStartEdit(idx)} style={{ background: 'none', border: 'none', color: 'var(--text-muted)', cursor: 'pointer', padding: '2px' }}><Pencil size={11} /></button>
-                          <button type="button" onClick={() => handleDelete(idx)} style={{ background: 'none', border: 'none', color: '#ef4444', cursor: 'pointer', padding: '2px' }}><Trash2 size={11} /></button>
-                        </div>
-                      </>
-                    )}
-                  </div>
-                ))}
-              </div>
-
-              {/* Add New Priority */}
-              <div style={{ borderTop: '1px solid var(--border-color, #30363D)', paddingTop: '6px', display: 'flex', flexDirection: 'column', gap: '6px' }}>
-                <span style={{ fontSize: '0.75rem', fontWeight: 600, color: 'var(--text-muted)' }}>Add New</span>
-                <div style={{ display: 'flex', gap: '4px', alignItems: 'center' }}>
-                  <div style={{ position: 'relative', width: '18px', height: '18px', borderRadius: '50%', background: newColor, border: '1px solid rgba(255,255,255,0.2)' }}>
-                    <input
-                      type="color"
-                      value={newColor}
-                      onChange={e => setNewColor(e.target.value)}
-                      style={{ opacity: 0, position: 'absolute', inset: 0, cursor: 'pointer', width: '100%', height: '100%' }}
-                    />
-                  </div>
-                  <input
-                    type="text"
-                    placeholder="Label..."
-                    value={newLabel}
-                    onChange={e => setNewLabel(e.target.value)}
-                    style={{
-                      background: 'var(--bg-secondary)',
-                      border: '1px solid var(--border-color)',
-                      color: 'var(--text-primary)',
-                      fontSize: '0.78rem',
-                      padding: '4px 6px',
-                      borderRadius: '4px',
-                      flex: 1,
-                      minWidth: 0
-                    }}
-                  />
-                  <button
-                    type="button"
-                    onClick={handleAdd}
-                    style={{
-                      background: 'var(--primary-purple, #8b5cf6)',
-                      border: 'none',
-                      color: '#fff',
-                      borderRadius: '4px',
-                      padding: '4px 8px',
-                      cursor: 'pointer',
-                      display: 'flex',
-                      alignItems: 'center',
-                      justifyContent: 'center'
-                    }}
-                  >
-                    <Plus size={12} />
-                  </button>
-                </div>
-
-                {/* Preset Colors */}
-                <div style={{ display: 'flex', gap: '4px', flexWrap: 'wrap', marginTop: '2px' }}>
-                  {PRESET_COLORS.map(c => (
-                    <button
-                      key={c}
-                      type="button"
-                      onClick={() => setNewColor(c)}
-                      style={{
-                        width: '12px',
-                        height: '12px',
-                        borderRadius: '50%',
-                        backgroundColor: c,
-                        border: newColor === c ? '1.5px solid white' : 'none',
-                        cursor: 'pointer',
-                        padding: 0
-                      }}
-                    />
-                  ))}
-                </div>
-              </div>
-            </div>
-          )}
-        </div>
-      )}
+      {dropdownPanel}
     </div>
   );
 }

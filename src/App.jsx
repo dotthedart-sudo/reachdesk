@@ -37,6 +37,7 @@ const GoogleCalendarCallback = lazy(() => import('./components/GoogleCalendarCal
 const GoogleSheetsCallback = lazy(() => import('./components/GoogleSheetsCallback'));
 import UserNotificationBell from './components/UserNotificationBell';
 import SetupModal from './components/SetupModal';
+import ChatWidget from './components/ChatWidget';
 import { HelmetProvider } from 'react-helmet-async';
 import GlobalHelmet from './components/GlobalHelmet';
 
@@ -404,7 +405,7 @@ function AppProvider({ children }) {
           const teamId = invite ? invite.team_id : null;
           const status = 'approved';
           const userPlan = invite ? 'teams' : 'trial';
-          const trialEnds = new Date(Date.now() + 168 * 60 * 60 * 1000).toISOString();
+          const trialEnds = new Date(Date.now() + 14 * 24 * 60 * 60 * 1000).toISOString();
 
           const profileData = {
             id: userId,
@@ -1366,6 +1367,9 @@ function AppRoutes() {
     <Suspense fallback={<LoadingSpinner />}>
       {session && profile && (
         <UserNotificationBell profile={profile} onRefreshProfile={fetchProfile} />
+      )}
+      {session && profile && (
+        <ChatWidget profile={profile} />
       )}
       {showSetupModal && (
         <SetupModal
