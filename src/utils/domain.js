@@ -1,4 +1,4 @@
-export const APP_DOMAIN = 'https://reachdeskcrm.com';
+export const APP_DOMAIN = 'https://app.reachdeskcrm.com';
 export const MARKETING_DOMAIN = 'https://reachdeskcrm.com';
 
 /**
@@ -20,14 +20,15 @@ export function isLocalDev() {
 /**
  * Returns the URL for an app page route.
  * In local dev, returns relative path (e.g. '/signup').
- * In production, returns full app domain URL (e.g. 'https://reachdeskcrm.com/signup').
+ * In production, returns full app domain URL (e.g. 'https://app.reachdeskcrm.com/signup').
  */
 export function getAppUrl(path = '') {
-  const cleanPath = path ? (path.startsWith('/') ? path : `/${path}`) : '';
+  const cleanPath = path ? (path.startsWith('/') ? path : `/${path}`) : '/';
   if (isLocalDev()) {
-    return cleanPath || '/';
+    return cleanPath;
   }
-  return `${APP_DOMAIN}${cleanPath}`;
+  const domain = APP_DOMAIN.endsWith('/') ? APP_DOMAIN.slice(0, -1) : APP_DOMAIN;
+  return `${domain}${cleanPath}`;
 }
 
 /**
@@ -36,9 +37,10 @@ export function getAppUrl(path = '') {
  * In production, returns full marketing domain URL (e.g. 'https://reachdeskcrm.com/terms').
  */
 export function getMarketingUrl(path = '') {
-  const cleanPath = path ? (path.startsWith('/') ? path : `/${path}`) : '';
+  const cleanPath = path ? (path.startsWith('/') ? path : `/${path}`) : '/';
   if (isLocalDev()) {
-    return cleanPath || '/';
+    return cleanPath;
   }
-  return `${MARKETING_DOMAIN}${cleanPath}`;
+  const domain = MARKETING_DOMAIN.endsWith('/') ? MARKETING_DOMAIN.slice(0, -1) : MARKETING_DOMAIN;
+  return `${domain}${cleanPath}`;
 }
