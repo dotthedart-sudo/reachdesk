@@ -126,16 +126,31 @@ serve(async (req) => {
     }
 
     const getFormattedAmount = (amount: any, currencyCode: string = 'USD') => {
-      const numericAmount = parseFloat(amount);
-      if (isNaN(numericAmount)) return `$${amount}`;
-      
-      if (currencyCode === 'PKR') {
-        return `Rs ${numericAmount.toLocaleString()}`;
+      if (amount === undefined || amount === null) return '$0.00';
+      let num = typeof amount === 'number' ? amount : parseFloat(String(amount));
+      if (isNaN(num)) return `$${amount}`;
+
+      const code = (currencyCode || 'USD').toUpperCase().trim();
+      const str = String(amount).trim();
+
+      // Handle minor units in integer strings (e.g., "1500" -> 15.00 for USD/EUR/GBP)
+      if (!str.includes('.') && num >= 100 && (code === 'USD' || code === 'EUR' || code === 'GBP')) {
+        num = num / 100;
       }
-      if (currencyCode === 'BDT') {
-        return `৳${numericAmount.toLocaleString()}`;
+
+      if (code === 'PKR') {
+        return `Rs ${Math.round(num).toLocaleString()}`;
       }
-      return `$${numericAmount.toFixed(2)}`;
+      if (code === 'BDT') {
+        return `৳${Math.round(num).toLocaleString()}`;
+      }
+      if (code === 'EUR') {
+        return `€${num.toFixed(2)}`;
+      }
+      if (code === 'GBP') {
+        return `£${num.toFixed(2)}`;
+      }
+      return `$${num.toFixed(2)}`;
     };
 
     const sendEmail = async (subject: string, htmlContent: string) => {
