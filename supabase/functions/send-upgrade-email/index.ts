@@ -1,17 +1,19 @@
-import { serve } from "https://deno.land/std@0.168.0/http/server.ts"
-import { createClient } from "https://esm.sh/@supabase/supabase-js@2.7.1"
-import { ONBOARDING_FROM_EMAIL } from "../_shared/email.ts"
+import { serve } from 'https://deno.land/std@0.168.0/http/server.ts';
+import { createClient } from 'https://esm.sh/@supabase/supabase-js@2';
+
+const DEFAULT_FROM_EMAIL = 'ReachDesk CRM <noreply@mail.app.reachdeskcrm.com>';
+const ONBOARDING_FROM_EMAIL = 'ReachDesk <onboarding@mail.app.reachdeskcrm.com>';
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
-}
+};
 
 function jsonResponse(body: unknown, status = 200): Response {
   return new Response(JSON.stringify(body), {
     status,
     headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-  })
+  });
 }
 
 serve(async (req) => {
@@ -27,13 +29,11 @@ serve(async (req) => {
     }
 
     const supabaseUrl = Deno.env.get('SUPABASE_URL') ?? ''
-    const supabaseAnonKey = Deno.env.get('SUPABASE_ANON_KEY') ?? ''
     const supabaseServiceRoleKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? ''
+    const supabaseAdmin = createClient(supabaseUrl, supabaseServiceRoleKey)
 
-    const supabaseUser = createClient(supabaseUrl, supabaseAnonKey, {
-      global: { headers: { Authorization: authHeader } },
-    })
-    const { data: { user }, error: authError } = await supabaseUser.auth.getUser()
+    const jwtToken = authHeader.replace(/^Bearer\s+/i, '')
+    const { data: { user }, error: authError } = await supabaseAdmin.auth.getUser(jwtToken)
     if (authError || !user) {
       return jsonResponse({ success: false, error: 'Unauthorized' }, 401)
     }
