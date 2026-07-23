@@ -7,42 +7,135 @@ import { subscribeToPush } from './utils/pushNotifications';
 import { isLocalDev, getAppUrl, getMarketingUrl } from './utils/domain';
 import { identifyUser, resetPostHog } from './utils/posthog';
 
+// Helper for lazy loading components with automatic retry on dynamic import / chunk load failures (e.g. after new deployments)
+function lazyWithRetry(componentImport) {
+  return lazy(async () => {
+    const pageHasAlreadyBeenReloaded = JSON.parse(
+      sessionStorage.getItem('retry_lazy_reload') || 'false'
+    );
+    try {
+      const component = await componentImport();
+      sessionStorage.setItem('retry_lazy_reload', 'false');
+      return component;
+    } catch (error) {
+      console.warn('[lazyWithRetry] Dynamic import failed, triggering page reload:', error);
+      if (!pageHasAlreadyBeenReloaded) {
+        sessionStorage.setItem('retry_lazy_reload', 'true');
+        window.location.reload();
+        return { default: () => null };
+      }
+      throw error;
+    }
+  });
+}
+
+class GlobalErrorBoundary extends React.Component {
+  constructor(props) {
+    super(props);
+    this.state = { hasError: false, error: null };
+  }
+
+  static getDerivedStateFromError(error) {
+    return { hasError: true, error };
+  }
+
+  componentDidCatch(error, errorInfo) {
+    console.error('[GlobalErrorBoundary] Caught error:', error, errorInfo);
+    const isChunkError =
+      error?.name === 'ChunkLoadError' ||
+      error?.message?.includes('dynamically imported module') ||
+      error?.message?.includes('Expected a JavaScript-or-Wasm module');
+
+    if (isChunkError) {
+      const hasReloaded = JSON.parse(sessionStorage.getItem('chunk_error_reloaded') || 'false');
+      if (!hasReloaded) {
+        sessionStorage.setItem('chunk_error_reloaded', 'true');
+        window.location.reload();
+      }
+    }
+  }
+
+  render() {
+    if (this.state.hasError) {
+      return (
+        <div style={{
+          display: 'flex',
+          flexDirection: 'column',
+          alignItems: 'center',
+          justifyContent: 'center',
+          minHeight: '100vh',
+          backgroundColor: '#0D1117',
+          color: '#FFFFFF',
+          padding: '2rem',
+          textAlign: 'center',
+          fontFamily: 'Mattone, sans-serif'
+        }}>
+          <h2 style={{ fontSize: '1.4rem', marginBottom: '0.75rem' }}>App updated or a temporary load issue occurred</h2>
+          <p style={{ color: '#8B949E', marginBottom: '1.5rem', fontSize: '0.9rem' }}>
+            A new version of ReachDesk CRM is active. Please refresh to load the latest release.
+          </p>
+          <button
+            onClick={() => {
+              sessionStorage.removeItem('chunk_error_reloaded');
+              sessionStorage.removeItem('retry_lazy_reload');
+              window.location.reload();
+            }}
+            style={{
+              padding: '8px 18px',
+              backgroundColor: '#5B8FB9',
+              color: '#0D1117',
+              border: 'none',
+              borderRadius: '5px',
+              fontWeight: 600,
+              fontSize: '0.9rem',
+              cursor: 'pointer'
+            }}
+          >
+            Refresh Now
+          </button>
+        </div>
+      );
+    }
+    return this.props.children;
+  }
+}
+
 // Components
-// Lazy‑loaded route components for better initial load performance
-const CRM = lazy(() => import('./components/CRM'));
-const Templates = lazy(() => import('./components/Templates'));
-const InvoiceGenerator = lazy(() => import('./components/InvoiceGenerator'));
-const RevenueTracker = lazy(() => import('./components/RevenueTracker'));
-const AdminPanel = lazy(() => import('./components/AdminPanel'));
-const Homepage = lazy(() => import('./components/Homepage'));
-const Auth = lazy(() => import('./components/Auth'));
-const Configuration = lazy(() => import('./components/Configuration'));
-const Dashboard = lazy(() => import('./components/Dashboard'));
-const NotesList = lazy(() => import('./components/NotesList'));
-const NoteEditor = lazy(() => import('./components/NoteEditor'));
-const Reminders = lazy(() => import('./components/Reminders'));
-const AppLayout = lazy(() => import('./components/AppLayout'));
-const ProtectedRoute = lazy(() => import('./components/ProtectedRoute'));
-const UpgradeRoute = lazy(() => import('./components/ProtectedRoute').then(m => ({ default: m.UpgradeRoute })));
-const AdminRoute = lazy(() => import('./components/AdminRoute'));
-const LoadingSpinner = lazy(() => import('./components/LoadingSpinner'));
-const UpgradePage = lazy(() => import('./components/Paywalls').then(m => ({ default: m.UpgradePage })));
-const PublicInvoice = lazy(() => import('./components/PublicInvoice'));
-const ResetPassword = lazy(() => import('./components/ResetPassword'));
-const TermsOfService = lazy(() => import('./components/LegalPages').then(m => ({ default: m.TermsOfService })));
-const PrivacyPolicy = lazy(() => import('./components/LegalPages').then(m => ({ default: m.PrivacyPolicy })));
-const RefundPolicy = lazy(() => import('./components/LegalPages').then(m => ({ default: m.RefundPolicy })));
-const GetStarted = lazy(() => import('./components/GetStarted'));
-const GoogleCalendarCallback = lazy(() => import('./components/GoogleCalendarCallback'));
-const GoogleSheetsCallback = lazy(() => import('./components/GoogleSheetsCallback'));
+// Lazy‑loaded route components with retry support for seamless deployment updates
+const CRM = lazyWithRetry(() => import('./components/CRM'));
+const Templates = lazyWithRetry(() => import('./components/Templates'));
+const InvoiceGenerator = lazyWithRetry(() => import('./components/InvoiceGenerator'));
+const RevenueTracker = lazyWithRetry(() => import('./components/RevenueTracker'));
+const AdminPanel = lazyWithRetry(() => import('./components/AdminPanel'));
+const Homepage = lazyWithRetry(() => import('./components/Homepage'));
+const Auth = lazyWithRetry(() => import('./components/Auth'));
+const Configuration = lazyWithRetry(() => import('./components/Configuration'));
+const Dashboard = lazyWithRetry(() => import('./components/Dashboard'));
+const NotesList = lazyWithRetry(() => import('./components/NotesList'));
+const NoteEditor = lazyWithRetry(() => import('./components/NoteEditor'));
+const Reminders = lazyWithRetry(() => import('./components/Reminders'));
+const AppLayout = lazyWithRetry(() => import('./components/AppLayout'));
+const ProtectedRoute = lazyWithRetry(() => import('./components/ProtectedRoute'));
+const UpgradeRoute = lazyWithRetry(() => import('./components/ProtectedRoute').then(m => ({ default: m.UpgradeRoute })));
+const AdminRoute = lazyWithRetry(() => import('./components/AdminRoute'));
+const LoadingSpinner = lazyWithRetry(() => import('./components/LoadingSpinner'));
+const UpgradePage = lazyWithRetry(() => import('./components/Paywalls').then(m => ({ default: m.UpgradePage })));
+const PublicInvoice = lazyWithRetry(() => import('./components/PublicInvoice'));
+const ResetPassword = lazyWithRetry(() => import('./components/ResetPassword'));
+const TermsOfService = lazyWithRetry(() => import('./components/LegalPages').then(m => ({ default: m.TermsOfService })));
+const PrivacyPolicy = lazyWithRetry(() => import('./components/LegalPages').then(m => ({ default: m.PrivacyPolicy })));
+const RefundPolicy = lazyWithRetry(() => import('./components/LegalPages').then(m => ({ default: m.RefundPolicy })));
+const GetStarted = lazyWithRetry(() => import('./components/GetStarted'));
+const GoogleCalendarCallback = lazyWithRetry(() => import('./components/GoogleCalendarCallback'));
+const GoogleSheetsCallback = lazyWithRetry(() => import('./components/GoogleSheetsCallback'));
 import UserNotificationBell from './components/UserNotificationBell';
 import SetupModal from './components/SetupModal';
 import ChatWidget from './components/ChatWidget';
 import { HelmetProvider } from 'react-helmet-async';
 import GlobalHelmet from './components/GlobalHelmet';
 
-const BlogIndex = lazy(() => import('./components/BlogIndex'));
-const BlogPost = lazy(() => import('./components/BlogPost'));
+const BlogIndex = lazyWithRetry(() => import('./components/BlogIndex'));
+const BlogPost = lazyWithRetry(() => import('./components/BlogPost'));
 
 // App Context
 export const AppContext = createContext(null);
@@ -1311,7 +1404,9 @@ export default function App() {
             </div>
           )}
           <div style={{ paddingTop: swUpdateAvailable ? '40px' : '0px' }}>
-            <AppRoutes />
+            <GlobalErrorBoundary>
+              <AppRoutes />
+            </GlobalErrorBoundary>
           </div>
         </AppProvider>
       </BrowserRouter>
