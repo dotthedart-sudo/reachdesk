@@ -1,0 +1,19 @@
+      window.Paddle.Initialize({
+        token: import.meta.env.VITE_PADDLE_CLIENT_TOKEN,
+      });
+    }
+  }, []);
+
+  const handlePaddleCheckout = async (planKey, priceId) => {
+    const { data: { user } } = await supabase.auth.getUser();
+    if (!user) return;
+
+    if (!priceId) return;
+
+    window.Paddle.Checkout.open({
+      items: [{ priceId, quantity: 1 }],
+      customer: { email: user.email },
+      customData: { supabase_user_id: user.id },
+      successUrl: getAppUrl('/dashboard?upgraded=true'),
+    });
+  };

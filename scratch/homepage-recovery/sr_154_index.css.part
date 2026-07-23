@@ -1,0 +1,24 @@
+.hp-footer {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 20px var(--space-7);
+  border-top: 1px solid var(--border);
+  background-color: var(--bg);
+  flex-wrap: wrap;
+  gap: 1.25rem;
+  margin-top: auto;
+  width: 100%;
+  box-sizing: border-box;
+}
+
+.hp-footer-inner {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: 1.25rem;
+  width: 100%;
+  max-width: 1200px;
+  margin: 0 auto;
+}

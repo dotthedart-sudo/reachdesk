@@ -1,0 +1,10 @@
+PATH: c:\Users\T15\reachdesk\src\index.css\n\nOLD:\n  .hp-features-section {
+    padding: 40px 20px;
+  }\n\nNEW:\n  .hp-features-section {
+    padding-top: var(--space-6);
+    padding-bottom: var(--space-6);
+  }
+
+  .hp-section-inner {
+    max-width: 100%;
+  }

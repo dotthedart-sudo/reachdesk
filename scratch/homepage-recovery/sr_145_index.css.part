@@ -1,0 +1,11 @@
+.hp-pricing-section {
+  padding: var(--space-8) var(--space-7);
+  border-top: 1px solid var(--border);
+  background: linear-gradient(
+    180deg,
+    color-mix(in srgb, var(--accent-blue) 4%, var(--bg)) 0%,
+    var(--bg) 120px
+  );
+  width: 100%;
+  box-sizing: border-box;
+}

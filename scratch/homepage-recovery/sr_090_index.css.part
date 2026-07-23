@@ -1,0 +1,7 @@
+  .hp-feature-card,
+  .hp-pricing-card,
+  .rd-pricing-card,
+  .hp-billing-btn,
+  .rd-billing-btn {
+    transition: none;
+  }

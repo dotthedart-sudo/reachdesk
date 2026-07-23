@@ -1,0 +1,10 @@
+.hp-feature-card .hp-feature-row-title,
+.hp-feature-card .hp-feature-row-desc {
+  padding: 0 var(--space-5) var(--space-5);
+}
+
+.hp-feature-card .hp-feature-row-title {
+  padding-top: var(--space-4);
+}
+
+.hp-feature-card .hp-feature-row-title {

@@ -1,0 +1,102 @@
+[
+  {
+    "line": 11,
+    "text": "**Verdict:** ReachDesk is a real, fairly complete freelancer CRM with a coherent dark-first UI — but it has serious security holes on a few edge functions, zero tests, and some maintainability debt.\n\nOpen the full breakdown beside chat: [app-audit](C:\\Users\\T15\\.cursor\\projects\\c-Users-T15-reachdesk\\canvases\\app-audit.canvas.tsx) (a live Canvas board with severity tables and fix order).\n\n### Critical (fix first)\n- **`cancel-subscription`**, **`send-push-notification`**, and **`send-upgrade-email`** are callable without user auth while using the service role — cancel billing, spam admin push, trigger emails.\n- **Live Paddle client token** hardcoded in `Paywalls.jsx` instead of env.\n\n### High\n- Hardcoded admin email (`dotthedart@gmail.com`) bypass in many places\n- Google OAuth tokens readable by the owning user via RLS (XSS/session risk)\n- No automated tests at all\n- God files: `CRM.jsx` ~4.3k lines, `App.jsx` ~1.3k\n- Checkout success URL on marketing domain; stale `esemdot.com` in SW / blog / legal\n\n### Working well\n- Deep product surface (pipeline, 7-checkpoint reminders, invoices, revenue, notes, Sheets/Calendar, AI, paywalls)\n- Paddle webhook signature verification\n- Plan limits enforced in the DB, not just UI\n- JWT auth on `groq-chat` and Sheets functions\n- Lazy routes, marketing/app domain split, SEO, PostHog gating\n\n### UI\n- **Strong:** dark-first token system (`index.css`), Mattone brand type, polished empty/limit states, solid app shell + mobile chrome, homepage with real product visuals\n- **Weak:** accessibility (removed outlines, sparse ARIA, no reduced-motion), inline styles fighting tokens, dense CRM table on mobile, homepage/app theme stored separately\n\nWant me to start by locking down those three edge functions?\n\n[REDACTED]"
+  },
+  {
+    "line": 14,
+    "text": "Two quick questions so the plan matches what you want:\n\n1. **Scope** — should we do **UI cleanup only**, **UI + Critical security** (edge function auth + Paddle token), or **full remediation** (security + high issues + UI)?\n\n2. **Which UI feels unclean?** App shell (sidebar/nav), CRM/leads, marketing homepage, dashboard, or the whole product?\n\nReply with those two and I’ll draft a concrete fix plan.\n\n[REDACTED]"
+  },
+  {
+    "line": 16,
+    "text": "I'll inspect the design tokens, typography, and spacing in dark/light modes, then draft a combined security + UI polish plan.\n\n[REDACTED]"
+  },
+  {
+    "line": 51,
+    "text": "All plan todos are done. Summary:\n\n### Security\n- **Auth-gated** `cancel-subscription` (own sub only), `send-push-notification` (JWT + service-role for cron), `send-upgrade-email` (JWT + admin recipients)\n- **Paddle token** → `VITE_PADDLE_CLIENT_TOKEN`; absolute **successUrl** on app domain\n- **Admin email bypass removed** — `role === 'admin'` only (confirm DB role before deploy)\n- **Domain sweep** — `esemdot.com` URLs → `reachdeskcrm.com` / `app.reachdeskcrm.com`\n\n### UI\n- **Design tokens** in `index.css`: spacing (`--space-1`…`8`), type scale, radius, `--shadow-sm` (light), `--bg-hover` / `--bg-selected`\n- Body leading **1.5**, selects use **Jakarta** (not Mattone)\n- **Shell / Dashboard / CRM / Auth / Homepage** restyled onto tokens; shared `.empty-state` + `.folder-item`\n- Light mode: **1px borders** + soft card shadow; indigo leftovers replaced with theme colors\n- Homepage theme syncs with `reachdesk_theme`\n\n**Deploy note:** Redeploy the three edge functions, and ensure your admin account has `role = 'admin'` in `user_profiles`.\n\n[REDACTED]"
+  },
+  {
+    "line": 54,
+    "text": "I'll review the homepage layout, copy, and pricing/feature claims against what the product actually offers, then draft a concrete redesign plan.\n\n[REDACTED]"
+  },
+  {
+    "line": 57,
+    "text": "I have enough to draft a concrete homepage redesign: sparse premium layout, accurate tiers from live limits, and sharper conversion copy.\n\n[REDACTED]"
+  },
+  {
+    "line": 59,
+    "text": "Implementing the homepage redesign: shared plan marketing source first, then layout, motion, and metadata.\n\n[REDACTED]"
+  },
+  {
+    "line": 71,
+    "text": "Reviewing the pricing UI, billing cycles, and Sendr reference so we can plan fixes for spacing, icons, and the 2× yearly lead limits.\n\n[REDACTED]"
+  },
+  {
+    "line": 81,
+    "text": "I found the root cause: feature lists use Mattone, which drops `&`, and billing-aware lead limits aren't wired up yet. Backend already doubles yearly leads in the DB.\n\n[REDACTED]"
+  },
+  {
+    "line": 83,
+    "text": "Implementing the pricing refresh per the plan. Starting with billing-aware helpers in `planMarketing.js`.\n\n[REDACTED]"
+  },
+  {
+    "line": 101,
+    "text": "The pricing and upgrade UI refresh is implemented. Here’s what changed:\n\n### Billing-aware plan copy ([`src/lib/planMarketing.js`](src/lib/planMarketing.js))\n- Uses `getPlanLeadLimit()` so lead counts update by billing cycle.\n- **Starter:** 1,000 (monthly/quarterly/6-month) → **2,000** (yearly).\n- **Pro:** 5,000 → **10,000** on yearly.\n- Feature strings use `·` instead of `&` (fixes the Mattone font issue).\n- Yearly Starter/Pro get a **Bonus** row: “2× lead capacity on yearly”.\n\n### Homepage ([`src/components/Homepage.jsx`](src/components/Homepage.jsx))\n- **4 billing tabs:** Monthly, Quarterly, 6-Month, Yearly (matches Paywalls).\n- **Check icons** on feature rows (replacing `+`).\n- **Yearly callout:** “Yearly plans include 2× lead capacity.”\n- Billing text uses `BILLING[billing].months` (not hardcoded “12 months”).\n\n### Upgrade page ([`src/components/Paywalls.jsx`](src/components/Paywalls.jsx))\n- Same shared pricing UI and dynamic features via `getPlanFeatures()`.\n- PlanCard uses shared `.rd-pricing-*` classes.\n- Same yearly 2× callout and pill billing toggle.\n\n### Shared CSS ([`src/index.css`](src/index.css))\n- New **`.rd-pricing-*`** block: bolder prices, pill toggle, checkmark feature rows in Plus Jakarta Sans, popular-card elevation, bonus badges, mobile scroll for 4 tabs.\n\nBuild passes, and on the live homepage yearly toggle shows **2,000 / 10,000 leads** with correct separators (`Smart folders · Hot/Warm/Cold`, `Notes · whiteboard`, etc.). Refresh `http://localhost:5173/homepage#pricing` to review.\n\n[REDACTED]"
+  },
+  {
+    "line": 104,
+    "text": "Reviewing the current typography, assets, and homepage design so recommendations match what's already in the app.\n\n[REDACTED]"
+  },
+  {
+    "line": 107,
+    "text": "Checking hero styling and whether Bricolage or other fonts are used on the marketing page.\n\n[REDACTED]"
+  },
+  {
+    "line": 111,
+    "text": "Implementing the Visual Brand & Media Guide: starting with the font audit, then wiring media slots and assets.\n\n[REDACTED]"
+  },
+  {
+    "line": 114,
+    "text": "Creating marketing UI mock components and updating the font system across CSS and components.\n\n[REDACTED]"
+  },
+  {
+    "line": 138,
+    "text": "The Visual Brand & Media Guide is implemented. Here’s what changed:\n\n### Typography\n- **Mattone** — logo/wordmark only (`REACHDESK`, footer, paywall brand)\n- **Bricolage Grotesque** — marketing headlines (hero H1, section H2, plan names, prices, paywall titles)\n- **Plus Jakarta Sans** — nav, body, buttons, feature copy, pricing rows, upgrade page\n\nUpdated in [`src/index.css`](src/index.css) via `--font-brand`, `--font-display`, and `--font-body`.\n\n### Hero video (ready for your recording)\n- New [`HeroVisual`](src/components/marketing/HeroVisual.jsx) checks for `/marketing/hero-demo.mp4`\n- If missing → falls back to existing `hero.png` / `hero_light.png`\n- Drop `hero-demo.mp4` (and optional `.webm`) into [`public/marketing/`](public/marketing/)\n\n### Feature & how-it-works visuals\n- SVG UI mocks render now (pipeline, reminders, templates, revenue + 3 steps)\n- When you add real WebPs to `public/marketing/`, they replace the mocks automatically (see [`public/marketing/README.md`](public/marketing/README.md))\n- Feature cards are image-first; how-it-works steps include visuals above each step\n\n### Upgrade page\n- Cleaner paywall styling with Bricolage titles + Jakarta body\n- Optional background: `public/marketing/paywall-bg.webp`\n\n### New files\n| File | Purpose |\n|------|---------|\n| `src/lib/marketingAssets.js` | Media path constants |\n| `src/components/marketing/MarketingUiMock.jsx` | SVG fallbacks |\n| `src/components/marketing/MarketingMedia.jsx` | WebP-or-mock loader |\n| `src/components/marketing/HeroVisual.jsx` | Video + poster fallback |\n| `public/marketing/README.md` | Drop-in asset guide |\n\n**Your next step:** Record a 15–25s screen capture of the follow-up flow and save it as `public/marketing/hero-demo.mp4`. Optional: export real CRM screenshots as WebPs per the README — they’ll swap in without code changes.\n\n[REDACTED]"
+  },
+  {
+    "line": 141,
+    "text": "Investigating homepage layout CSS — the features grid likely has a max-width or alignment causing the empty right column.\n\n[REDACTED]"
+  },
+  {
+    "line": 157,
+    "text": "You were right — the empty right column came from sections being **left-aligned with a fixed 960px max-width**, while the viewport is much wider.\n\nHere’s what I fixed:\n\n### Layout fixes\n1. **Shared `hp-section-inner` container** (max-width 1200px, centered) wraps:\n   - How it works  \n   - Features  \n   - Pricing  \n\n2. **Removed the 960px cap** on feature/how-it-works grids — they now use the full 1200px inner width.\n\n3. **Nav + footer** use the same 1200px inner alignment so content lines up with the logo and sections.\n\n4. **Hero on desktop (≥1024px)** is now **two columns** — copy on the left, product visual on the right — instead of a narrow text block with empty space beside it.\n\n5. **Tighter vertical rhythm** — reduced oversized margins on section headings and integration note.\n\nRefresh `localhost:5174/homepage#features` — the feature cards should span the content area evenly with balanced margins on both sides.\n\nIf any section still feels off after refresh, tell me which one (hero, features, pricing, etc.) and we can tune it further.\n\n[REDACTED]"
+  },
+  {
+    "line": 172,
+    "text": "Implementing yearly lead hints on non-yearly billing, then summarizing the routing issues.\n\n[REDACTED]"
+  },
+  {
+    "line": 175,
+    "text": "## Yearly lead hints (done)\n\nOn **Monthly / Quarterly / 6-Month**, Starter and Pro now show the yearly upsell:\n\n- **Starter:** `1,000 leads` with badge **`2,000 if billed yearly`** (tagline: `1,000 leads (2,000 if billed yearly) · 1 user · 10 templates`)\n- **Pro:** `5,000 leads` with badge **`10,000 if billed yearly`**\n\nOn **Yearly**, it still shows the full count (2,000 / 10,000) plus the existing “2× lead capacity on yearly” bonus row.\n\nThis is wired in `src/lib/planMarketing.js` and applies to both the homepage pricing cards and the upgrade page.\n\n---\n\n## Homepage ↔ dashboard routing — what’s going on\n\nReachDesk uses a **split-domain setup** in production:\n\n| Domain | Role |\n|--------|------|\n| `reachdeskcrm.com` | Marketing (`VITE_APP_MODE=marketing`) — homepage, blog, legal |\n| `app.reachdeskcrm.com` | App (`VITE_APP_MODE=app`) — dashboard, CRM, login |\n\n### 1. Cross-domain redirects (main source of confusion)\n\nIn `App.jsx`, a `useEffect` enforces the split:\n\n- On the **marketing** site, visiting `/dashboard`, `/login`, etc. → full redirect to `app.reachdeskcrm.com`\n- On the **app** site, visiting `/homepage`, `/blog`, etc. → full redirect to `reachdeskcrm.com`\n\nSo navigation between marketing and app is **full page loads**, not in-app React routing.\n\n### 2. Auth doesn’t share across domains\n\nSupabase auth uses **localStorage per origin** (`src/lib/supabase.js` has no shared storage config). That means:\n\n- A session on `app.reachdeskcrm.com` does **not** automatically exist on `reachdeskcrm.com`\n- On the marketing site you may look logged out even when you’re logged into the app\n- CTAs like “Dashboard” jump to the app domain — that works if you’re already logged in there, but marketing pages won’t reliably show logged-in state\n\n### 3. Logged-in users can’t browse the marketing homepage\n\n`HomepagePage` in `App.jsx` immediately redirects logged-in users to `/dashboard`:\n\n```1217:1221:src/App.jsx\nfunction HomepagePage() {\n  const { session, loading, brandName } = useAppContext();\n  // If already logged in, redirect to dashboard\n  if (!loading && session) return <Navigate to=\"/dashboard\" replace />;\n```\n\nSo if you’re logged in and click the logo → `/homepage` → you get bounced to dashboard (and on marketing domain, then cross-domain to the app). You **can’t** stay on the marketing homepage while logged in.\n\n### 4. Local dev behaves differently\n\nOn `localhost`, `isLocalDev()` skips domain redirects. Everything runs on one origin:\n\n- `/` always redirects to `/homepage` (not dashboard)\n- Logo → `/homepage` → if logged in → redirect to `/dashboard` (extra hop)\n\nThat’s why dev can feel different from production.\n\n### 5. Minor inconsistencies\n\n- Homepage uses `currentUserEmail` for “Dashboard” button state, but logged-in users are redirected before the page renders — so that state rarely matters\n- `/` on marketing prod goes `/` → `/homepage`; on app prod, logged-out `/` shows the homepage **on the app subdomain** (duplicate marketing surface)\n\n---\n\n**Bottom line:** The “routing issue” is mostly **intentional domain separation** plus **auth not shared across subdomains**. It feels broken when you expect one seamless app, but it’s two sites stitched together with hard redirects.\n\nIf you want this smoother, the usual fixes are:\n\n1. Share auth via cookie storage on `.reachdeskcrm.com` (Supabase custom storage)\n2. Let logged-in users view marketing pages without auto-redirect (or only redirect CTAs to app)\n3. In local dev, send `/` straight to dashboard when logged in\n\nSay if you want any of those implemented.\n\n[REDACTED]"
+  },
+  {
+    "line": 177,
+    "text": "Implementing the three routing fixes: shared cross-subdomain auth, allowing logged-in users on marketing pages, and sending `/` to the dashboard when logged in locally.\n\n[REDACTED]"
+  },
+  {
+    "line": 184,
+    "text": "All three routing fixes are in place. Here's what changed:\n\n### 1. Shared auth across subdomains\nNew `src/lib/authStorage.js` stores Supabase sessions in cookies on `domain=.reachdeskcrm.com` (with chunking for large JWTs). On localhost it still uses `localStorage`.\n\n- Wired into `src/lib/supabase.js`\n- Existing sessions in `localStorage` are migrated to cookies on first load\n\n### 2. Logged-in users can browse marketing\nRemoved the auto-redirect from `HomepagePage`. Logged-in users on `reachdeskcrm.com/homepage` stay on the marketing site and see the **Dashboard** button (session is shared via cookies).\n\n### 3. Smarter `/` routing\nAdded `RootRedirect` and `CatchAllRedirect` in `App.jsx`:\n\n| Context | Logged in | `/` goes to |\n|---------|-----------|-------------|\n| Local dev | Yes | `/dashboard` |\n| Local dev | No | `/homepage` |\n| App subdomain (prod) | Yes | `/dashboard` |\n| App subdomain (prod) | No | Marketing homepage |\n| Marketing site (prod) | Yes or No | `/homepage` |\n\n---\n\n**After deploy:** Users who were logged in before this change may need one refresh on either subdomain — the migration copies their session from `localStorage` into the shared cookie automatically.\n\n**Supabase dashboard:** Confirm both `https://reachdeskcrm.com/**` and `https://app.reachdeskcrm.com/**` are in your redirect URLs (for OAuth).\n\n[REDACTED]"
+  },
+  {
+    "line": 246,
+    "text": "## Status: blocked on Supabase Auth (not credentials)\n\nTried login as `qa.claude.tester2@reachdesk.test` on localhost. UI showed `{}`. Direct Auth API (3 retries):\n\n```\n500 — \"Database error querying schema\"\n```\n\nSo Phases 1–6 and most of 7/9 that need a session **cannot run** until Auth recovers. Credentials were not rejected as wrong — Auth itself is broken.\n\n---\n\n### Phase 1 — BLOCKED\n| Item | Result | Evidence |\n|------|--------|----------|\n| Login | **FAIL (infra)** | Auth `/token` → 500 schema error |\n| All lead CRUD | **COULDN’T-TEST** | No session |\n\n---\n\n### Phase 7 (partial, no session) — security probes\n\n| Item | Result | Evidence |\n|------|--------|----------|\n| No `Authorization` header | **PASS** (gateway) | `cancel-subscription` + `send-push-notification` → **401** `UNAUTHORIZED_NO_AUTH_HEADER` |\n| `Authorization: Bearer <anon_key>` on `cancel-subscription` | **FAIL** | Got **400** with Paddle error (`Paddle API responded with status 400…`) — business logic ran; should be **401 Unauthorized** for non-user JWT |\n| Same for `send-push-notification` | **FAIL** | Got **400** `Provide target_user_id or notify_admin=true` — past auth into handler |\n| `send-upgrade-email` | **FAIL** | **503** `BOOT_ERROR` / Function failed to start (with or without auth header) |\n| 403 cross-user | **COULDN’T-TEST** | Need valid user JWT (Auth down) |\n| Admin deny / Trial 65 limit | **COULDN’T-TEST** | Need session |\n\n**Bug report:** Repo source in `supabase/functions/cancel-subscription` and `send-push-notification` requires `getUser()`, but **deployed** behavior with the project anon JWT as Bearer still reaches handler logic. Likely **auth fix not deployed**, or Auth outage is making `getUser` misbehave. `send-upgrade-email` won’t boot at all.\n\n---\n\n### Phase 8 (partial, logged out)\n\n| Item | Result | Evidence |\n|------|--------|----------|\n| `reachdeskcrm.com/homepage` logged out | **PASS** | Homepage loads (hero + pricing); no crash |\n| `app.reachdeskcrm.com/` logged out | **PASS** | Redirected to `/homepage`, marketing content shown (not blank) |\n| Sign up from marketing | **PASS** | “Sign up free” → `https://app.reachdeskcrm.com/signup` |\n| Log in from marketing | **PASS** | → `https://app.reachdeskcrm.com/login` |\n| Logged-in homepage (no redirect) | **COULDN’T-TEST** | Auth down |\n\n---\n\n### What you need to do\n\n1. **Fix / check Supabase Auth** (Dashboard → Auth / project health). Error: `Database error querying schema`.\n2. Tell me when login works again — I’ll resume **Phase 1** immediately with the same account.\n3. Optionally **redeploy** `cancel-subscription`, `send-push-notification`, and investigate `send-upgrade-email` boot failure (separate from Auth)."
+  },
+  {
+    "line": 249,
+    "text": "Production looked older than our local homepage work — checking what landed in the repo vs what’s live."
+  },
+  {
+    "line": 252,
+    "text": "You’re right — and here’s the important part:\n\n**Those homepage changes are not in the current codebase anymore.**\n\nWhat’s in `src/components/Homepage.jsx` now is the older tabbed hero (“Stop ghosting your own leads.” / Pipeline & Leads tabs). These are also gone:\n\n- `src/lib/planMarketing.js`\n- `src/components/marketing/HeroVisual.jsx` (and related marketing media)\n- Brand-first hero (“Your leads didn’t ghost you…”)\n- `hp-section-inner` / 4-cycle billing toggle / shared pricing system\n\nThat’s why **production (`reachdeskcrm.com`) matches this older homepage** — there’s nothing newer to deploy from this tree.\n\nLikely causes: never committed, reverted, or switched away from the branch that had the work.\n\nIf you want, I can next either:\n1. **Recover** the redesign from git history / the prior chat and restore it, or  \n2. **Rebuild** the homepage changes from the earlier plan (fonts, hero video, pricing, spacing).\n\nWhich do you want?"
+  }
+]

@@ -1,0 +1,17 @@
+:root.light .pricing-card.popular {
+  border: 2px solid var(--primary-purple);
+  box-shadow: var(--shadow-sm);
+}
+
+/* Light mode: plan name and price use theme tokens */
+:root.light .plan-name {
+  color: var(--text-primary);
+}
+
+:root.light .plan-price {
+  color: var(--text-primary);
+}
+
+:root.light .pricing-feature-item {
+  color: var(--text-secondary);
+}

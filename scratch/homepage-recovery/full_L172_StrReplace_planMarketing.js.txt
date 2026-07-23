@@ -1,0 +1,9 @@
+PATH: c:\Users\T15\reachdesk\src\lib\planMarketing.js\n\nOLD:\nexport function getPlanFeatures(planId, billingCycle) {
+  const leadLine = formatLeadCountForBilling(planId, billingCycle);
+  const isYearly = (billingCycle ?? '').toLowerCase() === 'yearly';
+  const hasYearlyBonus =
+    isYearly && (planId === 'starter' || planId === 'pro');\n\nNEW:\nexport function getPlanFeatures(planId, billingCycle) {
+  const leadLine = formatLeadLineForMarketing(planId, billingCycle);
+  const isYearly = (billingCycle ?? '').toLowerCase() === 'yearly';
+  const hasYearlyBonus =
+    isYearly && (planId === 'starter' || planId === 'pro');

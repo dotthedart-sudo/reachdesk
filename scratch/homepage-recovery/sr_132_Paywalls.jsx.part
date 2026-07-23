@@ -1,0 +1,6 @@
+export function DeniedScreen({ handleLogout }) {
+  return (
+    <div className="paywall-overlay" style={{ backgroundColor: 'var(--bg-page)', backgroundImage: 'none' }}>
+      <div className="paywall-card" style={{ backgroundColor: 'var(--bg-card)', border: '1px solid var(--border)', borderRadius: '3px', boxShadow: 'none', animation: 'none' }}>
+        <div className="paywall-icon" style={{ background: 'var(--accent-blue)', boxShadow: 'none' }}><ShieldAlert size={36} /></div>
+        <h1 className="paywall-title">Access Denied</h1>

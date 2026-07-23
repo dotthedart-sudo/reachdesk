@@ -1,0 +1,20 @@
+PATH: c:\Users\T15\reachdesk\src\index.css\n\nOLD:\n/* ── FEATURES ── */
+.hp-features-section {
+  padding: var(--space-8) var(--space-7);
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+}\n\nNEW:\n/* ── FEATURES ── */
+.hp-features-section {
+  padding: var(--space-8) var(--space-7);
+  border-bottom: 1px solid var(--border);
+  width: 100%;
+  box-sizing: border-box;
+}
+
+.hp-section-inner {
+  width: 100%;
+  max-width: 1200px;
+  margin: 0 auto;
+  box-sizing: border-box;
+}

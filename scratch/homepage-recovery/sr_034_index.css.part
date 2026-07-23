@@ -1,0 +1,5 @@
+  /* Fix 3: Main content area padding on mobile */
+  .main-content {
+    padding: var(--space-4) !important;
+    padding-bottom: 80px !important; /* ensure content doesn't hide behind bottom nav */
+  }

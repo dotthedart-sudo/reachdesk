@@ -1,0 +1,84 @@
+PATH: c:\Users\T15\reachdesk\src\components\Homepage.jsx\n\nOLD:\n            <div
+              key={plan.id}
+              className={`hp-pricing-card ${plan.highlighted ? 'starter-popular' : ''} ${plan.comingSoon ? 'disabled' : ''}`}
+            >
+              {plan.highlighted && <span className="hp-plan-popular-badge">Most Popular</span>}
+              {plan.comingSoon && <span className="hp-plan-tag">Coming Soon</span>}
+
+              <div>
+                <div className="hp-plan-name">{plan.name}</div>
+                <p className="hp-plan-tagline">{typeof plan.tagline === 'function' ? plan.tagline(billing) : plan.tagline}</p>
+                <div className="hp-plan-price-label">
+                  <div>{renderPlanPrice(plan.id)}</div>
+                  <div className="hp-plan-price-sub">{renderPlanDetailsSub(plan.id)}</div>
+                </div>
+                <div className="hp-plan-price-details">
+                  <div>{renderPlanBillingCycle(plan.id)}</div>
+                  <div className="hp-plan-price-sub">{renderPlanBillingCycleSub(plan.id)}</div>
+                </div>
+              </div>
+
+              <ul className="hp-plan-features-list">
+                {plan.features.map((feat) => (
+                  <li key={feat} className="hp-plan-feature-item">
+                    <span className="hp-plan-feature-prefix">+</span>
+                    {feat}
+                  </li>
+                ))}
+              </ul>
+
+              {plan.comingSoon ? (
+                <button type="button" className="hp-plan-cta-btn disabled" disabled>
+                  Coming soon
+                </button>
+              ) : (
+                <button type="button" onClick={handleSignUpClick} className="hp-plan-cta-btn">
+                  {plan.ctaLabel}
+                </button>
+              )}
+            </div>\n\nNEW:\n            <div
+              key={plan.id}
+              className={`rd-pricing-card ${plan.highlighted ? 'rd-pricing-popular' : ''} ${plan.comingSoon ? 'disabled' : ''}`}
+            >
+              {plan.highlighted && <span className="rd-pricing-popular-badge">Most Popular</span>}
+              {plan.comingSoon && <span className="rd-pricing-tag">Coming Soon</span>}
+
+              <div className="rd-pricing-card-header">
+                <div className="rd-pricing-plan-name">{plan.name}</div>
+                <p className="rd-pricing-tagline">{typeof plan.tagline === 'function' ? plan.tagline(billing) : plan.tagline}</p>
+                <div className="rd-pricing-price-main">
+                  <span className="rd-pricing-price-amount">{renderPlanPrice(plan.id)}</span>
+                  <span className="rd-pricing-price-sub">{renderPlanDetailsSub(plan.id)}</span>
+                </div>
+                <div className="rd-pricing-price-billing">
+                  <span>{renderPlanBillingCycle(plan.id)}</span>
+                  <span className="rd-pricing-price-sub">{renderPlanBillingCycleSub(plan.id)}</span>
+                </div>
+              </div>
+
+              <ul className="rd-pricing-features">
+                {(plan.getFeatures ? plan.getFeatures(billing) : []).map((feat, i) => {
+                  const isObj = typeof feat === 'object';
+                  const label = isObj ? feat.label : feat;
+                  return (
+                    <li key={`${plan.id}-${label}-${i}`} className="rd-pricing-feature">
+                      <Check size={14} className="rd-pricing-feature-icon" aria-hidden />
+                      <span className="rd-pricing-feature-text">{label}</span>
+                      {isObj && feat.badge && (
+                        <span className="rd-pricing-feature-badge">{feat.badge}</span>
+                      )}
+                    </li>
+                  );
+                })}
+              </ul>
+
+              {plan.comingSoon ? (
+                <button type="button" className="rd-pricing-cta disabled" disabled>
+                  Coming soon
+                </button>
+              ) : (
+                <button type="button" onClick={handleSignUpClick} className="rd-pricing-cta">
+                  {plan.ctaLabel}
+                </button>
+              )}
+            </div>

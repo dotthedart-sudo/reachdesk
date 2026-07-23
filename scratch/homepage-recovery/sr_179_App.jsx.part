@@ -1,0 +1,27 @@
+function HomepagePage() {
+  const { session, brandName } = useAppContext();
+  return <Homepage currentUserEmail={session?.user?.email} brandName={brandName} />;
+}
+
+function RootRedirect() {
+  const { session } = useAppContext();
+  const appMode = import.meta.env.VITE_APP_MODE;
+
+  if (session && (isLocalDev() || appMode === 'app')) {
+    return <Navigate to="/dashboard" replace />;
+  }
+  if (!isLocalDev() && appMode === 'app') {
+    return <HomepagePage />;
+  }
+  return <Navigate to="/homepage" replace />;
+}
+
+function CatchAllRedirect() {
+  const { session } = useAppContext();
+  const appMode = import.meta.env.VITE_APP_MODE;
+
+  if (!isLocalDev() && appMode === 'app') {
+    return session ? <Navigate to="/dashboard" replace /> : <HomepagePage />;
+  }
+  return <Navigate to="/homepage" replace />;
+}

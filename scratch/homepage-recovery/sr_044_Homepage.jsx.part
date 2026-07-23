@@ -1,0 +1,19 @@
+  // Prefer app theme when available so marketing ↔ app stay in sync
+  const [theme, setTheme] = useState(() => {
+    const appSaved = localStorage.getItem('reachdesk_theme');
+    if (appSaved === 'light' || appSaved === 'dark') return appSaved;
+    const saved = localStorage.getItem('hp-theme');
+    if (saved) return saved;
+    const prefersLight = window.matchMedia && window.matchMedia('(prefers-color-scheme: light)').matches;
+    return prefersLight ? 'light' : 'dark';
+  });
+
+  const toggleHomepageTheme = () => {
+    const nextTheme = theme === 'dark' ? 'light' : 'dark';
+    setTheme(nextTheme);
+    localStorage.setItem('hp-theme', nextTheme);
+    localStorage.setItem('reachdesk_theme', nextTheme);
+    if (typeof toggleAppTheme === 'function' && appTheme && appTheme !== nextTheme) {
+      toggleAppTheme();
+    }
+  };

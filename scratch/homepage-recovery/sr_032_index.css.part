@@ -1,0 +1,16 @@
+/* Sidebar Component */
+.sidebar {
+  width: 240px;
+  background-color: var(--bg-card);
+  border-right: 1px solid var(--border);
+  padding: var(--space-5) var(--space-4);
+  display: flex;
+  flex-direction: column;
+  /* Use sticky so sidebar stays in view as page scrolls */
+  position: sticky;
+  top: 0;
+  height: 100vh;
+  flex-shrink: 0;
+  overflow: hidden;
+  transition: var(--transition-smooth);
+}

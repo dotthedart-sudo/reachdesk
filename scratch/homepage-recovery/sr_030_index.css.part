@@ -1,0 +1,28 @@
+.hp-root {
+  --bg: #0D1117;
+  --bg-elevated: #121A22;
+  --text: #E6E9EC;
+  --text-muted: #8B949E;
+  --border: #21262D;
+  --accent-blue: #5B8FB9;
+  --accent-sage: #7FB5A0;
+  --white: #F2F4F3;
+
+  background-color: var(--bg);
+  color: var(--text);
+  font-family: 'Mattone', sans-serif;
+  min-height: 100vh;
+  display: flex;
+  flex-direction: column;
+}
+
+.hp-root[data-theme="light"] {
+  --bg: #F2F4F7;
+  --bg-elevated: #FFFFFF;
+  --text: #0D1117;
+  --text-muted: #5A6478;
+  --border: #DDE3EC;
+  --accent-blue: #3E7BB8;
+  --accent-sage: #4E9A83;
+  --white: #0D1117;
+}

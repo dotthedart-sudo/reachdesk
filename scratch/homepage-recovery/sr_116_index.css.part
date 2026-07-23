@@ -1,0 +1,4 @@
+.hp-footer-link-item {
+  font-family: var(--font-body);
+  font-size: var(--text-xs);
+  letter-spacing: 0.02em;

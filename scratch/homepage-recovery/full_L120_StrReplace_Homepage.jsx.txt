@@ -1,0 +1,22 @@
+PATH: c:\Users\T15\reachdesk\src\components\Homepage.jsx\n\nOLD:\n        <div className="hp-features-grid">
+          {HOMEPAGE_FEATURES.map((feat) => {
+            const Icon = FEATURE_ICONS[feat.id] || Columns;
+            return (
+              <article key={feat.id} className="hp-feature-card">
+                <div className="hp-feature-icon-wrapper">
+                  <Icon size={18} />
+                </div>
+                <h3 className="hp-feature-row-title">{feat.title}</h3>
+                <p className="hp-feature-row-desc">{feat.desc}</p>
+              </article>
+            );
+          })}
+        </div>\n\nNEW:\n        <div className="hp-features-grid">
+          {HOMEPAGE_FEATURES.map((feat) => (
+            <article key={feat.id} className="hp-feature-card">
+              <FeatureMedia featureId={feat.id} title={feat.title} theme={theme} />
+              <h3 className="hp-feature-row-title">{feat.title}</h3>
+              <p className="hp-feature-row-desc">{feat.desc}</p>
+            </article>
+          ))}
+        </div>

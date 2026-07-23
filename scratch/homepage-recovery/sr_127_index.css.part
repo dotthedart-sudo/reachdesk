@@ -1,0 +1,16 @@
+.hp-feature-card .hp-feature-row-title {
+  font-family: var(--font-display);
+  font-size: var(--text-md);
+  font-weight: 600;
+  color: var(--white);
+  min-width: 0;
+  padding: var(--space-4) var(--space-5) var(--space-2);
+}
+
+.hp-feature-card .hp-feature-row-desc {
+  font-family: 'Plus Jakarta Sans', sans-serif;
+  font-size: var(--text-sm);
+  line-height: var(--leading-body);
+  color: var(--text-muted);
+  padding: 0 var(--space-5) var(--space-5);
+}

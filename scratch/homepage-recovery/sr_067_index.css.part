@@ -1,0 +1,55 @@
+  .hp-hero-section.hp-hero-premium {
+    padding: var(--space-4);
+  }
+
+  .hp-how-grid {
+    grid-template-columns: 1fr;
+    gap: var(--space-5);
+  }
+
+  .hp-features-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .hp-problem-section,
+  .hp-how-section,
+  .hp-features-section,
+  .hp-pricing-section,
+  .hp-final-cta {
+    padding-left: var(--space-4);
+    padding-right: var(--space-4);
+  }
+
+  .hp-hero-card {
+    padding: 24px 20px 0 20px;
+  }
+
+  .hp-hero-tabs {
+    margin: 0 -20px;
+  }
+
+  .hp-hero-h1 {
+    font-size: 34px;
+  }
+
+  .hp-features-section {
+    padding: 40px 20px;
+  }
+
+  .hp-integrations-section {
+    padding: 40px 20px;
+  }
+
+  .hp-section-h2 {
+    font-size: 20px;
+  }
+
+  .hp-pricing-section {
+    padding: 40px 20px;
+  }
+
+  .hp-pricing-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .hp-footer {

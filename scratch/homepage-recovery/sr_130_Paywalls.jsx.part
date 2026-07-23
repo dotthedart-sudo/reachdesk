@@ -1,0 +1,35 @@
+  return (
+    <div className={isEmbedded ? '' : 'paywall-overlay paywall-upgrade'}>
+      <div className={isEmbedded ? 'card flex-col' : 'paywall-card paywall-upgrade-card'}>
+        {!isEmbedded && (
+          <div style={{ marginBottom: '0.5rem' }}>
+            <span className="paywall-brand">ReachDesk CRM</span>
+          </div>
+        )}
+
+        <div className="paywall-icon"><Lock size={36} /></div>
+
+        {isEmbedded ? (
+          <>
+            <h1 className="paywall-title">Upgrade Workspace Plan</h1>
+            <p className="paywall-text" style={{ textAlign: 'center' }}>
+              Choose a plan below to unlock advanced features and increase your limits.
+            </p>
+          </>
+        ) : isExpired === 'trial_expired' ? (
+          <>
+            <h1 className="paywall-title">Free Trial Expired</h1>
+            <p className="paywall-text" style={{ textAlign: 'center' }}>
+              Your 7-day free trial has ended. Please upgrade your plan below to continue.
+            </p>
+          </>
+        ) : (
+          <>
+            <h1 className="paywall-title">Subscription Expired</h1>
+            <p className="paywall-text" style={{ textAlign: 'center' }}>
+              Your subscription expired on{' '}
+              <strong>{profile?.plan_expires_at ? new Date(profile.plan_expires_at).toLocaleDateString() : ''}</strong>.
+              Renew your plan to unlock client data.
+            </p>
+          </>
+        )}

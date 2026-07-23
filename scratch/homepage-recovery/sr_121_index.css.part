@@ -1,0 +1,67 @@
+.hp-hero-visual .hp-hero-mockup-img {
+  width: 100%;
+  height: auto;
+  display: block;
+  object-fit: cover;
+  max-height: min(56vh, 520px);
+  object-position: top center;
+}
+
+.hp-hero-video {
+  width: 100%;
+  height: auto;
+  display: block;
+  max-height: min(56vh, 520px);
+  object-fit: cover;
+  object-position: top center;
+}
+
+.hp-hero-poster-hidden {
+  display: none;
+}
+
+.hp-step-media,
+.hp-feature-media {
+  width: 100%;
+  border-radius: var(--radius-md);
+  overflow: hidden;
+  border: 1px solid var(--border);
+  background: var(--bg-elevated);
+  line-height: 0;
+}
+
+.hp-feature-media .hp-ui-mock-svg,
+.hp-step-media .hp-ui-mock-svg,
+.hp-feature-media img,
+.hp-step-media img {
+  width: 100%;
+  height: auto;
+  display: block;
+  aspect-ratio: 400 / 260;
+  object-fit: cover;
+  object-position: top center;
+}
+
+.hp-how-step {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+}
+
+.hp-feature-card {
+  padding: 0;
+  overflow: hidden;
+}
+
+.hp-feature-card .hp-feature-row-title,
+.hp-feature-card .hp-feature-row-desc {
+  padding: 0 var(--space-5) var(--space-5);
+}
+
+.hp-feature-card .hp-feature-row-title {
+  padding-top: var(--space-4);
+}
+
+.hp-feature-card:hover {
+  border-color: var(--accent-blue);
+}

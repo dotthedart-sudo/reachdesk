@@ -1,0 +1,3 @@
+          <button type="button" disabled className="rd-pricing-cta disabled" style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '6px' }}>
+            <Check size={14} /> Current Plan
+          </button>

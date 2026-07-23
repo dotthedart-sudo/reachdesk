@@ -1,0 +1,8 @@
+  .hp-features-section {
+    padding-top: var(--space-6);
+    padding-bottom: var(--space-6);
+  }
+
+  .hp-section-inner {
+    max-width: 100%;
+  }

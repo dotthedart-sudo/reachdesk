@@ -1,0 +1,9 @@
+.hp-how-grid {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: var(--space-6);
+  margin-top: var(--space-6);
+  max-width: 960px;
+}
+
+.hp-how-step-num {

@@ -1,0 +1,98 @@
+PATH: c:\Users\T15\reachdesk\src\components\Homepage.jsx\n\nOLD:\n      {/* How it works */}
+      <section className="hp-how-section hp-reveal">
+        <span className="hp-section-label">How it works</span>
+        <div className="hp-how-grid">
+          {HOW_IT_WORKS_STEPS.map((item) => (
+            <div key={item.step} className="hp-how-step">
+              <StepMedia step={item.step} title={item.title} theme={theme} />
+              <span className="hp-how-step-num">Step {item.step}</span>
+              <h3 className="hp-how-step-title">{item.title}</h3>
+              <p className="hp-how-step-desc">{item.desc}</p>
+            </div>
+          ))}
+        </div>
+      </section>
+
+      {/* Features — four max */}
+      <section id="features" className="hp-features-section hp-reveal">
+        <span className="hp-section-label">What you get</span>
+        <h2 className="hp-section-h2">
+          Built for freelancers who<br />
+          <span className="hp-section-h2-accent">can&apos;t afford to forget a follow-up.</span>
+        </h2>
+
+        <div className="hp-features-grid">
+          {HOMEPAGE_FEATURES.map((feat) => (
+            <article key={feat.id} className="hp-feature-card">
+              <FeatureMedia featureId={feat.id} title={feat.title} theme={theme} />
+              <h3 className="hp-feature-row-title">{feat.title}</h3>
+              <p className="hp-feature-row-desc">{feat.desc}</p>
+            </article>
+          ))}
+        </div>
+
+        <p className="hp-integrations-note">
+          Pro includes Google Calendar sync and Google Sheets import/export. Starter includes Sheets; Calendar is on Pro.
+        </p>
+      </section>
+
+      {/* Pricing */}
+      <section id="pricing" className="hp-pricing-section hp-reveal">
+        <span className="hp-section-label">Pricing</span>
+        <h2 className="hp-section-h2">
+          Simple plans. Real limits.<br />
+          <span className="hp-section-h2-accent">No fake AI promises.</span>
+        </h2>
+
+        <div className="rd-billing-toggle-wrap">\n\nNEW:\n      {/* How it works */}
+      <section className="hp-how-section hp-reveal">
+        <div className="hp-section-inner">
+          <span className="hp-section-label">How it works</span>
+          <div className="hp-how-grid">
+            {HOW_IT_WORKS_STEPS.map((item) => (
+              <div key={item.step} className="hp-how-step">
+                <StepMedia step={item.step} title={item.title} theme={theme} />
+                <span className="hp-how-step-num">Step {item.step}</span>
+                <h3 className="hp-how-step-title">{item.title}</h3>
+                <p className="hp-how-step-desc">{item.desc}</p>
+              </div>
+            ))}
+          </div>
+        </div>
+      </section>
+
+      {/* Features — four max */}
+      <section id="features" className="hp-features-section hp-reveal">
+        <div className="hp-section-inner">
+          <span className="hp-section-label">What you get</span>
+          <h2 className="hp-section-h2">
+            Built for freelancers who<br />
+            <span className="hp-section-h2-accent">can&apos;t afford to forget a follow-up.</span>
+          </h2>
+
+          <div className="hp-features-grid">
+            {HOMEPAGE_FEATURES.map((feat) => (
+              <article key={feat.id} className="hp-feature-card">
+                <FeatureMedia featureId={feat.id} title={feat.title} theme={theme} />
+                <h3 className="hp-feature-row-title">{feat.title}</h3>
+                <p className="hp-feature-row-desc">{feat.desc}</p>
+              </article>
+            ))}
+          </div>
+
+          <p className="hp-integrations-note">
+            Pro includes Google Calendar sync and Google Sheets import/export. Starter includes Sheets; Calendar is on Pro.
+          </p>
+        </div>
+      </section>
+
+      {/* Pricing */}
+      <section id="pricing" className="hp-pricing-section hp-reveal">
+        <div className="hp-section-inner">
+          <span className="hp-section-label">Pricing</span>
+          <h2 className="hp-section-h2">
+            Simple plans. Real limits.<br />
+            <span className="hp-section-h2-accent">No fake AI promises.</span>
+          </h2>
+
+          <div className="rd-billing-toggle-wrap">

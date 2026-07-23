@@ -1,0 +1,5 @@
+PATH: c:\Users\T15\reachdesk\src\components\Homepage.jsx\n\nOLD:\n      </section>
+      <section className="hp-final-cta hp-reveal">\n\nNEW:\n      </section>
+
+      {/* Final CTA */}
+      <section className="hp-final-cta hp-reveal">

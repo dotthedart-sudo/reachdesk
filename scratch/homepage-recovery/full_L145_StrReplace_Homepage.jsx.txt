@@ -1,0 +1,10 @@
+PATH: c:\Users\T15\reachdesk\src\components\Homepage.jsx\n\nOLD:\n            </div>
+          ))}
+        </div>
+      </section>
+
+      {/* Final CTA */}\n\nNEW:\n            </div>
+          ))}
+        </div>
+        </div>
+      </section>

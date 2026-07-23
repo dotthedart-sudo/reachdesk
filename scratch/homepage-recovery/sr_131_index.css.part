@@ -1,0 +1,9 @@
+.hp-feature-card .hp-feature-media {
+  border: none;
+  border-radius: 0;
+  border-bottom: 1px solid var(--border);
+}
+
+.hp-how-step .hp-step-media {
+  border-radius: var(--radius-md);
+}

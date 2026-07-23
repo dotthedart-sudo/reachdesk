@@ -1,0 +1,27 @@
+        {/* Billing Cycle Toggle */}
+        <div className="rd-billing-toggle-wrap">
+          <div className="rd-billing-toggle">
+            {Object.entries(BILLING).map(([key, info]) => (
+              <button
+                key={key}
+                type="button"
+                className={`rd-billing-btn ${billing === key ? 'active' : ''}`}
+                onClick={() => setBilling(key)}
+              >
+                <span>{info.label}</span>
+                {info.badge && (
+                  <span className="rd-billing-save">{info.badge}</span>
+                )}
+              </button>
+            ))}
+          </div>
+        </div>
+
+        {billing === 'yearly' && (
+          <p className="rd-pricing-yearly-callout">
+            Yearly plans include 2× lead capacity.
+          </p>
+        )}
+
+        {/* Plan Cards Grid */}
+        <div className="rd-pricing-grid rd-pricing-grid-paywall">

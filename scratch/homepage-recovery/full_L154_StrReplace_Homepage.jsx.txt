@@ -1,0 +1,19 @@
+PATH: c:\Users\T15\reachdesk\src\components\Homepage.jsx\n\nOLD:\n      <footer className="hp-footer">
+        <span className="hp-footer-logo-text">REACHDESK</span>
+        <div className="hp-footer-links-row">
+          <a href={getMarketingUrl('/terms')} className="hp-footer-link-item">Terms of Service</a>
+          <a href={getMarketingUrl('/privacy')} className="hp-footer-link-item">Privacy Policy</a>
+          <a href={getMarketingUrl('/refund')} className="hp-footer-link-item">Refund Policy</a>
+          <a href="mailto:support@reachdeskcrm.com" className="hp-footer-link-item">support@reachdeskcrm.com</a>
+        </div>
+      </footer>\n\nNEW:\n      <footer className="hp-footer">
+        <div className="hp-footer-inner">
+        <span className="hp-footer-logo-text">REACHDESK</span>
+        <div className="hp-footer-links-row">
+          <a href={getMarketingUrl('/terms')} className="hp-footer-link-item">Terms of Service</a>
+          <a href={getMarketingUrl('/privacy')} className="hp-footer-link-item">Privacy Policy</a>
+          <a href={getMarketingUrl('/refund')} className="hp-footer-link-item">Refund Policy</a>
+          <a href="mailto:support@reachdeskcrm.com" className="hp-footer-link-item">support@reachdeskcrm.com</a>
+        </div>
+        </div>
+      </footer>
