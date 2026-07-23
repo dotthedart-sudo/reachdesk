@@ -40,7 +40,6 @@ serve(async (req) => {
     const calAllowedPlans = ['trial', 'pro', 'enterprise'];
     const calAccessAllowed =
       userProfile?.role === 'admin' ||
-      userProfile?.email === 'dotthedart@gmail.com' ||
       calAllowedPlans.includes(userProfile?.plan ?? '');
 
     if (!calAccessAllowed) {

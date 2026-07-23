@@ -6,30 +6,71 @@ const corsHeaders = {
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
 }
 
+function jsonResponse(body: unknown, status = 200): Response {
+  return new Response(JSON.stringify(body), {
+    status,
+    headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+  })
+}
+
 serve(async (req) => {
   if (req.method === 'OPTIONS') {
     return new Response('ok', { headers: corsHeaders })
   }
 
   try {
-    const { subscription_id } = await req.json()
+    // ── Auth: require valid user JWT ───────────────────────────────────────
+    const authHeader = req.headers.get('Authorization')
+    if (!authHeader) {
+      return jsonResponse({ success: false, error: 'Unauthorized: Missing Authorization header' }, 401)
+    }
 
+    const supabaseUrl = Deno.env.get('SUPABASE_URL') ?? ''
+    const supabaseAnonKey = Deno.env.get('SUPABASE_ANON_KEY') ?? ''
+    const supabaseServiceRoleKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? ''
+
+    const supabaseUser = createClient(supabaseUrl, supabaseAnonKey, {
+      global: { headers: { Authorization: authHeader } },
+    })
+    const { data: { user }, error: authError } = await supabaseUser.auth.getUser()
+    if (authError || !user) {
+      return jsonResponse({ success: false, error: 'Unauthorized' }, 401)
+    }
+
+    // Load caller's profile — cancel only their own subscription
+    const supabaseAdmin = createClient(supabaseUrl, supabaseServiceRoleKey)
+    const { data: profile, error: profileError } = await supabaseAdmin
+      .from('user_profiles')
+      .select('id, paddle_subscription_id')
+      .eq('id', user.id)
+      .single()
+
+    if (profileError || !profile) {
+      return jsonResponse({ success: false, error: 'Profile not found' }, 404)
+    }
+
+    const subscription_id = profile.paddle_subscription_id
     if (!subscription_id) {
-      return new Response(
-        JSON.stringify({ success: false, error: 'Missing subscription_id in request body' }),
-        { headers: { ...corsHeaders, 'Content-Type': 'application/json' }, status: 400 }
-      )
+      return jsonResponse({ success: false, error: 'No active subscription found for this account' }, 400)
+    }
+
+    // Optional: if client still sends subscription_id, it must match
+    try {
+      const body = await req.json().catch(() => ({}))
+      if (body?.subscription_id && body.subscription_id !== subscription_id) {
+        return jsonResponse({ success: false, error: 'Forbidden: subscription mismatch' }, 403)
+      }
+    } catch {
+      // empty body is fine
     }
 
     if (typeof subscription_id === 'string' && subscription_id.startsWith('sub_test')) {
-      console.log(`[Cancel] Test mode bypass for subscription_id: ${subscription_id}`);
-      const supabaseUrl = Deno.env.get('SUPABASE_URL') ?? ''
-      const supabaseServiceRoleKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? ''
-      const supabaseAdmin = createClient(supabaseUrl, supabaseServiceRoleKey)
+      console.log(`[Cancel] Test mode bypass for subscription_id: ${subscription_id}`)
 
       const { error: dbError } = await supabaseAdmin
         .from('user_profiles')
         .update({ plan_status: 'cancelling' })
+        .eq('id', user.id)
         .eq('paddle_subscription_id', subscription_id)
 
       if (dbError) {
@@ -37,10 +78,10 @@ serve(async (req) => {
         throw new Error(`Failed to update user profile in database: ${dbError.message}`)
       }
 
-      return new Response(
-        JSON.stringify({ success: true, message: 'Subscription successfully scheduled for cancellation (Test Mode).' }),
-        { headers: { ...corsHeaders, 'Content-Type': 'application/json' }, status: 200 }
-      )
+      return jsonResponse({
+        success: true,
+        message: 'Subscription successfully scheduled for cancellation (Test Mode).',
+      })
     }
 
     const paddleApiKey = Deno.env.get('PADDLE_API_KEY')
@@ -48,22 +89,21 @@ serve(async (req) => {
       throw new Error('PADDLE_API_KEY environment variable is not set')
     }
 
-    // Call Paddle API to schedule cancellation at the end of the billing period
     const paddleUrl = `https://api.paddle.com/subscriptions/${subscription_id}`
-    console.log(`[Cancel] Calling Paddle API for subscription: ${subscription_id}`)
-    
+    console.log(`[Cancel] Calling Paddle API for subscription: ${subscription_id} (user=${user.id})`)
+
     const paddleResponse = await fetch(paddleUrl, {
       method: 'PATCH',
       headers: {
         'Content-Type': 'application/json',
-        'Authorization': `Bearer ${paddleApiKey}`
+        'Authorization': `Bearer ${paddleApiKey}`,
       },
       body: JSON.stringify({
         scheduled_change: {
           action: 'cancel',
-          effective_at: 'next_billing_period'
-        }
-      })
+          effective_at: 'next_billing_period',
+        },
+      }),
     })
 
     if (!paddleResponse.ok) {
@@ -74,14 +114,10 @@ serve(async (req) => {
     const paddleData = await paddleResponse.json()
     console.log(`[Cancel] Paddle API succeeded:`, paddleData)
 
-    // Update database
-    const supabaseUrl = Deno.env.get('SUPABASE_URL') ?? ''
-    const supabaseServiceRoleKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? ''
-    const supabaseAdmin = createClient(supabaseUrl, supabaseServiceRoleKey)
-
     const { error: dbError } = await supabaseAdmin
       .from('user_profiles')
       .update({ plan_status: 'cancelling' })
+      .eq('id', user.id)
       .eq('paddle_subscription_id', subscription_id)
 
     if (dbError) {
@@ -89,15 +125,13 @@ serve(async (req) => {
       throw new Error(`Failed to update user profile in database: ${dbError.message}`)
     }
 
-    return new Response(
-      JSON.stringify({ success: true, message: 'Subscription successfully scheduled for cancellation.', data: paddleData }),
-      { headers: { ...corsHeaders, 'Content-Type': 'application/json' }, status: 200 }
-    )
+    return jsonResponse({
+      success: true,
+      message: 'Subscription successfully scheduled for cancellation.',
+      data: paddleData,
+    })
   } catch (error) {
     console.error('[Cancel] Error processing subscription cancellation:', error)
-    return new Response(
-      JSON.stringify({ success: false, error: error.message }),
-      { headers: { ...corsHeaders, 'Content-Type': 'application/json' }, status: 400 }
-    )
+    return jsonResponse({ success: false, error: (error as Error).message }, 400)
   }
 })

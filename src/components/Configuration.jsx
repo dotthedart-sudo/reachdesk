@@ -655,7 +655,7 @@ export default function Configuration({
 
   const getIdentityRole = () => {
     if (!currentUser) return 'Unknown';
-    if (currentUser.role === 'admin' || currentUser.email === 'dotthedart@gmail.com') return 'System Administrator';
+    if (currentUser.role === 'admin') return 'System Administrator';
     return `${currentUser.plan.charAt(0).toUpperCase() + currentUser.plan.slice(1)} Plan User`;
   };
 

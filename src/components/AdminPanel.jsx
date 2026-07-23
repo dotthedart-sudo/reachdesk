@@ -91,7 +91,7 @@ function AdminPanelContent({ currentUser }) {
         .eq('id', session.user.id)
         .single()
         .then(({ data }) => {
-          const isUserAdmin = data?.role === 'admin' || data?.email === 'dotthedart@gmail.com';
+          const isUserAdmin = data?.role === 'admin';
           if (!isUserAdmin) {
             navigate('/dashboard');
             return;
@@ -700,7 +700,7 @@ function AdminPanelContent({ currentUser }) {
                                     <RotateCcw size={12} /> Restore
                                   </button>
                                 ) : (
-                                  (user.email ?? '') !== 'dotthedart@gmail.com' && (
+                                  (user.role ?? '') !== 'admin' && (
                                     <button onClick={() => handleDeleteUser(user.id)} className="btn btn-danger btn-sm">
                                       <Trash2 size={12} /> Delete
                                     </button>

@@ -38,7 +38,7 @@ export function TermsOfService() {
   return (
     <LegalContainer title="Terms of Service" lastUpdated="July 2026">
       <p>
-        These Terms of Service ("Terms") govern your access to and use of ReachDesk CRM, a customer relationship management (CRM) tool for freelancers and agency owners, accessible at reachdesk.esemdot.com and related domains (the "Service"). The Service is operated under esemdot, Pakistan. By creating an account or using the Service, you agree to be bound by these Terms.
+        These Terms of Service ("Terms") govern your access to and use of ReachDesk CRM, a customer relationship management (CRM) tool for freelancers and agency owners, accessible at reachdeskcrm.com and related domains (the "Service"). The Service is operated under esemdot, Pakistan. By creating an account or using the Service, you agree to be bound by these Terms.
       </p>
 
       <h3 style={{ color: 'var(--text-primary)', marginTop: '1rem', fontFamily: 'var(--font-headers)' }}>1. The Service</h3>
@@ -122,7 +122,7 @@ export function TermsOfService() {
 
       <h3 style={{ color: 'var(--text-primary)', marginTop: '1rem', fontFamily: 'var(--font-headers)' }}>14. Contact</h3>
       <p>
-        For questions about these Terms, contact us at <a href="mailto:support@esemdot.com" style={{ color: 'var(--primary-purple)', textDecoration: 'none' }}>support@esemdot.com</a>.
+        For questions about these Terms, contact us at <a href="mailto:support@reachdeskcrm.com" style={{ color: 'var(--primary-purple)', textDecoration: 'none' }}>support@reachdeskcrm.com</a>.
       </p>
     </LegalContainer>
   );
@@ -132,7 +132,7 @@ export function PrivacyPolicy() {
   return (
     <LegalContainer title="Privacy Policy" lastUpdated="July 2026">
       <p>
-        This Privacy Policy explains how ReachDesk CRM ("we", "us"), operated under esemdot, Pakistan, collects, uses, and protects information when you use the ReachDesk CRM Service at reachdesk.esemdot.com and related domains.
+        This Privacy Policy explains how ReachDesk CRM ("we", "us"), operated under esemdot, Pakistan, collects, uses, and protects information when you use the ReachDesk CRM Service at reachdeskcrm.com and related domains.
       </p>
 
       <h3 style={{ color: 'var(--text-primary)', marginTop: '1rem', fontFamily: 'var(--font-headers)' }}>1. Information We Collect</h3>
@@ -218,7 +218,7 @@ export function PrivacyPolicy() {
 
       <h3 style={{ color: 'var(--text-primary)', marginTop: '1rem', fontFamily: 'var(--font-headers)' }}>7. Your Rights</h3>
       <p>
-        You may access, update, or request deletion of your personal information at any time by contacting us at <a href="mailto:support@esemdot.com" style={{ color: 'var(--primary-purple)', textDecoration: 'none' }}>support@esemdot.com</a>. You may also export or delete your CRM data directly within the Service where such functionality is available.
+        You may access, update, or request deletion of your personal information at any time by contacting us at <a href="mailto:support@reachdeskcrm.com" style={{ color: 'var(--primary-purple)', textDecoration: 'none' }}>support@reachdeskcrm.com</a>. You may also export or delete your CRM data directly within the Service where such functionality is available.
       </p>
 
       <h3 style={{ color: 'var(--text-primary)', marginTop: '1rem', fontFamily: 'var(--font-headers)' }}>8. Cookies and Tracking</h3>
@@ -243,7 +243,7 @@ export function PrivacyPolicy() {
 
       <h3 style={{ color: 'var(--text-primary)', marginTop: '1rem', fontFamily: 'var(--font-headers)' }}>12. Contact</h3>
       <p>
-        For questions about this Privacy Policy or to exercise your data rights, contact us at <a href="mailto:support@esemdot.com" style={{ color: 'var(--primary-purple)', textDecoration: 'none' }}>support@esemdot.com</a>.
+        For questions about this Privacy Policy or to exercise your data rights, contact us at <a href="mailto:support@reachdeskcrm.com" style={{ color: 'var(--primary-purple)', textDecoration: 'none' }}>support@reachdeskcrm.com</a>.
       </p>
     </LegalContainer>
   );
@@ -288,7 +288,7 @@ export function RefundPolicy() {
 
       <h3 style={{ color: 'var(--text-primary)', marginTop: '1rem', fontFamily: 'var(--font-headers)' }}>5. How to Request a Refund</h3>
       <p>
-        To request a refund on an eligible quarterly, 6-Month, or Yearly plan, email <a href="mailto:support@esemdot.com" style={{ color: 'var(--primary-purple)', textDecoration: 'none' }}>support@esemdot.com</a> within 7 days of your purchase, including your account email, the payment details, and the reason for your request. We will review your usage and respond within 5 business days.
+        To request a refund on an eligible quarterly, 6-Month, or Yearly plan, email <a href="mailto:support@reachdeskcrm.com" style={{ color: 'var(--primary-purple)', textDecoration: 'none' }}>support@reachdeskcrm.com</a> within 7 days of your purchase, including your account email, the payment details, and the reason for your request. We will review your usage and respond within 5 business days.
       </p>
 
       <h3 style={{ color: 'var(--text-primary)', marginTop: '1rem', fontFamily: 'var(--font-headers)' }}>6. Refund Method</h3>
@@ -313,7 +313,7 @@ export function RefundPolicy() {
 
       <h3 style={{ color: 'var(--text-primary)', marginTop: '1rem', fontFamily: 'var(--font-headers)' }}>10. Contact</h3>
       <p>
-        For refund requests or questions about this policy, contact us at <a href="mailto:support@esemdot.com" style={{ color: 'var(--primary-purple)', textDecoration: 'none' }}>support@esemdot.com</a>.
+        For refund requests or questions about this policy, contact us at <a href="mailto:support@reachdeskcrm.com" style={{ color: 'var(--primary-purple)', textDecoration: 'none' }}>support@reachdeskcrm.com</a>.
       </p>
     </LegalContainer>
   );

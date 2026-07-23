@@ -3,6 +3,7 @@ import { createClient } from "https://esm.sh/@supabase/supabase-js@2.7.1"
 // ⚠️  SYNC WARNING: STARTER_MONTHLY_USD is mirrored in src/components/Paywalls.jsx
 //     (BILLING.monthly.starter.usdTotal). Keep both files in sync when prices change.
 import { STARTER_MONTHLY_USD, getPlanFromPriceId } from '../_shared/prices.ts'
+import { DEFAULT_FROM_EMAIL } from '../_shared/email.ts'
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
@@ -134,8 +135,8 @@ serve(async (req) => {
           'Authorization': `Bearer ${resendApiKey}`
         },
         body: JSON.stringify({
-          from: 'ReachDesk CRM <noreply@mail.reachdesk.esemdot.com>',
-          reply_to: 'support@esemdot.com',
+          from: DEFAULT_FROM_EMAIL,
+          reply_to: 'support@reachdeskcrm.com',
           to: [customerEmail],
           subject,
           html: htmlContent
@@ -216,9 +217,9 @@ serve(async (req) => {
             <h2 style="color: #5B8FB9; border-bottom: 1px solid #21262D; padding-bottom: 10px;">Welcome to ReachDesk CRM!</h2>
             <p>Your ${planName} is now active. You have successfully upgraded your account and can now access all advanced CRM tools, email templates, and configurations.</p>
             <div style="text-align: center; margin: 30px 0;">
-              <a href="https://reachdesk.esemdot.com" style="background-color: #5B8FB9; color: #0D1117; padding: 12px 24px; text-decoration: none; border-radius: 3px; font-weight: bold; display: inline-block;">Log In to Your Workspace</a>
+              <a href="https://app.reachdeskcrm.com" style="background-color: #5B8FB9; color: #0D1117; padding: 12px 24px; text-decoration: none; border-radius: 3px; font-weight: bold; display: inline-block;">Log In to Your Workspace</a>
             </div>
-            <p>If you have any questions or need support getting started, feel free to reply to this email or contact us at <a href="mailto:support@esemdot.com" style="color: #5B8FB9; text-decoration: none;">support@esemdot.com</a>.</p>
+            <p>If you have any questions or need support getting started, feel free to reply to this email or contact us at <a href="mailto:support@reachdeskcrm.com" style="color: #5B8FB9; text-decoration: none;">support@reachdeskcrm.com</a>.</p>
             <p style="color: #8B949E; font-size: 0.8rem; border-top: 1px solid #21262D; padding-top: 15px; margin-top: 30px;">
               This is an automated notification from ReachDesk CRM.
             </p>
@@ -263,9 +264,9 @@ serve(async (req) => {
               </tr>
             </table>
             <div style="text-align: center; margin: 30px 0;">
-              <a href="https://reachdesk.esemdot.com/settings" style="background-color: #5B8FB9; color: #0D1117; padding: 12px 24px; text-decoration: none; border-radius: 3px; font-weight: bold; display: inline-block;">Manage Subscription</a>
+              <a href="https://app.reachdeskcrm.com/settings" style="background-color: #5B8FB9; color: #0D1117; padding: 12px 24px; text-decoration: none; border-radius: 3px; font-weight: bold; display: inline-block;">Manage Subscription</a>
             </div>
-            <p>Thank you for choosing ReachDesk CRM. If you need any assistance, reach out at <a href="mailto:support@esemdot.com" style="color: #5B8FB9; text-decoration: none;">support@esemdot.com</a>.</p>
+            <p>Thank you for choosing ReachDesk CRM. If you need any assistance, reach out at <a href="mailto:support@reachdeskcrm.com" style="color: #5B8FB9; text-decoration: none;">support@reachdeskcrm.com</a>.</p>
             <p style="color: #8B949E; font-size: 0.8rem; border-top: 1px solid #21262D; padding-top: 15px; margin-top: 30px;">
               This is an automated notification from ReachDesk CRM.
             </p>
@@ -313,9 +314,9 @@ serve(async (req) => {
               <h2 style="color: #5B8FB9; border-bottom: 1px solid #E5E5E5; padding-bottom: 10px; margin-top: 0;">Subscription Renewal</h2>
               <p>Your ${planName} renews in 7 days on ${dateStr}. Amount: ${formattedAmount}. No action needed to continue.</p>
               <div style="text-align: center; margin: 30px 0;">
-                <a href="https://reachdesk.esemdot.com/settings" style="background-color: #5B8FB9; color: #FFFFFF; padding: 12px 24px; text-decoration: none; border-radius: 3px; font-weight: bold; display: inline-block;">Manage Subscription</a>
+                <a href="https://app.reachdeskcrm.com/settings" style="background-color: #5B8FB9; color: #FFFFFF; padding: 12px 24px; text-decoration: none; border-radius: 3px; font-weight: bold; display: inline-block;">Manage Subscription</a>
               </div>
-              <p>If you have any questions or wish to change your plan details, please reach out to us at <a href="mailto:support@esemdot.com" style="color: #5B8FB9; text-decoration: none;">support@esemdot.com</a>.</p>
+              <p>If you have any questions or wish to change your plan details, please reach out to us at <a href="mailto:support@reachdeskcrm.com" style="color: #5B8FB9; text-decoration: none;">support@reachdeskcrm.com</a>.</p>
               <p style="color: #666666; font-size: 0.8rem; border-top: 1px solid #E5E5E5; padding-top: 15px; margin-top: 30px;">
                 This is an automated notification from ReachDesk CRM.
               </p>
@@ -365,7 +366,7 @@ serve(async (req) => {
           <h2 style="color: #E05252; border-bottom: 1px solid #21262D; padding-bottom: 10px;">Subscription Cancelled</h2>
           <p>Your ${planName} will remain active until ${endDate}. After that, your data will be retained for 30 days before permanent deletion. You can resubscribe anytime to restore full access.</p>
           <div style="text-align: center; margin: 30px 0;">
-            <a href="https://reachdesk.esemdot.com/upgrade" style="background-color: #5B8FB9; color: #0D1117; padding: 12px 24px; text-decoration: none; border-radius: 3px; font-weight: bold; display: inline-block;">Resubscribe Now</a>
+            <a href="https://app.reachdeskcrm.com/upgrade" style="background-color: #5B8FB9; color: #0D1117; padding: 12px 24px; text-decoration: none; border-radius: 3px; font-weight: bold; display: inline-block;">Resubscribe Now</a>
           </div>
           <p>If you have any feedback on how we can improve ReachDesk CRM for you, please let us know by replying to this email.</p>
           <p style="color: #8B949E; font-size: 0.8rem; border-top: 1px solid #21262D; padding-top: 15px; margin-top: 30px;">
@@ -384,9 +385,9 @@ serve(async (req) => {
           <h2 style="color: #E8A838; border-bottom: 1px solid #21262D; padding-bottom: 10px;">Payment Failed</h2>
           <p>We were unable to process the recent renewal payment for your ReachDesk subscription. Please update your payment details to prevent any service interruptions.</p>
           <div style="text-align: center; margin: 30px 0;">
-            <a href="https://reachdesk.esemdot.com/upgrade" style="background-color: #5B8FB9; color: #0D1117; padding: 12px 24px; text-decoration: none; border-radius: 3px; font-weight: bold; display: inline-block;">Update Payment Details</a>
+            <a href="https://app.reachdeskcrm.com/upgrade" style="background-color: #5B8FB9; color: #0D1117; padding: 12px 24px; text-decoration: none; border-radius: 3px; font-weight: bold; display: inline-block;">Update Payment Details</a>
           </div>
-          <p>If you need assistance, please contact our support team at <a href="mailto:support@esemdot.com" style="color: #5B8FB9; text-decoration: none;">support@esemdot.com</a>.</p>
+          <p>If you need assistance, please contact our support team at <a href="mailto:support@reachdeskcrm.com" style="color: #5B8FB9; text-decoration: none;">support@reachdeskcrm.com</a>.</p>
           <p style="color: #8B949E; font-size: 0.8rem; border-top: 1px solid #21262D; padding-top: 15px; margin-top: 30px;">
             This is an automated notification from ReachDesk CRM.
           </p>

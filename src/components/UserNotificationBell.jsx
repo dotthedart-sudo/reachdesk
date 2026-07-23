@@ -56,7 +56,7 @@ export default function UserNotificationBell({ profile, onRefreshProfile }) {
     }
   }, [window.location.search, profile?.id]);
 
-  const isAdmin = profile?.role === 'admin' || profile?.email === 'dotthedart@gmail.com';
+  const isAdmin = profile?.role === 'admin';
 
   const fetchNotifications = async () => {
     if (!profile?.id) return;

@@ -16,7 +16,7 @@ self.addEventListener('push', (event) => {
     renotify: true,
     requireInteraction: false,
     vibrate: [200, 100, 200],
-    data: { url: data.url || 'https://reachdesk.esemdot.com' },
+    data: { url: data.url || 'https://app.reachdeskcrm.com' },
   };
 
   event.waitUntil(self.registration.showNotification(title, options));
@@ -25,7 +25,7 @@ self.addEventListener('push', (event) => {
 // Notification click — open or focus the app at the correct URL
 self.addEventListener('notificationclick', (event) => {
   event.notification.close();
-  const targetUrl = event.notification.data?.url || 'https://reachdesk.esemdot.com';
+  const targetUrl = event.notification.data?.url || 'https://app.reachdeskcrm.com';
   event.waitUntil(
     clients.matchAll({ type: 'window', includeUncontrolled: true }).then((clientList) => {
       // Try to focus an already-open tab first
@@ -36,7 +36,7 @@ self.addEventListener('notificationclick', (event) => {
       }
       // Focus any open ReachDesk tab (in case URL differs but same origin)
       for (const client of clientList) {
-        if (client.url.includes('reachdesk.esemdot.com') && 'focus' in client) {
+        if (client.url.includes('app.reachdeskcrm.com') && 'focus' in client) {
           client.navigate(targetUrl);
           return client.focus();
         }

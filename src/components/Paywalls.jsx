@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { Lock, ShieldAlert, Check } from 'lucide-react';
 import { supabase } from '../lib/supabase';
 import { useLocalCurrency } from '../utils/useLocalCurrency';
+import { APP_DOMAIN, isLocalDev } from '../utils/domain';
 
 // ─── Unified Pricing Data ──────────────────────────────────────────────────
 // ⚠️  SYNC WARNING: This BILLING object is mirrored for Supabase Edge Functions in:
@@ -230,7 +231,7 @@ export function DeniedScreen({ handleLogout }) {
         <div className="paywall-icon" style={{ background: 'var(--accent-blue)', boxShadow: 'none' }}><ShieldAlert size={36} /></div>
         <h1 className="paywall-title" style={{ fontFamily: 'Mattone, sans-serif' }}>Access Denied</h1>
         <p className="paywall-text">
-          Your workspace access has been denied. Please contact support at support@esemdot.com.
+          Your workspace access has been denied. Please contact support at support@reachdeskcrm.com.
         </p>
         <button onClick={handleLogout} className="btn btn-secondary w-full" style={{ marginTop: '1rem', justifyContent: 'center', borderRadius: '3px' }}>
           Log Out
@@ -646,7 +647,7 @@ export function UpgradePage({ profile, handleLogout, onRefreshProfile, bankAccou
   useEffect(() => {
     if (window.Paddle) {
       window.Paddle.Initialize({
-        token: 'live_44dda826a292d086dd4ec2d781e',
+        token: import.meta.env.VITE_PADDLE_CLIENT_TOKEN,
       });
     }
   }, []);
@@ -661,7 +662,9 @@ export function UpgradePage({ profile, handleLogout, onRefreshProfile, bankAccou
       items: [{ priceId, quantity: 1 }],
       customer: { email: user.email },
       customData: { supabase_user_id: user.id },
-      successUrl: 'https://reachdeskcrm.com/dashboard?upgraded=true',
+      successUrl: isLocalDev()
+        ? `${window.location.origin}/dashboard?upgraded=true`
+        : `${APP_DOMAIN}/dashboard?upgraded=true`,
     });
   };
 

@@ -45,7 +45,7 @@ export default function BlogIndex() {
             '@type': 'CollectionPage',
             name: 'ReachDesk Blog',
             description: pageDescription,
-            url: 'https://reachdesk.esemdot.com/blog',
+            url: 'https://reachdeskcrm.com/blog',
           })}
         </script>
       </Helmet>

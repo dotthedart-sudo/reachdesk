@@ -35,7 +35,7 @@ export default function Reminders({ currentUser, onSelectLead }) {
         setReminders(data || []);
       }
 
-      const isAdmin = currentUser.role === 'admin' || currentUser.email === 'dotthedart@gmail.com';
+      const isAdmin = currentUser.role === 'admin';
       if (isAdmin) {
         const { data: reqs, error: reqsErr } = await supabase
           .from('admin_notifications')

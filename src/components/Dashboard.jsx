@@ -397,23 +397,17 @@ export default function Dashboard({ currentUser, onSelectLead }) {
       </div>
 
       {metrics.total === 0 && !loading ? (
-        <div className="card" style={{ padding: '3.5rem 2rem', textAlign: 'center', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: '1.5rem', backgroundColor: 'var(--bg-card, #161B22)', border: '1px solid var(--border, #30363D)', borderRadius: '8px', marginTop: '1.5rem' }}>
-          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', width: '64px', height: '64px', borderRadius: '12px', background: 'rgba(91,143,185,0.12)', border: '1px solid rgba(91,143,185,0.2)', margin: '0 auto' }}>
-            <BarChart2 size={30} style={{ color: 'var(--accent-blue, #5B8FB9)' }} />
+        <div className="card empty-state" style={{ marginTop: 'var(--space-5)' }}>
+          <div className="empty-state-icon" style={{ width: 56, height: 56, color: 'var(--accent-blue)', background: 'var(--bg-selected)', borderColor: 'var(--border)' }}>
+            <BarChart2 size={28} />
           </div>
-          <div>
-            <h3 style={{ margin: '0 0 0.5rem 0', fontSize: '1.35rem', fontWeight: 700, color: 'var(--text-primary, #FFFFFF)', fontFamily: 'var(--font-heading, Mattone, sans-serif)' }}>
-              Your Dashboard is Quiet
-            </h3>
-            <p style={{ margin: 0, fontSize: '0.9rem', color: 'var(--text-secondary, #8B949E)', maxWidth: '440px', lineHeight: '1.5', margin: '0 auto' }}>
-              Once you add leads and log interactions, your conversion metrics, pitching velocity, and pipeline progression will light up here.
-            </p>
-          </div>
-          <div>
-            <button onClick={() => navigate('/leads')} className="btn btn-primary" style={{ padding: '0.65rem 1.5rem', fontSize: '0.9rem', fontWeight: 600 }}>
-              Go to CRM Leads →
-            </button>
-          </div>
+          <h3 className="empty-state-title">Your Dashboard is Quiet</h3>
+          <p className="empty-state-desc">
+            Once you add leads and log interactions, your conversion metrics, pitching velocity, and pipeline progression will light up here.
+          </p>
+          <button onClick={() => navigate('/leads')} className="btn btn-primary">
+            Go to CRM Leads →
+          </button>
         </div>
       ) : (
         <>
@@ -422,24 +416,24 @@ export default function Dashboard({ currentUser, onSelectLead }) {
       <div className="dash-kpi-grid">
         
         {/* Leads card */}
-        <div className="card flex align-start gap-3" style={{ minHeight: '140px' }}>
-          <div style={{ padding: '0.75rem', borderRadius: '8px', background: 'rgba(91,143,185,0.1)', color: 'var(--accent-blue)', display: 'flex', alignSelf: 'center' }}>
+        <div className="card flex align-start gap-3" style={{ minHeight: 140 }}>
+          <div style={{ padding: 'var(--space-3)', borderRadius: 'var(--radius-lg)', background: 'var(--bg-selected)', color: 'var(--accent-blue)', display: 'flex', alignSelf: 'center' }}>
             <Users size={24} />
           </div>
           <div style={{ width: '100%' }}>
-            <span className="card-title" style={{ fontSize: '0.85rem', color: 'var(--text-muted)', fontWeight: 600 }}>Leads Overview</span>
-            <div className="card-value" style={{ fontSize: '1.75rem', fontWeight: 700, margin: '0.2rem 0' }}>{metrics.total}</div>
+            <span className="card-title">Leads Overview</span>
+            <div className="card-value" style={{ margin: 'var(--space-1) 0' }}>{metrics.total}</div>
             
             {/* Contacted / Replied / Positive mini-stats
                 flex-wrap + min-width ensures the 3rd item never clips
                 regardless of sidebar state or card width */}
             <div style={{
               display: 'flex',
-              gap: '0.75rem',
-              marginTop: '0.5rem',
+              gap: 'var(--space-3)',
+              marginTop: 'var(--space-2)',
               borderTop: '1px solid var(--border)',
-              paddingTop: '0.5rem',
-              fontSize: '0.75rem',
+              paddingTop: 'var(--space-2)',
+              fontSize: 'var(--text-xs)',
               color: 'var(--text-secondary)',
               flexWrap: 'wrap'
             }}>
@@ -451,9 +445,9 @@ export default function Dashboard({ currentUser, onSelectLead }) {
         </div>
 
         {/* Revenue progress card */}
-        <div className="card flex-col justify-between" style={{ minHeight: '140px' }}>
+        <div className="card flex-col justify-between" style={{ minHeight: 140 }}>
           <div className="flex align-center justify-between" style={{ width: '100%' }}>
-            <span className="card-title" style={{ fontSize: '0.85rem', color: 'var(--text-muted)', fontWeight: 600 }}>Invoices Collected</span>
+            <span className="card-title">Invoices Collected</span>
             <DollarSign size={18} style={{ color: 'var(--success-color)' }} />
           </div>
 
@@ -462,27 +456,27 @@ export default function Dashboard({ currentUser, onSelectLead }) {
             return (
               <>
                 {revenueTarget > 0 ? (
-                  <div style={{ marginTop: '0.5rem', width: '100%' }}>
+                  <div style={{ marginTop: 'var(--space-2)', width: '100%' }}>
                     <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline' }}>
-                      <span style={{ fontSize: '1.5rem', fontWeight: 700 }} data-ph-mask>{userCurrency}{totalRevenueCollected}</span>
-                      <span style={{ fontSize: '0.85rem', color: 'var(--text-muted)' }} data-ph-mask>target: {userCurrency}{revenueTarget}</span>
+                      <span className="card-value" style={{ fontSize: 'var(--text-xl)' }} data-ph-mask>{userCurrency}{totalRevenueCollected}</span>
+                      <span style={{ fontSize: 'var(--text-sm)', color: 'var(--text-muted)' }} data-ph-mask>target: {userCurrency}{revenueTarget}</span>
                     </div>
-                    <div style={{ width: '100%', height: '8px', background: 'var(--border-strong)', borderRadius: '4px', marginTop: '0.5rem', overflow: 'hidden' }}>
-                      <div style={{ width: `${targetPct}%`, height: '100%', background: 'var(--success-color)', borderRadius: '4px', transition: 'width 0.4s ease' }} />
+                    <div style={{ width: '100%', height: 8, background: 'var(--border-strong)', borderRadius: 'var(--radius-sm)', marginTop: 'var(--space-2)', overflow: 'hidden' }}>
+                      <div style={{ width: `${targetPct}%`, height: '100%', background: 'var(--success-color)', borderRadius: 'var(--radius-sm)', transition: 'width 0.4s ease' }} />
                     </div>
-                    <span style={{ fontSize: '0.75rem', color: 'var(--text-muted)', marginTop: '0.25rem', display: 'block' }}>
+                    <span className="card-subtext">
                       {targetPct}% of your monthly target
                     </span>
                   </div>
                 ) : (
-                  <div style={{ marginTop: '0.5rem', width: '100%', display: 'flex', flexDirection: 'column', gap: '0.25rem' }}>
-                    <span style={{ fontSize: '0.8rem', color: 'var(--text-muted)', fontStyle: 'italic' }}>
+                  <div style={{ marginTop: 'var(--space-2)', width: '100%', display: 'flex', flexDirection: 'column', gap: 'var(--space-1)' }}>
+                    <span style={{ fontSize: 'var(--text-sm)', color: 'var(--text-muted)', fontStyle: 'italic' }}>
                       Set your monthly target to see progress here
                     </span>
                     <button 
                       onClick={() => navigate('/configuration')} 
                       className="btn btn-secondary btn-sm" 
-                      style={{ marginTop: '0.4rem', width: '100%', justifyContent: 'center', fontSize: '0.75rem', padding: '0.25rem 0.5rem' }}
+                      style={{ marginTop: 'var(--space-2)', width: '100%', justifyContent: 'center' }}
                     >
                       Set Monthly Target
                     </button>
@@ -494,16 +488,16 @@ export default function Dashboard({ currentUser, onSelectLead }) {
         </div>
 
         {/* Velocity Dial card */}
-        <div className="card flex justify-between align-center" style={{ minHeight: '140px' }}>
+        <div className="card flex justify-between align-center" style={{ minHeight: 140 }}>
           <div>
-            <span className="card-title" style={{ fontSize: '0.85rem', color: 'var(--text-muted)', fontWeight: 600 }}>Outreach Velocity</span>
-            <div style={{ display: 'flex', alignItems: 'center', gap: '0.4rem', marginTop: '0.25rem' }}>
-              <span style={{ textTransform: 'uppercase', fontSize: '0.9rem', fontWeight: 800, color: velocityColor }}>
+            <span className="card-title">Outreach Velocity</span>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 'var(--space-2)', marginTop: 'var(--space-1)' }}>
+              <span style={{ textTransform: 'uppercase', fontSize: 'var(--text-sm)', fontFamily: 'var(--font-body)', fontWeight: 600, letterSpacing: 'var(--tracking-label)', color: velocityColor }}>
                 {velocityLevel}
               </span>
-              <span style={{ fontSize: '0.8rem', color: 'var(--text-muted)' }}>({weeklyPitchCount} pitches)</span>
+              <span style={{ fontSize: 'var(--text-sm)', color: 'var(--text-muted)' }}>({weeklyPitchCount} pitches)</span>
             </div>
-            <p style={{ fontSize: '0.7rem', color: 'var(--text-muted)', marginTop: '0.5rem', maxWidth: '150px', lineHeight: '1.3', wordBreak: 'break-word' }}>
+            <p style={{ fontSize: 'var(--text-xs)', color: 'var(--text-muted)', marginTop: 'var(--space-2)', maxWidth: 150, lineHeight: 'var(--leading-tight)', wordBreak: 'break-word' }}>
               {velocityMsg}
             </p>
           </div>
@@ -524,7 +518,7 @@ export default function Dashboard({ currentUser, onSelectLead }) {
                 style={{ transition: 'stroke-dashoffset 0.5s ease-in-out' }}
               />
             </svg>
-            <span style={{ fontSize: '0.65rem', textTransform: 'uppercase', color: 'var(--text-muted)', marginTop: '0.2', fontWeight: 600 }}>Last 7 Days</span>
+            <span style={{ fontSize: 'var(--text-3xs)', textTransform: 'uppercase', color: 'var(--text-muted)', marginTop: 'var(--space-1)', fontWeight: 600, letterSpacing: 'var(--tracking-label)' }}>Last 7 Days</span>
           </div>
         </div>
 

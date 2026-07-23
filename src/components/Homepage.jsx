@@ -15,8 +15,10 @@ export default function Homepage({ currentUserEmail }) {
   const { theme: appTheme, toggleTheme: toggleAppTheme } = useAppContext() || {};
   const { formatLocalPrice, country, rate } = useLocalCurrency();
 
-  // ── Theme State (Persisted) ────────────────────────────────────────────────
+  // Prefer app theme when available so marketing ↔ app stay in sync
   const [theme, setTheme] = useState(() => {
+    const appSaved = localStorage.getItem('reachdesk_theme');
+    if (appSaved === 'light' || appSaved === 'dark') return appSaved;
     const saved = localStorage.getItem('hp-theme');
     if (saved) return saved;
     const prefersLight = window.matchMedia && window.matchMedia('(prefers-color-scheme: light)').matches;
@@ -27,6 +29,10 @@ export default function Homepage({ currentUserEmail }) {
     const nextTheme = theme === 'dark' ? 'light' : 'dark';
     setTheme(nextTheme);
     localStorage.setItem('hp-theme', nextTheme);
+    localStorage.setItem('reachdesk_theme', nextTheme);
+    if (typeof toggleAppTheme === 'function' && appTheme && appTheme !== nextTheme) {
+      toggleAppTheme();
+    }
   };
 
   const isLoggedIn = !!currentUserEmail;
@@ -611,7 +617,7 @@ export default function Homepage({ currentUserEmail }) {
           <a href={getMarketingUrl('/terms')} className="hp-footer-link-item">Terms of Service</a>
           <a href={getMarketingUrl('/privacy')} className="hp-footer-link-item">Privacy Policy</a>
           <a href={getMarketingUrl('/refund')} className="hp-footer-link-item">Refund Policy</a>
-          <a href="mailto:support@esemdot.com" className="hp-footer-link-item">support@esemdot.com</a>
+          <a href="mailto:support@reachdeskcrm.com" className="hp-footer-link-item">support@reachdeskcrm.com</a>
         </div>
       </footer>
     </div>

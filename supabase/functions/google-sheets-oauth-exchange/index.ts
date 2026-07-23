@@ -38,7 +38,6 @@ serve(async (req) => {
     const sheetsAllowedPlans = ['trial', 'pro', 'enterprise'];
     const sheetsAccessAllowed =
       userProfile?.role === 'admin' ||
-      userProfile?.email === 'dotthedart@gmail.com' ||
       sheetsAllowedPlans.includes(userProfile?.plan ?? '');
 
     if (!sheetsAccessAllowed) {

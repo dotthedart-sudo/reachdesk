@@ -326,7 +326,7 @@ export default function Auth({ onRegister, onLogin, mode = 'login' }) {
       {/* Mini Nav */}
       <nav className="landing-nav">
         <a href={getMarketingUrl('/homepage')} className="landing-nav-logo" style={{ cursor: 'pointer', textDecoration: 'none', display: 'flex', alignItems: 'center' }}>
-          <span style={{fontFamily:'Mattone, sans-serif', textTransform:'uppercase', letterSpacing:'0.08em', fontSize:'11px', color:'var(--text-primary)', fontWeight:'400'}}>ReachDesk</span>
+          <span className="logo-text">ReachDesk</span>
         </a>
         <a href={getMarketingUrl('/homepage')} className="btn btn-secondary btn-sm" style={{ textDecoration: 'none', borderRadius: '4px', padding: '3px 8px', fontSize: '0.7rem' }}>
           Back to Home
@@ -334,10 +334,10 @@ export default function Auth({ onRegister, onLogin, mode = 'login' }) {
       </nav>
 
       {/* Main Container */}
-      <div className="auth-container" style={{ flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '1.5rem 1rem', overflowY: 'auto' }}>
-        <div className="auth-card" style={{ borderRadius: '6px', padding: '1.75rem 1.5rem', gap: '1rem', width: '100%', maxWidth: '440px' }}>
+      <div className="auth-container">
+        <div className="auth-card">
           <div>
-            <div style={{ display: 'inline-flex', alignItems: 'center', justifyContent: 'center', width: '48px', height: '48px', borderRadius: '4px', background: 'rgba(91, 143, 185, 0.1)', border: '1px solid rgba(91, 143, 185, 0.25)', color: 'var(--primary-purple)', marginBottom: '0.5rem' }}>
+            <div className="empty-state-icon" style={{ width: 48, height: 48, color: 'var(--accent-blue)', background: 'var(--bg-selected)', borderColor: 'var(--border)', margin: '0 auto var(--space-2)' }}>
               {showVerificationScreen ? <Mail size={24} /> : <Lock size={24} />}
             </div>
             <h2>{showVerificationScreen ? 'Verify your email' : (forgotMode ? 'Reset your password' : (mode === 'login' ? 'Welcome Back' : 'Create Account'))}</h2>

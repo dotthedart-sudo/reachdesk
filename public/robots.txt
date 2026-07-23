@@ -1,5 +1,5 @@
 # ReachDesk robots.txt
-# https://reachdesk.esemdot.com
+# https://reachdeskcrm.com
 
 User-agent: *
 Disallow: /dashboard
@@ -40,4 +40,4 @@ Disallow: /templates
 Disallow: /invoices
 Allow: /
 
-Sitemap: https://reachdesk.esemdot.com/sitemap.xml
+Sitemap: https://reachdeskcrm.com/sitemap.xml

@@ -529,7 +529,7 @@ function GetStartedContent({ isAppView, theme, navigate }) {
             </p>
             <div style={{ display: 'flex', gap: '1rem', justifyContent: 'center', flexWrap: 'wrap' }}>
               <a
-                href="mailto:support@esemdot.com"
+                href="mailto:support@reachdeskcrm.com"
                 style={{
                   textDecoration: 'none',
                   display: 'inline-flex',

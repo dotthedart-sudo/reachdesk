@@ -1886,18 +1886,11 @@ export default function CRM({
 
   return (
     <div className="flex gap-4 w-full" style={{ minHeight: 'calc(100vh - 120px)' }}>
-      {/* 📁 Folders Sidebar Section */}
-      <div 
-        className="sidebar-folders" 
-        style={{
-          width: '200px', borderRight: '1px solid var(--border-color)',
-          paddingRight: '1rem', display: 'flex', flexDirection: 'column', gap: '0.5rem',
-          textAlign: 'left'
-        }}
-      >
+      {/* Folders Sidebar Section */}
+      <div className="folder-sidebar sidebar-folders">
         {limits.folders ? (
           <>
-            <h4 style={{ fontSize: '0.65rem', letterSpacing: '0.1em', textTransform: 'uppercase', color: 'var(--text-muted)', fontWeight: 600, marginTop: '8px', marginBottom: '6px', paddingLeft: '8px', display: 'flex', alignItems: 'center', gap: '0.25rem' }}>
+            <h4 style={{ fontSize: 'var(--text-3xs)', letterSpacing: 'var(--tracking-label)', textTransform: 'uppercase', color: 'var(--text-muted)', fontWeight: 600, marginTop: 'var(--space-2)', marginBottom: 'var(--space-2)', paddingLeft: 'var(--space-2)', display: 'flex', alignItems: 'center', gap: 'var(--space-1)' }}>
               System Folders
               <HelpPopover title="System Folders">
                 System folders (Hot, Warm, Cold, Clients, Calendly Sent) are auto-populated by lead Priority and Status. They can't be deleted but their names can be changed in Configuration.
@@ -1907,13 +1900,13 @@ export default function CRM({
             {/* System Folders */}
             {[
               { id: 'all', dbId: null, defaultLabel: 'All Leads', iconColor: 'var(--text-muted)' },
-              { id: 'hot', dbId: 'hot', defaultLabel: 'Hot', iconColor: '#EF4444' },
-              { id: 'warm', dbId: 'warm', defaultLabel: 'Warm', iconColor: '#F59E0B' },
-              { id: 'cold', dbId: 'cold', defaultLabel: 'Cold', iconColor: '#6B7280' },
-              { id: 'needs-followup', dbId: 'needs-followup', defaultLabel: 'Needs Follow-Up', iconColor: '#8b5cf6' },
-              { id: 'recently-followed-up', dbId: 'recently-followed-up', defaultLabel: 'Recently Followed Up', iconColor: '#10B981' },
-              { id: 'calendly', dbId: 'calendly', defaultLabel: 'Calendly Sent', iconColor: '#06B6D4' },
-              { id: 'clients', dbId: 'clients', defaultLabel: 'Clients', iconColor: '#5B8FB9' }
+              { id: 'hot', dbId: 'hot', defaultLabel: 'Hot', iconColor: 'var(--status-hot)' },
+              { id: 'warm', dbId: 'warm', defaultLabel: 'Warm', iconColor: 'var(--status-warm)' },
+              { id: 'cold', dbId: 'cold', defaultLabel: 'Cold', iconColor: 'var(--status-cold)' },
+              { id: 'needs-followup', dbId: 'needs-followup', defaultLabel: 'Needs Follow-Up', iconColor: 'var(--accent-blue)' },
+              { id: 'recently-followed-up', dbId: 'recently-followed-up', defaultLabel: 'Recently Followed Up', iconColor: 'var(--accent-green)' },
+              { id: 'calendly', dbId: 'calendly', defaultLabel: 'Calendly Sent', iconColor: 'var(--accent-blue)' },
+              { id: 'clients', dbId: 'clients', defaultLabel: 'Clients', iconColor: 'var(--accent-blue)' }
             ].map(sysFolder => {
               const label = systemFolderNames[sysFolder.id] || sysFolder.defaultLabel;
               const isSelected = selectedFolderId === sysFolder.dbId;
@@ -1922,12 +1915,6 @@ export default function CRM({
                   <button 
                     onClick={() => handleSelectFolder(sysFolder.dbId)}
                     className={`folder-item ${isSelected ? 'active' : ''}`}
-                    style={{
-                      display: 'flex', alignItems: 'center', gap: '0.5rem', flex: 1,
-                      padding: '0.5rem 0.75rem', borderRadius: '6px', background: 'transparent',
-                      border: 'none', color: 'var(--text-primary)', cursor: 'pointer', textAlign: 'left',
-                      fontWeight: isSelected ? 600 : 400
-                    }}
                   >
                     <Folder size={16} style={{ color: sysFolder.iconColor }} />
                     <span style={{ textOverflow: 'ellipsis', overflow: 'hidden', whiteSpace: 'nowrap', maxWidth: '120px' }}>{label}</span>
@@ -1935,7 +1922,7 @@ export default function CRM({
                   <button 
                     onClick={() => triggerRename(sysFolder.id, label)}
                     className="btn-icon edit-btn" 
-                    style={{ padding: '0.2rem', color: 'var(--text-secondary)', display: 'none' }}
+                    style={{ padding: 'var(--space-1)', color: 'var(--text-secondary)', display: 'none' }}
                     title="Rename Folder"
                   >
                     <Edit3 size={12} />
@@ -1944,9 +1931,9 @@ export default function CRM({
               );
             })}
 
-            <div style={{ borderTop: '0.5px solid var(--border)', margin: '0.5rem 0' }}></div>
+            <div style={{ borderTop: '1px solid var(--border)', margin: 'var(--space-2) 0' }}></div>
 
-            <h4 style={{ fontSize: '0.65rem', letterSpacing: '0.1em', textTransform: 'uppercase', color: 'var(--text-muted)', fontWeight: 600, marginTop: '24px', marginBottom: '6px', paddingLeft: '8px', display: 'flex', alignItems: 'center', gap: '0.25rem' }}>
+            <h4 style={{ fontSize: 'var(--text-3xs)', letterSpacing: 'var(--tracking-label)', textTransform: 'uppercase', color: 'var(--text-muted)', fontWeight: 600, marginTop: 'var(--space-5)', marginBottom: 'var(--space-2)', paddingLeft: 'var(--space-2)', display: 'flex', alignItems: 'center', gap: 'var(--space-1)' }}>
               Smart Folders
               <HelpPopover title="Smart Folders">
                 Smart folders auto-filter leads using rules you define (e.g. Status = Contacted). They update live as your leads change. Create them with the + Smart Folder button.
@@ -1965,16 +1952,10 @@ export default function CRM({
                   <button
                     onClick={() => handleSelectFolder(uf.id)}
                     className={`folder-item ${selectedFolderId === uf.id ? 'active' : ''}`}
-                    style={{
-                      display: 'flex', alignItems: 'center', gap: '0.5rem', flex: 1,
-                      padding: '0.5rem 0.75rem', borderRadius: '6px', background: 'transparent',
-                      border: 'none', color: 'var(--text-primary)', cursor: 'pointer', textAlign: 'left',
-                      fontWeight: selectedFolderId === uf.id ? 600 : 400
-                    }}
                   >
                     <Folder size={16} style={{ color: 'var(--accent-blue)' }} />
                     <span style={{ textOverflow: 'ellipsis', overflow: 'hidden', whiteSpace: 'nowrap', maxWidth: '100px' }}>{uf.name}</span>
-                    <span style={{ fontSize: '0.75rem', color: 'var(--text-muted)' }}>({count})</span>
+                    <span style={{ fontSize: 'var(--text-xs)', color: 'var(--text-muted)' }}>({count})</span>
                   </button>
                   <div className="flex gap-1">
                     <button 
@@ -2000,9 +1981,9 @@ export default function CRM({
               <FolderPlus size={14} /> + Smart Folder
             </button>
 
-            <div style={{ borderTop: '0.5px solid var(--border)', margin: '0.5rem 0' }}></div>
+            <div style={{ borderTop: '1px solid var(--border)', margin: 'var(--space-2) 0' }}></div>
 
-            <h4 style={{ fontSize: '0.65rem', letterSpacing: '0.1em', textTransform: 'uppercase', color: 'var(--text-muted)', fontWeight: 600, marginTop: '24px', marginBottom: '6px', paddingLeft: '8px' }}>Manual Folders</h4>
+            <h4 style={{ fontSize: 'var(--text-3xs)', letterSpacing: 'var(--tracking-label)', textTransform: 'uppercase', color: 'var(--text-muted)', fontWeight: 600, marginTop: 'var(--space-5)', marginBottom: 'var(--space-2)', paddingLeft: 'var(--space-2)' }}>Manual Folders</h4>
             {folders.map(f => {
               const count = leads.filter(l => l.folder_id === f.id).length;
               return (
@@ -2010,16 +1991,10 @@ export default function CRM({
                   <button
                     onClick={() => handleSelectFolder(f.id)}
                     className={`folder-item ${selectedFolderId === f.id ? 'active' : ''}`}
-                    style={{
-                      display: 'flex', alignItems: 'center', gap: '0.5rem', flex: 1,
-                      padding: '0.5rem 0.75rem', borderRadius: '6px', background: 'transparent',
-                      border: 'none', color: 'var(--text-primary)', cursor: 'pointer', textAlign: 'left',
-                      fontWeight: selectedFolderId === f.id ? 600 : 400
-                    }}
                   >
                     <Folder size={16} style={{ color: f.color }} />
                     <span style={{ textOverflow: 'ellipsis', overflow: 'hidden', whiteSpace: 'nowrap', maxWidth: '100px' }}>{f.name}</span>
-                    <span style={{ fontSize: '0.75rem', color: 'var(--text-muted)' }}>({count})</span>
+                    <span style={{ fontSize: 'var(--text-xs)', color: 'var(--text-muted)' }}>({count})</span>
                   </button>
                   <div className="flex gap-1">
                     <button 
@@ -2354,7 +2329,7 @@ export default function CRM({
 
         {/* Bulk Actions Menu Overlay */}
         {selectedIds.length > 0 && (
-          <div className="flex justify-between align-center" style={{ padding: '0.75rem 1rem', background: 'var(--bg-card)', border: '0.5px solid var(--border-strong)', borderRadius: '6px', gap: '1rem', flexWrap: 'wrap' }}>
+          <div className="flex justify-between align-center" style={{ background: 'var(--bg-card)', border: '0.5px solid var(--border-strong)', borderRadius: '6px', gap: '1rem', flexWrap: 'wrap' }}>
             <div className="flex align-center gap-3">
               <span style={{ fontWeight: 600 }}>{selectedIds.length} leads selected</span>
               {selectedIds.length === paginatedList.length && activeList.length > paginatedList.length && (
@@ -2470,41 +2445,37 @@ export default function CRM({
 
         {/* Lead Table or Empty State */}
         {leads.length === 0 && !loading ? (
-          <div className="card" style={{ padding: '4rem 2rem', textAlign: 'center', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: '1.5rem', backgroundColor: 'var(--bg-card, #161B22)', border: '1px solid var(--border, #30363D)', borderRadius: '8px' }}>
-            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', width: '64px', height: '64px', borderRadius: '12px', background: 'rgba(91,143,185,0.12)', border: '1px solid rgba(91,143,185,0.2)', margin: '0 auto' }}>
-              <Users size={30} style={{ color: 'var(--accent-blue, #5B8FB9)' }} />
+          <div className="card empty-state">
+            <div className="empty-state-icon" style={{ width: 56, height: 56, color: 'var(--accent-blue)', background: 'var(--bg-selected)', borderColor: 'var(--border)' }}>
+              <Users size={28} />
             </div>
-            <div>
-              <h3 style={{ margin: '0 0 0.5rem 0', fontSize: '1.35rem', fontWeight: 700, color: 'var(--text-primary, #FFFFFF)', fontFamily: 'var(--font-heading, Mattone, sans-serif)' }}>
-                Your CRM is Empty
-              </h3>
-              <p style={{ margin: 0, fontSize: '0.9rem', color: 'var(--text-secondary, #8B949E)', maxWidth: '400px', lineHeight: '1.5' }}>
-                Add your first lead to start tracking outreach, template performance, and automated follow-ups.
-              </p>
-            </div>
-            <div style={{ display: 'flex', gap: '1rem', flexWrap: 'wrap', justifyContent: 'center', marginTop: '0.5rem' }}>
-              <button onClick={() => setShowAddLeadModal(true)} className="btn btn-primary" style={{ padding: '0.6rem 1.25rem', fontSize: '0.85rem', fontWeight: 600, display: 'inline-flex', alignItems: 'center', gap: '0.35rem' }}>
+            <h3 className="empty-state-title">Your CRM is Empty</h3>
+            <p className="empty-state-desc">
+              Add your first lead to start tracking outreach, template performance, and automated follow-ups.
+            </p>
+            <div style={{ display: 'flex', gap: 'var(--space-3)', flexWrap: 'wrap', justifyContent: 'center', marginTop: 'var(--space-2)' }}>
+              <button onClick={() => setShowAddLeadModal(true)} className="btn btn-primary">
                 <Plus size={14} /> Add Lead Manually
               </button>
-              <button onClick={() => setShowCSVImporter(true)} className="btn btn-secondary" style={{ padding: '0.6rem 1.25rem', fontSize: '0.85rem', fontWeight: 600, display: 'inline-flex', alignItems: 'center', gap: '0.35rem' }}>
+              <button onClick={() => setShowCSVImporter(true)} className="btn btn-secondary">
                 <Upload size={14} /> Import CSV
               </button>
               {PLAN_LIMITS[(currentUser?.plan || 'trial').toLowerCase()]?.sheetsIntegration && (
-                <button onClick={() => setShowSheetsImportModal(true)} className="btn btn-secondary" style={{ padding: '0.6rem 1.25rem', fontSize: '0.85rem', fontWeight: 600, display: 'inline-flex', alignItems: 'center', gap: '0.35rem' }}>
+                <button onClick={() => setShowSheetsImportModal(true)} className="btn btn-secondary">
                   <Database size={14} /> Import from Sheets
                 </button>
               )}
             </div>
-            <p style={{ margin: 0, fontSize: '0.82rem', color: 'var(--text-muted, #8B949E)' }}>
-              Need help? Read our <Link to="/get-started#how-it-works" style={{ color: 'var(--accent-blue, #5B8FB9)', textDecoration: 'underline' }}>quick-start guide</Link>.
+            <p style={{ margin: 0, fontSize: 'var(--text-sm)', color: 'var(--text-muted)' }}>
+              Need help? Read our <Link to="/get-started#how-it-works" style={{ color: 'var(--accent-blue)', textDecoration: 'underline' }}>quick-start guide</Link>.
             </p>
           </div>
         ) : (
           <div className="card" style={{ padding: 0, overflowX: 'auto', overflowY: 'visible', height: 'auto' }}>
-            <table className="w-full" style={{ borderCollapse: 'collapse' }}>
+            <table className="data-table" style={{ borderCollapse: 'collapse' }}>
             <thead>
-              <tr style={{ borderBottom: '1px solid var(--border-color)', textAlign: 'left', background: 'var(--bg-tertiary)' }}>
-                <th style={{ padding: '0.75rem 1rem', width: '40px' }}>
+              <tr style={{ borderBottom: '1px solid var(--border)', textAlign: 'left', background: 'var(--bg-tertiary)' }}>
+                <th style={{ width: '40px' }}>
                   <button 
                     type="button"
                     onClick={() => handleSelectAll(paginatedList)}
@@ -2518,7 +2489,7 @@ export default function CRM({
                   </button>
                 </th>
                 {view === 'contact_details' && (
-                  <th style={{ padding: '0.75rem 0.5rem 0.75rem 1rem', width: '36px', color: 'var(--text-muted)', fontSize: '0.72rem', fontWeight: 600, userSelect: 'none' }}>#</th>
+                  <th style={{ width: '36px', userSelect: 'none' }}>#</th>
                 )}
                 {(() => {
                   const allViewCols = columnDefs
@@ -2537,8 +2508,8 @@ export default function CRM({
                     const userPlan = (currentUser?.plan || 'trial').toLowerCase();
                     const isProjectUnlocked = !['trial', 'starter'].includes(userPlan);
                     return (
-                      <th key={col.id} style={{ padding: '0.75rem 1rem' }}>
-                        <div style={{ display: 'inline-flex', alignItems: 'center', gap: '0.25rem' }}>
+                      <th key={col.id}>
+                        <div style={{ display: 'inline-flex', alignItems: 'center', gap: 'var(--space-1)' }}>
                           {col.column_key === 'status' ? (
                             <>
                               Status
@@ -2563,8 +2534,8 @@ export default function CRM({
                   });
                 })()
                 }
-                {isTeamView && <th style={{ padding: '0.75rem 1rem' }}>Added By</th>}
-                <th style={{ padding: '0.75rem 1rem', textAlign: 'right' }}>
+                {isTeamView && <th>Added By</th>}
+                <th style={{ textAlign: 'right' }}>
                   <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'flex-end', gap: '0.5rem' }}>
                     <HelpPopover title="Column Manager" align="right">
                       Customise which columns appear in your CRM table, in what order, and for which view (Contact Details / Pipeline / Clients). Add custom columns on Pro/Teams.
@@ -2617,7 +2588,7 @@ export default function CRM({
                         cursor: 'pointer'
                       }}
                     >
-                      <td style={{ padding: '0.75rem 1rem' }} onClick={(e) => e.stopPropagation()}>
+                      <td onClick={(e) => e.stopPropagation()}>
                         <button 
                           onClick={() => handleToggleSelect(lead.id)}
                           style={{ background: 'transparent', border: 'none', cursor: 'pointer', color: 'var(--text-primary)', padding: 0 }}
@@ -2638,7 +2609,7 @@ export default function CRM({
                         if (col.column_key === 'name') {
                           const folder = folders.find(f => f.id === lead.folder_id);
                           return (
-                            <td key={col.id} style={{ padding: '0.75rem 1rem' }}>
+                            <td key={col.id}>
                               <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
                                 <span style={{ fontWeight: 600 }} data-ph-mask>
                                   {`${lead.first_name || ''} ${lead.last_name || ''}`.trim() || '—'}
@@ -2655,7 +2626,7 @@ export default function CRM({
 
                         if (col.column_key === 'template_used') {
                           return (
-                            <td key={col.id} style={{ padding: '0.75rem 1rem' }} onClick={(e) => e.stopPropagation()}>
+                            <td key={col.id} onClick={(e) => e.stopPropagation()}>
                               <div style={{ display: 'flex', alignItems: 'center', gap: '0.35rem' }}>
                                 <div style={{ flex: 1, minWidth: 0 }}>
                                   <GroupedTemplateDropdown
@@ -2692,7 +2663,7 @@ export default function CRM({
                         if (col.column_key === 'status') {
                           const currentStatus = cellValue || 'Lead';
                           return (
-                            <td key={col.id} style={{ padding: '0.75rem 1rem' }} onClick={(e) => e.stopPropagation()}>
+                            <td key={col.id} onClick={(e) => e.stopPropagation()}>
                               <GroupedStatusDropdown
                                 value={currentStatus}
                                 onChange={(newVal) => handleDropdownChange(lead.id, 'status', newVal)}
@@ -2705,7 +2676,7 @@ export default function CRM({
 
                         if (col.column_key === 'priority') {
                           return (
-                            <td key={col.id} style={{ padding: '0.75rem 1rem' }} onClick={(e) => e.stopPropagation()}>
+                            <td key={col.id} onClick={(e) => e.stopPropagation()}>
                               <PriorityDropdown
                                 value={lead.priority}
                                 onChange={(val) => handleDropdownChange(lead.id, 'priority', val)}
@@ -2725,7 +2696,7 @@ export default function CRM({
                           const showLightbulb = isActionToTake && (isSuggestionMismatch || isCheckpointDue);
 
                           return (
-                            <td key={col.id} style={{ padding: '0.75rem 1rem' }} onClick={(e) => e.stopPropagation()}>
+                            <td key={col.id} onClick={(e) => e.stopPropagation()}>
                               <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
                                 <EditableDropdown
                                   value={cellValue}
@@ -2789,7 +2760,7 @@ export default function CRM({
                             catch { domain = cellValue.slice(0, 22); }
                           }
                           return (
-                            <td key={col.id} style={{ padding: '0.75rem 1rem' }} onClick={(e) => e.stopPropagation()}>
+                            <td key={col.id} onClick={(e) => e.stopPropagation()}>
                               {linkHref ? (
                                 <a href={linkHref} target="_blank" rel="noopener noreferrer"
                                   style={{ color: 'var(--accent-blue)', textDecoration: 'none', fontSize: '0.8rem', display: 'inline-flex', alignItems: 'center', gap: '4px' }}
@@ -2814,7 +2785,7 @@ export default function CRM({
                             } catch {}
                           }
                           return (
-                            <td key={col.id} style={{ padding: '0.75rem 1rem', fontSize: '0.82rem', color: 'var(--text-secondary)', whiteSpace: 'nowrap' }}>
+                            <td key={col.id} style={{ fontSize: '0.82rem', color: 'var(--text-secondary)', whiteSpace: 'nowrap' }}>
                               {formatted}
                             </td>
                           );
@@ -2822,7 +2793,7 @@ export default function CRM({
 
                         if (col.column_key === 'platform' || col.column_type === 'reach' || col.column_type === 'system') {
                           return (
-                            <td key={col.id} style={{ padding: '0.75rem 1rem' }} onClick={(e) => e.stopPropagation()}>
+                            <td key={col.id} onClick={(e) => e.stopPropagation()}>
                               <ReachIcons lead={lead} columnDefs={columnDefs} onReachClick={handleReachClick} />
                             </td>
                           );
@@ -2832,7 +2803,7 @@ export default function CRM({
                         if (['linkedin_url', 'instagram_url', 'twitter_url', 'website'].includes(col.column_key) && cellValue) {
                           const url = cellValue.startsWith('http') ? cellValue : `https://${cellValue}`;
                           return (
-                            <td key={col.id} style={{ padding: '0.75rem 1rem' }} onClick={(e) => e.stopPropagation()}>
+                            <td key={col.id} onClick={(e) => e.stopPropagation()}>
                               <a href={url} target="_blank" rel="noopener noreferrer"
                                 style={{ color: 'var(--accent-blue)', textDecoration: 'none', fontSize: '0.85rem' }}
                                 data-ph-mask>
@@ -2845,7 +2816,7 @@ export default function CRM({
                         // ── Clickable email ────────────────────────────────────
                         if (col.column_key === 'email' && cellValue) {
                           return (
-                            <td key={col.id} style={{ padding: '0.75rem 1rem' }} onClick={(e) => e.stopPropagation()}>
+                            <td key={col.id} onClick={(e) => e.stopPropagation()}>
                               <a href={`mailto:${cellValue}`}
                                 style={{ color: 'var(--accent-blue)', textDecoration: 'none', fontSize: '0.85rem' }}
                                 data-ph-mask>
@@ -2858,26 +2829,26 @@ export default function CRM({
                         // ── Phone popup ────────────────────────────────────────
                         if (col.column_key === 'phone') {
                           return (
-                            <td key={col.id} style={{ padding: '0.75rem 1rem' }} onClick={(e) => e.stopPropagation()} data-ph-mask>
+                            <td key={col.id} onClick={(e) => e.stopPropagation()} data-ph-mask>
                               <PhonePopup phone={cellValue} />
                             </td>
                           );
                         }
 
                         return (
-                          <td key={col.id} style={{ padding: '0.75rem 1rem' }} data-ph-mask>
+                          <td key={col.id} data-ph-mask>
                             {cellValue || '—'}
                           </td>
                         );
                       })}
 
                       {isTeamView && (
-                        <td style={{ padding: '0.75rem 1rem', fontSize: '0.85rem', color: 'var(--text-secondary)' }}>
+                        <td style={{ fontSize: '0.85rem', color: 'var(--text-secondary)' }}>
                           {addedByEmail || 'Unknown'}
                         </td>
                       )}
                       
-                      <td style={{ padding: '0.75rem 1rem', textAlign: 'right' }} onClick={(e) => e.stopPropagation()}>
+                      <td style={{ textAlign: 'right' }} onClick={(e) => e.stopPropagation()}>
                         <div style={{ display: 'flex', gap: '0.25rem', justifyContent: 'flex-end' }}>
                           <button onClick={() => handleOpenEditLead(lead)} className="btn btn-secondary btn-sm" title="Edit Lead">
                             <Edit3 size={12} />
@@ -3799,13 +3770,13 @@ export default function CRM({
 
             <div className="flex-col gap-4" style={{ textAlign: 'left' }}>
               {/* Lead Details */}
-              <div style={{ background: 'var(--bg-page)', padding: '0.75rem 1rem', borderRadius: '6px', fontSize: '0.85rem', color: 'var(--text-secondary)', border: '1px solid var(--border)' }}>
+              <div style={{ background: 'var(--bg-page)', borderRadius: '6px', fontSize: '0.85rem', color: 'var(--text-secondary)', border: '1px solid var(--border)' }}>
                 <strong>Lead:</strong> {reachLead.first_name} {reachLead.last_name || ''} ({reachLead.company || 'No Company'})
               </div>
 
               {/* Validation Warning */}
               {reachWarning && (
-                <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', padding: '0.75rem 1rem', borderRadius: '6px', background: 'rgba(224, 82, 82, 0.1)', border: '1px solid rgba(224, 82, 82, 0.25)', color: 'var(--status-hot)', fontSize: '0.8rem' }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', borderRadius: '6px', background: 'rgba(224, 82, 82, 0.1)', border: '1px solid rgba(224, 82, 82, 0.25)', color: 'var(--status-hot)', fontSize: '0.8rem' }}>
                   <AlertCircle size={16} />
                   <span><strong>Warning:</strong> {reachWarning}</span>
                 </div>

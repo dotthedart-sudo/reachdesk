@@ -103,7 +103,6 @@ serve(async (req) => {
     const importAllowedPlans = ['trial', 'pro', 'enterprise'];
     const importAccessAllowed =
       importUserProfile?.role === 'admin' ||
-      importUserProfile?.email === 'dotthedart@gmail.com' ||
       importAllowedPlans.includes(importUserProfile?.plan ?? '');
 
     if (!importAccessAllowed) {

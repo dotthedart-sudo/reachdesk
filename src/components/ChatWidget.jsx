@@ -397,12 +397,12 @@ export default function ChatWidget({ profile }) {
           >
             Need more help?{' '}
             <a
-              href="mailto:support@esemdot.com"
+              href="mailto:support@reachdeskcrm.com"
               style={{ color: 'var(--accent-blue)', textDecoration: 'none' }}
               onMouseEnter={(e) => (e.currentTarget.style.textDecoration = 'underline')}
               onMouseLeave={(e) => (e.currentTarget.style.textDecoration = 'none')}
             >
-              support@esemdot.com
+              support@reachdeskcrm.com
             </a>
           </div>
 

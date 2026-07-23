@@ -71,7 +71,7 @@ export default function AppLayout({
     }
   };
 
-  const isAdmin = profile?.role === 'admin' || profile?.email === 'dotthedart@gmail.com';
+  const isAdmin = profile?.role === 'admin';
   const planLimits = PLAN_LIMITS[(profile?.plan || 'trial').toLowerCase()] || PLAN_LIMITS.trial;
 
   const handleNotesClickMobile = () => {
@@ -115,7 +115,7 @@ export default function AppLayout({
           onClick={() => { navigate('/dashboard'); setIsSidebarOpen(false); }}
           style={{ cursor: 'pointer', display: 'flex', alignItems: 'center' }}
         >
-          <span style={{fontFamily:'Mattone, sans-serif', textTransform:'uppercase', letterSpacing:'0.08em', fontSize:'11px', color:'var(--text-primary)', fontWeight:'400'}}>ReachDesk</span>
+          ReachDesk
         </span>
         <div style={{ width: 20 }}></div>
       </div>
@@ -131,10 +131,7 @@ export default function AppLayout({
           {/* Sidebar Logo + collapse toggle */}
           <div className="sidebar-logo" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
             <div style={{ display: 'flex', alignItems: 'center' }}>
-              <span
-                className="hp-logo nav-label"
-                style={{fontFamily:'Mattone, sans-serif', textTransform:'uppercase', letterSpacing:'0.08em', fontSize:'11px', color:'var(--text-primary)', fontWeight:'400'}}
-              >
+              <span className="logo-text nav-label">
                 ReachDesk
               </span>
             </div>

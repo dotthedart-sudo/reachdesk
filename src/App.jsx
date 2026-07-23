@@ -256,7 +256,7 @@ function AppProvider({ children }) {
 
   // Realtime subscription for admin upgrade requests
   useEffect(() => {
-    const isAdmin = profile?.role === 'admin' || profile?.email === 'dotthedart@gmail.com';
+    const isAdmin = profile?.role === 'admin';
     if (!session || !isAdmin) return;
 
     const channel = supabase.channel('admin-notifications-realtime')
@@ -344,7 +344,7 @@ function AppProvider({ children }) {
   }, []);
 
   const checkSubscriptionStatus = async (p) => {
-    if (p.role === 'admin' || p.email === 'dotthedart@gmail.com') return 'active';
+    if (p.role === 'admin') return 'active';
     if (p.status === 'denied') return 'denied';
     if (p.plan === 'enterprise') return 'active';
 
@@ -470,7 +470,7 @@ function AppProvider({ children }) {
 
         if (p) {
           const now = new Date();
-          const isAdminOrDotthedart = p.role === 'admin' || p.email === 'dotthedart@gmail.com';
+          const isAdminUser = p.role === 'admin';
           const isEnterprise = p.plan === 'enterprise';
           
           let isTrialExpired = false;
@@ -485,7 +485,7 @@ function AppProvider({ children }) {
             isSubscriptionExpired = planExpires && now > planExpires;
           }
 
-          const shouldLock = !isAdminOrDotthedart && !isEnterprise && (isTrialExpired || isSubscriptionExpired);
+          const shouldLock = !isAdminUser && !isEnterprise && (isTrialExpired || isSubscriptionExpired);
           
           let profileToSet = p;
           if (shouldLock && !p.account_locked) {
@@ -536,7 +536,7 @@ function AppProvider({ children }) {
           setTeamProfilesMap(mapping);
 
           // Fetch workspace data
-          await fetchAllData(ids, userId, p.role === 'admin' || p.email === 'dotthedart@gmail.com', p);
+          await fetchAllData(ids, userId, p.role === 'admin', p);
           setLoading(false);
           return; // Success, exit function
         }
@@ -988,7 +988,7 @@ function AppProvider({ children }) {
     handleAddTemplate, handleDeleteTemplate, handleUpdateTemplate,
     handleAddSnippet, handleDeleteSnippet, handleUpdateSnippet,
     fetchProfile: () => fetchProfile(session?.user?.id),
-    fetchAllData: () => fetchAllData(teamIds, session?.user?.id, profile?.role === 'admin' || profile?.email === 'dotthedart@gmail.com'),
+    fetchAllData: () => fetchAllData(teamIds, session?.user?.id, profile?.role === 'admin'),
   };
 
   return (
