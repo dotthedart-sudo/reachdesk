@@ -1308,9 +1308,7 @@ function AuthPage({ mode }) {
 }
 
 function HomepagePage() {
-  const { session, loading, brandName } = useAppContext();
-  // If already logged in, redirect to dashboard
-  if (!loading && session) return <Navigate to="/dashboard" replace />;
+  const { session, brandName } = useAppContext();
   return <Homepage currentUserEmail={session?.user?.email} brandName={brandName} />;
 }
 
