@@ -1658,14 +1658,39 @@ select option {
   z-index: 100;
 }
 
+.hp-logo-btn {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  line-height: 1;
+  padding: 0;
+  margin: 0;
+  background: none;
+  border: none;
+  box-shadow: none;
+  cursor: pointer;
+  color: inherit;
+}
+
 .hp-logo {
   font-family: 'Mattone', sans-serif;
   font-size: 13px;
-  letter-spacing: 0.08em;
+  letter-spacing: 0.06em;
   text-transform: uppercase;
-  color: var(--white);
+  color: var(--text);
   font-weight: 700;
   white-space: nowrap;
+}
+
+.hp-logo-sub {
+  font-family: 'Mattone', sans-serif;
+  font-size: 9px;
+  letter-spacing: 1.4em;
+  text-transform: uppercase;
+  color: var(--text-muted);
+  font-weight: 700;
+  margin-top: 2px;
+  width: 100%;
 }
 
 .hp-nav-center {
@@ -3860,7 +3885,7 @@ select option {
   position: sticky;
   top: 0;
   z-index: 50;
-  background: color-mix(in srgb, var(--bg-page) 92%, transparent);
+  background: color-mix(in srgb, var(--bg) 92%, transparent);
   backdrop-filter: blur(8px);
 }
 
@@ -3872,11 +3897,11 @@ select option {
 }
 
 .hp-logo,
+.hp-logo-sub,
 .hp-hero-brand,
 .hp-footer-logo-text {
   font-family: var(--font-brand);
   font-weight: 700;
-  letter-spacing: 0.08em;
   text-transform: uppercase;
 }
 
@@ -3892,7 +3917,7 @@ select option {
   border-bottom: 1px solid var(--border);
   background:
     radial-gradient(ellipse 80% 60% at 70% 20%, color-mix(in srgb, var(--accent-blue) 14%, transparent), transparent 60%),
-    var(--bg-page);
+    var(--bg);
 }
 
 .hp-hero-inner {
@@ -3905,34 +3930,43 @@ select option {
 
 @media (min-width: 1024px) {
   .hp-hero-inner {
-    grid-template-columns: minmax(0, 1fr) minmax(0, 1.05fr);
+    grid-template-columns: minmax(0, 1.05fr) minmax(0, 0.95fr);
   }
+}
+
+.hp-hero-copy {
+  min-width: 0;
+  max-width: 34rem;
 }
 
 .hp-hero-brand {
   display: block;
-  font-size: clamp(1.35rem, 2.4vw, 1.75rem);
-  color: var(--text-primary);
-  margin-bottom: var(--space-4);
+  font-size: clamp(1.15rem, 2vw, 1.45rem);
+  letter-spacing: 0.08em;
+  color: var(--text);
+  margin-bottom: var(--space-3);
 }
 
 .hp-hero-premium .hp-hero-h1 {
   font-family: var(--font-display);
-  font-size: clamp(2rem, 4.6vw, 3.25rem);
+  font-size: clamp(1.85rem, 3.8vw, 2.85rem);
   font-weight: 700;
-  line-height: 1.12;
-  letter-spacing: -0.02em;
-  color: var(--text-primary);
+  line-height: 1.18;
+  letter-spacing: -0.025em;
+  color: var(--text);
   margin: 0 0 var(--space-4);
-  white-space: normal;
+}
+
+.hp-hero-line {
+  display: block;
 }
 
 .hp-hero-premium .hp-hero-subhead {
   font-family: var(--font-body);
-  font-size: clamp(0.95rem, 1.5vw, 1.1rem);
+  font-size: clamp(0.95rem, 1.4vw, 1.05rem);
   line-height: 1.55;
-  color: var(--text-secondary);
-  max-width: 36rem;
+  color: var(--text-muted);
+  max-width: 32rem;
   margin: 0 0 var(--space-5);
 }
 
@@ -4379,7 +4413,8 @@ select option {
 
 .hp-footer-logo-text {
   font-size: 0.85rem;
-  color: var(--text-primary);
+  letter-spacing: 0.08em;
+  color: var(--text);
 }
 
 .hp-footer-links-row {

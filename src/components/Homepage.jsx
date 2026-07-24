@@ -154,8 +154,10 @@ export default function Homepage({ currentUserEmail }) {
             type="button"
             className="hp-logo-btn"
             onClick={() => (isLocalDev() ? navigate('/homepage') : (window.location.href = getMarketingUrl('/homepage')))}
+            aria-label="ReachDesk CRM home"
           >
-            <span className="hp-logo">REACHDESK CRM</span>
+            <span className="hp-logo">REACHDESK</span>
+            <span className="hp-logo-sub">CRM</span>
           </button>
 
           <div className="hp-nav-center">
@@ -184,15 +186,17 @@ export default function Homepage({ currentUserEmail }) {
       <section className={`hp-hero-section hp-hero-premium ${heroReady ? 'hp-hero-ready' : ''}`}>
         <div className="hp-hero-inner">
           <div className="hp-hero-copy">
-            <h1 className="hp-hero-h1 hp-hero-enter">
-              Your leads didn&apos;t ghost you.<br />You ghosted them.
+            <span className="hp-hero-brand hp-hero-enter">REACHDESK</span>
+            <h1 className="hp-hero-h1 hp-hero-enter hp-hero-enter-1">
+              <span className="hp-hero-line">Your leads didn&apos;t ghost you.</span>
+              <span className="hp-hero-line">You ghosted them.</span>
             </h1>
-            <p className="hp-hero-subhead hp-hero-enter hp-hero-enter-1">
+            <p className="hp-hero-subhead hp-hero-enter hp-hero-enter-2">
               ReachDesk tells you who to follow up with today — so nothing slips while you&apos;re busy delivering client work.
             </p>
-            <div className="hp-hero-ctas hp-hero-enter hp-hero-enter-2">
+            <div className="hp-hero-ctas hp-hero-enter hp-hero-enter-3">
               <button type="button" onClick={handleSignUpClick} className="hp-btn-primary">
-                {isLoggedIn ? 'Open dashboard' : TRIAL_MARKETING.headline}
+                {isLoggedIn ? 'Open dashboard' : 'Start free trial'}
               </button>
               <a href="#pricing" className="hp-btn-secondary">See pricing</a>
             </div>
@@ -352,7 +356,7 @@ export default function Homepage({ currentUserEmail }) {
 
       <footer className="hp-footer">
         <div className="hp-footer-inner">
-          <span className="hp-footer-logo-text">REACHDESK CRM</span>
+          <span className="hp-footer-logo-text">REACHDESK</span>
           <div className="hp-footer-links-row">
             <a href={getMarketingUrl('/terms')} className="hp-footer-link-item">Terms of Service</a>
             <a href={getMarketingUrl('/privacy')} className="hp-footer-link-item">Privacy Policy</a>
