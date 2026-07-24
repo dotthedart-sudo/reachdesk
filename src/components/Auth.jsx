@@ -1,14 +1,16 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
-import { ArrowLeft, ShieldAlert, Check } from 'lucide-react';
+import { ArrowLeft, ShieldAlert, Check, Eye, EyeOff } from 'lucide-react';
 import { supabase } from '../lib/supabase';
-import { getAppUrl, getMarketingUrl } from '../utils/domain';
+import { getAppUrl, getMarketingUrl, isLocalDev } from '../utils/domain';
 import { TRIAL_MARKETING } from '../lib/planMarketing';
 
 const BLOCKED_DOMAINS = [
   'mailinator.com', 'guerrillamail.com', '10minutemail.com', 'tempmail.com',
   'throwaway.email', 'yopmail.com', 'sharklasers.com', 'trashmail.com',
 ];
+
+const LOCAL_PASSWORD_AUTH = isLocalDev();
 
 function GoogleIcon() {
   return (
@@ -31,9 +33,8 @@ function validateEmail(value) {
 }
 
 /**
- * Linear-style auth:
- * - Email → OTP (signup and login)
- * - Google → dashboard (SetupModal if new workspace)
+ * Production: email → OTP (signup + login), Google.
+ * Local/dev only: email + password so you can test without inbox OTP.
  */
 export default function Auth({ mode = 'login' }) {
   const navigate = useNavigate();
@@ -41,6 +42,8 @@ export default function Auth({ mode = 'login' }) {
 
   const [step, setStep] = useState('methods'); // methods | email | otp
   const [email, setEmail] = useState('');
+  const [password, setPassword] = useState('');
+  const [showPassword, setShowPassword] = useState(false);
   const [code, setCode] = useState('');
   const [error, setError] = useState('');
   const [success, setSuccess] = useState('');
@@ -50,6 +53,8 @@ export default function Auth({ mode = 'login' }) {
   useEffect(() => {
     setStep('methods');
     setEmail('');
+    setPassword('');
+    setShowPassword(false);
     setCode('');
     setError('');
     setSuccess('');
@@ -99,6 +104,50 @@ export default function Auth({ mode = 'login' }) {
       return;
     }
 
+    // Local/dev: password auth so OTP inbox isn't required
+    if (LOCAL_PASSWORD_AUTH) {
+      if (!password.trim() || password.trim().length < 6) {
+        setError('Enter a password (at least 6 characters).');
+        return;
+      }
+
+      setLoading(true);
+      try {
+        if (isSignup) {
+          const { error: signUpErr } = await supabase.auth.signUp({
+            email: email.trim(),
+            password: password.trim(),
+            options: {
+              data: { requested_plan: 'trial' },
+              emailRedirectTo: getAppUrl('/dashboard'),
+            },
+          });
+          if (signUpErr) throw signUpErr;
+          navigate('/dashboard');
+        } else {
+          const { error: loginErr } = await supabase.auth.signInWithPassword({
+            email: email.trim(),
+            password: password.trim(),
+          });
+          if (loginErr) throw loginErr;
+          navigate('/dashboard');
+        }
+      } catch (err) {
+        let msg = err.message || (isSignup ? 'Sign up failed.' : 'Login failed.');
+        const lower = msg.toLowerCase();
+        if (lower.includes('invalid login') || lower.includes('invalid credentials')) {
+          msg = 'Wrong email or password. If this account was created with OTP only, sign up a new local test user or set a password in Supabase Auth.';
+        } else if (lower.includes('already') || lower.includes('exists') || lower.includes('registered')) {
+          msg = 'An account with this email already exists. Log in instead.';
+        }
+        setError(msg);
+      } finally {
+        setLoading(false);
+      }
+      return;
+    }
+
+    // Production: email OTP
     setLoading(true);
     try {
       await sendOtp(email.trim());
@@ -114,6 +163,28 @@ export default function Auth({ mode = 'login' }) {
         msg = 'No account with that email. Sign up instead.';
       }
       setError(msg);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleSendOtpInstead = async () => {
+    setError('');
+    setSuccess('');
+    const validationError = validateEmail(email);
+    if (validationError) {
+      setError(validationError);
+      return;
+    }
+    setLoading(true);
+    try {
+      await sendOtp(email.trim());
+      setStep('otp');
+      setCode('');
+      setResendCooldown(30);
+      setSuccess('Code sent — check your email.');
+    } catch (err) {
+      setError(err.message || 'Could not send code.');
     } finally {
       setLoading(false);
     }
@@ -172,7 +243,9 @@ export default function Auth({ mode = 'login' }) {
     step === 'otp'
       ? `Enter the 6-digit code we sent to ${email.trim()}`
       : step === 'email'
-        ? 'We’ll email you a one-time code — no password needed.'
+        ? (LOCAL_PASSWORD_AUTH
+          ? 'Local dev: use email + password (OTP still optional below).'
+          : 'We’ll email you a one-time code — no password needed.')
         : (isSignup
           ? `${TRIAL_MARKETING.headline}.`
           : 'Log in to your ReachDesk workspace.');
@@ -250,9 +323,53 @@ export default function Auth({ mode = 'login' }) {
               />
             </label>
 
+            {LOCAL_PASSWORD_AUTH && (
+              <label className="auth-field">
+                <span className="auth-field-label">Password</span>
+                <div className="rd-password-wrap">
+                  <input
+                    type={showPassword ? 'text' : 'password'}
+                    className="form-input w-full"
+                    placeholder={isSignup ? 'Create a password' : 'Your password'}
+                    value={password}
+                    onChange={(e) => setPassword(e.target.value)}
+                    autoComplete={isSignup ? 'new-password' : 'current-password'}
+                    required
+                    minLength={6}
+                    disabled={loading}
+                  />
+                  <button
+                    type="button"
+                    className="rd-password-toggle"
+                    onClick={() => setShowPassword((v) => !v)}
+                    aria-label={showPassword ? 'Hide password' : 'Show password'}
+                  >
+                    {showPassword ? <EyeOff size={16} /> : <Eye size={16} />}
+                  </button>
+                </div>
+              </label>
+            )}
+
             <button type="submit" className="auth-btn auth-btn-primary" disabled={loading}>
-              {loading ? 'Sending code…' : 'Continue'}
+              {loading
+                ? (LOCAL_PASSWORD_AUTH
+                  ? (isSignup ? 'Creating…' : 'Logging in…')
+                  : 'Sending code…')
+                : (LOCAL_PASSWORD_AUTH
+                  ? (isSignup ? 'Create account' : 'Log in')
+                  : 'Continue')}
             </button>
+
+            {LOCAL_PASSWORD_AUTH && (
+              <button
+                type="button"
+                className="auth-text-btn"
+                onClick={handleSendOtpInstead}
+                disabled={loading}
+              >
+                Email me a code instead
+              </button>
+            )}
 
             <button
               type="button"
@@ -260,6 +377,7 @@ export default function Auth({ mode = 'login' }) {
               onClick={() => {
                 setError('');
                 setSuccess('');
+                setPassword('');
                 setStep('methods');
               }}
               disabled={loading}
