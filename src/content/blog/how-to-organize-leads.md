@@ -1,12 +1,19 @@
 ---
 title: How to Organize Leads Without Losing Them — The Complete Freelancer System
-description: A step-by-step lead organization system for freelancers. Centralize every lead, prioritize with Hot/Warm/Cold tags, track through 11 pipeline stages, and never forget a follow-up.
-keywords: how to organize leads, lead organization system, lead management for freelancers, lead tracking system, CRM for freelancers
+description: >-
+  A step-by-step lead organization system for freelancers. Centralize every
+  lead, prioritize with Hot/Warm/Cold tags, track through 11 pipeline stages,
+  and never forget a follow-up.
+keywords: >-
+  how to organize leads, lead organization system, lead management for
+  freelancers, lead tracking system, CRM for freelancers
 category: Lead Management
-publishedDate: 2026-01-15
-modifiedDate: 2026-01-15
-coverImage: https://reachdeskcrm.com/og-image.png
+publishedDate: 2026-01-15T00:00:00.000Z
+modifiedDate: 2026-01-15T00:00:00.000Z
+coverImage: 'https://reachdeskcrm.com/blog/covers/how-to-organize-leads-dark.webp'
 author: ReachDesk CRM
+coverImageDark: /blog/covers/how-to-organize-leads-dark.webp
+coverImageLight: /blog/covers/how-to-organize-leads-light.webp
 ---
 
 # How to Organize Leads Without Losing Them: The Complete Freelancer System

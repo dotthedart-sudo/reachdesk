@@ -1,12 +1,20 @@
 ---
 title: What Should I Do Next? The One Question Your CRM Should Answer Every Morning
-description: Most CRMs store data. The best ones tell you what to do next. Here's what a CRM that surfaces your next action looks like — and why it changes everything for freelancers.
-keywords: CRM that tells you what to do next, CRM next action, freelancer CRM daily workflow, CRM that prioritizes leads automatically
+description: >-
+  Most CRMs store data. The best ones tell you what to do next. Here's what a
+  CRM that surfaces your next action looks like — and why it changes everything
+  for freelancers.
+keywords: >-
+  CRM that tells you what to do next, CRM next action, freelancer CRM daily
+  workflow, CRM that prioritizes leads automatically
 category: Lead Management
-publishedDate: 2026-03-15
-modifiedDate: 2026-03-15
-coverImage: https://reachdeskcrm.com/og-image.png
+publishedDate: 2026-03-15T00:00:00.000Z
+modifiedDate: 2026-03-15T00:00:00.000Z
+coverImage: >-
+  https://reachdeskcrm.com/blog/covers/crm-that-tells-you-what-to-do-next-dark.webp
 author: ReachDesk CRM
+coverImageDark: /blog/covers/crm-that-tells-you-what-to-do-next-dark.webp
+coverImageLight: /blog/covers/crm-that-tells-you-what-to-do-next-light.webp
 ---
 
 # What Should I Do Next? The One Question Your CRM Should Answer Every Morning

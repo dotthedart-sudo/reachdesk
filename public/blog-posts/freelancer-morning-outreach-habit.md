@@ -1,12 +1,20 @@
 ---
 title: The 20-Minute Morning Outreach Habit That Actually Gets Done (For Freelancers)
-description: Most freelancers do outreach when they're desperate, not daily. Here's how to build a 20-minute morning habit that keeps your pipeline full without burning out.
-keywords: freelancer morning outreach habit, daily outreach routine freelancer, morning marketing habit freelancer, freelancer outreach system
+description: >-
+  Most freelancers do outreach when they're desperate, not daily. Here's how to
+  build a 20-minute morning habit that keeps your pipeline full without burning
+  out.
+keywords: >-
+  freelancer morning outreach habit, daily outreach routine freelancer, morning
+  marketing habit freelancer, freelancer outreach system
 category: Productivity
-publishedDate: 2026-03-08
-modifiedDate: 2026-03-08
-coverImage: https://reachdeskcrm.com/og-image.png
+publishedDate: 2026-03-08T00:00:00.000Z
+modifiedDate: 2026-03-08T00:00:00.000Z
+coverImage: >-
+  https://reachdeskcrm.com/blog/covers/freelancer-morning-outreach-habit-dark.webp
 author: ReachDesk CRM
+coverImageDark: /blog/covers/freelancer-morning-outreach-habit-dark.webp
+coverImageLight: /blog/covers/freelancer-morning-outreach-habit-light.webp
 ---
 
 # The 20-Minute Morning Outreach Habit That Actually Gets Done

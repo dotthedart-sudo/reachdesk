@@ -1,12 +1,18 @@
 ---
 title: Auto-Draft Invoices When a Lead Books — The Cash Flow Hack Nobody Talks About
-description: Every booked meeting should produce an invoice draft instantly. Here's how invoice automation inside your CRM speeds up cash flow for freelancers.
-keywords: CRM invoice automation, auto invoice when meeting booked, automatic invoicing CRM, freelancer invoicing
+description: >-
+  Every booked meeting should produce an invoice draft instantly. Here's how
+  invoice automation inside your CRM speeds up cash flow for freelancers.
+keywords: >-
+  CRM invoice automation, auto invoice when meeting booked, automatic invoicing
+  CRM, freelancer invoicing
 category: Invoicing & Payments
-publishedDate: 2026-01-18
-modifiedDate: 2026-01-18
-coverImage: https://reachdeskcrm.com/og-image.png
+publishedDate: 2026-01-18T00:00:00.000Z
+modifiedDate: 2026-01-18T00:00:00.000Z
+coverImage: 'https://reachdeskcrm.com/blog/covers/auto-invoice-on-booking-dark.webp'
 author: ReachDesk CRM
+coverImageDark: /blog/covers/auto-invoice-on-booking-dark.webp
+coverImageLight: /blog/covers/auto-invoice-on-booking-light.webp
 ---
 
 # Auto-Draft Invoices When a Lead Books: The Cash Flow Hack Nobody Talks About

@@ -1,12 +1,20 @@
 ---
 title: The 7-Checkpoint Follow-Up System — Never Lose a Lead Again (With Templates)
-description: Most leads need 5-8 touches before converting, but 44% of sellers give up after one. Here's a 7-checkpoint follow-up system that ensures no lead goes cold, with exact timing and action suggestions for each stage.
-keywords: lead follow-up system, how many times to follow up, follow-up frequency, lead nurturing system, sales follow-up process
+description: >-
+  Most leads need 5-8 touches before converting, but 44% of sellers give up
+  after one. Here's a 7-checkpoint follow-up system that ensures no lead goes
+  cold, with exact timing and action suggestions for each stage.
+keywords: >-
+  lead follow-up system, how many times to follow up, follow-up frequency, lead
+  nurturing system, sales follow-up process
 category: Follow-Up Strategy
-publishedDate: 2026-01-25
-modifiedDate: 2026-01-25
-coverImage: https://reachdeskcrm.com/og-image.png
+publishedDate: 2026-01-25T00:00:00.000Z
+modifiedDate: 2026-01-25T00:00:00.000Z
+coverImage: >-
+  https://reachdeskcrm.com/blog/covers/the-7-checkpoint-follow-up-system-dark.webp
 author: ReachDesk CRM
+coverImageDark: /blog/covers/the-7-checkpoint-follow-up-system-dark.webp
+coverImageLight: /blog/covers/the-7-checkpoint-follow-up-system-light.webp
 ---
 
 # The 7-Checkpoint Follow-Up System: Never Lose a Lead Again

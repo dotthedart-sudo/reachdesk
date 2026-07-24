@@ -1,0 +1,33 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg xmlns="http://www.w3.org/2000/svg" width="1200" height="630" viewBox="0 0 1200 630">
+  <rect width="1200" height="630" fill="#F2F4F7"/>
+  <circle cx="1100" cy="-40" r="280" fill="#3E7BB8" opacity="0.08"/>
+  <circle cx="80" cy="700" r="220" fill="#4E9A83" opacity="0.06"/>
+  <text x="96" y="120" font-family="system-ui,-apple-system,sans-serif" font-size="18" font-weight="700" letter-spacing="0.12em" fill="#5A6478">REACHDESK</text>
+  <text x="96" y="200" font-family="system-ui,-apple-system,sans-serif" font-size="42" font-weight="700" fill="#0D1117">Daily routine</text>
+  <rect x="96" y="230" width="64" height="4" rx="2" fill="#3E7BB8"/>
+  <text x="96" y="280" font-family="system-ui,-apple-system,sans-serif" font-size="18" fill="#3D444D">Follow-ups that don&apos;t slip</text>
+  
+  <g>
+    <rect x="700" y="150" width="400" height="200" rx="16" fill="#FFFFFF" stroke="#C8D0DC" stroke-width="2"/>
+    <rect x="730" y="180" width="160" height="12" rx="4" fill="#5A6478" opacity="0.4"/>
+    <rect x="730" y="206" width="100" height="10" rx="3" fill="#5A6478" opacity="0.25"/>
+    <rect x="900" y="176" width="120" height="36" rx="8" fill="#3E7BB8" opacity="0.2" stroke="#3E7BB8"/>
+    <text x="960" y="199" text-anchor="middle" font-family="system-ui,sans-serif" font-size="13" font-weight="700" fill="#3E7BB8">Next</text>
+    
+      <circle cx="720" cy="280" r="11" fill="#FFFFFF" stroke="#C8D0DC" stroke-width="3"/>
+      <text x="720" y="285" text-anchor="middle" font-family="system-ui,sans-serif" font-size="11" font-weight="700" fill="#5A6478">1</text><line x1="734" y1="280" x2="758" y2="280" stroke="#C8D0DC" stroke-width="3" stroke-linecap="round"/>
+      <circle cx="772" cy="280" r="11" fill="#FFFFFF" stroke="#C8D0DC" stroke-width="3"/>
+      <text x="772" y="285" text-anchor="middle" font-family="system-ui,sans-serif" font-size="11" font-weight="700" fill="#5A6478">2</text><line x1="786" y1="280" x2="810" y2="280" stroke="#C8D0DC" stroke-width="3" stroke-linecap="round"/>
+      <circle cx="824" cy="280" r="11" fill="#FFFFFF" stroke="#C8D0DC" stroke-width="3"/>
+      <text x="824" y="285" text-anchor="middle" font-family="system-ui,sans-serif" font-size="11" font-weight="700" fill="#5A6478">3</text><line x1="838" y1="280" x2="862" y2="280" stroke="#C8D0DC" stroke-width="3" stroke-linecap="round"/>
+      <circle cx="876" cy="280" r="11" fill="#FFFFFF" stroke="#C8D0DC" stroke-width="3"/>
+      <text x="876" y="285" text-anchor="middle" font-family="system-ui,sans-serif" font-size="11" font-weight="700" fill="#5A6478">4</text><line x1="890" y1="280" x2="914" y2="280" stroke="#C8D0DC" stroke-width="3" stroke-linecap="round"/>
+      <circle cx="928" cy="280" r="16" fill="#3E7BB8" stroke="#3E7BB8" stroke-width="3"/>
+      <text x="928" y="285" text-anchor="middle" font-family="system-ui,sans-serif" font-size="11" font-weight="700" fill="#F2F4F7">5</text><line x1="942" y1="280" x2="966" y2="280" stroke="#C8D0DC" stroke-width="3" stroke-linecap="round"/>
+      <circle cx="980" cy="280" r="11" fill="#FFFFFF" stroke="#C8D0DC" stroke-width="3"/>
+      <text x="980" y="285" text-anchor="middle" font-family="system-ui,sans-serif" font-size="11" font-weight="700" fill="#5A6478">6</text><line x1="994" y1="280" x2="1018" y2="280" stroke="#C8D0DC" stroke-width="3" stroke-linecap="round"/>
+      <circle cx="1032" cy="280" r="11" fill="#FFFFFF" stroke="#C8D0DC" stroke-width="3"/>
+      <text x="1032" y="285" text-anchor="middle" font-family="system-ui,sans-serif" font-size="11" font-weight="700" fill="#5A6478">7</text>
+  </g>
+</svg>

@@ -1,12 +1,19 @@
 ---
 title: Why Clients Ghost Freelancers (And How to Prevent It Before It Happens)
-description: Clients go silent for predictable reasons. Learn the 5 most common causes of ghosting and the simple system that keeps conversations alive without being pushy.
-keywords: why do clients ghost freelancers, client not responding, unresponsive client, client ghosting freelancer
+description: >-
+  Clients go silent for predictable reasons. Learn the 5 most common causes of
+  ghosting and the simple system that keeps conversations alive without being
+  pushy.
+keywords: >-
+  why do clients ghost freelancers, client not responding, unresponsive client,
+  client ghosting freelancer
 category: Client Management
-publishedDate: 2026-02-01
-modifiedDate: 2026-02-01
-coverImage: https://reachdeskcrm.com/og-image.png
+publishedDate: 2026-02-01T00:00:00.000Z
+modifiedDate: 2026-02-01T00:00:00.000Z
+coverImage: 'https://reachdeskcrm.com/blog/covers/why-clients-ghost-freelancers-dark.webp'
 author: ReachDesk CRM
+coverImageDark: /blog/covers/why-clients-ghost-freelancers-dark.webp
+coverImageLight: /blog/covers/why-clients-ghost-freelancers-light.webp
 ---
 
 # Why Clients Ghost Freelancers (And How to Stop It)

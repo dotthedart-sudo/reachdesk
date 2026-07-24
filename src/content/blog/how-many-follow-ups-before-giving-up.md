@@ -1,12 +1,20 @@
 ---
 title: How Many Follow-Ups Before Giving Up? (The Data-Backed Answer)
-description: Research shows 80% of deals need 5+ follow-ups, but 44% of people stop after one. Here's exactly how many to send, when to send them, and when to walk away.
-keywords: how many follow ups before giving up, follow up frequency, when to stop following up, sales follow up statistics
+description: >-
+  Research shows 80% of deals need 5+ follow-ups, but 44% of people stop after
+  one. Here's exactly how many to send, when to send them, and when to walk
+  away.
+keywords: >-
+  how many follow ups before giving up, follow up frequency, when to stop
+  following up, sales follow up statistics
 category: Follow-Up Strategy
-publishedDate: 2026-02-12
-modifiedDate: 2026-02-12
-coverImage: https://reachdeskcrm.com/og-image.png
+publishedDate: 2026-02-12T00:00:00.000Z
+modifiedDate: 2026-02-12T00:00:00.000Z
+coverImage: >-
+  https://reachdeskcrm.com/blog/covers/how-many-follow-ups-before-giving-up-dark.webp
 author: ReachDesk CRM
+coverImageDark: /blog/covers/how-many-follow-ups-before-giving-up-dark.webp
+coverImageLight: /blog/covers/how-many-follow-ups-before-giving-up-light.webp
 ---
 
 # How Many Follow-Ups Before Giving Up?

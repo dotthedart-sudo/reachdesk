@@ -1,12 +1,20 @@
 ---
 title: How to Pick Up Exactly Where You Left Off With Every Lead (Without Scrambling)
-description: '"Where was I with this person?" is the most common and most expensive question in freelance outreach. Here''s how to always have instant context on every lead.'
-keywords: pick up where left off clients, resume outreach freelancer, lead context management, remember lead conversations
+description: >-
+  "Where was I with this person?" is the most common and most expensive question
+  in freelance outreach. Here's how to always have instant context on every
+  lead.
+keywords: >-
+  pick up where left off clients, resume outreach freelancer, lead context
+  management, remember lead conversations
 category: Lead Management
-publishedDate: 2026-03-05
-modifiedDate: 2026-03-05
-coverImage: https://reachdeskcrm.com/og-image.png
+publishedDate: 2026-03-05T00:00:00.000Z
+modifiedDate: 2026-03-05T00:00:00.000Z
+coverImage: >-
+  https://reachdeskcrm.com/blog/covers/pick-up-where-you-left-off-leads-dark.webp
 author: ReachDesk CRM
+coverImageDark: /blog/covers/pick-up-where-you-left-off-leads-dark.webp
+coverImageLight: /blog/covers/pick-up-where-you-left-off-leads-light.webp
 ---
 
 # How to Pick Up Exactly Where You Left Off With Every Lead

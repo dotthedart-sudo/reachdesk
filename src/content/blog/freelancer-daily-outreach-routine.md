@@ -1,12 +1,22 @@
 ---
-title: You Sit Down to Do Outreach. Now What? (The Daily Clarity System for Freelancers)
-description: Most freelancers open their laptop for outreach and immediately feel overwhelmed. Here's the system that tells you exactly which lead to contact first — every single day.
-keywords: freelancer daily outreach routine, freelancer morning outreach, how to start outreach freelancer, daily lead management routine
+title: >-
+  You Sit Down to Do Outreach. Now What? (The Daily Clarity System for
+  Freelancers)
+description: >-
+  Most freelancers open their laptop for outreach and immediately feel
+  overwhelmed. Here's the system that tells you exactly which lead to contact
+  first — every single day.
+keywords: >-
+  freelancer daily outreach routine, freelancer morning outreach, how to start
+  outreach freelancer, daily lead management routine
 category: Productivity
-publishedDate: 2026-03-01
-modifiedDate: 2026-03-01
-coverImage: https://reachdeskcrm.com/og-image.png
+publishedDate: 2026-03-01T00:00:00.000Z
+modifiedDate: 2026-03-01T00:00:00.000Z
+coverImage: >-
+  https://reachdeskcrm.com/blog/covers/freelancer-daily-outreach-routine-dark.webp
 author: ReachDesk CRM
+coverImageDark: /blog/covers/freelancer-daily-outreach-routine-dark.webp
+coverImageLight: /blog/covers/freelancer-daily-outreach-routine-light.webp
 ---
 
 # You Sit Down to Do Outreach. Now What?

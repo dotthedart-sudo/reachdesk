@@ -1,12 +1,20 @@
 ---
 title: The Best Way to Track Client Conversations (Without Losing Your Mind)
-description: Spreadsheets break at 30 leads. Notes apps get chaotic. Here's how freelancers should actually track every client conversation, follow-up, and deal in one place.
-keywords: track client conversations, best way to organize clients, freelance client tracking, manage multiple clients
+description: >-
+  Spreadsheets break at 30 leads. Notes apps get chaotic. Here's how freelancers
+  should actually track every client conversation, follow-up, and deal in one
+  place.
+keywords: >-
+  track client conversations, best way to organize clients, freelance client
+  tracking, manage multiple clients
 category: Lead Management
-publishedDate: 2026-02-15
-modifiedDate: 2026-02-15
-coverImage: https://reachdeskcrm.com/og-image.png
+publishedDate: 2026-02-15T00:00:00.000Z
+modifiedDate: 2026-02-15T00:00:00.000Z
+coverImage: >-
+  https://reachdeskcrm.com/blog/covers/best-way-to-track-client-conversations-dark.webp
 author: ReachDesk CRM
+coverImageDark: /blog/covers/best-way-to-track-client-conversations-dark.webp
+coverImageLight: /blog/covers/best-way-to-track-client-conversations-light.webp
 ---
 
 # The Best Way to Track Client Conversations (Without Losing Your Mind)

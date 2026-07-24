@@ -1,0 +1,23 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg xmlns="http://www.w3.org/2000/svg" width="1200" height="630" viewBox="0 0 1200 630">
+  <rect width="1200" height="630" fill="#0D1117"/>
+  <circle cx="1100" cy="-40" r="280" fill="#5B8FB9" opacity="0.08"/>
+  <circle cx="80" cy="700" r="220" fill="#7FB5A0" opacity="0.06"/>
+  <text x="96" y="120" font-family="system-ui,-apple-system,sans-serif" font-size="18" font-weight="700" letter-spacing="0.12em" fill="#8B949E">REACHDESK</text>
+  <text x="96" y="200" font-family="system-ui,-apple-system,sans-serif" font-size="42" font-weight="700" fill="#FFFFFF">Steady pipeline</text>
+  <rect x="96" y="230" width="64" height="4" rx="2" fill="#5B8FB9"/>
+  <text x="96" y="280" font-family="system-ui,-apple-system,sans-serif" font-size="18" fill="#C9D1D9">Follow-ups that don&apos;t slip</text>
+  
+    <g>
+      <rect x="720" y="170" width="170" height="220" rx="14" fill="#161B22" stroke="#30363D" stroke-width="2"/>
+      <text x="805" y="220" text-anchor="middle" font-family="system-ui,sans-serif" font-size="16" font-weight="700" fill="#5B8FB9">Booked</text>
+      <circle cx="805" cy="280" r="28" fill="#5B8FB9" opacity="0.2"/>
+      <path d="M790 280 l10 10 20-22" fill="none" stroke="#5B8FB9" stroke-width="4" stroke-linecap="round"/>
+      <path d="M910 280 h40" stroke="#8B949E" stroke-width="4" stroke-linecap="round" marker-end="url(#arrow)"/>
+      <rect x="970" y="170" width="170" height="220" rx="14" fill="#161B22" stroke="#7FB5A0" stroke-width="2"/>
+      <text x="1055" y="220" text-anchor="middle" font-family="system-ui,sans-serif" font-size="16" font-weight="700" fill="#7FB5A0">Invoice</text>
+      <rect x="1000" y="250" width="110" height="10" rx="3" fill="#8B949E" opacity="0.35"/>
+      <rect x="1000" y="275" width="80" height="10" rx="3" fill="#8B949E" opacity="0.25"/>
+      <rect x="1000" y="310" width="90" height="28" rx="6" fill="#7FB5A0" opacity="0.85"/>
+    </g>
+</svg>

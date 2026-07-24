@@ -1,12 +1,22 @@
 ---
-title: Your Brain Has Too Many Tabs Open. Here's Why Your Lead Management Is Costing You Money
-description: Context switching between leads, apps, and conversations costs freelancers 20-30 minutes per switch. Here's how to consolidate everything and reclaim your focus.
-keywords: freelancer context switching, too many apps freelancer, consolidate lead management, freelancer productivity leads
+title: >-
+  Your Brain Has Too Many Tabs Open. Here's Why Your Lead Management Is Costing
+  You Money
+description: >-
+  Context switching between leads, apps, and conversations costs freelancers
+  20-30 minutes per switch. Here's how to consolidate everything and reclaim
+  your focus.
+keywords: >-
+  freelancer context switching, too many apps freelancer, consolidate lead
+  management, freelancer productivity leads
 category: Productivity
-publishedDate: 2026-03-03
-modifiedDate: 2026-03-03
-coverImage: https://reachdeskcrm.com/og-image.png
+publishedDate: 2026-03-03T00:00:00.000Z
+modifiedDate: 2026-03-03T00:00:00.000Z
+coverImage: >-
+  https://reachdeskcrm.com/blog/covers/freelancer-context-switching-leads-dark.webp
 author: ReachDesk CRM
+coverImageDark: /blog/covers/freelancer-context-switching-leads-dark.webp
+coverImageLight: /blog/covers/freelancer-context-switching-leads-light.webp
 ---
 
 # Your Brain Has Too Many Tabs Open

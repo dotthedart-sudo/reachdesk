@@ -3,10 +3,13 @@ import { Helmet } from 'react-helmet-async';
 import { Link } from 'react-router-dom';
 import { siteMeta } from '../config/metadata';
 import { generateOGTags } from '../config/metadata';
+import { resolveBlogCover } from '../utils/blogCover';
+import { useAppContext } from '../App';
 import PublicNav from './PublicNav';
 import '../styles/Blog.css';
 
 export default function BlogIndex() {
+  const { theme } = useAppContext() || {};
   const [posts, setPosts] = useState([]);
   const [loading, setLoading] = useState(true);
 
@@ -64,11 +67,13 @@ export default function BlogIndex() {
           <p>No blog posts yet. Check back soon!</p>
         ) : (
           <div className="blog-grid">
-            {posts.map((post) => (
+            {posts.map((post) => {
+              const cover = resolveBlogCover(post, theme);
+              return (
               <Link key={post.slug} to={`/blog/${post.slug}`} className="blog-card">
-                {post.coverImage && (
+                {cover && (
                   <div className="blog-card-image">
-                    <img src={post.coverImage} alt={post.title} />
+                    <img src={cover} alt="" />
                   </div>
                 )}
                 <div className="blog-card-content">
@@ -86,7 +91,8 @@ export default function BlogIndex() {
                   </div>
                 </div>
               </Link>
-            ))}
+              );
+            })}
           </div>
         )}
       </div>

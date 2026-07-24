@@ -1,12 +1,19 @@
 ---
-title: Hot, Warm, or Cold? Prioritize Leads in 5 Seconds Flat
-description: Not all leads are equal. Learn how the Hot/Warm/Cold system helps you spend your follow-up time on leads most likely to convert.
-keywords: lead prioritization, hot warm cold leads, how to prioritize sales leads, lead scoring system
+title: 'Hot, Warm, or Cold? Prioritize Leads in 5 Seconds Flat'
+description: >-
+  Not all leads are equal. Learn how the Hot/Warm/Cold system helps you spend
+  your follow-up time on leads most likely to convert.
+keywords: >-
+  lead prioritization, hot warm cold leads, how to prioritize sales leads, lead
+  scoring system
 category: Lead Management
-publishedDate: 2026-01-20
-modifiedDate: 2026-01-20
-coverImage: https://reachdeskcrm.com/og-image.png
+publishedDate: 2026-01-20T00:00:00.000Z
+modifiedDate: 2026-01-20T00:00:00.000Z
+coverImage: >-
+  https://reachdeskcrm.com/blog/covers/hot-warm-cold-lead-prioritization-dark.webp
 author: ReachDesk CRM
+coverImageDark: /blog/covers/hot-warm-cold-lead-prioritization-dark.webp
+coverImageLight: /blog/covers/hot-warm-cold-lead-prioritization-light.webp
 ---
 
 # Hot, Warm, or Cold? The 3-Tag Lead Prioritization System That Takes 5 Seconds

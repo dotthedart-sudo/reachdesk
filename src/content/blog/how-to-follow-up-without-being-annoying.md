@@ -1,12 +1,19 @@
 ---
 title: How to Follow Up Without Being Annoying (The Freelancer's Guide)
-description: Most freelancers either don't follow up at all or follow up badly. Here's the exact framework for persistent but professional follow-ups that get replies.
-keywords: how to follow up without being annoying, follow up email etiquette, professional follow up, follow up frequency
+description: >-
+  Most freelancers either don't follow up at all or follow up badly. Here's the
+  exact framework for persistent but professional follow-ups that get replies.
+keywords: >-
+  how to follow up without being annoying, follow up email etiquette,
+  professional follow up, follow up frequency
 category: Communication
-publishedDate: 2026-02-08
-modifiedDate: 2026-02-08
-coverImage: https://reachdeskcrm.com/og-image.png
+publishedDate: 2026-02-08T00:00:00.000Z
+modifiedDate: 2026-02-08T00:00:00.000Z
+coverImage: >-
+  https://reachdeskcrm.com/blog/covers/how-to-follow-up-without-being-annoying-dark.webp
 author: ReachDesk CRM
+coverImageDark: /blog/covers/how-to-follow-up-without-being-annoying-dark.webp
+coverImageLight: /blog/covers/how-to-follow-up-without-being-annoying-light.webp
 ---
 
 # How to Follow Up Without Being Annoying

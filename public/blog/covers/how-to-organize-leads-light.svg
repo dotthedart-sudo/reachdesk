@@ -1,0 +1,32 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg xmlns="http://www.w3.org/2000/svg" width="1200" height="630" viewBox="0 0 1200 630">
+  <rect width="1200" height="630" fill="#F2F4F7"/>
+  <circle cx="1100" cy="-40" r="280" fill="#3E7BB8" opacity="0.08"/>
+  <circle cx="80" cy="700" r="220" fill="#4E9A83" opacity="0.06"/>
+  <text x="96" y="120" font-family="system-ui,-apple-system,sans-serif" font-size="18" font-weight="700" letter-spacing="0.12em" fill="#5A6478">REACHDESK</text>
+  <text x="96" y="200" font-family="system-ui,-apple-system,sans-serif" font-size="42" font-weight="700" fill="#0D1117">Sorted</text>
+  <rect x="96" y="230" width="64" height="4" rx="2" fill="#3E7BB8"/>
+  <text x="96" y="280" font-family="system-ui,-apple-system,sans-serif" font-size="18" fill="#3D444D">Follow-ups that don&apos;t slip</text>
+  
+  <g>
+    
+      <rect x="720" y="160" width="380" height="78" rx="12" fill="#FFFFFF" stroke="#C8D0DC" stroke-width="2"/>
+      <rect x="720" y="160" width="10" height="78" rx="4" fill="#C0392B"/>
+      <text x="750" y="206" font-family="system-ui,sans-serif" font-size="20" font-weight="700" fill="#C0392B">Hot</text>
+      <circle cx="1020" cy="199" r="8" fill="#C0392B" opacity="0.9"/>
+      <circle cx="1048" cy="199" r="8" fill="#C0392B" opacity="0.55"/>
+    
+      <rect x="720" y="260" width="380" height="78" rx="12" fill="#FFFFFF" stroke="#C8D0DC" stroke-width="2"/>
+      <rect x="720" y="260" width="10" height="78" rx="4" fill="#D4890A"/>
+      <text x="750" y="306" font-family="system-ui,sans-serif" font-size="20" font-weight="700" fill="#D4890A">Warm</text>
+      <circle cx="1020" cy="299" r="8" fill="#D4890A" opacity="0.7"/>
+      <circle cx="1048" cy="299" r="8" fill="#D4890A" opacity="0.45000000000000007"/>
+    
+      <rect x="720" y="360" width="380" height="78" rx="12" fill="#FFFFFF" stroke="#C8D0DC" stroke-width="2"/>
+      <rect x="720" y="360" width="10" height="78" rx="4" fill="#3E7BB8"/>
+      <text x="750" y="406" font-family="system-ui,sans-serif" font-size="20" font-weight="700" fill="#3E7BB8">Cold</text>
+      <circle cx="1020" cy="399" r="8" fill="#3E7BB8" opacity="0.5"/>
+      <circle cx="1048" cy="399" r="8" fill="#3E7BB8" opacity="0.35000000000000003"/>
+    
+  </g>
+</svg>

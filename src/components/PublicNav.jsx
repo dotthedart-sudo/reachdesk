@@ -1,5 +1,5 @@
 import React from 'react';
-import { useNavigate, useLocation, Link } from 'react-router-dom';
+import { useNavigate, useLocation } from 'react-router-dom';
 import { Sun, Moon } from 'lucide-react';
 import { useAppContext } from '../App';
 import { getAppUrl, getMarketingUrl, isLocalDev } from '../utils/domain';
@@ -16,9 +16,12 @@ export default function PublicNav({ brandName = 'ReachDesk CRM' }) {
       window.history.pushState(null, '', `/homepage${hash}`);
       const el = document.getElementById(hash.replace('#', ''));
       if (el) el.scrollIntoView({ behavior: 'smooth' });
-    } else {
-      // Allow default link behavior to navigate to /homepage#hash
     }
+  };
+
+  const goHome = () => {
+    if (isLocalDev()) navigate('/homepage');
+    else window.location.href = getMarketingUrl('/homepage');
   };
 
   const handleSignUpClick = () => {
@@ -39,32 +42,57 @@ export default function PublicNav({ brandName = 'ReachDesk CRM' }) {
 
   return (
     <nav className="hp-nav">
-      <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-start', cursor: 'pointer', lineHeight: '1.0' }} onClick={() => isLocalDev() ? navigate('/homepage') : (window.location.href = getMarketingUrl('/homepage'))}>
-        <span style={{fontFamily:'Mattone, sans-serif', textTransform:'uppercase', letterSpacing:'0.06em', fontSize:'13px', color:'var(--text-primary)', fontWeight:'700'}}>REACHDESK</span>
-        <span style={{fontFamily:'Mattone, sans-serif', textTransform:'uppercase', letterSpacing:'1.4em', fontSize:'9px', color:'var(--text-secondary)', fontWeight:'700', marginTop: '2px', width: '100%'}}>CRM</span>
-      </div>
-      <div className="hp-nav-center">
-        <a href={getMarketingUrl('/homepage#features')} onClick={(e) => handleNavClick(e, '#features')} className="hp-nav-link">Features</a>
-        <a href={getAppUrl('/get-started')} className="hp-nav-link" style={{ textDecoration: 'none' }}>Get Started</a>
-        <a href={getMarketingUrl('/homepage#pricing')} onClick={(e) => handleNavClick(e, '#pricing')} className="hp-nav-link">Pricing</a>
-        <a href={getMarketingUrl('/blog')} className="hp-nav-link" style={{ textDecoration: 'none' }}>Blog</a>
-        <button onClick={handleLoginClick} className="hp-nav-link hp-nav-link-btn">Log in</button>
-      </div>
-      <div className="hp-nav-right" style={{ display: 'flex', alignItems: 'center', gap: '1rem' }}>
-        {toggleTheme && (
-          <button
-            onClick={toggleTheme}
-            style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--hp-muted)', display: 'flex', alignItems: 'center', padding: '4px', transition: 'color 0.15s ease' }}
-            title={theme === 'dark' ? 'Switch to Light Mode' : 'Switch to Dark Mode'}
-            onMouseEnter={e => e.currentTarget.style.color = 'var(--hp-text)'}
-            onMouseLeave={e => e.currentTarget.style.color = 'var(--hp-muted)'}
-          >
-            {theme === 'dark' ? <Sun size={16} /> : <Moon size={16} />}
-          </button>
-        )}
-        <button onClick={handleSignUpClick} className="hp-btn-primary">
-          {isLoggedIn ? 'Dashboard' : 'Sign up free'}
+      <div className="hp-nav-inner">
+        <button
+          type="button"
+          className="hp-logo-btn"
+          onClick={goHome}
+          aria-label={`${brandName} home`}
+        >
+          <span className="hp-logo">REACHDESK CRM</span>
         </button>
+
+        <div className="hp-nav-center">
+          <a
+            href={getMarketingUrl('/homepage#features')}
+            onClick={(e) => handleNavClick(e, '#features')}
+            className="hp-nav-link"
+          >
+            Features
+          </a>
+          <a href={getAppUrl('/get-started')} className="hp-nav-link">
+            Get Started
+          </a>
+          <a
+            href={getMarketingUrl('/homepage#pricing')}
+            onClick={(e) => handleNavClick(e, '#pricing')}
+            className="hp-nav-link"
+          >
+            Pricing
+          </a>
+          <a href={getMarketingUrl('/blog')} className="hp-nav-link">
+            Blog
+          </a>
+          <button type="button" onClick={handleLoginClick} className="hp-nav-link">
+            Log in
+          </button>
+        </div>
+
+        <div className="hp-nav-right">
+          {toggleTheme && (
+            <button
+              type="button"
+              onClick={toggleTheme}
+              className="hp-theme-toggle"
+              title={theme === 'dark' ? 'Switch to Light Mode' : 'Switch to Dark Mode'}
+            >
+              {theme === 'dark' ? <Sun size={15} /> : <Moon size={15} />}
+            </button>
+          )}
+          <button type="button" onClick={handleSignUpClick} className="hp-btn-primary">
+            {isLoggedIn ? 'Dashboard' : 'Sign up free'}
+          </button>
+        </div>
       </div>
     </nav>
   );

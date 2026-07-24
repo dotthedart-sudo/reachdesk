@@ -1,12 +1,20 @@
 ---
 title: The Hidden Cost of Checking 5 Apps Before You Start Work (And How to Stop)
-description: Email, Instagram DMs, WhatsApp, calendar, spreadsheet — most freelancers check 5+ apps before they do a single outreach action. Here's what this costs you and how to fix it.
-keywords: reduce admin work freelancer, too many apps freelancer outreach, simplify freelancer workflow, freelancer productivity system
+description: >-
+  Email, Instagram DMs, WhatsApp, calendar, spreadsheet — most freelancers check
+  5+ apps before they do a single outreach action. Here's what this costs you
+  and how to fix it.
+keywords: >-
+  reduce admin work freelancer, too many apps freelancer outreach, simplify
+  freelancer workflow, freelancer productivity system
 category: Productivity
-publishedDate: 2026-03-12
-modifiedDate: 2026-03-12
-coverImage: https://reachdeskcrm.com/og-image.png
+publishedDate: 2026-03-12T00:00:00.000Z
+modifiedDate: 2026-03-12T00:00:00.000Z
+coverImage: >-
+  https://reachdeskcrm.com/blog/covers/stop-checking-5-apps-before-work-dark.webp
 author: ReachDesk CRM
+coverImageDark: /blog/covers/stop-checking-5-apps-before-work-dark.webp
+coverImageLight: /blog/covers/stop-checking-5-apps-before-work-light.webp
 ---
 
 # The Hidden Cost of Checking 5 Apps Before You Start Work

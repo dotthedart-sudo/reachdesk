@@ -1,12 +1,22 @@
 ---
-title: How to Manage 30+ Leads Without Losing Your Mind (The Solo Freelancer's System)
-description: Your brain handles 10 leads fine. At 30, it breaks. Here's the system that lets you manage 50+ active conversations without forgetting anyone or dropping follow-ups.
-keywords: how to manage multiple clients freelancer, manage many leads freelancer, freelancer lead overload, solo freelancer lead system
+title: >-
+  How to Manage 30+ Leads Without Losing Your Mind (The Solo Freelancer's
+  System)
+description: >-
+  Your brain handles 10 leads fine. At 30, it breaks. Here's the system that
+  lets you manage 50+ active conversations without forgetting anyone or dropping
+  follow-ups.
+keywords: >-
+  how to manage multiple clients freelancer, manage many leads freelancer,
+  freelancer lead overload, solo freelancer lead system
 category: Lead Management
-publishedDate: 2026-03-10
-modifiedDate: 2026-03-10
-coverImage: https://reachdeskcrm.com/og-image.png
+publishedDate: 2026-03-10T00:00:00.000Z
+modifiedDate: 2026-03-10T00:00:00.000Z
+coverImage: >-
+  https://reachdeskcrm.com/blog/covers/manage-30-leads-without-losing-mind-dark.webp
 author: ReachDesk CRM
+coverImageDark: /blog/covers/manage-30-leads-without-losing-mind-dark.webp
+coverImageLight: /blog/covers/manage-30-leads-without-losing-mind-light.webp
 ---
 
 # How to Manage 30+ Leads Without Losing Your Mind

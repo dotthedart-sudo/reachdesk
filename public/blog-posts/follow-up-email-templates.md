@@ -1,12 +1,19 @@
 ---
 title: 12 Follow-Up Email Templates for Freelancers (Copy + Personalize in Seconds)
-description: Proven follow-up email templates for every pipeline stage — first touch, no reply, post-meeting, re-engagement — plus how to personalize without spending hours.
-keywords: email templates for freelancers, follow-up email templates, sales email templates, no reply follow-up
+description: >-
+  Proven follow-up email templates for every pipeline stage — first touch, no
+  reply, post-meeting, re-engagement — plus how to personalize without spending
+  hours.
+keywords: >-
+  email templates for freelancers, follow-up email templates, sales email
+  templates, no reply follow-up
 category: Communication
-publishedDate: 2026-01-22
-modifiedDate: 2026-01-22
-coverImage: https://reachdeskcrm.com/og-image.png
+publishedDate: 2026-01-22T00:00:00.000Z
+modifiedDate: 2026-01-22T00:00:00.000Z
+coverImage: 'https://reachdeskcrm.com/blog/covers/follow-up-email-templates-dark.webp'
 author: ReachDesk CRM
+coverImageDark: /blog/covers/follow-up-email-templates-dark.webp
+coverImageLight: /blog/covers/follow-up-email-templates-light.webp
 ---
 
 # 12 Follow-Up Email Templates for Freelancers (Copy + Personalize in Seconds)

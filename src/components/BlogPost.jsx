@@ -4,12 +4,15 @@ import { Helmet } from 'react-helmet-async';
 import ReactMarkdown from 'react-markdown';
 import { generateOGTags } from '../config/metadata';
 import { blogPostSchema } from '../utils/schemaMarkup';
+import { resolveBlogCover } from '../utils/blogCover';
+import { useAppContext } from '../App';
 import PublicNav from './PublicNav';
 import '../styles/Blog.css';
 
 export default function BlogPost() {
   const { slug } = useParams();
   const navigate = useNavigate();
+  const { theme } = useAppContext() || {};
   const [post, setPost] = useState(null);
   const [content, setContent] = useState('');
   const [loading, setLoading] = useState(true);
@@ -60,10 +63,13 @@ export default function BlogPost() {
   if (error) return <div className="blog-post-container"><p>Error: {error}</p></div>;
   if (!post) return <div className="blog-post-container"><p>Post not found</p></div>;
 
+  const displayCover = resolveBlogCover(post, theme);
+  const ogCover = post.coverImage || displayCover;
+
   const schemaData = blogPostSchema({
     title: post.title,
     description: post.description,
-    coverImage: post.coverImage,
+    coverImage: ogCover,
     publishedDate: post.publishedDate,
     modifiedDate: post.modifiedDate,
     slug,
@@ -75,7 +81,7 @@ export default function BlogPost() {
         <title>{post.title} | ReachDesk Blog</title>
         <meta name="description" content={post.description} />
         <meta name="keywords" content={post.keywords} />
-        {Object.entries(generateOGTags(post.title, post.description, post.coverImage)).map(([key, value]) => (
+        {Object.entries(generateOGTags(post.title, post.description, ogCover)).map(([key, value]) => (
           <meta key={key} property={key} content={value} />
         ))}
         <script type="application/ld+json">{JSON.stringify(schemaData)}</script>
@@ -102,9 +108,9 @@ export default function BlogPost() {
           </div>
         </div>
 
-        {post.coverImage && (
+        {displayCover && (
           <div className="blog-post-image">
-            <img src={post.coverImage} alt={post.title} />
+            <img src={displayCover} alt="" />
           </div>
         )}
 

@@ -7,8 +7,10 @@
     "category": "Invoicing & Payments",
     "publishedDate": "2026-01-18T00:00:00.000Z",
     "modifiedDate": "2026-01-18T00:00:00.000Z",
-    "coverImage": "https://reachdeskcrm.com/og-image.png",
-    "author": "ReachDesk CRM"
+    "coverImage": "https://reachdeskcrm.com/blog/covers/auto-invoice-on-booking-dark.webp",
+    "author": "ReachDesk CRM",
+    "coverImageDark": "/blog/covers/auto-invoice-on-booking-dark.webp",
+    "coverImageLight": "/blog/covers/auto-invoice-on-booking-light.webp"
   },
   {
     "slug": "best-way-to-track-client-conversations",
@@ -18,8 +20,10 @@
     "category": "Lead Management",
     "publishedDate": "2026-02-15T00:00:00.000Z",
     "modifiedDate": "2026-02-15T00:00:00.000Z",
-    "coverImage": "https://reachdeskcrm.com/og-image.png",
-    "author": "ReachDesk CRM"
+    "coverImage": "https://reachdeskcrm.com/blog/covers/best-way-to-track-client-conversations-dark.webp",
+    "author": "ReachDesk CRM",
+    "coverImageDark": "/blog/covers/best-way-to-track-client-conversations-dark.webp",
+    "coverImageLight": "/blog/covers/best-way-to-track-client-conversations-light.webp"
   },
   {
     "slug": "crm-that-tells-you-what-to-do-next",
@@ -29,8 +33,10 @@
     "category": "Lead Management",
     "publishedDate": "2026-03-15T00:00:00.000Z",
     "modifiedDate": "2026-03-15T00:00:00.000Z",
-    "coverImage": "https://reachdeskcrm.com/og-image.png",
-    "author": "ReachDesk CRM"
+    "coverImage": "https://reachdeskcrm.com/blog/covers/crm-that-tells-you-what-to-do-next-dark.webp",
+    "author": "ReachDesk CRM",
+    "coverImageDark": "/blog/covers/crm-that-tells-you-what-to-do-next-dark.webp",
+    "coverImageLight": "/blog/covers/crm-that-tells-you-what-to-do-next-light.webp"
   },
   {
     "slug": "follow-up-email-templates",
@@ -40,8 +46,10 @@
     "category": "Communication",
     "publishedDate": "2026-01-22T00:00:00.000Z",
     "modifiedDate": "2026-01-22T00:00:00.000Z",
-    "coverImage": "https://reachdeskcrm.com/og-image.png",
-    "author": "ReachDesk CRM"
+    "coverImage": "https://reachdeskcrm.com/blog/covers/follow-up-email-templates-dark.webp",
+    "author": "ReachDesk CRM",
+    "coverImageDark": "/blog/covers/follow-up-email-templates-dark.webp",
+    "coverImageLight": "/blog/covers/follow-up-email-templates-light.webp"
   },
   {
     "slug": "freelancer-context-switching-leads",
@@ -51,8 +59,10 @@
     "category": "Productivity",
     "publishedDate": "2026-03-03T00:00:00.000Z",
     "modifiedDate": "2026-03-03T00:00:00.000Z",
-    "coverImage": "https://reachdeskcrm.com/og-image.png",
-    "author": "ReachDesk CRM"
+    "coverImage": "https://reachdeskcrm.com/blog/covers/freelancer-context-switching-leads-dark.webp",
+    "author": "ReachDesk CRM",
+    "coverImageDark": "/blog/covers/freelancer-context-switching-leads-dark.webp",
+    "coverImageLight": "/blog/covers/freelancer-context-switching-leads-light.webp"
   },
   {
     "slug": "freelancer-daily-outreach-routine",
@@ -62,8 +72,10 @@
     "category": "Productivity",
     "publishedDate": "2026-03-01T00:00:00.000Z",
     "modifiedDate": "2026-03-01T00:00:00.000Z",
-    "coverImage": "https://reachdeskcrm.com/og-image.png",
-    "author": "ReachDesk CRM"
+    "coverImage": "https://reachdeskcrm.com/blog/covers/freelancer-daily-outreach-routine-dark.webp",
+    "author": "ReachDesk CRM",
+    "coverImageDark": "/blog/covers/freelancer-daily-outreach-routine-dark.webp",
+    "coverImageLight": "/blog/covers/freelancer-daily-outreach-routine-light.webp"
   },
   {
     "slug": "freelancer-morning-outreach-habit",
@@ -73,8 +85,10 @@
     "category": "Productivity",
     "publishedDate": "2026-03-08T00:00:00.000Z",
     "modifiedDate": "2026-03-08T00:00:00.000Z",
-    "coverImage": "https://reachdeskcrm.com/og-image.png",
-    "author": "ReachDesk CRM"
+    "coverImage": "https://reachdeskcrm.com/blog/covers/freelancer-morning-outreach-habit-dark.webp",
+    "author": "ReachDesk CRM",
+    "coverImageDark": "/blog/covers/freelancer-morning-outreach-habit-dark.webp",
+    "coverImageLight": "/blog/covers/freelancer-morning-outreach-habit-light.webp"
   },
   {
     "slug": "hot-warm-cold-lead-prioritization",
@@ -84,8 +98,10 @@
     "category": "Lead Management",
     "publishedDate": "2026-01-20T00:00:00.000Z",
     "modifiedDate": "2026-01-20T00:00:00.000Z",
-    "coverImage": "https://reachdeskcrm.com/og-image.png",
-    "author": "ReachDesk CRM"
+    "coverImage": "https://reachdeskcrm.com/blog/covers/hot-warm-cold-lead-prioritization-dark.webp",
+    "author": "ReachDesk CRM",
+    "coverImageDark": "/blog/covers/hot-warm-cold-lead-prioritization-dark.webp",
+    "coverImageLight": "/blog/covers/hot-warm-cold-lead-prioritization-light.webp"
   },
   {
     "slug": "how-many-follow-ups-before-giving-up",
@@ -95,8 +111,10 @@
     "category": "Follow-Up Strategy",
     "publishedDate": "2026-02-12T00:00:00.000Z",
     "modifiedDate": "2026-02-12T00:00:00.000Z",
-    "coverImage": "https://reachdeskcrm.com/og-image.png",
-    "author": "ReachDesk CRM"
+    "coverImage": "https://reachdeskcrm.com/blog/covers/how-many-follow-ups-before-giving-up-dark.webp",
+    "author": "ReachDesk CRM",
+    "coverImageDark": "/blog/covers/how-many-follow-ups-before-giving-up-dark.webp",
+    "coverImageLight": "/blog/covers/how-many-follow-ups-before-giving-up-light.webp"
   },
   {
     "slug": "how-to-follow-up-without-being-annoying",
@@ -106,8 +124,10 @@
     "category": "Communication",
     "publishedDate": "2026-02-08T00:00:00.000Z",
     "modifiedDate": "2026-02-08T00:00:00.000Z",
-    "coverImage": "https://reachdeskcrm.com/og-image.png",
-    "author": "ReachDesk CRM"
+    "coverImage": "https://reachdeskcrm.com/blog/covers/how-to-follow-up-without-being-annoying-dark.webp",
+    "author": "ReachDesk CRM",
+    "coverImageDark": "/blog/covers/how-to-follow-up-without-being-annoying-dark.webp",
+    "coverImageLight": "/blog/covers/how-to-follow-up-without-being-annoying-light.webp"
   },
   {
     "slug": "how-to-organize-leads",
@@ -117,8 +137,10 @@
     "category": "Lead Management",
     "publishedDate": "2026-01-15T00:00:00.000Z",
     "modifiedDate": "2026-01-15T00:00:00.000Z",
-    "coverImage": "https://reachdeskcrm.com/og-image.png",
-    "author": "ReachDesk CRM"
+    "coverImage": "https://reachdeskcrm.com/blog/covers/how-to-organize-leads-dark.webp",
+    "author": "ReachDesk CRM",
+    "coverImageDark": "/blog/covers/how-to-organize-leads-dark.webp",
+    "coverImageLight": "/blog/covers/how-to-organize-leads-light.webp"
   },
   {
     "slug": "manage-30-leads-without-losing-mind",
@@ -128,8 +150,10 @@
     "category": "Lead Management",
     "publishedDate": "2026-03-10T00:00:00.000Z",
     "modifiedDate": "2026-03-10T00:00:00.000Z",
-    "coverImage": "https://reachdeskcrm.com/og-image.png",
-    "author": "ReachDesk CRM"
+    "coverImage": "https://reachdeskcrm.com/blog/covers/manage-30-leads-without-losing-mind-dark.webp",
+    "author": "ReachDesk CRM",
+    "coverImageDark": "/blog/covers/manage-30-leads-without-losing-mind-dark.webp",
+    "coverImageLight": "/blog/covers/manage-30-leads-without-losing-mind-light.webp"
   },
   {
     "slug": "pick-up-where-you-left-off-leads",
@@ -139,8 +163,10 @@
     "category": "Lead Management",
     "publishedDate": "2026-03-05T00:00:00.000Z",
     "modifiedDate": "2026-03-05T00:00:00.000Z",
-    "coverImage": "https://reachdeskcrm.com/og-image.png",
-    "author": "ReachDesk CRM"
+    "coverImage": "https://reachdeskcrm.com/blog/covers/pick-up-where-you-left-off-leads-dark.webp",
+    "author": "ReachDesk CRM",
+    "coverImageDark": "/blog/covers/pick-up-where-you-left-off-leads-dark.webp",
+    "coverImageLight": "/blog/covers/pick-up-where-you-left-off-leads-light.webp"
   },
   {
     "slug": "stop-checking-5-apps-before-work",
@@ -150,8 +176,10 @@
     "category": "Productivity",
     "publishedDate": "2026-03-12T00:00:00.000Z",
     "modifiedDate": "2026-03-12T00:00:00.000Z",
-    "coverImage": "https://reachdeskcrm.com/og-image.png",
-    "author": "ReachDesk CRM"
+    "coverImage": "https://reachdeskcrm.com/blog/covers/stop-checking-5-apps-before-work-dark.webp",
+    "author": "ReachDesk CRM",
+    "coverImageDark": "/blog/covers/stop-checking-5-apps-before-work-dark.webp",
+    "coverImageLight": "/blog/covers/stop-checking-5-apps-before-work-light.webp"
   },
   {
     "slug": "stop-feast-or-famine-freelancing",
@@ -161,8 +189,10 @@
     "category": "Freelance Strategy",
     "publishedDate": "2026-02-05T00:00:00.000Z",
     "modifiedDate": "2026-02-05T00:00:00.000Z",
-    "coverImage": "https://reachdeskcrm.com/og-image.png",
-    "author": "ReachDesk CRM"
+    "coverImage": "https://reachdeskcrm.com/blog/covers/stop-feast-or-famine-freelancing-dark.webp",
+    "author": "ReachDesk CRM",
+    "coverImageDark": "/blog/covers/stop-feast-or-famine-freelancing-dark.webp",
+    "coverImageLight": "/blog/covers/stop-feast-or-famine-freelancing-light.webp"
   },
   {
     "slug": "the-7-checkpoint-follow-up-system",
@@ -172,8 +202,10 @@
     "category": "Follow-Up Strategy",
     "publishedDate": "2026-01-25T00:00:00.000Z",
     "modifiedDate": "2026-01-25T00:00:00.000Z",
-    "coverImage": "https://reachdeskcrm.com/og-image.png",
-    "author": "ReachDesk CRM"
+    "coverImage": "https://reachdeskcrm.com/blog/covers/the-7-checkpoint-follow-up-system-dark.webp",
+    "author": "ReachDesk CRM",
+    "coverImageDark": "/blog/covers/the-7-checkpoint-follow-up-system-dark.webp",
+    "coverImageLight": "/blog/covers/the-7-checkpoint-follow-up-system-light.webp"
   },
   {
     "slug": "why-clients-ghost-freelancers",
@@ -183,7 +215,9 @@
     "category": "Client Management",
     "publishedDate": "2026-02-01T00:00:00.000Z",
     "modifiedDate": "2026-02-01T00:00:00.000Z",
-    "coverImage": "https://reachdeskcrm.com/og-image.png",
-    "author": "ReachDesk CRM"
+    "coverImage": "https://reachdeskcrm.com/blog/covers/why-clients-ghost-freelancers-dark.webp",
+    "author": "ReachDesk CRM",
+    "coverImageDark": "/blog/covers/why-clients-ghost-freelancers-dark.webp",
+    "coverImageLight": "/blog/covers/why-clients-ghost-freelancers-light.webp"
   }
 ]
