@@ -6,7 +6,7 @@ import EditableDropdown from './EditableDropdown';
 import RichTextEditor from './RichTextEditor';
 import GroupedStatusDropdown from './GroupedStatusDropdown';
 import GroupedTemplateDropdown from './GroupedTemplateDropdown';
-import { updateLeadStatusAndCheckpoint, getSuggestionForStatus } from '../../lib/reminders';
+import { updateLeadStatusAndCheckpoint, getSuggestionForStatus, isClientStatus } from '../../lib/reminders';
 import PriorityDropdown from './PriorityDropdown';
 import { mergeTemplateFields } from '../../utils/templateMerge';
 import { celebrateClosedWon } from '../../utils/celebrateWin';
@@ -527,7 +527,7 @@ export default function LeadDrawer({
               {!isClientView && (formData.company || 'No Company')}
             </span>
           </div>
-          {!isClientView && formData.status !== 'client' && (
+          {!isClientView && !isClientStatus(formData.status) && (
             <button
               onClick={() => {
                 setConvertForm({

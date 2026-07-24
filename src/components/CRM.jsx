@@ -26,7 +26,7 @@ import GroupedTemplateDropdown from './CRM/GroupedTemplateDropdown';
 import CheckpointPopover from './CRM/CheckpointPopover';
 import HelpPopover from './HelpPopover';
 import { ReachIcons, PhonePopup, detectDomainIcon, detectPlatformLabel } from './icons/PlatformIcons';
-import { updateLeadStatusAndCheckpoint, getSuggestionForStatus, REPLY_CHECK_STATUSES, FOLLOW_UP_CHECK_STATUSES } from '../lib/reminders';
+import { updateLeadStatusAndCheckpoint, getSuggestionForStatus, REPLY_CHECK_STATUSES, FOLLOW_UP_CHECK_STATUSES, isClientStatus } from '../lib/reminders';
 import PriorityDropdown from './CRM/PriorityDropdown';
 import { exportLeads, exportNotes } from '../utils/exportUtils';
 import { mergeTemplateFields, normalizePhoneNumber, generatePrefilledUrl } from '../utils/templateMerge';
@@ -563,7 +563,7 @@ export default function CRM({
         }
         return lead;
       });
-      const cData = lData.filter(l => l.status === 'Client');
+      const cData = lData.filter(l => isClientStatus(l.status));
       const rData = rulesRes.data || [];
 
       setFolders(fData);
@@ -1734,7 +1734,7 @@ export default function CRM({
     } else if (selectedFolderId === 'calendly') {
       folderMatch = l.status?.toLowerCase() === 'calendly_sent' || l.status === 'Calendly Sent';
     } else if (selectedFolderId === 'clients') {
-      folderMatch = l.status === 'Client';
+      folderMatch = isClientStatus(l.status);
     } else {
       // Smart folder check
       const smartFolder = userFolders.find(uf => uf.id === selectedFolderId);

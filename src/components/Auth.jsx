@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
-import { ArrowLeft, ShieldAlert, Check, Eye, EyeOff } from 'lucide-react';
+import { ArrowLeft, ShieldAlert, Check } from 'lucide-react';
 import { supabase } from '../lib/supabase';
 import { getAppUrl, getMarketingUrl } from '../utils/domain';
 import { TRIAL_MARKETING } from '../lib/planMarketing';
@@ -32,8 +32,7 @@ function validateEmail(value) {
 
 /**
  * Linear-style auth:
- * - Signup email → OTP
- * - Login email → password (optional OTP)
+ * - Email → OTP (signup and login)
  * - Google → dashboard (SetupModal if new workspace)
  */
 export default function Auth({ mode = 'login' }) {
@@ -42,8 +41,6 @@ export default function Auth({ mode = 'login' }) {
 
   const [step, setStep] = useState('methods'); // methods | email | otp
   const [email, setEmail] = useState('');
-  const [password, setPassword] = useState('');
-  const [showPassword, setShowPassword] = useState(false);
   const [code, setCode] = useState('');
   const [error, setError] = useState('');
   const [success, setSuccess] = useState('');
@@ -53,8 +50,6 @@ export default function Auth({ mode = 'login' }) {
   useEffect(() => {
     setStep('methods');
     setEmail('');
-    setPassword('');
-    setShowPassword(false);
     setCode('');
     setError('');
     setSuccess('');
@@ -104,34 +99,6 @@ export default function Auth({ mode = 'login' }) {
       return;
     }
 
-    // Login: password sign-in
-    if (!isSignup) {
-      if (!password.trim()) {
-        setError('Enter your password.');
-        return;
-      }
-      setLoading(true);
-      try {
-        const { error: loginErr } = await supabase.auth.signInWithPassword({
-          email: email.trim(),
-          password: password.trim(),
-        });
-        if (loginErr) throw loginErr;
-        navigate('/dashboard');
-      } catch (err) {
-        let msg = err.message || 'Login failed.';
-        const lower = msg.toLowerCase();
-        if (lower.includes('invalid login') || lower.includes('invalid credentials')) {
-          msg = 'Wrong email or password. Try again, or email yourself a code.';
-        }
-        setError(msg);
-      } finally {
-        setLoading(false);
-      }
-      return;
-    }
-
-    // Signup: send OTP
     setLoading(true);
     try {
       await sendOtp(email.trim());
@@ -141,34 +108,9 @@ export default function Auth({ mode = 'login' }) {
     } catch (err) {
       let msg = err.message || 'Could not send code.';
       const lower = msg.toLowerCase();
-      if (lower.includes('already') || lower.includes('exists')) {
+      if (isSignup && (lower.includes('already') || lower.includes('exists'))) {
         msg = 'An account with this email already exists. Log in instead.';
-      }
-      setError(msg);
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  const handleSendLoginOtp = async () => {
-    setError('');
-    setSuccess('');
-    const validationError = validateEmail(email);
-    if (validationError) {
-      setError(validationError);
-      return;
-    }
-    setLoading(true);
-    try {
-      await sendOtp(email.trim());
-      setStep('otp');
-      setCode('');
-      setResendCooldown(30);
-      setSuccess('Code sent — check your email.');
-    } catch (err) {
-      let msg = err.message || 'Could not send code.';
-      const lower = msg.toLowerCase();
-      if (lower.includes('signups not allowed') || lower.includes('user not found')) {
+      } else if (!isSignup && (lower.includes('signups not allowed') || lower.includes('user not found'))) {
         msg = 'No account with that email. Sign up instead.';
       }
       setError(msg);
@@ -230,9 +172,7 @@ export default function Auth({ mode = 'login' }) {
     step === 'otp'
       ? `Enter the 6-digit code we sent to ${email.trim()}`
       : step === 'email'
-        ? (isSignup
-          ? 'We’ll email you a one-time code — no password needed.'
-          : 'Use your password, or email yourself a one-time code.')
+        ? 'We’ll email you a one-time code — no password needed.'
         : (isSignup
           ? `${TRIAL_MARKETING.headline}.`
           : 'Log in to your ReachDesk workspace.');
@@ -310,48 +250,9 @@ export default function Auth({ mode = 'login' }) {
               />
             </label>
 
-            {!isSignup && (
-              <label className="auth-field">
-                <span className="auth-field-label">Password</span>
-                <div className="rd-password-wrap">
-                  <input
-                    type={showPassword ? 'text' : 'password'}
-                    className="form-input w-full"
-                    placeholder="Your password"
-                    value={password}
-                    onChange={(e) => setPassword(e.target.value)}
-                    autoComplete="current-password"
-                    required
-                    disabled={loading}
-                  />
-                  <button
-                    type="button"
-                    className="rd-password-toggle"
-                    onClick={() => setShowPassword((v) => !v)}
-                    aria-label={showPassword ? 'Hide password' : 'Show password'}
-                  >
-                    {showPassword ? <EyeOff size={16} /> : <Eye size={16} />}
-                  </button>
-                </div>
-              </label>
-            )}
-
             <button type="submit" className="auth-btn auth-btn-primary" disabled={loading}>
-              {loading
-                ? (isSignup ? 'Sending code…' : 'Logging in…')
-                : (isSignup ? 'Continue' : 'Log in')}
+              {loading ? 'Sending code…' : 'Continue'}
             </button>
-
-            {!isSignup && (
-              <button
-                type="button"
-                className="auth-text-btn"
-                onClick={handleSendLoginOtp}
-                disabled={loading}
-              >
-                Email me a code instead
-              </button>
-            )}
 
             <button
               type="button"
@@ -359,7 +260,6 @@ export default function Auth({ mode = 'login' }) {
               onClick={() => {
                 setError('');
                 setSuccess('');
-                setPassword('');
                 setStep('methods');
               }}
               disabled={loading}

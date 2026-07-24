@@ -2,10 +2,16 @@ import { supabase } from './supabase';
 
 export const CHECKPOINT_OFFSETS_HOURS = [12, 24, 72, 120, 168, 336, 504];
 
-export const RESOLVED_STATUSES = ['Positive Reply', 'Booked', 'Rescheduled', 'Closed Won'];
+export const RESOLVED_STATUSES = ['Positive Reply', 'Booked', 'Rescheduled', 'Closed Won', 'Client'];
 
 export const REPLY_CHECK_STATUSES = ['Contacted', 'Calendly Sent', 'Proposal Sent', 'Followed up'];
 export const FOLLOW_UP_CHECK_STATUSES = ['No show', 'Not Interested'];
+
+/** Closed Won and Client both mean the lead is already a client. */
+export function isClientStatus(status) {
+  const n = (status || '').toLowerCase().trim().replace(/_/g, ' ');
+  return n === 'client' || n === 'closed won';
+}
 
 /**
  * Returns the suggested action based on the rules and current status.
@@ -172,8 +178,11 @@ export async function updateLeadStatusAndCheckpoint({
     leadUpdate.priority = 'Cold';
   } else if (['Positive Reply', 'Calendly Sent', 'Booked', 'Rescheduled', 'Proposal Sent', 'Followed up'].includes(newStatus)) {
     leadUpdate.priority = 'Warm';
-  } else if (['Closed Won'].includes(newStatus)) {
+  } else if (isClientStatus(newStatus)) {
     leadUpdate.priority = 'Hot';
+    if (!extraUpdates.lifecycle_stage) {
+      leadUpdate.lifecycle_stage = 'client';
+    }
   }
   
   // Update leads table
