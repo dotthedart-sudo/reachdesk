@@ -33,16 +33,20 @@ export function loadPickerModule() {
   return new Promise((resolve, reject) => {
     loadGapi()
       .then((gapi) => {
+        if (window.google?.picker) {
+          resolve();
+          return;
+        }
         gapi.load('picker', {
           callback: () => {
-            if (window.google && window.google.picker) {
+            if (window.google?.picker) {
               resolve();
             } else {
               reject(new Error('Google Picker library failed to initialize.'));
             }
           },
           onerror: () => reject(new Error('Failed to load Google Picker module.')),
-          timeout: 5000,
+          timeout: 10000,
           ontimeout: () => reject(new Error('Timed out loading Google Picker module.')),
         });
       })
@@ -50,17 +54,68 @@ export function loadPickerModule() {
   });
 }
 
+/** Google Picker injects dialog nodes async — keep them above our modals. */
+function ensurePickerOnTop() {
+  const PICKER_Z = '2147483000';
+
+  const bump = () => {
+    document.querySelectorAll('.picker-dialog-bg, .picker-dialog, .picker').forEach((el) => {
+      el.style.setProperty('z-index', PICKER_Z, 'important');
+    });
+  };
+
+  bump();
+  const timers = [0, 50, 100, 250, 500, 1000, 2000].map((ms) => setTimeout(bump, ms));
+  const observer = new MutationObserver(bump);
+  observer.observe(document.body, { childList: true, subtree: true });
+
+  return () => {
+    observer.disconnect();
+    timers.forEach(clearTimeout);
+  };
+}
+
+function getPickerAppId() {
+  const explicit = import.meta.env.VITE_GOOGLE_APP_ID || import.meta.env.VITE_GOOGLE_CLOUD_PROJECT_NUMBER;
+  if (explicit) return String(explicit);
+
+  const clientId =
+    import.meta.env.VITE_GOOGLE_SHEETS_CLIENT_ID ||
+    import.meta.env.VITE_GOOGLE_CLIENT_ID ||
+    '';
+  // OAuth client IDs are typically `{projectNumber}-{hash}.apps.googleusercontent.com`
+  const match = String(clientId).match(/^(\d+)-/);
+  return match ? match[1] : '';
+}
+
 /**
  * Requests a fresh access token from Supabase Edge Function and opens the Google Picker
  */
-export async function openSheetsPicker({ onSelect, onCancel, onError }) {
+export async function openSheetsPicker({ onSelect, onCancel, onError, onOpen }) {
+  let stopZIndexWatch = null;
+
   try {
+    const apiKey = import.meta.env.VITE_GOOGLE_PICKER_API_KEY;
+    if (!apiKey) {
+      throw new Error('Google Picker API key is missing. Set VITE_GOOGLE_PICKER_API_KEY and rebuild.');
+    }
+
     // 1. Fetch fresh access token right before opening
     const { data, error } = await supabase.functions.invoke('get-sheets-access-token');
-    
-    if (error) throw error;
+
+    if (error) {
+      let detail = error.message || 'Could not get Google access token.';
+      try {
+        const body = await error.context?.json?.();
+        if (body?.error) detail = body.error;
+      } catch {
+        /* ignore */
+      }
+      throw new Error(detail);
+    }
+    if (data?.error) throw new Error(data.error);
     if (!data?.access_token) {
-      throw new Error('Could not retrieve a valid Google Sheets access token. Please reconnect.');
+      throw new Error('Could not retrieve a valid Google Sheets access token. Please reconnect Google Sheets in Configuration.');
     }
 
     const accessToken = data.access_token;
@@ -68,33 +123,38 @@ export async function openSheetsPicker({ onSelect, onCancel, onError }) {
     // 2. Load the Picker library
     await loadPickerModule();
 
-    // 3. Build and display the picker
-    const picker = new window.google.picker.PickerBuilder()
+    // 3. Build and display the picker above app modals
+    const builder = new window.google.picker.PickerBuilder()
       .addView(window.google.picker.ViewId.SPREADSHEETS)
       .setOAuthToken(accessToken)
-      .setDeveloperKey(import.meta.env.VITE_GOOGLE_PICKER_API_KEY)
+      .setDeveloperKey(apiKey)
+      .setOrigin(window.location.origin)
       .setCallback((result) => {
         if (result.action === window.google.picker.Action.PICKED) {
-          const doc = result.docs[0];
+          if (typeof stopZIndexWatch === 'function') stopZIndexWatch();
+          const doc = result.docs?.[0];
           if (doc) {
             onSelect({ id: doc.id, name: doc.name || doc.title });
-          } else {
-            if (onError) onError(new Error('No document was selected.'));
+          } else if (onError) {
+            onError(new Error('No document was selected.'));
           }
         } else if (result.action === window.google.picker.Action.CANCEL) {
+          if (typeof stopZIndexWatch === 'function') stopZIndexWatch();
           if (onCancel) onCancel();
         }
-      })
-      .build();
+      });
 
+    const appId = getPickerAppId();
+    if (appId) builder.setAppId(appId);
+
+    const picker = builder.build();
+    stopZIndexWatch = ensurePickerOnTop();
     picker.setVisible(true);
-    
-    // Position the picker on top of any bootstrap or styled modals
-    const pickerEl = document.querySelector('.picker-dialog-bg');
-    if (pickerEl) {
-      pickerEl.style.zIndex = '200000';
-    }
+    ensurePickerOnTop();
+
+    if (onOpen) onOpen();
   } catch (err) {
+    if (typeof stopZIndexWatch === 'function') stopZIndexWatch();
     console.error('[googlePicker] Error opening picker:', err);
     if (onError) onError(err);
   }

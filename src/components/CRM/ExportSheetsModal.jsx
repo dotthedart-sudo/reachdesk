@@ -80,7 +80,12 @@ export default function ExportSheetsModal({ onClose, leads, currentUser }) {
     setLoading(true);
 
     openSheetsPicker({
+      onOpen: () => {
+        // Picker is visible; stop the spinner so the modal doesn't look stuck
+        setLoading(false);
+      },
       onSelect: async (selectedDoc) => {
+        setLoading(true);
         setSpreadsheet(selectedDoc);
         try {
           // Fetch tabs

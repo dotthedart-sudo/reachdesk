@@ -82,8 +82,12 @@ export default function SheetsImportModal({ onClose, onImportComplete }: SheetsI
     setPickerLoading(true);
 
     openSheetsPicker({
+      onOpen: () => {
+        setPickerLoading(false);
+      },
       onSelect: async (doc) => {
         setSpreadsheet(doc);
+        setPickerLoading(true);
         try {
           const { data, error } = await supabase.functions.invoke('get-sheet-tabs', {
             body: { spreadsheetId: doc.id },
