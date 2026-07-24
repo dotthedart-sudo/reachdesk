@@ -3,6 +3,7 @@ import { Lock, ShieldAlert, Check } from 'lucide-react';
 import { supabase } from '../lib/supabase';
 import { useLocalCurrency } from '../utils/useLocalCurrency';
 import { APP_DOMAIN, isLocalDev } from '../utils/domain';
+import { PLANS, getPlanFeatures } from '../lib/planMarketing';
 
 // ─── Unified Pricing Data ──────────────────────────────────────────────────
 // ⚠️  SYNC WARNING: This BILLING object is mirrored for Supabase Edge Functions in:
@@ -154,56 +155,7 @@ export const BILLING = {
   }
 };
 
-const CORE_FEATURES = [
-  'Notes',
-  'Bulk Import',
-  'Copy Analytics',
-  'Convert to Client',
-  'Smart Folders',
-  'Export CSV',
-  'Custom Columns',
-];
-
-const PLANS = [
-  {
-    id: 'starter',
-    name: 'Starter',
-    tagline: (billing) => billing === 'yearly'
-      ? '2,000 leads · 1 user · 10 templates'
-      : '1,000 leads (2,000 if billed yearly) · 1 user · 10 templates',
-    features: CORE_FEATURES,
-    comingSoon: false,
-    isEnterprise: false,
-  },
-  {
-    id: 'pro',
-    name: 'Pro',
-    tagline: (billing) => billing === 'yearly'
-      ? '10,000 leads · 1 user · Unlimited templates'
-      : '5,000 leads (10,000 if billed yearly) · 1 user · Unlimited templates',
-    features: [
-      ...CORE_FEATURES,
-      { label: 'AI CRM Commands', badge: 'Coming Soon' },
-      { label: 'MCP / Claude Connect', badge: 'Coming Soon' },
-    ],
-    comingSoon: false,
-    isEnterprise: false,
-    highlighted: false, // Ensure Pro is not highlighted
-  },
-  {
-    id: 'teams',
-    name: 'Teams',
-    tagline: () => 'Unlimited leads · 3 users · Unlimited templates',
-    features: [
-      ...CORE_FEATURES,
-      { label: 'AI CRM Commands', badge: 'Coming Soon' },
-      { label: 'MCP / Claude Connect', badge: 'Coming Soon' },
-      'Team Collaboration',
-    ],
-    comingSoon: true, // Remains coming soon / greyed out
-    isEnterprise: false,
-  },
-];
+// Plan copy/features come from ../lib/planMarketing (PLANS + getPlanFeatures)
 
 // ─── Shared Screens ──────────────────────────────────────────────────────────
 export function PendingScreen({ profile, handleLogout }) {
@@ -251,7 +203,8 @@ const PLAN_LEVELS = {
 };
 
 function PlanCard({ plan, billing, isSelected, onSelect, handlePaddleCheckout, profile }) {
-  const { id, name, tagline, features, comingSoon, isEnterprise } = plan;
+  const { id, name, tagline, comingSoon, isEnterprise, highlighted } = plan;
+  const features = getPlanFeatures(id, billing);
   const { formatLocalPrice, country, rate } = useLocalCurrency();
 
   const getUsdEquivalent = (localAmount) => {

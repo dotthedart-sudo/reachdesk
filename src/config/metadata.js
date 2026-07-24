@@ -13,8 +13,8 @@ export const siteMeta = {
   
   pages: {
     homepage: {
-      title: 'ReachDesk CRM — Stop Ghosting Your Own Leads',
-      description: 'ReachDesk CRM tells freelancers exactly which lead to follow up with today. You send every message yourself — we just make sure nothing falls through the cracks. Free trial.',
+      title: 'ReachDesk — Your leads didn\'t ghost you. You ghosted them.',
+      description: 'ReachDesk tells you who to follow up with today — so nothing slips while you\'re busy delivering client work. Free trial: 65 leads, no card.',
       keywords: 'CRM, freelancer, lead follow-up, lead tracking, follow-up reminders',
     },
     
