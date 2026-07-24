@@ -1301,10 +1301,10 @@ function AdminPanelPage() {
 }
 
 function AuthPage({ mode }) {
-  const { session, loading, handleRegisterUser, handleLoginUser } = useAppContext();
+  const { session, loading } = useAppContext();
   // If already logged in, go straight to dashboard
   if (!loading && session) return <Navigate to="/dashboard" replace />;
-  return <Auth onRegister={handleRegisterUser} onLogin={handleLoginUser} mode={mode} />;
+  return <Auth mode={mode} />;
 }
 
 function HomepagePage() {

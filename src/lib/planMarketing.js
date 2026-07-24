@@ -58,8 +58,17 @@ export function getPlanTagline(planId, billingCycle) {
   return `${formatLeadForTagline(planId, billingCycle)} · ${formatUserCount(planId)} · ${formatTemplateCount(planId)}`;
 }
 
+/** Monthly AI bot credits — marketing ladder from trial (10 / 7 days). */
+export const AI_BOT_CREDITS = {
+  trial: 10,
+  starter: 50,
+  pro: 250,
+  teams: 500,
+};
+
 const STARTER_FEATURES_BASE = [
   '10 templates',
+  `${AI_BOT_CREDITS.starter} AI bot credits / month`,
   '7-checkpoint follow-up reminders',
   'Smart folders · Hot/Warm/Cold priorities',
   'Notes · whiteboard',
@@ -71,6 +80,7 @@ const STARTER_FEATURES_BASE = [
 
 const PRO_FEATURES_BASE = [
   'Unlimited templates',
+  `${AI_BOT_CREDITS.pro} AI bot credits / month`,
   'Everything in Starter',
   'Bulk CSV import',
   'Google Calendar sync',
@@ -79,6 +89,7 @@ const PRO_FEATURES_BASE = [
 
 const TEAMS_FEATURES_BASE = [
   '3 team seats',
+  `${AI_BOT_CREDITS.teams} AI bot credits / month`,
   'Shared pipeline',
   'Everything in Pro',
 ];
@@ -159,7 +170,10 @@ export const PLANS = MARKETING_PLANS;
 export const TRIAL_MARKETING = {
   leads: PLAN_LIMITS.trial.leads,
   templates: PLAN_LIMITS.trial.templates,
-  headline: 'Start free — 65 leads, no card',
+  aiCredits: AI_BOT_CREDITS.trial,
+  days: 7,
+  headline: 'Start 7-day free trial — card required',
+  detail: `7-day free trial (card required) · ${AI_BOT_CREDITS.trial} AI bot credits · ${PLAN_LIMITS.trial.leads} leads · ${PLAN_LIMITS.trial.templates} templates`,
 };
 
 export const HOMEPAGE_FEATURES = [

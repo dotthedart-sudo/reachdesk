@@ -155,7 +155,7 @@ export default function Homepage({ currentUserEmail }) {
             className="hp-logo-btn"
             onClick={() => (isLocalDev() ? navigate('/homepage') : (window.location.href = getMarketingUrl('/homepage')))}
           >
-            <span className="hp-logo">REACHDESK</span>
+            <span className="hp-logo">REACHDESK CRM</span>
           </button>
 
           <div className="hp-nav-center">
@@ -184,14 +184,13 @@ export default function Homepage({ currentUserEmail }) {
       <section className={`hp-hero-section hp-hero-premium ${heroReady ? 'hp-hero-ready' : ''}`}>
         <div className="hp-hero-inner">
           <div className="hp-hero-copy">
-            <span className="hp-hero-brand hp-hero-enter">REACHDESK</span>
-            <h1 className="hp-hero-h1 hp-hero-enter hp-hero-enter-1">
+            <h1 className="hp-hero-h1 hp-hero-enter">
               Your leads didn&apos;t ghost you.<br />You ghosted them.
             </h1>
-            <p className="hp-hero-subhead hp-hero-enter hp-hero-enter-2">
+            <p className="hp-hero-subhead hp-hero-enter hp-hero-enter-1">
               ReachDesk tells you who to follow up with today — so nothing slips while you&apos;re busy delivering client work.
             </p>
-            <div className="hp-hero-ctas hp-hero-enter hp-hero-enter-3">
+            <div className="hp-hero-ctas hp-hero-enter hp-hero-enter-2">
               <button type="button" onClick={handleSignUpClick} className="hp-btn-primary">
                 {isLoggedIn ? 'Open dashboard' : TRIAL_MARKETING.headline}
               </button>
@@ -203,7 +202,7 @@ export default function Homepage({ currentUserEmail }) {
             theme={theme}
             posterDark={heroDark}
             posterLight={heroLight}
-            className="hp-hero-visual hp-hero-enter hp-hero-enter-4"
+            className="hp-hero-visual hp-hero-enter hp-hero-enter-3"
           />
         </div>
       </section>
@@ -343,7 +342,7 @@ export default function Homepage({ currentUserEmail }) {
         <div className="hp-section-inner">
           <h2 className="hp-final-cta-title">Stop losing deals to forgotten follow-ups.</h2>
           <p className="hp-final-cta-sub">
-            Free trial — {TRIAL_MARKETING.leads} leads, {TRIAL_MARKETING.templates} templates. You send every message; we keep you on track.
+            {TRIAL_MARKETING.detail}. You send every message; we keep you on track.
           </p>
           <button type="button" onClick={handleSignUpClick} className="hp-btn-primary hp-final-cta-btn">
             {isLoggedIn ? 'Open dashboard' : TRIAL_MARKETING.headline}
@@ -353,7 +352,7 @@ export default function Homepage({ currentUserEmail }) {
 
       <footer className="hp-footer">
         <div className="hp-footer-inner">
-          <span className="hp-footer-logo-text">REACHDESK</span>
+          <span className="hp-footer-logo-text">REACHDESK CRM</span>
           <div className="hp-footer-links-row">
             <a href={getMarketingUrl('/terms')} className="hp-footer-link-item">Terms of Service</a>
             <a href={getMarketingUrl('/privacy')} className="hp-footer-link-item">Privacy Policy</a>

@@ -101,11 +101,11 @@ serve(async (req) => {
     .maybeSingle();
 
   const userPlan = (userProfile?.plan || 'trial').toLowerCase();
-  const ALLOWED_AI_PLANS = ['trial', 'pro', 'teams', 'enterprise'];
+  const ALLOWED_AI_PLANS = ['trial', 'starter', 'pro', 'teams', 'enterprise'];
 
   if (!ALLOWED_AI_PLANS.includes(userPlan)) {
     return jsonResponse(
-      { error: 'This feature is available on Trial and Pro plans.' },
+      { error: 'This feature is available on Trial, Starter, and Pro plans.' },
       403,
     );
   }

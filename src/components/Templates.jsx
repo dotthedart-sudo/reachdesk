@@ -1269,7 +1269,7 @@ export default function Templates({
                   <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '0.25rem' }}>
                     <label className="form-label" style={{ color: 'var(--text-secondary)', margin: 0 }}>Body Template *</label>
                     {!editingTemplate?.is_starter && (
-                      ['trial', 'pro', 'teams', 'enterprise'].includes((currentUser?.plan || 'trial').toLowerCase()) ? (
+                      ['trial', 'starter', 'pro', 'teams', 'enterprise'].includes((currentUser?.plan || 'trial').toLowerCase()) ? (
                         <button
                           type="button"
                           onClick={handleGenerateTemplateAI}

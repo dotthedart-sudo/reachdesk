@@ -95,7 +95,7 @@ function TypingIndicator() {
 // ── Main Widget ────────────────────────────────────────────────────────────────
 export default function ChatWidget({ profile }) {
   const userPlan = (profile?.plan || 'trial').toLowerCase();
-  const isAllowedPlan = ['trial', 'pro', 'teams', 'enterprise'].includes(userPlan);
+  const isAllowedPlan = ['trial', 'starter', 'pro', 'teams', 'enterprise'].includes(userPlan);
 
   const [isOpen, setIsOpen] = useState(false);
   const [messages, setMessages] = useState([]);
