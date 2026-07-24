@@ -511,7 +511,8 @@ function AppProvider({ children }) {
             team_role: teamId ? 'member' : 'owner',
             full_name: fullName,
             referral_source: referralSource,
-            marketing_consent: marketingConsent
+            marketing_consent: marketingConsent,
+            has_completed_setup: false,
           };
 
           // Only include avatar_url if it's set in metadata, to avoid overwriting a non-null database value

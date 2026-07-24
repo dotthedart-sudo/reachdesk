@@ -122,94 +122,93 @@ export default function RevenueTracker({
 
       {showAddForm ? (
         /* Log Revenue Form */
-        <div className="card flex-col gap-4" style={{ textAlign: 'left', maxWidth: '600px', margin: '0 auto' }}>
-          <h3 style={{ fontSize: '1.25rem', borderBottom: '1px solid var(--border-color)', paddingBottom: '0.75rem', color: 'var(--primary-purple)' }}>
-            Log Freelance Earnings
-          </h3>
-          
-          <form onSubmit={handleLogSubmit} className="flex-col gap-4">
-            {/* Client Name / Source — required */}
-            <div className="form-group">
-              <label className="form-label">Client Name / Source *</label>
-              <input 
-                type="text" 
-                required 
-                className="form-input" 
-                placeholder="e.g. Acme Corp, Upwork Project" 
-                value={source} 
-                onChange={(e) => setSource(e.target.value)} 
+        <div className="card rd-page-form" style={{ maxWidth: '560px', margin: '0 auto', textAlign: 'left' }}>
+          <div className="rd-page-form-header">
+            <h3>Log earnings</h3>
+            <p className="rd-modal-sub">Record a payment so revenue stays accurate.</p>
+          </div>
+
+          <form onSubmit={handleLogSubmit} className="rd-form">
+            <div className="rd-form-group">
+              <label className="form-label" htmlFor="earn-source">Client / source *</label>
+              <input
+                id="earn-source"
+                type="text"
+                required
+                className="form-input"
+                placeholder="e.g. Acme Corp, Upwork project"
+                value={source}
+                onChange={(e) => setSource(e.target.value)}
               />
             </div>
 
-            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1.5rem' }}>
-              <div className="form-group">
-                <label className="form-label">Amount *</label>
-                <input 
-                  type="number" 
+            <div className="rd-form-row">
+              <div className="rd-form-group">
+                <label className="form-label" htmlFor="earn-amount">Amount *</label>
+                <input
+                  id="earn-amount"
+                  type="number"
                   step="any"
-                  required 
-                  className="form-input" 
-                  placeholder="e.g. 1500" 
-                  value={amount} 
-                  onChange={(e) => setAmount(e.target.value)} 
+                  required
+                  className="form-input"
+                  placeholder="e.g. 1500"
+                  value={amount}
+                  onChange={(e) => setAmount(e.target.value)}
                 />
               </div>
-              <div className="form-group">
+              <div className="rd-form-group">
                 <label className="form-label">Currency *</label>
                 <CurrencySelector
                   value={currency}
                   onChange={setCurrency}
-                  placeholder="Select currency..."
+                  placeholder="Select currency…"
                 />
               </div>
             </div>
 
-            <div className="form-group">
-              <label className="form-label">Payment Date</label>
-              <input 
-                type="date" 
-                className="form-input" 
-                value={date} 
-                onChange={(e) => setDate(e.target.value)} 
-              />
+            <div className="rd-form-row">
+              <div className="rd-form-group">
+                <label className="form-label" htmlFor="earn-date">Payment date</label>
+                <input
+                  id="earn-date"
+                  type="date"
+                  className="form-input"
+                  value={date}
+                  onChange={(e) => setDate(e.target.value)}
+                />
+              </div>
+              <div className="rd-form-group">
+                <label className="form-label" htmlFor="earn-service">Service / type</label>
+                <input
+                  id="earn-service"
+                  type="text"
+                  className="form-input"
+                  placeholder="e.g. Web design"
+                  value={service}
+                  onChange={(e) => setService(e.target.value)}
+                />
+              </div>
             </div>
 
-            {/* Service / Type — optional */}
-            <div className="form-group">
-              <label className="form-label">Service / Type</label>
-              <input 
-                type="text" 
-                className="form-input" 
-                placeholder="e.g. Web Design, Copywriting, Consulting" 
-                value={service} 
-                onChange={(e) => setService(e.target.value)} 
-              />
-            </div>
-
-            {/* Notes — optional */}
-            <div className="form-group">
-              <label className="form-label">Notes</label>
-              <textarea 
-                className="form-input" 
-                placeholder="Any additional details about this payment..." 
-                value={notes} 
+            <div className="rd-form-group">
+              <label className="form-label" htmlFor="earn-notes">Notes</label>
+              <textarea
+                id="earn-notes"
+                className="form-textarea"
+                placeholder="Optional details…"
+                value={notes}
                 onChange={(e) => setNotes(e.target.value)}
                 rows={3}
-                style={{ resize: 'vertical' }}
               />
             </div>
 
-            <div className="flex justify-between mt-4">
-              <button 
-                type="button" 
-                onClick={() => setShowAddForm(false)} 
-                className="btn btn-secondary"
-              >
+            <div className="rd-page-form-actions">
+              <button type="button" onClick={() => setShowAddForm(false)} className="btn btn-secondary">
                 Cancel
               </button>
               <button type="submit" className="btn btn-primary">
                 <TrendingUp size={16} />
-                Log Earnings
+                Log earnings
               </button>
             </div>
           </form>

@@ -956,36 +956,41 @@ export default function Templates({
       {/* Editor Modal */}
       {showEditor && (
         <div className="modal-backdrop">
-          <div className="modal-content" style={{ maxWidth: '800px', width: '95%', backgroundColor: 'var(--bg-card)', border: '1px solid var(--border)', borderRadius: '3px' }}>
-            <div className="modal-header" style={{ borderBottom: '1px solid var(--border)' }}>
-              <h3 style={{ fontFamily: 'Mattone, sans-serif', textTransform: 'uppercase', letterSpacing: '0.05em', fontSize: '1.1rem', color: 'var(--text-primary)' }}>
-                {editingTemplate ? (editingTemplate.is_starter ? 'View Starter Template' : 'Edit Template') : 'Create New Template'}
-              </h3>
+          <div className="modal-content rd-modal rd-modal-wide">
+            <div className="rd-modal-header">
+              <div>
+                <h3>
+                  {editingTemplate ? (editingTemplate.is_starter ? 'View starter template' : 'Edit template') : 'Create template'}
+                </h3>
+                <p className="rd-modal-sub">Save outreach you’ll reuse across leads.</p>
+              </div>
               <div style={{ display: 'flex', gap: '0.5rem', alignItems: 'center' }}>
                 <button 
                   type="button" 
                   className="btn btn-secondary btn-sm"
                   onClick={handleCopyBodyModal}
-                  style={{ borderRadius: '3px' }}
                 >
                   <Copy size={12} />
-                  {copiedBody ? 'Copied!' : 'Copy Body'}
+                  {copiedBody ? 'Copied!' : 'Copy body'}
                 </button>
-                <button onClick={() => setShowEditor(false)} className="theme-toggle" style={{ color: 'var(--text-muted)' }}>
+                <button type="button" onClick={() => setShowEditor(false)} className="rd-modal-close" aria-label="Close">
                   <X size={18} />
                 </button>
               </div>
             </div>
             
             {editingTemplate?.is_starter && (
-              <div style={{ background: 'rgba(91, 143, 185, 0.1)', border: '1px solid rgba(91, 143, 185, 0.3)', color: '#5B8FB9', padding: '0.75rem 1rem', borderRadius: '3px', marginBottom: '1.25rem', fontSize: '0.85rem', fontWeight: 500 }}>
-                This is a starter template — duplicate it to make your own editable copy.
+              <div className="rd-modal-body" style={{ paddingBottom: 0 }}>
+                <div className="auth-success-banner" style={{ color: 'var(--accent-blue)', borderColor: 'color-mix(in srgb, var(--accent-blue) 35%, transparent)', background: 'color-mix(in srgb, var(--accent-blue) 12%, transparent)' }}>
+                  This is a starter template — duplicate it to make your own editable copy.
+                </div>
               </div>
             )}
 
-            <form onSubmit={handleSave} className="flex-col gap-3">
-              <div className="form-group">
-                <label className="form-label" style={{ color: 'var(--text-secondary)' }}>Template Title *</label>
+            <form onSubmit={handleSave} className="rd-modal-form">
+              <div className="rd-modal-body rd-form">
+              <div className="rd-form-group">
+                <label className="form-label">Template title *</label>
                 <input 
                   type="text" 
                   required 
@@ -995,12 +1000,11 @@ export default function Templates({
                   value={formState.title}
                   onChange={(e) => setFormState({...formState, title: e.target.value})}
                   onBlur={(e) => handleFieldBlur('title', e.target.value)}
-                  style={{ backgroundColor: 'var(--bg-page)', border: '1px solid var(--border)', borderRadius: '3px', color: 'var(--text-primary)' }}
                 />
               </div>
 
-              <div className="form-group">
-                <label className="form-label" style={{ color: 'var(--text-secondary)' }}>Section *</label>
+              <div className="rd-form-group">
+                <label className="form-label">Section *</label>
                 <select
                   required
                   disabled={editingTemplate?.is_starter}
@@ -1011,7 +1015,6 @@ export default function Templates({
                     setFormState({ ...formState, platform: val });
                     handleFieldBlur('platform', val);
                   }}
-                  style={{ backgroundColor: 'var(--bg-page)', border: '1px solid var(--border)', borderRadius: '3px', color: 'var(--text-primary)', padding: '0.5rem' }}
                 >
                   {SECTIONS.map(sec => (
                     <option key={sec} value={sec}>{sec}</option>
@@ -1022,8 +1025,8 @@ export default function Templates({
                 </select>
               </div>
 
-              <div className="form-group">
-                <label className="form-label" style={{ color: 'var(--text-secondary)' }}>Tags (comma-separated)</label>
+              <div className="rd-form-group">
+                <label className="form-label">Tags (comma-separated)</label>
                 <input 
                   type="text" 
                   disabled={editingTemplate?.is_starter}
@@ -1032,12 +1035,11 @@ export default function Templates({
                   value={formState.tagsInput || ''}
                   onChange={(e) => setFormState({...formState, tagsInput: e.target.value})}
                   onBlur={(e) => handleFieldBlur('tagsInput', e.target.value)}
-                  style={{ backgroundColor: 'var(--bg-page)', border: '1px solid var(--border)', borderRadius: '3px', color: 'var(--text-primary)' }}
                 />
               </div>
 
-              <div className="form-group">
-                <label className="form-label" style={{ color: 'var(--text-secondary)' }}>Email Subject (Optional)</label>
+              <div className="rd-form-group">
+                <label className="form-label">Email subject (optional)</label>
                 <input 
                   type="text" 
                   disabled={editingTemplate?.is_starter}
@@ -1046,7 +1048,6 @@ export default function Templates({
                   value={formState.subject}
                   onChange={(e) => setFormState({...formState, subject: e.target.value})}
                   onBlur={(e) => handleFieldBlur('subject', e.target.value)}
-                  style={{ backgroundColor: 'var(--bg-page)', border: '1px solid var(--border)', borderRadius: '3px', color: 'var(--text-primary)' }}
                 />
               </div>
 
@@ -1338,9 +1339,10 @@ export default function Templates({
                   </div>
                 </div>
               </div>
+              </div>
 
-              <div className="flex justify-between mt-4" style={{ borderTop: '1px solid var(--border)', paddingTop: '1rem' }}>
-                <button type="button" onClick={() => setShowEditor(false)} className="btn btn-secondary" style={{ borderRadius: '3px' }}>
+              <div className="rd-modal-footer">
+                <button type="button" onClick={() => setShowEditor(false)} className="btn btn-secondary">
                   {editingTemplate?.is_starter ? 'Close' : 'Cancel'}
                 </button>
                 {editingTemplate?.is_starter ? (
@@ -1348,15 +1350,14 @@ export default function Templates({
                     type="button" 
                     className="btn btn-primary"
                     onClick={() => { handleDuplicate(editingTemplate); setShowEditor(false); }}
-                    style={{ borderRadius: '3px', display: 'flex', alignItems: 'center', gap: '6px' }}
                   >
                     <Copy size={16} />
-                    Duplicate Template
+                    Duplicate template
                   </button>
                 ) : (
-                  <button type="submit" className="btn btn-primary" style={{ borderRadius: '3px', display: 'flex', alignItems: 'center', gap: '6px' }}>
+                  <button type="submit" className="btn btn-primary">
                     <Check size={16} />
-                    Save Template
+                    Save template
                   </button>
                 )}
               </div>

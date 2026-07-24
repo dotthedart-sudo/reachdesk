@@ -1,15 +1,80 @@
-import React, { useState } from 'react';
+import React, { useRef, useState } from 'react';
+import { Upload, X } from 'lucide-react';
 import { supabase } from '../lib/supabase';
 import CurrencySelector from './CurrencySelector';
 
+const USE_CASES = [
+  { id: 'leads', label: 'Lead outreach', desc: 'Finding & pitching clients' },
+  { id: 'clients', label: 'Clients & invoicing', desc: 'Manage projects and payments' },
+  { id: 'both', label: 'Both', desc: 'Full pipeline & revenue tracking' },
+];
+
+/**
+ * Post-auth workspace setup (Linear-style): photo, name, company — then optional prefs.
+ */
 export default function SetupModal({ profile, onRefreshProfile, onSaveSettings, navigate }) {
+  const fileRef = useRef(null);
   const [fullName, setFullName] = useState(profile?.full_name || '');
-  const [brandName, setBrandName] = useState(localStorage.getItem('reachdesk_brand_name') || 'ReachDesk');
+  const [brandName, setBrandName] = useState(
+    localStorage.getItem('reachdesk_brand_name') ||
+    (profile?.full_name ? `${profile.full_name.trim().split(' ')[0]}'s workspace` : '')
+  );
   const [defaultCurrency, setDefaultCurrency] = useState(profile?.default_currency || 'PKR');
   const [revenueTarget, setRevenueTarget] = useState(profile?.monthly_revenue_target || '');
-  const [useCase, setUseCase] = useState('both'); // 'leads', 'clients', 'both'
+  const [useCase, setUseCase] = useState('both');
+  const [avatarFile, setAvatarFile] = useState(null);
+  const [avatarPreview, setAvatarPreview] = useState(profile?.avatar_url || '');
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [error, setError] = useState('');
+
+  const handleAvatarChange = (e) => {
+    setError('');
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    const allowed = ['image/jpeg', 'image/jpg', 'image/png', 'image/webp'];
+    if (!allowed.includes(file.type) && !/\.(jpe?g|png|webp)$/i.test(file.name)) {
+      setError('Use a JPG, PNG, or WebP image.');
+      e.target.value = '';
+      return;
+    }
+    if (file.size > 2 * 1024 * 1024) {
+      setError('Image must be under 2MB.');
+      e.target.value = '';
+      return;
+    }
+
+    setAvatarFile(file);
+    setAvatarPreview(URL.createObjectURL(file));
+  };
+
+  const clearAvatar = () => {
+    setAvatarFile(null);
+    setAvatarPreview(profile?.avatar_url || '');
+    if (fileRef.current) fileRef.current.value = '';
+  };
+
+  const uploadAvatarIfNeeded = async () => {
+    if (!avatarFile || !profile?.id) return profile?.avatar_url || null;
+
+    const ext = avatarFile.name.split('.').pop() || 'jpg';
+    const fileName = `${profile.id}-${Date.now()}.${ext}`;
+    const { error: uploadErr } = await supabase.storage
+      .from('avatars')
+      .upload(fileName, avatarFile, { cacheControl: '3600', upsert: true });
+
+    if (uploadErr) {
+      console.error('Avatar upload failed:', uploadErr);
+      throw new Error('Could not upload profile photo.');
+    }
+
+    const { data: urlData } = supabase.storage.from('avatars').getPublicUrl(fileName);
+    const avatarUrl = urlData?.publicUrl || null;
+    if (avatarUrl) {
+      await supabase.auth.updateUser({ data: { avatar_url: avatarUrl } });
+    }
+    return avatarUrl;
+  };
 
   const handleSubmit = async (e) => {
     e.preventDefault();
@@ -17,20 +82,23 @@ export default function SetupModal({ profile, onRefreshProfile, onSaveSettings, 
     setError('');
 
     try {
-      // 1. Update user profile in database
+      const avatarUrl = await uploadAvatarIfNeeded();
+
+      const updates = {
+        full_name: fullName.trim(),
+        default_currency: defaultCurrency,
+        monthly_revenue_target: revenueTarget ? Number(revenueTarget) : null,
+        has_completed_setup: true,
+      };
+      if (avatarUrl) updates.avatar_url = avatarUrl;
+
       const { error: updateErr } = await supabase
         .from('user_profiles')
-        .update({
-          full_name: fullName.trim(),
-          default_currency: defaultCurrency,
-          monthly_revenue_target: revenueTarget ? Number(revenueTarget) : null,
-          has_completed_setup: true
-        })
+        .update(updates)
         .eq('id', profile.id);
 
       if (updateErr) throw updateErr;
 
-      // 2. Save settings to localStorage and update context
       onSaveSettings(
         brandName.trim() || 'ReachDesk',
         defaultCurrency,
@@ -39,19 +107,11 @@ export default function SetupModal({ profile, onRefreshProfile, onSaveSettings, 
         localStorage.getItem('reachdesk_bank_iban') || ''
       );
 
-      // 3. Refresh user profile in app context
-      if (onRefreshProfile) {
-        await onRefreshProfile();
-      }
+      if (onRefreshProfile) await onRefreshProfile();
 
-      // 4. Navigate to correct view based on useCase
-      if (useCase === 'leads') {
-        navigate('/leads');
-      } else if (useCase === 'clients') {
-        navigate('/invoices');
-      } else {
-        navigate('/dashboard');
-      }
+      if (useCase === 'leads') navigate('/leads');
+      else if (useCase === 'clients') navigate('/invoices');
+      else navigate('/dashboard');
     } catch (err) {
       console.error('Error during setup wizard submission:', err);
       setError(err.message || 'Failed to save setup. Please try again.');
@@ -69,10 +129,7 @@ export default function SetupModal({ profile, onRefreshProfile, onSaveSettings, 
         .eq('id', profile.id);
 
       if (updateErr) throw updateErr;
-
-      if (onRefreshProfile) {
-        await onRefreshProfile();
-      }
+      if (onRefreshProfile) await onRefreshProfile();
       navigate('/dashboard');
     } catch (err) {
       console.error('Error skipping setup wizard:', err);
@@ -83,233 +140,162 @@ export default function SetupModal({ profile, onRefreshProfile, onSaveSettings, 
   };
 
   return (
-    <div style={{
-      position: 'fixed',
-      top: 0,
-      left: 0,
-      right: 0,
-      bottom: 0,
-      backgroundColor: 'rgba(13, 17, 23, 0.85)',
-      backdropFilter: 'blur(8px)',
-      display: 'flex',
-      alignItems: 'center',
-      justifyContent: 'center',
-      zIndex: 999999,
-      padding: '1.5rem'
-    }}>
-      <div style={{
-        backgroundColor: 'var(--bg-card, #161B22)',
-        border: '1px solid var(--border, #30363D)',
-        borderRadius: '12px',
-        width: '100%',
-        maxWidth: '520px',
-        padding: '2.5rem',
-        boxShadow: '0 10px 40px rgba(0, 0, 0, 0.5)',
-        color: 'var(--text-primary, #F0F6FC)',
-        fontFamily: 'var(--font-body, system-ui, -apple-system, sans-serif)',
-        maxHeight: '90vh',
-        overflowY: 'auto'
-      }}>
-        <div style={{ textAlign: 'center', marginBottom: '2rem' }}>
-          <span style={{
-            fontFamily: 'Mattone, sans-serif',
-            textTransform: 'uppercase',
-            letterSpacing: '0.1em',
-            fontSize: '0.85rem',
-            color: 'var(--accent-blue, #5B8FB9)',
-            display: 'block',
-            marginBottom: '0.5rem'
-          }}>
-            Welcome to ReachDesk
-          </span>
-          <h2 style={{
-            margin: '0 0 0.5rem 0',
-            fontSize: '1.75rem',
-            fontWeight: 700,
-            color: 'var(--text-primary, #FFFFFF)',
-            fontFamily: 'var(--font-heading, Mattone, sans-serif)'
-          }}>
-            Let's Set Up Your Workspace
-          </h2>
-          <p style={{
-            margin: 0,
-            fontSize: '0.9rem',
-            color: 'var(--text-secondary, #8B949E)'
-          }}>
-            Configure your basic settings to start tracking leads and payments.
-          </p>
+    <div className="modal-backdrop rd-setup-backdrop">
+      <div className="modal-content rd-modal">
+        <div className="rd-modal-header rd-modal-header-center">
+          <div>
+            <p className="rd-modal-eyebrow">Welcome to ReachDesk</p>
+            <h3>Create your workspace</h3>
+            <p className="rd-modal-sub">Add a photo, your name, and company — takes a minute.</p>
+          </div>
         </div>
 
-        {error && (
-          <div style={{
-            backgroundColor: 'rgba(248, 81, 73, 0.15)',
-            border: '1px solid rgba(248, 81, 73, 0.4)',
-            color: '#FF7B72',
-            padding: '0.75rem 1rem',
-            borderRadius: '6px',
-            fontSize: '0.85rem',
-            marginBottom: '1.5rem'
-          }}>
-            {error}
-          </div>
-        )}
+        <form onSubmit={handleSubmit} className="rd-modal-form">
+          <div className="rd-modal-body">
+            {error && (
+              <div className="auth-error-banner" role="alert" style={{ marginBottom: 'var(--space-4)' }}>
+                <span>{error}</span>
+              </div>
+            )}
 
-        <form onSubmit={handleSubmit} style={{ display: 'flex', flexDirection: 'column', gap: '1.25rem' }}>
-          <div style={{ display: 'flex', flexDirection: 'column', gap: '0.4rem' }}>
-            <label style={{ fontSize: '0.85rem', fontWeight: 600, color: 'var(--text-secondary, #C9D1D9)' }}>
-              Full Name
-            </label>
-            <input
-              type="text"
-              required
-              value={fullName}
-              onChange={(e) => setFullName(e.target.value)}
-              placeholder="e.g. John Doe"
-              style={{
-                backgroundColor: 'var(--bg-primary, #0D1117)',
-                border: '1px solid var(--border, #30363D)',
-                borderRadius: '6px',
-                padding: '0.65rem 0.85rem',
-                color: '#fff',
-                fontSize: '0.9rem',
-                outline: 'none'
-              }}
-            />
-          </div>
-
-          <div style={{ display: 'flex', flexDirection: 'column', gap: '0.4rem' }}>
-            <label style={{ fontSize: '0.85rem', fontWeight: 600, color: 'var(--text-secondary, #C9D1D9)' }}>
-              Business Name
-            </label>
-            <input
-              type="text"
-              required
-              value={brandName}
-              onChange={(e) => setBrandName(e.target.value)}
-              placeholder="e.g. ReachDesk CRM"
-              style={{
-                backgroundColor: 'var(--bg-primary, #0D1117)',
-                border: '1px solid var(--border, #30363D)',
-                borderRadius: '6px',
-                padding: '0.65rem 0.85rem',
-                color: '#fff',
-                fontSize: '0.9rem',
-                outline: 'none'
-              }}
-            />
-          </div>
-
-          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1rem' }}>
-            <div style={{ display: 'flex', flexDirection: 'column', gap: '0.4rem' }}>
-              <label style={{ fontSize: '0.85rem', fontWeight: 600, color: 'var(--text-secondary, #C9D1D9)' }}>
-                Default Currency
-              </label>
-              <CurrencySelector
-                value={defaultCurrency}
-                onChange={setDefaultCurrency}
-              />
-            </div>
-
-            <div style={{ display: 'flex', flexDirection: 'column', gap: '0.4rem' }}>
-              <label style={{ fontSize: '0.85rem', fontWeight: 600, color: 'var(--text-secondary, #C9D1D9)' }}>
-                Monthly Target Revenue
-              </label>
-              <input
-                type="number"
-                min="0"
-                value={revenueTarget}
-                onChange={(e) => setRevenueTarget(e.target.value)}
-                placeholder="e.g. 5000"
-                style={{
-                  backgroundColor: 'var(--bg-primary, #0D1117)',
-                  border: '1px solid var(--border, #30363D)',
-                  borderRadius: '6px',
-                  padding: '0.65rem 0.85rem',
-                  color: '#fff',
-                  fontSize: '0.9rem',
-                  outline: 'none'
-                }}
-              />
-            </div>
-          </div>
-
-          <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem', marginTop: '0.5rem' }}>
-            <label style={{ fontSize: '0.85rem', fontWeight: 600, color: 'var(--text-secondary, #C9D1D9)' }}>
-              What do you want to use ReachDesk for?
-            </label>
-            <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
-              {[
-                { id: 'leads', label: 'Lead outreach (finding & pitching clients)' },
-                { id: 'clients', label: 'Client management & invoicing' },
-                { id: 'both', label: 'Both (full pipeline & revenue tracking)' }
-              ].map((opt) => (
-                <label
-                  key={opt.id}
-                  style={{
-                    display: 'flex',
-                    alignItems: 'center',
-                    gap: '0.75rem',
-                    padding: '0.75rem 1rem',
-                    backgroundColor: useCase === opt.id ? 'rgba(59, 130, 246, 0.08)' : 'var(--bg-primary, #0D1117)',
-                    border: useCase === opt.id ? '1px solid var(--accent-blue, #5B8FB9)' : '1px solid var(--border, #30363D)',
-                    borderRadius: '8px',
-                    cursor: 'pointer',
-                    fontSize: '0.85rem',
-                    transition: 'all 0.15s ease'
-                  }}
-                >
+            <div className="rd-form">
+              <div className="rd-form-group rd-setup-avatar">
+                <span className="form-label">Profile photo</span>
+                <div className="rd-setup-avatar-row">
+                  <button
+                    type="button"
+                    className="rd-setup-avatar-btn"
+                    onClick={() => !isSubmitting && fileRef.current?.click()}
+                    disabled={isSubmitting}
+                  >
+                    {avatarPreview ? (
+                      <img src={avatarPreview} alt="" />
+                    ) : (
+                      <Upload size={20} />
+                    )}
+                  </button>
+                  <div className="rd-setup-avatar-actions">
+                    <button
+                      type="button"
+                      className="btn btn-secondary btn-sm"
+                      onClick={() => fileRef.current?.click()}
+                      disabled={isSubmitting}
+                    >
+                      Upload photo
+                    </button>
+                    {(avatarFile || (avatarPreview && avatarPreview !== profile?.avatar_url)) && (
+                      <button
+                        type="button"
+                        className="auth-text-btn"
+                        onClick={clearAvatar}
+                        disabled={isSubmitting}
+                      >
+                        <X size={12} /> Remove
+                      </button>
+                    )}
+                    <span className="rd-setup-avatar-hint">Optional · JPG/PNG · max 2MB</span>
+                  </div>
                   <input
-                    type="radio"
-                    name="useCase"
-                    value={opt.id}
-                    checked={useCase === opt.id}
-                    onChange={() => setUseCase(opt.id)}
-                    style={{ cursor: 'pointer' }}
+                    ref={fileRef}
+                    type="file"
+                    accept="image/jpeg,image/png,image/webp"
+                    onChange={handleAvatarChange}
+                    hidden
+                    disabled={isSubmitting}
                   />
-                  <span>{opt.label}</span>
-                </label>
-              ))}
+                </div>
+              </div>
+
+              <div className="rd-form-group">
+                <label className="form-label" htmlFor="setup-full-name">Your name</label>
+                <input
+                  id="setup-full-name"
+                  type="text"
+                  required
+                  autoFocus
+                  value={fullName}
+                  onChange={(e) => setFullName(e.target.value)}
+                  placeholder="e.g. John Doe"
+                  className="form-input"
+                  disabled={isSubmitting}
+                />
+              </div>
+
+              <div className="rd-form-group">
+                <label className="form-label" htmlFor="setup-brand">Company / workspace name</label>
+                <input
+                  id="setup-brand"
+                  type="text"
+                  required
+                  value={brandName}
+                  onChange={(e) => setBrandName(e.target.value)}
+                  placeholder="e.g. Acme Studio"
+                  className="form-input"
+                  disabled={isSubmitting}
+                />
+              </div>
+
+              <div className="rd-form-row">
+                <div className="rd-form-group">
+                  <label className="form-label">Default currency</label>
+                  <CurrencySelector value={defaultCurrency} onChange={setDefaultCurrency} />
+                </div>
+                <div className="rd-form-group">
+                  <label className="form-label" htmlFor="setup-target">Monthly revenue target</label>
+                  <input
+                    id="setup-target"
+                    type="number"
+                    min="0"
+                    value={revenueTarget}
+                    onChange={(e) => setRevenueTarget(e.target.value)}
+                    placeholder="Optional"
+                    className="form-input"
+                    disabled={isSubmitting}
+                  />
+                </div>
+              </div>
+
+              <div className="rd-form-group">
+                <span className="form-label">What will you use ReachDesk for?</span>
+                <div className="rd-choice-list" role="radiogroup">
+                  {USE_CASES.map((opt) => (
+                    <label
+                      key={opt.id}
+                      className={`rd-choice ${useCase === opt.id ? 'is-selected' : ''}`}
+                    >
+                      <input
+                        type="radio"
+                        name="useCase"
+                        value={opt.id}
+                        checked={useCase === opt.id}
+                        onChange={() => setUseCase(opt.id)}
+                        disabled={isSubmitting}
+                      />
+                      <span className="rd-choice-text">
+                        <strong>{opt.label}</strong>
+                        <span>{opt.desc}</span>
+                      </span>
+                    </label>
+                  ))}
+                </div>
+              </div>
             </div>
           </div>
 
-          <button
-            type="submit"
-            disabled={isSubmitting}
-            style={{
-              marginTop: '1rem',
-              backgroundColor: 'var(--accent-blue, #5B8FB9)',
-              color: '#FFFFFF',
-              border: 'none',
-              borderRadius: '6px',
-              padding: '0.75rem',
-              fontWeight: 600,
-              fontSize: '0.9rem',
-              cursor: isSubmitting ? 'not-allowed' : 'pointer',
-              opacity: isSubmitting ? 0.7 : 1,
-              transition: 'opacity 0.15s ease'
-            }}
-          >
-            {isSubmitting ? 'Setting up...' : 'Get Started'}
-          </button>
+          <div className="rd-modal-footer rd-modal-footer-stack">
+            <button type="submit" className="btn btn-primary w-full" disabled={isSubmitting}>
+              {isSubmitting ? 'Setting up…' : 'Continue'}
+            </button>
+            <button
+              type="button"
+              className="auth-text-btn"
+              onClick={handleSkip}
+              disabled={isSubmitting}
+            >
+              Skip for now
+            </button>
+          </div>
         </form>
-
-        <div style={{ textAlign: 'center', marginTop: '1.25rem' }}>
-          <button
-            type="button"
-            onClick={handleSkip}
-            disabled={isSubmitting}
-            style={{
-              background: 'none',
-              border: 'none',
-              color: 'var(--text-secondary, #8B949E)',
-              fontSize: '0.8rem',
-              cursor: 'pointer',
-              textDecoration: 'underline'
-            }}
-          >
-            Skip setup wizard
-          </button>
-        </div>
       </div>
     </div>
   );

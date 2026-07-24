@@ -637,8 +637,8 @@ export default function LeadDrawer({
         
         {/* Contact Info Tab */}
         {activeTab === 'contact' && (
-          <div className="flex-col gap-3">
-            <div style={{ display: 'flex', gap: '8px', margin: '8px 0 16px 0' }}>
+          <div className="rd-form rd-drawer-form">
+            <div style={{ display: 'flex', gap: '8px', margin: '0 0 var(--space-2)' }}>
               {(() => {
                 const match = statuses.find(s => s.label.toLowerCase() === (lead.status || '').toLowerCase());
                 const bg = match ? `${match.color}22` : '#374151';
@@ -663,9 +663,12 @@ export default function LeadDrawer({
                 onUpdate={onRefresh}
               />
             </div>
+
+            <section className="rd-form-section">
+              <h4 className="rd-form-section-title">Contact</h4>
             
             {/* Single Name Field */}
-            <div className="form-group" data-ph-mask>
+            <div className="rd-form-group" data-ph-mask>
               <label className="form-label">Name</label>
               <input
                 type="text"
@@ -682,7 +685,7 @@ export default function LeadDrawer({
               const val = formData[col.column_key] || '';
               
               return (
-                <div key={col.id} className="form-group" data-ph-mask>
+                <div key={col.id} className="rd-form-group" data-ph-mask>
                   <label className="form-label">{col.column_label}</label>
                   {col.column_key === 'priority' || col.column_type === 'priority' ? (
                     <PriorityDropdown
@@ -717,12 +720,12 @@ export default function LeadDrawer({
                 </div>
               );
             })}
+            </section>
 
             {/* Links & Contact Section */}
-            <div style={{ borderTop: '0.5px solid var(--border)', marginTop: '0.75rem', paddingTop: '1rem' }}>
-              <span style={{ fontSize: '0.65rem', letterSpacing: '0.1em', textTransform: 'uppercase', color: 'var(--text-muted)', fontWeight: 600, fontFamily: 'var(--font-body)' }}>Links & Contact</span>
-            </div>
-            <div className="form-group" data-ph-mask>
+            <section className="rd-form-section">
+              <h4 className="rd-form-section-title">Links & contact</h4>
+            <div className="rd-form-group" data-ph-mask>
               <label className="form-label">LinkedIn</label>
               <input
                 type="url"
@@ -733,7 +736,7 @@ export default function LeadDrawer({
                 className="form-input"
               />
             </div>
-            <div className="form-group" data-ph-mask>
+            <div className="rd-form-group" data-ph-mask>
               <label className="form-label">Instagram</label>
               <input
                 type="url"
@@ -744,7 +747,7 @@ export default function LeadDrawer({
                 className="form-input"
               />
             </div>
-            <div className="form-group" data-ph-mask>
+            <div className="rd-form-group" data-ph-mask>
               <label className="form-label">Twitter / X</label>
               <input
                 type="url"
@@ -755,7 +758,7 @@ export default function LeadDrawer({
                 className="form-input"
               />
             </div>
-            <div className="form-group" data-ph-mask>
+            <div className="rd-form-group" data-ph-mask>
               <label className="form-label">Website</label>
               <input
                 type="url"
@@ -766,7 +769,7 @@ export default function LeadDrawer({
                 className="form-input"
               />
             </div>
-            <div className="form-group" data-ph-mask>
+            <div className="rd-form-group" data-ph-mask>
               <label className="form-label">Phone</label>
               <input
                 type="text"
@@ -777,7 +780,7 @@ export default function LeadDrawer({
               />
             </div>
 
-            <div className="form-group">
+            <div className="rd-form-group">
               <label className="form-label" style={{ display: 'flex', alignItems: 'center', gap: '0.35rem' }}>
                 Project
                 {!(!['trial', 'starter'].includes((currentUser?.plan || 'trial').toLowerCase())) && (
@@ -794,6 +797,7 @@ export default function LeadDrawer({
                 className="form-input"
               />
             </div>
+            </section>
 
             {/* Custom non-default fields if any */}
             {contactCols.filter(c => !c.is_default).map(col => {

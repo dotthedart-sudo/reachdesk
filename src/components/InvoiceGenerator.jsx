@@ -348,20 +348,24 @@ export default function InvoiceGenerator({
 
       {showCreateForm ? (
         /* Invoice Creator Form */
-        <div className="card flex-col gap-4" style={{ textAlign: 'left', maxWidth: '800px', margin: '0 auto' }}>
-          <h3 style={{ fontSize: '1.25rem', borderBottom: '1px solid var(--border-color)', paddingBottom: '0.75rem', color: 'var(--primary-purple)' }}>
-            {editingInvoice
-              ? editingInvoice.status?.toLowerCase() === 'draft'
-                ? <span style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}><Edit2 size={18} /> Edit Draft</span>
-                : <span style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}><Edit2 size={18} /> Edit Invoice</span>
-              : 'New Client Invoice'
-            }
-          </h3>
-          
-          <form onSubmit={handleSubmit} className="flex-col gap-4">
-            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1.5rem' }}>
-              <div className="form-group" style={{ position: 'relative' }} ref={dropdownRef}>
-                <label className="form-label">Client Name *</label>
+        <div className="card rd-page-form" style={{ maxWidth: '800px', margin: '0 auto', textAlign: 'left' }}>
+          <div className="rd-page-form-header">
+            <h3>
+              {editingInvoice
+                ? (editingInvoice.status?.toLowerCase() === 'draft' ? 'Edit draft' : 'Edit invoice')
+                : 'New invoice'}
+            </h3>
+            <p className="rd-modal-sub">
+              {editingInvoice ? 'Update details and line items.' : 'Fill in the client, items, and payment details.'}
+            </p>
+          </div>
+
+          <form onSubmit={handleSubmit} className="rd-form">
+            <section className="rd-form-section">
+              <h4 className="rd-form-section-title">Client</h4>
+              <div className="rd-form-row">
+              <div className="rd-form-group" style={{ position: 'relative' }} ref={dropdownRef}>
+                <label className="form-label">Client name *</label>
                 <input 
                   type="text" 
                   required 
@@ -375,83 +379,35 @@ export default function InvoiceGenerator({
                   onFocus={() => setShowDropdown(true)}
                 />
                 {showDropdown && filteredLeads.length > 0 && (
-                  <div style={{
-                    position: 'absolute',
-                    top: '100%',
-                    left: 0,
-                    right: 0,
-                    backgroundColor: 'var(--bg-secondary, #1f2937)',
-                    border: '1px solid var(--border-color, #374151)',
-                    borderRadius: '6px',
-                    maxHeight: '200px',
-                    overflowY: 'auto',
-                    zIndex: 1000,
-                    marginTop: '4px',
-                    boxShadow: '0 4px 12px rgba(0, 0, 0, 0.3)'
-                  }}>
+                  <div className="rd-autocomplete">
                     {filteredLeads.map(lead => {
                       const fullName = `${lead.first_name || ''} ${lead.last_name || ''}`.trim() || 'Unnamed Lead';
                       const isClient = isClientLead(lead);
                       return (
-                        <div 
+                        <button
+                          type="button"
                           key={lead.id}
                           onClick={() => handleSelectLead(lead)}
-                          style={{
-                            padding: '8px 12px',
-                            cursor: 'pointer',
-                            borderBottom: '1px solid var(--border-color, #374151)',
-                            display: 'flex',
-                            justifyContent: 'space-between',
-                            alignItems: 'center',
-                            fontSize: '0.9rem'
-                          }}
-                          className="dropdown-item-hover"
+                          className="rd-autocomplete-item"
                         >
-                          <div>
-                            <div style={{ fontWeight: 500, color: 'var(--text-primary, #f3f4f6)' }}>{fullName}</div>
-                            {lead.email && <div style={{ fontSize: '0.75rem', color: 'var(--text-muted, #9ca3af)' }}>{lead.email}</div>}
-                          </div>
-                          {isClient && (
-                            <span style={{
-                              backgroundColor: 'rgba(147, 51, 234, 0.15)',
-                              color: '#a855f7',
-                              padding: '2px 6px',
-                              borderRadius: '4px',
-                              fontSize: '0.7rem',
-                              fontWeight: 600,
-                              border: '1px solid rgba(147, 51, 234, 0.3)'
-                            }}>
-                              Client
-                            </span>
-                          )}
-                        </div>
+                          <span>
+                            <strong>{fullName}</strong>
+                            {lead.email && <span className="rd-autocomplete-meta">{lead.email}</span>}
+                          </span>
+                          {isClient && <span className="rd-autocomplete-badge">Client</span>}
+                        </button>
                       );
                     })}
                   </div>
                 )}
                 {showDropdown && filteredLeads.length === 0 && clientName && (
-                  <div style={{
-                    position: 'absolute',
-                    top: '100%',
-                    left: 0,
-                    right: 0,
-                    backgroundColor: 'var(--bg-secondary, #1f2937)',
-                    border: '1px solid var(--border-color, #374151)',
-                    borderRadius: '6px',
-                    padding: '12px',
-                    zIndex: 1000,
-                    marginTop: '4px',
-                    fontSize: '0.85rem',
-                    color: 'var(--text-muted, #9ca3af)',
-                    textAlign: 'center',
-                    boxShadow: '0 4px 12px rgba(0, 0, 0, 0.3)'
-                  }}>
+                  <div className="rd-autocomplete rd-autocomplete-empty">
                     No matching leads found
                   </div>
                 )}
               </div>
-              <div className="form-group">
-                <label className="form-label">Client Email</label>
+              <div className="rd-form-group">
+                <label className="form-label">Client email</label>
                 <input 
                   type="email" 
                   className="form-input" 
@@ -461,10 +417,13 @@ export default function InvoiceGenerator({
                 />
               </div>
             </div>
+            </section>
 
-            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: '1rem' }}>
-              <div className="form-group">
-                <label className="form-label">Invoice Number *</label>
+            <section className="rd-form-section">
+              <h4 className="rd-form-section-title">Details</h4>
+              <div className="rd-form-row rd-form-row-3">
+              <div className="rd-form-group">
+                <label className="form-label">Invoice number *</label>
                 <input 
                   type="text" 
                   required 
@@ -473,8 +432,8 @@ export default function InvoiceGenerator({
                   onChange={(e) => setInvoiceNumber(e.target.value)} 
                 />
               </div>
-              <div className="form-group">
-                <label className="form-label">Issue Date *</label>
+              <div className="rd-form-group">
+                <label className="form-label">Issue date *</label>
                 <input 
                   type="date" 
                   required 
@@ -483,8 +442,8 @@ export default function InvoiceGenerator({
                   onChange={(e) => setIssueDate(e.target.value)} 
                 />
               </div>
-              <div className="form-group">
-                <label className="form-label">Due Date</label>
+              <div className="rd-form-group">
+                <label className="form-label">Due date</label>
                 <input 
                   type="date" 
                   className="form-input" 
@@ -494,8 +453,8 @@ export default function InvoiceGenerator({
               </div>
             </div>
 
-            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1rem', maxWidth: '320px' }}>
-              <div className="form-group">
+              <div className="rd-form-row" style={{ maxWidth: '320px' }}>
+              <div className="rd-form-group">
                 <label className="form-label">Currency</label>
                 <CurrencySelector
                   value={currency}
@@ -503,7 +462,7 @@ export default function InvoiceGenerator({
                   placeholder="Select currency..."
                 />
               </div>
-              <div className="form-group">
+              <div className="rd-form-group">
                 <label className="form-label">Tax %</label>
                 <input 
                   type="number" 
@@ -516,35 +475,36 @@ export default function InvoiceGenerator({
                 />
               </div>
             </div>
+            </section>
 
             {/* Line Items Table */}
-            <div>
-              <div className="flex justify-between align-center mb-2" style={{ borderBottom: '1px solid var(--border-color)', paddingBottom: '0.5rem' }}>
-                <span className="form-label">Service Items</span>
+            <section className="rd-form-section">
+              <div className="rd-section-head">
+                <h4 className="rd-form-section-title">Line items</h4>
                 <button 
                   type="button" 
                   className="btn btn-secondary btn-sm" 
                   onClick={handleAddItem}
                 >
-                  <Plus size={14} /> Add Item
+                  <Plus size={14} /> Add item
                 </button>
               </div>
 
               {items.map((item, index) => (
-                <div key={index} style={{ display: 'flex', gap: '1rem', alignItems: 'flex-end', marginBottom: '0.75rem' }}>
-                  <div className="form-group" style={{ flexGrow: 1, marginBottom: 0 }}>
-                    <label className="form-label" style={{ fontSize: '0.75rem' }}>Description</label>
+                <div key={index} className="rd-line-item">
+                  <div className="rd-form-group rd-line-item-desc">
+                    <label className="form-label">Description</label>
                     <input 
                       type="text" 
                       required
-                      placeholder="e.g. Website UI Design Development" 
+                      placeholder="e.g. Website UI design" 
                       className="form-input"
                       value={item.description}
                       onChange={(e) => handleItemChange(index, 'description', e.target.value)}
                     />
                   </div>
-                  <div className="form-group" style={{ width: '80px', marginBottom: 0 }}>
-                    <label className="form-label" style={{ fontSize: '0.75rem' }}>Qty</label>
+                  <div className="rd-form-group">
+                    <label className="form-label">Qty</label>
                     <input 
                       type="number" 
                       min="1" 
@@ -554,8 +514,8 @@ export default function InvoiceGenerator({
                       onChange={(e) => handleItemChange(index, 'quantity', e.target.value)}
                     />
                   </div>
-                  <div className="form-group" style={{ width: '120px', marginBottom: 0 }}>
-                    <label className="form-label" style={{ fontSize: '0.75rem' }}>Rate</label>
+                  <div className="rd-form-group">
+                    <label className="form-label">Rate</label>
                     <input 
                       type="number" 
                       min="0" 
@@ -566,59 +526,54 @@ export default function InvoiceGenerator({
                       onChange={(e) => handleItemChange(index, 'rate', e.target.value)}
                     />
                   </div>
-                  <div style={{ paddingBottom: '0.5rem', fontWeight: 600, width: '100px', textAlign: 'right', fontSize: '0.9rem' }}>
+                  <div className="rd-line-item-total">
                     {(item.quantity * item.rate).toLocaleString()} {currency}
                   </div>
                   <button 
                     type="button" 
                     className="btn btn-danger btn-sm"
-                    style={{ marginBottom: '0.2rem' }}
                     onClick={() => handleRemoveItem(index)}
                     disabled={items.length === 1}
+                    aria-label="Remove item"
                   >
                     <Trash2 size={14} />
                   </button>
                 </div>
               ))}
-            </div>
+            </section>
 
             {/* Total display */}
-            <div className="flex-col gap-2" style={{ padding: '1rem', backgroundColor: 'var(--bg-tertiary)', borderRadius: '8px', border: '1px solid var(--border-color)' }}>
-              <div className="flex justify-between align-center">
-                <span className="color-muted" style={{ fontSize: '0.9rem' }}>Subtotal</span>
-                <span style={{ fontSize: '0.95rem', fontWeight: 600 }}>
-                  {calculateSubtotal().toLocaleString()} {currency}
-                </span>
+            <div className="rd-totals">
+              <div className="rd-totals-row">
+                <span>Subtotal</span>
+                <span>{calculateSubtotal().toLocaleString()} {currency}</span>
               </div>
               {taxPercent > 0 && (
-                <div className="flex justify-between align-center">
-                  <span className="color-muted" style={{ fontSize: '0.9rem' }}>Tax ({taxPercent}%)</span>
-                  <span style={{ fontSize: '0.95rem', fontWeight: 600 }}>
-                    {((calculateSubtotal() * taxPercent) / 100).toLocaleString()} {currency}
-                  </span>
+                <div className="rd-totals-row">
+                  <span>Tax ({taxPercent}%)</span>
+                  <span>{((calculateSubtotal() * taxPercent) / 100).toLocaleString()} {currency}</span>
                 </div>
               )}
-              <div className="flex justify-between align-center" style={{ borderTop: '1px solid var(--border-color)', paddingTop: '0.5rem', marginTop: '0.25rem' }}>
-                <span style={{ fontWeight: 600 }}>Total Due</span>
-                <span style={{ fontSize: '1.25rem', fontWeight: 700, color: 'var(--primary-magenta)' }}>
-                  {calculateTotal().toLocaleString()} {currency}
-                </span>
+              <div className="rd-totals-row rd-totals-due">
+                <span>Total due</span>
+                <span>{calculateTotal().toLocaleString()} {currency}</span>
               </div>
             </div>
 
-            {/* Payment Details (Manual Bank Transfer Details) */}
-            <div className="form-group">
-              <label className="form-label">Payment Instructions / Bank Transfer Details</label>
+            <section className="rd-form-section">
+              <h4 className="rd-form-section-title">Payment</h4>
+            <div className="rd-form-group">
+              <label className="form-label">Payment instructions</label>
               <textarea 
                 className="form-textarea"
-                placeholder="e.g. Standard Chartered Bank&#10;Account Name: Freelance Pro&#10;IBAN: PK12SCBL0000000000000000"
+                placeholder="e.g. Bank name, account, IBAN…"
                 value={paymentDetails}
                 onChange={(e) => setPaymentDetails(e.target.value)}
               />
             </div>
 
-            <div className="form-group">
-              <label className="form-label">Invoice Notes / Terms</label>
+            <div className="rd-form-group">
+              <label className="form-label">Notes / terms</label>
               <input 
                 type="text" 
                 className="form-input"
@@ -627,16 +582,16 @@ export default function InvoiceGenerator({
                 onChange={(e) => setNotes(e.target.value)}
               />
             </div>
+            </section>
 
-            {/* Inline validation error */}
             {editError && (
-              <div style={{ color: 'var(--danger-color, #ef4444)', fontSize: '0.875rem', padding: '0.5rem 0.75rem', background: 'rgba(239,68,68,0.08)', borderRadius: '6px', border: '1px solid rgba(239,68,68,0.25)', display: 'flex', alignItems: 'center', gap: '0.4rem' }}>
-                <AlertCircle size={14} style={{ flexShrink: 0 }} />
+              <div className="auth-error-banner" role="alert">
+                <AlertCircle size={14} />
                 <span>{editError}</span>
               </div>
             )}
 
-            <div className="flex justify-between mt-4" style={{ gap: '0.75rem', flexWrap: 'wrap' }}>
+            <div className="rd-page-form-actions">
               <button 
                 type="button" 
                 onClick={() => { handleResetForm(); setShowCreateForm(false); }} 
@@ -646,10 +601,8 @@ export default function InvoiceGenerator({
                 Cancel
               </button>
 
-              {/* Context-aware submit buttons */}
               {editingInvoice ? (
                 editingInvoice.status?.toLowerCase() === 'draft' ? (
-                  // Draft edit: Save Draft + Publish & Send
                   <div className="flex gap-2" style={{ flexWrap: 'wrap' }}>
                     <button
                       type="submit"
@@ -657,7 +610,7 @@ export default function InvoiceGenerator({
                       disabled={isSaving}
                       onClick={(e) => { handleSubmit(e, false); }}
                     >
-                      {isSaving ? 'Saving…' : 'Save Draft'}
+                      {isSaving ? 'Saving…' : 'Save draft'}
                     </button>
                     <button
                       type="button"
@@ -666,23 +619,21 @@ export default function InvoiceGenerator({
                       onClick={(e) => { e.preventDefault(); handleSubmit(null, true); }}
                     >
                       <Send size={15} />
-                      {isSaving ? 'Publishing…' : 'Publish & Send'}
+                      {isSaving ? 'Publishing…' : 'Publish & send'}
                     </button>
                   </div>
                 ) : (
-                  // Active invoice edit: Save Changes only
                   <button
                     type="submit"
                     className="btn btn-primary"
                     disabled={isSaving}
                   >
-                    {isSaving ? 'Saving…' : 'Save Changes'}
+                    {isSaving ? 'Saving…' : 'Save changes'}
                   </button>
                 )
               ) : (
-                // Create mode
                 <button type="submit" className="btn btn-primary" disabled={isSaving}>
-                  {isSaving ? 'Saving…' : 'Save & Generate Shareable Link'}
+                  {isSaving ? 'Saving…' : 'Save & generate link'}
                 </button>
               )}
             </div>

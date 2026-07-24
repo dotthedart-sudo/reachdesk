@@ -3107,36 +3107,52 @@ export default function CRM({
       {/* 📁 Create Folder Modal */}
       {showFolderModal && (
         <div className="modal-backdrop">
-          <div className="modal-content" style={{ maxWidth: '400px' }}>
-            <div className="modal-header">
-              <h3>Create Custom Lead Folder</h3>
-              <button onClick={() => setShowFolderModal(false)} className="theme-toggle"><X size={18} /></button>
-            </div>
-            <form onSubmit={handleCreateFolder} className="flex-col gap-3">
-              <div className="form-group">
-                <label className="form-label">Folder Name *</label>
-                <input type="text" required value={folderForm.name} onChange={e => setFolderForm({...folderForm, name: e.target.value})} className="form-input" placeholder="e.g. VIP Prospects" />
+          <div className="modal-content rd-modal rd-modal-sm">
+            <div className="rd-modal-header">
+              <div>
+                <h3>Create folder</h3>
+                <p className="rd-modal-sub">Group leads however you work.</p>
               </div>
-              <div className="form-group">
-                <label className="form-label">Folder Color Dot</label>
-                <div style={{ display: 'flex', gap: '0.5rem', flexWrap: 'wrap' }}>
-                  {PRESET_COLORS.map(c => (
-                    <button
-                      key={c}
-                      type="button"
-                      onClick={() => setFolderForm({...folderForm, color: c})}
-                      style={{
-                        width: '20px', height: '20px', borderRadius: '50%',
-                        background: c, border: folderForm.color === c ? '2px solid white' : '1px solid rgba(255,255,255,0.15)',
-                        cursor: 'pointer'
-                      }}
+              <button type="button" onClick={() => setShowFolderModal(false)} className="rd-modal-close" aria-label="Close">
+                <X size={18} />
+              </button>
+            </div>
+            <form onSubmit={handleCreateFolder} className="rd-modal-form">
+              <div className="rd-modal-body">
+                <div className="rd-form">
+                  <div className="rd-form-group">
+                    <label className="form-label" htmlFor="folder-name">Folder name *</label>
+                    <input
+                      id="folder-name"
+                      type="text"
+                      required
+                      autoFocus
+                      value={folderForm.name}
+                      onChange={(e) => setFolderForm({ ...folderForm, name: e.target.value })}
+                      className="form-input"
+                      placeholder="e.g. VIP Prospects"
                     />
-                  ))}
+                  </div>
+                  <div className="rd-form-group">
+                    <span className="form-label">Color</span>
+                    <div className="rd-color-dots">
+                      {PRESET_COLORS.map((c) => (
+                        <button
+                          key={c}
+                          type="button"
+                          className={`rd-color-dot ${folderForm.color === c ? 'is-selected' : ''}`}
+                          onClick={() => setFolderForm({ ...folderForm, color: c })}
+                          style={{ background: c }}
+                          aria-label={`Color ${c}`}
+                        />
+                      ))}
+                    </div>
+                  </div>
                 </div>
               </div>
-              <div className="flex justify-between mt-4">
+              <div className="rd-modal-footer">
                 <button type="button" onClick={() => setShowFolderModal(false)} className="btn btn-secondary">Cancel</button>
-                <button type="submit" className="btn btn-primary">Create Folder</button>
+                <button type="submit" className="btn btn-primary">Create folder</button>
               </div>
             </form>
           </div>
@@ -3146,29 +3162,33 @@ export default function CRM({
       {/* 📥 Import CSV Modal */}
       {showImportModal && (
         <div className="modal-backdrop">
-          <div className="modal-content" style={{ maxWidth: '600px' }}>
-            <div className="modal-header">
-              <h3>Import Leads from CSV</h3>
-              <button onClick={() => setShowImportModal(false)} className="theme-toggle"><X size={18} /></button>
-            </div>
-            <form onSubmit={handleImportCSVSubmit} className="flex-col gap-3">
-              <div className="form-group">
-                <label className="form-label">Paste Raw CSV Text</label>
-                <div style={{ fontSize: '0.75rem', color: 'var(--text-muted)', marginBottom: '0.25rem' }}>
-                  First row must be headers including <strong>Name</strong> (or First Name/Last Name) and <strong>Email</strong>.
-                </div>
-                <textarea
-                  className="form-textarea"
-                  style={{ minHeight: '180px', fontFamily: 'monospace', fontSize: '0.8rem' }}
-                  placeholder={"First Name,Last Name,Email,Company,Role\nAhmed,Khan,ahmed@test.com,Acme Corp,CTO"}
-                  value={importText}
-                  onChange={e => setImportText(e.target.value)}
-                  required
-                />
+          <div className="modal-content rd-modal">
+            <div className="rd-modal-header">
+              <div>
+                <h3>Import CSV</h3>
+                <p className="rd-modal-sub">First row must include Name (or First/Last) and Email.</p>
               </div>
-              <div className="flex justify-between mt-2">
+              <button type="button" onClick={() => setShowImportModal(false)} className="rd-modal-close" aria-label="Close">
+                <X size={18} />
+              </button>
+            </div>
+            <form onSubmit={handleImportCSVSubmit} className="rd-modal-form">
+              <div className="rd-modal-body">
+                <div className="rd-form-group">
+                  <label className="form-label" htmlFor="import-csv">Paste CSV</label>
+                  <textarea
+                    id="import-csv"
+                    className="form-textarea rd-mono-textarea"
+                    placeholder={"First Name,Last Name,Email,Company\nAhmed,Khan,ahmed@test.com,Acme"}
+                    value={importText}
+                    onChange={(e) => setImportText(e.target.value)}
+                    required
+                  />
+                </div>
+              </div>
+              <div className="rd-modal-footer">
                 <button type="button" onClick={() => setShowImportModal(false)} className="btn btn-secondary">Cancel</button>
-                <button type="submit" className="btn btn-primary">Import Leads</button>
+                <button type="submit" className="btn btn-primary">Import leads</button>
               </div>
             </form>
           </div>

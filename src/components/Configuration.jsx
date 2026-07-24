@@ -668,37 +668,38 @@ export default function Configuration({
   return (
     <div className="flex-col gap-4" style={{ textAlign: 'left', maxWidth: '800px' }}>
       <div style={{ marginBottom: '1rem' }}>
-        <h2>Configuration Settings</h2>
+        <h2>Configuration</h2>
         <p className="color-muted" style={{ fontSize: '0.9rem' }}>
-          Manage your business configurations, custom status pipeline, and team workspace.
+          Profile, pipeline, and workspace settings.
         </p>
       </div>
 
       {/* SECTION 0: Profile Settings */}
       <form onSubmit={handleSaveProfile} className="flex-col gap-4" style={{ marginBottom: '1.5rem' }}>
-        <div className="card flex-col gap-3">
-          <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', borderBottom: '1px solid var(--border-color)', paddingBottom: '0.5rem', marginBottom: '0.5rem' }}>
-            <User size={18} style={{ color: 'var(--primary-purple)' }} />
-            <h3 style={{ fontSize: '1.1rem' }}>Profile Settings</h3>
+        <div className="card rd-page-form">
+          <div className="rd-page-form-header">
+            <h3>Profile</h3>
+            <p className="rd-modal-sub">How you appear on invoices and in the app.</p>
           </div>
 
           {profileError && (
-            <div style={{ padding: '0.75rem 1rem', borderRadius: '8px', background: 'rgba(224, 82, 82, 0.1)', border: '1px solid rgba(224, 82, 82, 0.2)', color: 'var(--status-hot)', fontSize: '0.875rem', display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
-              <AlertCircle size={16} style={{ flexShrink: 0 }} />
+            <div className="auth-error-banner" role="alert">
+              <AlertCircle size={16} />
               <span>{profileError}</span>
             </div>
           )}
 
           {profileSuccess && (
-            <div style={{ padding: '0.75rem 1rem', borderRadius: '8px', background: 'rgba(16, 185, 129, 0.1)', border: '1px solid rgba(16, 185, 129, 0.2)', color: '#10b981', fontSize: '0.875rem', display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
-            <Check size={15} style={{ flexShrink: 0 }} />
+            <div className="auth-success-banner" role="status">
+              <Check size={15} />
               <span>{profileSuccess}</span>
             </div>
           )}
 
-          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1.5rem', alignItems: 'center' }}>
-            <div className="form-group">
-              <label className="form-label">Full Name</label>
+          <div className="rd-form">
+          <div className="rd-form-row">
+            <div className="rd-form-group">
+              <label className="form-label">Full name</label>
               <input
                 type="text"
                 className="form-input"
@@ -710,8 +711,8 @@ export default function Configuration({
               />
             </div>
 
-            <div className="form-group">
-              <label className="form-label">Profile Photo</label>
+            <div className="rd-form-group">
+              <label className="form-label">Profile photo</label>
               <div style={{ display: 'flex', alignItems: 'center', gap: '1rem' }}>
                 {profileAvatarPreview ? (
                   <img
@@ -733,9 +734,9 @@ export default function Configuration({
                 <label 
                   htmlFor="avatar-upload" 
                   className="btn btn-secondary btn-sm"
-                  style={{ cursor: 'pointer', display: 'inline-flex', alignItems: 'center', gap: '0.25rem', padding: '0.4rem 0.75rem', fontSize: '0.8rem' }}
+                  style={{ cursor: 'pointer', display: 'inline-flex', alignItems: 'center', gap: '0.25rem' }}
                 >
-                  <Upload size={14} /> Choose Photo
+                  <Upload size={14} /> Choose photo
                 </label>
                 <input
                   id="avatar-upload"
@@ -754,20 +755,19 @@ export default function Configuration({
             </div>
           </div>
 
-          {/* Invoice & Payment Defaults */}
-          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1.5rem', marginTop: '0.5rem' }}>
-            <div className="form-group">
-              <label className="form-label">Default Currency</label>
+          <div className="rd-form-row">
+            <div className="rd-form-group">
+              <label className="form-label">Default currency</label>
               <CurrencySelector
                 value={profileDefaultCurrency}
                 onChange={(val) => setProfileDefaultCurrency(val)}
                 placeholder="Select currency..."
               />
-              <span style={{ fontSize: '0.75rem', color: 'var(--text-muted)', marginTop: '0.25rem', display: 'block' }}>Auto-fills invoices & target metrics</span>
+              <span style={{ fontSize: '0.75rem', color: 'var(--text-muted)', marginTop: '0.25rem', display: 'block' }}>Used on invoices and targets</span>
             </div>
 
-            <div className="form-group">
-              <label className="form-label">Monthly Revenue Target</label>
+            <div className="rd-form-group">
+              <label className="form-label">Monthly revenue target</label>
               <div style={{ position: 'relative', display: 'flex', alignItems: 'center' }}>
                 <span style={{ position: 'absolute', left: '12px', color: 'var(--text-muted)', pointerEvents: 'none', fontSize: '0.9rem' }}>
                   {CURRENCY_SYMBOLS[profileDefaultCurrency] || '$'}
@@ -785,12 +785,12 @@ export default function Configuration({
               <span style={{ fontSize: '0.75rem', color: 'var(--text-muted)', marginTop: '0.25rem', display: 'block' }}>Monthly earnings goal</span>
             </div>
           </div>
+          </div>
 
             {/* Automation & Checkpoint Settings */}
-            <div style={{ marginTop: '1rem', borderTop: '1px solid var(--border-color)', paddingTop: '1.25rem' }}>
-              <h4 style={{ fontSize: '1rem', fontWeight: 600, marginBottom: '1rem', display: 'flex', alignItems: 'center', gap: '0.4rem' }}>
-                <Settings size={18} style={{ color: 'var(--primary-purple)' }} />
-                Automation & Checkpoints
+            <div style={{ marginTop: '1rem', borderTop: '1px solid var(--border)', paddingTop: '1.25rem' }}>
+              <h4 className="rd-form-section-title" style={{ marginBottom: '1rem' }}>
+                Automation & checkpoints
               </h4>
               <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
                 <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
