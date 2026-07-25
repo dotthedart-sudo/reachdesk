@@ -382,8 +382,17 @@ export default function Dashboard({ currentUser, onSelectLead }) {
   const pathLength = 126; // arc circumference length
   const dashOffset = pathLength * (1 - dialPercentage / 100);
 
-  // Stepper calculations (7 stages count)
+  // Stepper calculations (7 stages count) — colors match CRM status palette
   const forwardStages = ['Lead', 'Contacted', 'Positive Reply', 'Proposal Sent', 'Calendly Sent', 'Booked', 'Closed Won'];
+  const STAGE_COLORS = {
+    'Lead': '#3b82f6',
+    'Contacted': '#f59e0b',
+    'Positive Reply': '#8b5cf6',
+    'Proposal Sent': '#06b6d4',
+    'Calendly Sent': '#6B9FD4',
+    'Booked': '#ec4899',
+    'Closed Won': '#22c55e',
+  };
   const stageCounts = {};
   forwardStages.forEach(st => {
     stageCounts[st] = leadsList.filter(l => l.status === st).length;
@@ -398,7 +407,7 @@ export default function Dashboard({ currentUser, onSelectLead }) {
 
       {metrics.total === 0 && !loading ? (
         <div className="card empty-state" style={{ marginTop: 'var(--space-5)' }}>
-          <div className="empty-state-icon" style={{ width: 56, height: 56, color: 'var(--accent-blue)', background: 'var(--bg-selected)', borderColor: 'var(--border)' }}>
+          <div className="empty-state-icon" style={{ width: 56, height: 56, color: 'var(--text-primary)', background: 'var(--bg-hover)', borderColor: 'var(--border)' }}>
             <BarChart2 size={28} />
           </div>
           <h3 className="empty-state-title">Your Dashboard is Quiet</h3>
@@ -417,7 +426,7 @@ export default function Dashboard({ currentUser, onSelectLead }) {
         
         {/* Leads card */}
         <div className="card flex align-start gap-3" style={{ minHeight: 140 }}>
-          <div style={{ padding: 'var(--space-3)', borderRadius: 'var(--radius-lg)', background: 'var(--bg-selected)', color: 'var(--accent-blue)', display: 'flex', alignSelf: 'center' }}>
+          <div style={{ padding: 'var(--space-3)', borderRadius: 'var(--radius-lg)', background: 'var(--bg-hover)', color: 'var(--text-primary)', display: 'flex', alignSelf: 'center' }}>
             <Users size={24} />
           </div>
           <div style={{ width: '100%' }}>
@@ -550,6 +559,9 @@ export default function Dashboard({ currentUser, onSelectLead }) {
             {/* Row 1 — dots + connectors */}
             {forwardStages.map((st, i) => {
               const hasLeads = stageCounts[st] > 0;
+              const stageColor = STAGE_COLORS[st] || 'var(--text-muted)';
+              const nextHasLeads = i < forwardStages.length - 1 && stageCounts[forwardStages[i + 1]] > 0;
+              const connectorActive = hasLeads || nextHasLeads;
               return [
                 /* Node column */
                 <div key={`node-${st}`} style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', height: '28px' }}>
@@ -557,16 +569,16 @@ export default function Dashboard({ currentUser, onSelectLead }) {
                     width: '26px',
                     height: '26px',
                     borderRadius: '50%',
-                    background: hasLeads ? 'var(--accent-blue)' : 'var(--bg-card)',
-                    border: `2px solid ${hasLeads ? 'var(--accent-blue)' : 'var(--border-strong)'}`,
-                    color: hasLeads ? '#fff' : 'var(--text-muted)',
+                    background: hasLeads ? stageColor : 'transparent',
+                    border: `2px solid ${hasLeads ? stageColor : 'var(--border-strong)'}`,
+                    color: hasLeads ? '#FFFFFF' : 'var(--text-muted)',
                     display: 'flex',
                     alignItems: 'center',
                     justifyContent: 'center',
                     fontSize: '0.7rem',
                     fontWeight: 800,
                     flexShrink: 0,
-                    boxShadow: hasLeads ? '0 0 8px rgba(91,143,185,0.35)' : 'none',
+                    boxShadow: 'none',
                     zIndex: 1,
                     position: 'relative'
                   }}>
@@ -580,7 +592,7 @@ export default function Dashboard({ currentUser, onSelectLead }) {
                     <div style={{
                       width: '100%',
                       height: '2px',
-                      borderTop: '2px dashed var(--border-strong)'
+                      borderTop: `2px ${connectorActive ? 'solid' : 'dashed'} ${connectorActive ? 'var(--text-muted)' : 'var(--border-strong)'}`
                     }} />
                   </div>
                 )
@@ -590,12 +602,13 @@ export default function Dashboard({ currentUser, onSelectLead }) {
             {/* Row 2 — labels under each dot */}
             {forwardStages.map((st, i) => {
               const hasLeads = stageCounts[st] > 0;
+              const stageColor = STAGE_COLORS[st] || 'var(--text-muted)';
               return [
                 /* Label under node */
                 <div key={`label-${st}`} style={{ display: 'flex', justifyContent: 'center' }}>
                   <span style={{
                     fontSize: '0.62rem',
-                    color: hasLeads ? 'var(--text-primary)' : 'var(--text-muted)',
+                    color: hasLeads ? stageColor : 'var(--text-muted)',
                     fontWeight: hasLeads ? 600 : 400,
                     textAlign: 'center',
                     whiteSpace: 'nowrap',
@@ -623,7 +636,7 @@ export default function Dashboard({ currentUser, onSelectLead }) {
         {/* Column 1: Upcoming Next Feed */}
         <div className="card" style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
           <h3 style={{ fontSize: '1rem', display: 'flex', alignItems: 'center', gap: '0.4rem', borderBottom: '1px solid var(--border)', paddingBottom: '0.5rem' }}>
-            <Activity size={18} style={{ color: 'var(--accent-blue)' }} /> Upcoming Next
+            <Activity size={18} style={{ color: 'var(--text-secondary)' }} /> Upcoming Next
             <HelpPopover title="Upcoming Next Feed">
               Shows upcoming follow-up checkpoints, invoice due dates, and suggestion mismatches within the next N days. Use the days dropdown to widen or narrow the window.
             </HelpPopover>

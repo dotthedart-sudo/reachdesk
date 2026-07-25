@@ -12,9 +12,8 @@ import {
   HOW_IT_WORKS_STEPS,
 } from '../lib/planMarketing';
 import { useLocalCurrency } from '../utils/useLocalCurrency';
-import heroDark from '../assets/hero.png';
-import heroLight from '../assets/hero_light.png';
-import HeroVisual from './marketing/HeroVisual';
+import heroDark from '../assets/hero-dark.png';
+import heroLight from '../assets/hero-light.png';
 import { FeatureMedia, StepMedia } from './marketing/MarketingMedia';
 import { Helmet } from 'react-helmet-async';
 import { siteMeta, generateOGTags } from '../config/metadata';
@@ -67,10 +66,21 @@ export default function Homepage({ currentUserEmail }) {
     setTheme(nextTheme);
     localStorage.setItem('hp-theme', nextTheme);
     localStorage.setItem('reachdesk_theme', nextTheme);
+    if (nextTheme === 'light') document.documentElement.classList.add('light');
+    else document.documentElement.classList.remove('light');
+    document.documentElement.setAttribute('data-theme', nextTheme);
+    document.documentElement.style.backgroundColor = nextTheme === 'light' ? '#FAFAFA' : '#050505';
+    document.documentElement.style.colorScheme = nextTheme;
     if (typeof toggleAppTheme === 'function' && appTheme && appTheme !== nextTheme) {
       toggleAppTheme();
     }
   };
+
+  useEffect(() => {
+    if (theme === 'light') document.documentElement.classList.add('light');
+    else document.documentElement.classList.remove('light');
+    document.documentElement.setAttribute('data-theme', theme);
+  }, [theme]);
 
   const isLoggedIn = !!currentUserEmail;
 
@@ -191,7 +201,8 @@ export default function Homepage({ currentUserEmail }) {
         <div className="hp-hero-inner">
           <div className="hp-hero-copy">
             <h1 className="hp-hero-h1 hp-hero-enter">
-              <span className="hp-hero-line">Your leads didn&apos;t ghost you.</span>
+              <span className="hp-hero-line">Your leads didn&apos;t</span>
+              <span className="hp-hero-line">ghost you.</span>
               <span className="hp-hero-line">You ghosted them.</span>
             </h1>
             <p className="hp-hero-subhead hp-hero-enter hp-hero-enter-1">
@@ -207,12 +218,12 @@ export default function Homepage({ currentUserEmail }) {
             </div>
           </div>
 
-          <div className="hp-hero-stage hp-hero-enter hp-hero-enter-3">
-            <HeroVisual
-              theme={theme}
-              posterDark={heroDark}
-              posterLight={heroLight}
-              className="hp-hero-visual"
+          <div className="hp-hero-media hp-hero-enter hp-hero-enter-3">
+            <img
+              key={theme === 'dark' ? 'hero-dark' : 'hero-light'}
+              src={theme === 'dark' ? heroDark : heroLight}
+              alt="ReachDesk CRM illustration"
+              className="hero-image"
             />
           </div>
         </div>

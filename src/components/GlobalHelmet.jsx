@@ -7,7 +7,7 @@ export default function GlobalHelmet() {
     <Helmet>
       <meta charSet="utf-8" />
       <meta name="viewport" content="width=device-width, initial-scale=1" />
-      <meta name="theme-color" content="#0D1117" />
+      <meta name="theme-color" content="#050505" />
       <link rel="canonical" href="https://reachdeskcrm.com" />
       
       {/* Global schemas */}

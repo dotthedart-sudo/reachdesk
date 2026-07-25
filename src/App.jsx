@@ -64,14 +64,14 @@ class GlobalErrorBoundary extends React.Component {
           alignItems: 'center',
           justifyContent: 'center',
           minHeight: '100vh',
-          backgroundColor: '#0D1117',
+          backgroundColor: '#050505',
           color: '#FFFFFF',
           padding: '2rem',
           textAlign: 'center',
-          fontFamily: 'Mattone, sans-serif'
+          fontFamily: 'Plus Jakarta Sans, system-ui, sans-serif'
         }}>
           <h2 style={{ fontSize: '1.4rem', marginBottom: '0.75rem' }}>App updated or a temporary load issue occurred</h2>
-          <p style={{ color: '#8B949E', marginBottom: '1.5rem', fontSize: '0.9rem' }}>
+          <p style={{ color: '#A3A3A3', marginBottom: '1.5rem', fontSize: '0.9rem' }}>
             A new version of ReachDesk CRM is active. Please refresh to load the latest release.
           </p>
           <button
@@ -82,10 +82,10 @@ class GlobalErrorBoundary extends React.Component {
             }}
             style={{
               padding: '8px 18px',
-              backgroundColor: '#5B8FB9',
-              color: '#0D1117',
+              backgroundColor: '#FFFFFF',
+              color: '#050505',
               border: 'none',
-              borderRadius: '5px',
+              borderRadius: '6px',
               fontWeight: 600,
               fontSize: '0.9rem',
               cursor: 'pointer'
@@ -1369,15 +1369,15 @@ export default function App() {
               top: 0,
               left: 0,
               right: 0,
-              backgroundColor: '#5B8FB9',
-              color: '#0D1117',
+              backgroundColor: '#FFFFFF',
+              color: '#050505',
               padding: '0.75rem 1rem',
               textAlign: 'center',
               zIndex: 99999,
-              fontFamily: 'Mattone, sans-serif',
+              fontFamily: 'Plus Jakarta Sans, system-ui, sans-serif',
               fontWeight: 600,
               fontSize: '0.9rem',
-              boxShadow: '0 2px 10px rgba(0,0,0,0.5)',
+              boxShadow: '0 2px 10px rgba(0,0,0,0.35)',
               display: 'flex',
               alignItems: 'center',
               justifyContent: 'center',
@@ -1387,13 +1387,13 @@ export default function App() {
               <button 
                 onClick={handleSwUpdateRefresh}
                 style={{
-                  backgroundColor: '#0D1117',
+                  backgroundColor: '#050505',
                   color: '#FFFFFF',
                   border: 'none',
                   padding: '4px 12px',
-                  borderRadius: '3px',
+                  borderRadius: '6px',
                   cursor: 'pointer',
-                  fontFamily: 'Mattone, sans-serif',
+                  fontFamily: 'Plus Jakarta Sans, system-ui, sans-serif',
                   fontSize: '0.8rem',
                   fontWeight: 600
                 }}
