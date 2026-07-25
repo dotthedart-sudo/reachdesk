@@ -100,19 +100,7 @@ export default function CRM({
   const [userFolders, setUserFolders] = useState([]);
   const [clients, setClients] = useState([]);
   const [statuses, setStatuses] = useState(() => {
-    const defaults = [
-      { label: 'Lead', color: '#3b82f6' },
-      { label: 'Contacted', color: '#f59e0b' },
-      { label: 'Positive Reply', color: '#8b5cf6' },
-      { label: 'Proposal Sent', color: '#06b6d4' },
-      { label: 'Calendly Sent', color: '#6B9FD4' },
-      { label: 'Followed up', color: '#10b981' },
-      { label: 'Booked', color: '#ec4899' },
-      { label: 'No show', color: '#ef4444' },
-      { label: 'Rescheduled', color: '#a855f7' },
-      { label: 'Not Interested', color: '#6b7280' },
-      { label: 'Closed Won', color: '#22c55e' }
-    ];
+    const defaults = DEFAULT_STATUSES;
     try {
       const saved = localStorage.getItem('crm_custom_statuses');
       return saved ? JSON.parse(saved) : defaults;
@@ -463,7 +451,7 @@ export default function CRM({
     links: [],
     custom_fields: {}
   });
-  const [folderForm, setFolderForm] = useState({ name: '', color: '#3b82f6' });
+  const [folderForm, setFolderForm] = useState({ name: '', color: '#A3A3A3' });
   const [importText, setImportText] = useState('');
   const [showExportDropdown, setShowExportDropdown] = useState(false);
   const [exporting, setExporting] = useState(null);
@@ -618,15 +606,15 @@ export default function CRM({
           { user_id: currentUser.id, table_view: 'contact_details', column_key: 'niche',             column_label: 'Niche',            column_type: 'text',     is_visible: false, is_default: true, sort_order: 9, dropdown_options: [] },
           { user_id: currentUser.id, table_view: 'contact_details', column_key: 'template_used',     column_label: 'Template Used',   column_type: 'link',     is_visible: false, is_default: true, sort_order: 10, dropdown_options: [] },
           { user_id: currentUser.id, table_view: 'contact_details', column_key: 'action_to_take',    column_label: 'Action to Take',   column_type: 'dropdown', is_visible: false, is_default: true, sort_order: 11, dropdown_options: [
-            { label: 'Send first pitch', color: '#3b82f6' },
-            { label: 'Wait for reply', color: '#6b7280' },
-            { label: 'Send a follow up', color: '#f59e0b' },
-            { label: 'Send a different pitch', color: '#8b5cf6' },
-            { label: 'Send proposal', color: '#5B8FB9' },
-            { label: 'Send Calendly', color: '#6366f1' },
-            { label: 'Prepare for call', color: '#8b5cf6' },
-            { label: 'Send invoice', color: '#10b981' },
-            { label: 'No action needed', color: '#6b7280' }
+            { label: 'Send first pitch', color: '#FFFFFF' },
+            { label: 'Wait for reply', color: '#737373' },
+            { label: 'Send a follow up', color: '#D4D4D4' },
+            { label: 'Send a different pitch', color: '#A3A3A3' },
+            { label: 'Send proposal', color: '#E5E5E5' },
+            { label: 'Send Calendly', color: '#D4D4D4' },
+            { label: 'Prepare for call', color: '#A3A3A3' },
+            { label: 'Send invoice', color: '#FFFFFF' },
+            { label: 'No action needed', color: '#525252' }
           ] },
           { user_id: currentUser.id, table_view: 'contact_details', column_key: 'last_contacted_at', column_label: 'Last Contacted At',column_type: 'date',     is_visible: false, is_default: true, sort_order: 12, dropdown_options: [] },
           { user_id: currentUser.id, table_view: 'contact_details', column_key: 'linkedin_url',      column_label: 'LinkedIn',         column_type: 'text',     is_visible: false, is_default: true, sort_order: 13, dropdown_options: [] },
@@ -642,15 +630,15 @@ export default function CRM({
           ] },
           { user_id: currentUser.id, table_view: 'pipeline', column_key: 'status',            column_label: 'Status',            column_type: 'dropdown', is_visible: true,  is_default: true, sort_order: 2, dropdown_options: [] },
           { user_id: currentUser.id, table_view: 'pipeline', column_key: 'action_to_take',    column_label: 'Action to Take',    column_type: 'dropdown', is_visible: true,  is_default: true, sort_order: 3, dropdown_options: [
-            { label: 'Send first pitch', color: '#3b82f6' },
-            { label: 'Wait for reply', color: '#6b7280' },
-            { label: 'Send a follow up', color: '#f59e0b' },
-            { label: 'Send a different pitch', color: '#8b5cf6' },
-            { label: 'Send proposal', color: '#5B8FB9' },
-            { label: 'Send Calendly', color: '#6366f1' },
-            { label: 'Prepare for call', color: '#8b5cf6' },
-            { label: 'Send invoice', color: '#10b981' },
-            { label: 'No action needed', color: '#6b7280' }
+            { label: 'Send first pitch', color: '#FFFFFF' },
+            { label: 'Wait for reply', color: '#737373' },
+            { label: 'Send a follow up', color: '#D4D4D4' },
+            { label: 'Send a different pitch', color: '#A3A3A3' },
+            { label: 'Send proposal', color: '#E5E5E5' },
+            { label: 'Send Calendly', color: '#D4D4D4' },
+            { label: 'Prepare for call', color: '#A3A3A3' },
+            { label: 'Send invoice', color: '#FFFFFF' },
+            { label: 'No action needed', color: '#525252' }
           ] },
           { user_id: currentUser.id, table_view: 'pipeline', column_key: 'last_contacted_at', column_label: 'Last Contacted At', column_type: 'date',     is_visible: true,  is_default: true, sort_order: 4, dropdown_options: [] },
           { user_id: currentUser.id, table_view: 'pipeline', column_key: 'template_used',     column_label: 'Template Used',    column_type: 'link',     is_visible: true,  is_default: true, sort_order: 5, dropdown_options: [] },
@@ -673,10 +661,10 @@ export default function CRM({
             is_default: true, 
             sort_order: 3, 
             dropdown_options: [
-              { label: 'Onboarding', color: '#3b82f6' },
-              { label: 'In Progress', color: '#f59e0b' },
-              { label: 'On Hold', color: '#ef4444' },
-              { label: 'Completed', color: '#10b981' }
+              { label: 'Onboarding', color: '#A3A3A3' },
+              { label: 'In Progress', color: '#D4D4D4' },
+              { label: 'On Hold', color: '#525252' },
+              { label: 'Completed', color: '#FFFFFF' }
             ] 
           },
           { user_id: currentUser.id, table_view: 'clients', column_key: 'contract_value', column_label: 'Contract Value', column_type: 'text', is_visible: true, is_default: true, sort_order: 4, dropdown_options: [] },
@@ -718,7 +706,7 @@ export default function CRM({
           { table_view: 'contact_details', column_key: 'niche',             column_label: 'Niche',            column_type: 'text',     is_visible: false, sort_order: 9,  dropdown_options: [] },
           { table_view: 'contact_details', column_key: 'template_used',     column_label: 'Template Used',   column_type: 'link',     is_visible: false, sort_order: 10, dropdown_options: [] },
           { table_view: 'contact_details', column_key: 'action_to_take',    column_label: 'Action to Take',   column_type: 'dropdown', is_visible: false, sort_order: 11, dropdown_options: [
-            { label: 'Send first pitch', color: '#3b82f6' }, { label: 'Wait for reply', color: '#6b7280' }, { label: 'Send a follow up', color: '#f59e0b' }, { label: 'Send a different pitch', color: '#8b5cf6' }, { label: 'Send proposal', color: '#5B8FB9' }, { label: 'Send Calendly', color: '#6366f1' }, { label: 'Prepare for call', color: '#8b5cf6' }, { label: 'Send invoice', color: '#10b981' }, { label: 'No action needed', color: '#6b7280' }
+            { label: 'Send first pitch', color: '#FFFFFF' }, { label: 'Wait for reply', color: '#737373' }, { label: 'Send a follow up', color: '#D4D4D4' }, { label: 'Send a different pitch', color: '#A3A3A3' }, { label: 'Send proposal', color: '#E5E5E5' }, { label: 'Send Calendly', color: '#D4D4D4' }, { label: 'Prepare for call', color: '#A3A3A3' }, { label: 'Send invoice', color: '#FFFFFF' }, { label: 'No action needed', color: '#525252' }
           ] },
           { table_view: 'contact_details', column_key: 'last_contacted_at', column_label: 'Last Contacted At', column_type: 'date',    is_visible: false, sort_order: 12, dropdown_options: [] },
           { table_view: 'contact_details', column_key: 'linkedin_url',      column_label: 'LinkedIn',          column_type: 'text',    is_visible: false, sort_order: 13, dropdown_options: [] },
@@ -731,7 +719,7 @@ export default function CRM({
           ] },
           { table_view: 'pipeline', column_key: 'status',            column_label: 'Status',            column_type: 'dropdown', is_visible: true,  sort_order: 2, dropdown_options: [] },
           { table_view: 'pipeline', column_key: 'action_to_take',    column_label: 'Action to Take',    column_type: 'dropdown', is_visible: true,  sort_order: 3, dropdown_options: [
-            { label: 'Send first pitch', color: '#3b82f6' }, { label: 'Wait for reply', color: '#6b7280' }, { label: 'Send a follow up', color: '#f59e0b' }, { label: 'Send a different pitch', color: '#8b5cf6' }, { label: 'Send proposal', color: '#5B8FB9' }, { label: 'Send Calendly', color: '#6366f1' }, { label: 'Prepare for call', color: '#8b5cf6' }, { label: 'Send invoice', color: '#10b981' }, { label: 'No action needed', color: '#6b7280' }
+            { label: 'Send first pitch', color: '#FFFFFF' }, { label: 'Wait for reply', color: '#737373' }, { label: 'Send a follow up', color: '#D4D4D4' }, { label: 'Send a different pitch', color: '#A3A3A3' }, { label: 'Send proposal', color: '#E5E5E5' }, { label: 'Send Calendly', color: '#D4D4D4' }, { label: 'Prepare for call', color: '#A3A3A3' }, { label: 'Send invoice', color: '#FFFFFF' }, { label: 'No action needed', color: '#525252' }
           ] },
           { table_view: 'pipeline', column_key: 'last_contacted_at', column_label: 'Last Contacted At', column_type: 'date',     is_visible: true,  sort_order: 4, dropdown_options: [] },
           { table_view: 'pipeline', column_key: 'template_used',     column_label: 'Template Used',    column_type: 'link',     is_visible: true,  sort_order: 5, dropdown_options: [] },
@@ -1371,7 +1359,7 @@ export default function CRM({
 
       if (error) throw error;
       setFolders(prev => [...prev, data]);
-      setFolderForm({ name: '', color: '#3b82f6' });
+      setFolderForm({ name: '', color: '#A3A3A3' });
       setShowFolderModal(false);
     } catch (err) {
       console.error('Error creating folder:', err);

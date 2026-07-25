@@ -73,9 +73,6 @@ export default function PublicNav({ brandName = 'ReachDesk CRM' }) {
           <a href={getMarketingUrl('/blog')} className="hp-nav-link">
             Blog
           </a>
-          <button type="button" onClick={handleLoginClick} className="hp-nav-link">
-            Log in
-          </button>
         </div>
 
         <div className="hp-nav-right">
@@ -89,8 +86,11 @@ export default function PublicNav({ brandName = 'ReachDesk CRM' }) {
               {theme === 'dark' ? <Sun size={15} /> : <Moon size={15} />}
             </button>
           )}
-          <button type="button" onClick={handleSignUpClick} className="hp-btn-primary">
-            {isLoggedIn ? 'Dashboard' : 'Sign up free'}
+          <button type="button" onClick={handleLoginClick} className="hp-nav-link">
+            Log in
+          </button>
+          <button type="button" onClick={handleSignUpClick} className="hp-btn-primary hp-btn-nav">
+            {isLoggedIn ? 'Dashboard' : 'Sign up'}
           </button>
         </div>
       </div>

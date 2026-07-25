@@ -14,7 +14,7 @@ export const siteMeta = {
   pages: {
     homepage: {
       title: 'ReachDesk — Your leads didn\'t ghost you. You ghosted them.',
-      description: 'ReachDesk tells you who to follow up with today — so nothing slips while you\'re busy delivering client work. 7-day free trial (card required): 10 AI credits, 65 leads, 3 templates.',
+      description: 'ReachDesk CRM tells freelancers who to follow up with today. Pipeline, 7-checkpoint reminders, templates, and invoices — so leads don\'t die while you deliver client work. 7-day trial.',
       keywords: 'CRM, freelancer, lead follow-up, lead tracking, follow-up reminders',
     },
     

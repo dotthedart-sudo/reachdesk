@@ -91,10 +91,10 @@
 }
 
 .blog-card-meta .category {
-  background: var(--accent-blue, #5B8FB9);
-  color: white;
-  padding: 4px 12px;
-  border-radius: 3px;
+  background: var(--accent-blue, #0A0A0A);
+  color: var(--accent-on, #FFFFFF);
+  padding: 4px 10px;
+  border-radius: 6px;
   font-weight: 500;
 }
 
@@ -116,7 +116,7 @@
 .back-button {
   background: none;
   border: none;
-  color: var(--accent-blue, #5B8FB9);
+  color: var(--text-primary, #0A0A0A);
   cursor: pointer;
   font-size: 14px;
   padding: 8px 0;
@@ -217,7 +217,7 @@
 }
 
 .blog-post-content blockquote {
-  border-left: 3px solid var(--accent-blue, #5B8FB9);
+  border-left: 3px solid var(--border-strong, #D4D4D4);
   padding-left: 16px;
   margin: 10px 0;
   font-style: italic;
@@ -233,9 +233,9 @@
 
 /* Typography and link fixes */
 .blog-post-content a {
-  color: var(--accent-blue, #5B8FB9);
+  color: var(--text-primary, #0A0A0A);
   text-decoration: none;
-  border-bottom: 0.5px solid var(--accent-blue, #5B8FB9);
+  border-bottom: 0.5px solid var(--border-strong, #D4D4D4);
   transition: color 0.2s ease;
 }
 

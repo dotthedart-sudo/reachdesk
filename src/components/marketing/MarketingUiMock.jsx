@@ -12,7 +12,7 @@ function MockFrame({ theme, children, label }) {
       aria-label={label}
       xmlns="http://www.w3.org/2000/svg"
     >
-      <rect width="400" height="260" rx="8" fill={isLight ? '#FFFFFF' : '#161B22'} stroke={isLight ? '#DDE3EC' : '#21262D'} strokeWidth="1" />
+      <rect width="400" height="260" rx="8" fill={isLight ? '#FFFFFF' : '#0F0F0F'} stroke={isLight ? '#E5E5E5' : '#1F1F1F'} strokeWidth="1" />
       {children}
     </svg>
   );
@@ -20,9 +20,9 @@ function MockFrame({ theme, children, label }) {
 
 export function PipelineMock({ theme = 'dark' }) {
   const isLight = theme === 'light';
-  const text = isLight ? '#3D444D' : '#C9D1D9';
-  const muted = isLight ? '#5A6478' : '#8B949E';
-  const row = isLight ? '#F8F9FB' : '#1C2130';
+  const text = isLight ? '#525252' : '#A3A3A3';
+  const muted = isLight ? '#737373' : '#737373';
+  const row = isLight ? '#F5F5F5' : '#171717';
   const hot = '#E05252';
   const warm = '#E8A838';
   const cold = '#5B8FB9';
@@ -43,13 +43,13 @@ export function PipelineMock({ theme = 'dark' }) {
 
 export function RemindersMock({ theme = 'dark' }) {
   const isLight = theme === 'light';
-  const text = isLight ? '#3D444D' : '#C9D1D9';
-  const muted = isLight ? '#5A6478' : '#8B949E';
-  const accent = isLight ? '#3E7BB8' : '#5B8FB9';
+  const text = isLight ? '#525252' : '#A3A3A3';
+  const muted = isLight ? '#737373' : '#737373';
+  const accent = isLight ? '#0A0A0A' : '#FFFFFF';
   return (
     <MockFrame theme={theme} label="Follow-up reminders after marking Contacted">
       <text x="20" y="28" fill={muted} fontSize="10" fontFamily="system-ui,sans-serif">REMINDERS</text>
-      <rect x="16" y="44" width="368" height="56" rx="6" fill={accent} opacity="0.12" stroke={accent} strokeWidth="1" />
+      <rect x="16" y="44" width="368" height="56" rx="6" fill={accent} opacity="0.08" stroke={accent} strokeWidth="1" strokeOpacity="0.35" />
       <text x="32" y="68" fill={accent} fontSize="11" fontWeight="600" fontFamily="system-ui,sans-serif">Checkpoint 2 · Due today</text>
       <text x="32" y="86" fill={text} fontSize="10" fontFamily="system-ui,sans-serif">Follow up with Alex — no reply yet</text>
       {[0, 1, 2].map((i) => (
@@ -65,20 +65,20 @@ export function RemindersMock({ theme = 'dark' }) {
 
 export function TemplatesMock({ theme = 'dark' }) {
   const isLight = theme === 'light';
-  const text = isLight ? '#3D444D' : '#C9D1D9';
-  const muted = isLight ? '#5A6478' : '#8B949E';
-  const row = isLight ? '#F8F9FB' : '#1C2130';
-  const sage = isLight ? '#4E9A83' : '#7FB5A0';
+  const text = isLight ? '#525252' : '#A3A3A3';
+  const muted = isLight ? '#737373' : '#737373';
+  const row = isLight ? '#F5F5F5' : '#171717';
+  const chip = isLight ? '#404040' : '#D4D4D4';
   return (
     <MockFrame theme={theme} label="Outreach template with placeholders">
       <text x="20" y="28" fill={muted} fontSize="10" fontFamily="system-ui,sans-serif">TEMPLATE</text>
       <rect x="16" y="44" width="368" height="200" rx="6" fill={row} />
       <text x="32" y="72" fill={text} fontSize="11" fontFamily="system-ui,sans-serif">Hi </text>
-      <rect x="52" y="58" width="72" height="18" rx="3" fill={sage} opacity="0.25" />
-      <text x="58" y="71" fill={sage} fontSize="10" fontFamily="monospace">{'{{name}}'}</text>
+      <rect x="52" y="58" width="72" height="18" rx="3" fill={chip} opacity="0.2" />
+      <text x="58" y="71" fill={chip} fontSize="10" fontFamily="monospace">{'{{name}}'}</text>
       <text x="32" y="100" fill={muted} fontSize="10" fontFamily="system-ui,sans-serif">I saw your </text>
-      <rect x="98" y="86" width="80" height="18" rx="3" fill={sage} opacity="0.25" />
-      <text x="104" y="99" fill={sage} fontSize="10" fontFamily="monospace">{'{{niche}}'}</text>
+      <rect x="98" y="86" width="80" height="18" rx="3" fill={chip} opacity="0.2" />
+      <text x="104" y="99" fill={chip} fontSize="10" fontFamily="monospace">{'{{niche}}'}</text>
       <text x="32" y="130" fill={muted} fontSize="10" fontFamily="system-ui,sans-serif">project and wanted to reach out...</text>
     </MockFrame>
   );
@@ -86,10 +86,10 @@ export function TemplatesMock({ theme = 'dark' }) {
 
 export function RevenueMock({ theme = 'dark' }) {
   const isLight = theme === 'light';
-  const text = isLight ? '#3D444D' : '#C9D1D9';
-  const muted = isLight ? '#5A6478' : '#8B949E';
-  const row = isLight ? '#F8F9FB' : '#1C2130';
-  const accent = isLight ? '#3E7BB8' : '#5B8FB9';
+  const text = isLight ? '#525252' : '#A3A3A3';
+  const muted = isLight ? '#737373' : '#737373';
+  const row = isLight ? '#F5F5F5' : '#171717';
+  const accent = isLight ? '#0A0A0A' : '#FFFFFF';
   return (
     <MockFrame theme={theme} label="Invoice and revenue tracking">
       <text x="20" y="28" fill={muted} fontSize="10" fontFamily="system-ui,sans-serif">INVOICE</text>
@@ -97,8 +97,8 @@ export function RevenueMock({ theme = 'dark' }) {
       <text x="32" y="72" fill={text} fontSize="12" fontWeight="600" fontFamily="system-ui,sans-serif">INV-482901</text>
       <text x="32" y="96" fill={muted} fontSize="10" fontFamily="system-ui,sans-serif">Client · Website redesign</text>
       <line x1="32" y1="110" x2="368" y2="110" stroke={muted} strokeOpacity="0.2" />
-      <text x="32" y="140" fill={text} fontSize="22" fontWeight="700" fontFamily="system-ui,sans-serif">$2,400</text>
-      <rect x="32" y="160" width="100" height="24" rx="4" fill={accent} opacity="0.2" />
+      <text x="32" y="140" fill={isLight ? '#0A0A0A' : '#FFFFFF'} fontSize="22" fontWeight="700" fontFamily="system-ui,sans-serif">$2,400</text>
+      <rect x="32" y="160" width="100" height="24" rx="4" fill={accent} opacity="0.12" />
       <text x="44" y="176" fill={accent} fontSize="10" fontWeight="600" fontFamily="system-ui,sans-serif">Paid</text>
     </MockFrame>
   );
@@ -125,17 +125,18 @@ export function AddLeadMock({ theme = 'dark' }) {
 
 export function ContactedMock({ theme = 'dark' }) {
   const isLight = theme === 'light';
-  const text = isLight ? '#3D444D' : '#C9D1D9';
-  const muted = isLight ? '#5A6478' : '#8B949E';
-  const accent = isLight ? '#3E7BB8' : '#5B8FB9';
+  const text = isLight ? '#525252' : '#A3A3A3';
+  const muted = isLight ? '#737373' : '#737373';
+  const status = '#f59e0b';
+  const onStatus = '#0A0A0A';
   return (
     <MockFrame theme={theme} label="Mark lead as Contacted">
       <text x="20" y="28" fill={muted} fontSize="10" fontFamily="system-ui,sans-serif">STATUS</text>
-      <rect x="16" y="48" width="160" height="36" rx="6" fill={accent} />
-      <text x="36" y="71" fill={isLight ? '#FFF' : '#0D1117'} fontSize="12" fontWeight="600" fontFamily="system-ui,sans-serif">Contacted</text>
-      <polygon points="160,66 172,66 166,74" fill={isLight ? '#FFF' : '#0D1117'} opacity="0.8" />
-      <rect x="16" y="100" width="368" height="140" rx="6" fill={accent} opacity="0.08" stroke={accent} strokeWidth="1" />
-      <text x="32" y="128" fill={accent} fontSize="11" fontWeight="600" fontFamily="system-ui,sans-serif">7 checkpoints scheduled</text>
+      <rect x="16" y="48" width="160" height="36" rx="6" fill={status} />
+      <text x="36" y="71" fill={onStatus} fontSize="12" fontWeight="600" fontFamily="system-ui,sans-serif">Contacted</text>
+      <polygon points="160,66 172,66 166,74" fill={onStatus} opacity="0.8" />
+      <rect x="16" y="100" width="368" height="140" rx="6" fill={isLight ? '#0A0A0A' : '#FFFFFF'} opacity="0.06" stroke={muted} strokeWidth="1" strokeOpacity="0.35" />
+      <text x="32" y="128" fill={isLight ? '#0A0A0A' : '#FFFFFF'} fontSize="11" fontWeight="600" fontFamily="system-ui,sans-serif">7 checkpoints scheduled</text>
       <text x="32" y="150" fill={text} fontSize="10" fontFamily="system-ui,sans-serif">Next reminder in 3 days</text>
     </MockFrame>
   );
@@ -143,16 +144,16 @@ export function ContactedMock({ theme = 'dark' }) {
 
 export function FollowUpMock({ theme = 'dark' }) {
   const isLight = theme === 'light';
-  const text = isLight ? '#3D444D' : '#C9D1D9';
-  const muted = isLight ? '#5A6478' : '#8B949E';
-  const sage = isLight ? '#4E9A83' : '#7FB5A0';
+  const text = isLight ? '#525252' : '#A3A3A3';
+  const muted = isLight ? '#737373' : '#737373';
+  const active = isLight ? '#0A0A0A' : '#FFFFFF';
   return (
     <MockFrame theme={theme} label="Follow up until close">
       <text x="20" y="28" fill={muted} fontSize="10" fontFamily="system-ui,sans-serif">TODAY</text>
       {['Reply pending', 'Book call', 'Mark Won'].map((label, i) => (
         <g key={label}>
-          <rect x="16" y={44 + i * 56} width="368" height="44" rx="6" fill={i === 0 ? sage : isLight ? '#F8F9FB' : '#1C2130'} opacity={i === 0 ? 0.15 : 1} stroke={i === 0 ? sage : muted} strokeOpacity={i === 0 ? 0.5 : 0.15} />
-          <text x="32" y={70 + i * 56} fill={i === 0 ? sage : text} fontSize="11" fontWeight={i === 0 ? 600 : 400} fontFamily="system-ui,sans-serif">{label}</text>
+          <rect x="16" y={44 + i * 56} width="368" height="44" rx="6" fill={i === 0 ? active : isLight ? '#F5F5F5' : '#171717'} opacity={i === 0 ? 0.1 : 1} stroke={i === 0 ? active : muted} strokeOpacity={i === 0 ? 0.45 : 0.15} />
+          <text x="32" y={70 + i * 56} fill={i === 0 ? active : text} fontSize="11" fontWeight={i === 0 ? 600 : 400} fontFamily="system-ui,sans-serif">{label}</text>
         </g>
       ))}
     </MockFrame>

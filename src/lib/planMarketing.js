@@ -172,35 +172,73 @@ export const TRIAL_MARKETING = {
   templates: PLAN_LIMITS.trial.templates,
   aiCredits: AI_BOT_CREDITS.trial,
   days: 7,
-  headline: 'Start 7-day free trial — card required',
-  detail: `7-day free trial (card required) · ${AI_BOT_CREDITS.trial} AI bot credits · ${PLAN_LIMITS.trial.leads} leads · ${PLAN_LIMITS.trial.templates} templates`,
+  headline: 'Start 7-day free trial',
+  ctaNav: 'Start free trial',
+  detail: `7-day trial · ${AI_BOT_CREDITS.trial} AI credits · ${PLAN_LIMITS.trial.leads} leads · ${PLAN_LIMITS.trial.templates} templates · card required`,
+  micro: 'Card required · cancel anytime before day 7',
 };
+
+export const HOMEPAGE_OUTCOMES = [
+  {
+    id: 'today',
+    title: 'Know who to contact today',
+    desc: 'Open ReachDesk and see the exact leads waiting on a follow-up — not a buried spreadsheet row.',
+  },
+  {
+    id: 'slip',
+    title: 'Stop quiet leads from dying',
+    desc: 'Seven checkpoints keep Warm and Cold leads alive while you deliver client work.',
+  },
+  {
+    id: 'close',
+    title: 'Close without switching tools',
+    desc: 'Templates, pipeline, and invoices live in one place so booked calls turn into paid work.',
+  },
+];
 
 export const HOMEPAGE_FEATURES = [
   {
     id: 'pipeline',
-    title: 'Pipeline & priorities',
-    desc: 'See every lead, status, and next step in one place — Hot, Warm, Cold, and an 11-stage pipeline.',
+    title: 'Pipeline that shows the next move',
+    desc: 'Hot, Warm, Cold priorities plus an 11-stage pipeline — every lead has a status and an action.',
   },
   {
     id: 'reminders',
     title: '7-checkpoint follow-ups',
-    desc: 'Mark a lead Contacted and ReachDesk schedules reminders so quiet leads don\'t slip away.',
+    desc: 'Mark a lead Contacted once. ReachDesk schedules the reminders so nothing slips while you\'re heads-down.',
   },
   {
     id: 'templates',
-    title: 'Templates you reuse',
-    desc: 'Save your best outreach once. Drop in name, niche, and project placeholders in seconds.',
+    title: 'Templates that sound like you',
+    desc: 'Save winning outreach. Drop in name, niche, and project placeholders in seconds — or draft with AI.',
   },
   {
     id: 'revenue',
-    title: 'Invoices & revenue',
-    desc: 'Draft invoices when deals close and track monthly revenue without a separate spreadsheet.',
+    title: 'Invoices when the deal closes',
+    desc: 'Draft invoices from won leads and track monthly revenue without a second spreadsheet.',
   },
 ];
 
 export const HOW_IT_WORKS_STEPS = [
-  { step: '1', title: 'Add the lead', desc: 'Drop in a name, niche, and where you found them.' },
-  { step: '2', title: 'Mark Contacted', desc: 'ReachDesk schedules your follow-up checkpoints.' },
-  { step: '3', title: 'Follow up until close', desc: 'Get reminded until they reply, book, or you mark Won/Lost.' },
+  {
+    step: '1',
+    title: 'Capture the lead',
+    desc: 'Add a name, niche, and where you found them — takes under a minute.',
+  },
+  {
+    step: '2',
+    title: 'Mark Contacted',
+    desc: 'ReachDesk schedules your follow-up checkpoints automatically.',
+  },
+  {
+    step: '3',
+    title: 'Follow up until close',
+    desc: 'Get nudged until they reply, book, or you mark Won / Lost.',
+  },
+];
+
+export const HOMEPAGE_FIT = [
+  'Freelancers juggling delivery and outreach',
+  'Solo operators tired of Notes + Sheets + memory',
+  'Small agencies that need a shared next-step view',
 ];

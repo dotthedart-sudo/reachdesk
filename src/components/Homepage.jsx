@@ -1,12 +1,14 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Sun, Moon, Check } from 'lucide-react';
+import { Sun, Moon, Check, ArrowRight } from 'lucide-react';
 import { useAppContext } from '../App';
 import { BILLING } from './Paywalls';
 import {
   MARKETING_PLANS,
   TRIAL_MARKETING,
   HOMEPAGE_FEATURES,
+  HOMEPAGE_OUTCOMES,
+  HOMEPAGE_FIT,
   HOW_IT_WORKS_STEPS,
 } from '../lib/planMarketing';
 import { useLocalCurrency } from '../utils/useLocalCurrency';
@@ -53,7 +55,7 @@ export default function Homepage({ currentUserEmail }) {
           }
         });
       },
-      { threshold: 0.1, rootMargin: '0px 0px -48px 0px' }
+      { threshold: 0.12, rootMargin: '0px 0px -40px 0px' }
     );
 
     els.forEach((el) => observer.observe(el));
@@ -160,10 +162,10 @@ export default function Homepage({ currentUserEmail }) {
           </button>
 
           <div className="hp-nav-center">
-            <a href="#features" className="hp-nav-link">Features</a>
+            <a href="#features" className="hp-nav-link">Product</a>
+            <a href="#how" className="hp-nav-link">How it works</a>
             <a href="#pricing" className="hp-nav-link">Pricing</a>
             <a href={getMarketingUrl('/blog')} className="hp-nav-link">Blog</a>
-            <button type="button" onClick={handleLoginClick} className="hp-nav-link">Log in</button>
           </div>
 
           <div className="hp-nav-right">
@@ -175,8 +177,11 @@ export default function Homepage({ currentUserEmail }) {
             >
               {theme === 'dark' ? <Sun size={15} /> : <Moon size={15} />}
             </button>
-            <button type="button" onClick={handleSignUpClick} className="hp-btn-primary">
-              {isLoggedIn ? 'Dashboard' : 'Sign up free'}
+            <button type="button" onClick={handleLoginClick} className="hp-nav-link">
+              Log in
+            </button>
+            <button type="button" onClick={handleSignUpClick} className="hp-btn-primary hp-btn-nav">
+              {isLoggedIn ? 'Dashboard' : 'Sign up'}
             </button>
           </div>
         </div>
@@ -190,36 +195,63 @@ export default function Homepage({ currentUserEmail }) {
               <span className="hp-hero-line">You ghosted them.</span>
             </h1>
             <p className="hp-hero-subhead hp-hero-enter hp-hero-enter-1">
-              ReachDesk tells you who to follow up with today — so nothing slips while you&apos;re busy delivering client work.
+              The follow-up CRM for freelancers and agencies. Know who to contact today — so nothing slips while you deliver client work.
             </p>
             <div className="hp-hero-ctas hp-hero-enter hp-hero-enter-2">
-              <button type="button" onClick={handleSignUpClick} className="hp-btn-primary">
+              <button type="button" onClick={handleSignUpClick} className="hp-btn-primary hp-btn-lg">
                 {isLoggedIn ? 'Open dashboard' : 'Start free trial'}
               </button>
-              <a href="#pricing" className="hp-btn-secondary">See pricing</a>
+              <a href="#pricing" className="hp-btn-text">
+                See pricing <ArrowRight size={14} aria-hidden />
+              </a>
             </div>
           </div>
 
-          <HeroVisual
-            theme={theme}
-            posterDark={heroDark}
-            posterLight={heroLight}
-            className="hp-hero-visual hp-hero-enter hp-hero-enter-3"
-          />
+          <div className="hp-hero-stage hp-hero-enter hp-hero-enter-3">
+            <HeroVisual
+              theme={theme}
+              posterDark={heroDark}
+              posterLight={heroLight}
+              className="hp-hero-visual"
+            />
+          </div>
         </div>
       </section>
 
       <section className="hp-problem-section hp-reveal">
-        <div className="hp-section-inner">
+        <div className="hp-section-inner hp-section-narrow">
           <p className="hp-problem-text">
-            Spreadsheets. Notes apps. Memory. That&apos;s how freelancers lose booked calls.
+            Spreadsheets. Notes apps. Memory.
+            <span className="hp-problem-em"> That&apos;s how freelancers lose booked calls.</span>
           </p>
         </div>
       </section>
 
-      <section className="hp-how-section hp-reveal">
+      <section className="hp-outcomes-section hp-reveal">
+        <div className="hp-section-inner">
+          <span className="hp-section-label">What changes</span>
+          <h2 className="hp-section-h2">
+            A CRM that answers one question every morning:
+            <span className="hp-section-h2-accent"> who needs a follow-up?</span>
+          </h2>
+          <div className="hp-outcomes-grid">
+            {HOMEPAGE_OUTCOMES.map((item) => (
+              <div key={item.id} className="hp-outcome-item">
+                <h3 className="hp-outcome-title">{item.title}</h3>
+                <p className="hp-outcome-desc">{item.desc}</p>
+              </div>
+            ))}
+          </div>
+        </div>
+      </section>
+
+      <section id="how" className="hp-how-section hp-reveal">
         <div className="hp-section-inner">
           <span className="hp-section-label">How it works</span>
+          <h2 className="hp-section-h2">
+            Three steps.
+            <span className="hp-section-h2-accent"> Then the reminders do the remembering.</span>
+          </h2>
           <div className="hp-how-grid">
             {HOW_IT_WORKS_STEPS.map((item) => (
               <div key={item.step} className="hp-how-step">
@@ -237,8 +269,8 @@ export default function Homepage({ currentUserEmail }) {
         <div className="hp-section-inner">
           <span className="hp-section-label">What you get</span>
           <h2 className="hp-section-h2">
-            Built for freelancers who<br />
-            <span className="hp-section-h2-accent">can&apos;t afford to forget a follow-up.</span>
+            Built for freelancers who
+            <span className="hp-section-h2-accent"> can&apos;t afford a forgotten follow-up.</span>
           </h2>
 
           <div className="hp-features-grid">
@@ -252,8 +284,28 @@ export default function Homepage({ currentUserEmail }) {
           </div>
 
           <p className="hp-integrations-note">
-            Pro includes Google Calendar sync and Google Sheets import/export. Starter includes Sheets; Calendar is on Pro.
+            Sheets import/export on Starter and Pro. Google Calendar sync on Pro.
           </p>
+        </div>
+      </section>
+
+      <section className="hp-fit-section hp-reveal">
+        <div className="hp-section-inner hp-fit-inner">
+          <div className="hp-fit-copy">
+            <span className="hp-section-label">Who it&apos;s for</span>
+            <h2 className="hp-section-h2 hp-section-h2-tight">
+              If outreach dies when client work gets busy,
+              <span className="hp-section-h2-accent"> this is your system.</span>
+            </h2>
+          </div>
+          <ul className="hp-fit-list">
+            {HOMEPAGE_FIT.map((line) => (
+              <li key={line} className="hp-fit-item">
+                <Check size={16} className="hp-fit-icon" aria-hidden />
+                <span>{line}</span>
+              </li>
+            ))}
+          </ul>
         </div>
       </section>
 
@@ -261,12 +313,22 @@ export default function Homepage({ currentUserEmail }) {
         <div className="hp-section-inner">
           <span className="hp-section-label">Pricing</span>
           <h2 className="hp-section-h2">
-            Simple plans. Real limits.<br />
-            <span className="hp-section-h2-accent">No fake AI promises.</span>
+            Simple plans. Real limits.
+            <span className="hp-section-h2-accent"> No bloated enterprise CRM.</span>
           </h2>
 
+          <div className="hp-trial-banner">
+            <div className="hp-trial-banner-copy">
+              <strong>Start with a 7-day trial</strong>
+              <span>{TRIAL_MARKETING.detail}</span>
+            </div>
+            <button type="button" onClick={handleSignUpClick} className="hp-btn-primary">
+              {isLoggedIn ? 'Open dashboard' : TRIAL_MARKETING.headline}
+            </button>
+          </div>
+
           <div className="rd-billing-toggle-wrap">
-            <div className="rd-billing-toggle">
+            <div className="rd-billing-toggle" role="tablist" aria-label="Billing cycle">
               {Object.entries(BILLING).map(([key, info]) => (
                 <button
                   key={key}
@@ -301,8 +363,11 @@ export default function Homepage({ currentUserEmail }) {
                   </p>
                   <div className="rd-pricing-price-main">
                     <span className="rd-pricing-price-amount">{renderPlanPrice(plan.id)}</span>
-                    <span className="rd-pricing-price-sub">{renderPlanDetailsSub(plan.id)}</span>
+                    <span className="rd-pricing-price-period">/ month</span>
                   </div>
+                  {renderPlanDetailsSub(plan.id) && (
+                    <span className="rd-pricing-price-sub">{renderPlanDetailsSub(plan.id)}</span>
+                  )}
                   <div className="rd-pricing-price-billing">
                     <span>{renderPlanBillingCycle(plan.id)}</span>
                     <span className="rd-pricing-price-sub">{renderPlanBillingCycleSub(plan.id)}</span>
@@ -315,7 +380,7 @@ export default function Homepage({ currentUserEmail }) {
                     const label = isObj ? feat.label : feat;
                     return (
                       <li key={`${plan.id}-${label}-${i}`} className="rd-pricing-feature">
-                        <Check size={14} className="rd-pricing-feature-icon" aria-hidden />
+                        <Check size={15} className="rd-pricing-feature-icon" aria-hidden />
                         <span className="rd-pricing-feature-text">{label}</span>
                         {isObj && feat.badge && (
                           <span className="rd-pricing-feature-badge">{feat.badge}</span>
@@ -341,20 +406,21 @@ export default function Homepage({ currentUserEmail }) {
       </section>
 
       <section className="hp-final-cta hp-reveal">
-        <div className="hp-section-inner">
+        <div className="hp-section-inner hp-final-cta-inner">
           <h2 className="hp-final-cta-title">Stop losing deals to forgotten follow-ups.</h2>
           <p className="hp-final-cta-sub">
-            {TRIAL_MARKETING.detail}. You send every message; we keep you on track.
+            {TRIAL_MARKETING.detail}. You send every message — ReachDesk keeps you on track.
           </p>
-          <button type="button" onClick={handleSignUpClick} className="hp-btn-primary hp-final-cta-btn">
-            {isLoggedIn ? 'Open dashboard' : TRIAL_MARKETING.headline}
+          <button type="button" onClick={handleSignUpClick} className="hp-btn-primary hp-btn-lg hp-final-cta-btn">
+            {isLoggedIn ? 'Open dashboard' : 'Start free trial'}
           </button>
+          <p className="hp-final-cta-micro">{TRIAL_MARKETING.micro}</p>
         </div>
       </section>
 
       <footer className="hp-footer">
         <div className="hp-footer-inner">
-          <span className="hp-footer-logo-text">REACHDESK</span>
+          <span className="hp-footer-logo-text">REACHDESK CRM</span>
           <div className="hp-footer-links-row">
             <a href={getMarketingUrl('/terms')} className="hp-footer-link-item">Terms of Service</a>
             <a href={getMarketingUrl('/privacy')} className="hp-footer-link-item">Privacy Policy</a>
