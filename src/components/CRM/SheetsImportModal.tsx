@@ -240,11 +240,11 @@ export default function SheetsImportModal({ onClose, onImportComplete }: SheetsI
           {step === 0 && (
             <div style={{ textAlign: 'center', padding: '2rem 0' }}>
               <div style={{ marginBottom: '1.5rem' }}>
-                <div style={{ width: '72px', height: '72px', borderRadius: '16px', background: 'rgba(16, 185, 129, 0.1)', display: 'flex', alignItems: 'center', justifyContent: 'center', margin: '0 auto 1.25rem auto' }}>
-                  <FileSpreadsheet size={36} color="#10b981" />
+                <div style={{ width: '72px', height: '72px', borderRadius: '16px', background: 'var(--bg-hover)', border: '1px solid var(--border)', display: 'flex', alignItems: 'center', justifyContent: 'center', margin: '0 auto 1.25rem auto' }}>
+                  <FileSpreadsheet size={36} color="var(--text-primary)" />
                 </div>
                 <h3 style={{ fontSize: '1.25rem', marginBottom: '0.5rem' }}>Import from Google Sheets</h3>
-                <p style={{ color: '#9ca3af', fontSize: '0.875rem' }}>Select a Google Spreadsheet using Google Picker</p>
+                <p style={{ color: 'var(--text-muted)', fontSize: '0.875rem' }}>Select a Google Spreadsheet using Google Picker</p>
               </div>
               <button
                 onClick={handleOpenPicker}
@@ -282,7 +282,7 @@ export default function SheetsImportModal({ onClose, onImportComplete }: SheetsI
               )}
 
               {tabs.length === 1 && (
-                <div style={{ padding: '0.75rem 1rem', borderRadius: '8px', background: 'rgba(59, 130, 246, 0.1)', border: '1px solid rgba(59, 130, 246, 0.2)', color: '#3b82f6', fontSize: '0.875rem', marginBottom: '1.5rem' }}>
+                <div style={{ padding: '0.75rem 1rem', borderRadius: '8px', background: 'var(--bg-hover)', border: '1px solid var(--border)', color: 'var(--text-secondary)', fontSize: '0.875rem', marginBottom: '1.5rem' }}>
                   Found 1 tab: <strong>{selectedTab}</strong> — will use this tab.
                 </div>
               )}
@@ -334,7 +334,7 @@ export default function SheetsImportModal({ onClose, onImportComplete }: SheetsI
               </p>
 
               {autoMatchedCount > 0 && (
-                <div style={{ display: 'inline-block', background: 'rgba(16, 185, 129, 0.1)', color: '#10b981', padding: '0.25rem 0.75rem', borderRadius: '999px', fontSize: '0.875rem', marginBottom: '1.5rem', border: '1px solid rgba(16, 185, 129, 0.3)' }}>
+                <div style={{ display: 'inline-block', background: 'var(--bg-hover)', color: 'var(--text-primary)', padding: '0.25rem 0.75rem', borderRadius: '999px', fontSize: '0.875rem', marginBottom: '1.5rem', border: '1px solid var(--border)' }}>
                   ✓ Auto-matched {autoMatchedCount} of {headers.length} columns
                 </div>
               )}
@@ -435,17 +435,17 @@ export default function SheetsImportModal({ onClose, onImportComplete }: SheetsI
             <div style={{ textAlign: 'center', padding: '2rem 0' }}>
               {loading ? (
                 <>
-                  <Loader size={48} style={{ color: '#10b981', animation: 'spin 1.2s linear infinite', marginBottom: '1.5rem', display: 'inline-block' }} />
+                  <Loader size={48} style={{ color: 'var(--text-primary)', animation: 'spin 1.2s linear infinite', marginBottom: '1.5rem', display: 'inline-block' }} />
                   <h3 style={{ fontSize: '1.25rem', marginBottom: '0.5rem' }}>Importing leads…</h3>
                   <p style={{ color: '#9ca3af', fontSize: '0.875rem' }}>Fetching and processing sheet data.</p>
                 </>
               ) : (
                 <>
-                  <Check size={64} color="#10b981" style={{ marginBottom: '1rem', display: 'inline-block' }} />
+                  <Check size={64} color="var(--text-primary)" style={{ marginBottom: '1rem', display: 'inline-block' }} />
                   <h3 style={{ fontSize: '1.5rem', marginBottom: '2rem' }}>Import Complete!</h3>
                   <div style={{ display: 'flex', gap: '1rem', justifyContent: 'center' }}>
                     <div className="csv-stat-card">
-                      <div style={{ fontSize: '1.5rem', fontWeight: 700, color: '#10b981', marginBottom: '0.25rem' }}>{importStats.imported}</div>
+                      <div style={{ fontSize: '1.5rem', fontWeight: 700, color: 'var(--text-primary)', marginBottom: '0.25rem' }}>{importStats.imported}</div>
                       <div style={{ fontSize: '0.875rem', color: '#9ca3af' }}>Imported</div>
                     </div>
                     <div className="csv-stat-card">

@@ -1,7 +1,7 @@
 .sheets-export-backdrop {
   position: fixed;
   inset: 0;
-  background: rgba(0, 0, 0, 0.75);
+  background: var(--overlay-bg, rgba(5, 5, 5, 0.88));
   display: flex;
   align-items: center;
   justify-content: center;
@@ -11,8 +11,8 @@
 }
 
 .sheets-export-card {
-  background: var(--bg-card, #161b22);
-  border: 1px solid var(--border-color, #30363d);
+  background: var(--bg-card);
+  border: 1px solid var(--border);
   border-radius: 12px;
   width: 100%;
   max-width: 500px;
@@ -21,6 +21,7 @@
   flex-direction: column;
   max-height: 90vh;
   overflow: hidden;
+  color: var(--text-primary);
 }
 
 .sheets-export-header {
@@ -28,7 +29,7 @@
   align-items: center;
   justify-content: space-between;
   padding: 1.25rem 1.5rem;
-  border-bottom: 1px solid var(--border-color, #30363d);
+  border-bottom: 1px solid var(--border);
   flex-shrink: 0;
 }
 
@@ -44,7 +45,7 @@
   justify-content: space-between;
   gap: 0.75rem;
   padding: 1rem 1.5rem;
-  border-top: 1px solid var(--border-color, #30363d);
+  border-top: 1px solid var(--border);
   flex-shrink: 0;
 }
 
@@ -55,19 +56,18 @@
   justify-content: space-between;
   gap: 0.75rem;
   padding: 1rem;
-  background: var(--bg-secondary, #21262d);
-  border: 1px solid var(--border-color, #30363d);
+  background: var(--bg-hover);
+  border: 1px solid var(--border);
   border-radius: 10px;
   cursor: pointer;
-  color: var(--text-primary, #e6edf3);
+  color: var(--text-primary);
   font-family: inherit;
-  transition: background 0.15s, border-color 0.15s, transform 0.1s;
+  transition: background 0.15s, border-color 0.15s;
 }
 
 .sheets-export-option-btn:hover:not(:disabled) {
-  background: var(--bg-hover, #2d333b);
-  border-color: #10b981;
-  transform: translateX(2px);
+  background: var(--bg-selected);
+  border-color: var(--text-muted);
 }
 
 .sheets-export-option-btn:disabled {
@@ -83,15 +83,17 @@
   display: flex;
   align-items: center;
   justify-content: center;
+  background: var(--bg-tertiary);
+  color: var(--text-primary);
 }
 
 .sheets-export-select {
   width: 100%;
   padding: 0.6rem 0.875rem;
   border-radius: 8px;
-  border: 1px solid var(--border-color, #30363d);
-  background: var(--bg-secondary, #21262d);
-  color: var(--text-primary, #e6edf3);
+  border: 1px solid var(--border);
+  background: var(--bg-secondary);
+  color: var(--text-primary);
   font-size: 0.875rem;
   font-family: inherit;
   outline: none;
@@ -99,7 +101,7 @@
 }
 
 .sheets-export-select:focus {
-  border-color: #10b981;
+  border-color: var(--text-muted);
 }
 
 .sheets-export-radio-card {
@@ -107,8 +109,8 @@
   align-items: flex-start;
   gap: 0.75rem;
   padding: 0.75rem 1rem;
-  background: var(--bg-secondary, #21262d);
-  border: 1px solid var(--border-color, #30363d);
+  background: var(--bg-hover);
+  border: 1px solid var(--border);
   border-radius: 8px;
   cursor: pointer;
   transition: border-color 0.15s, background 0.15s;
@@ -116,65 +118,63 @@
 
 .sheets-export-radio-card input[type="radio"] {
   margin-top: 2px;
-  accent-color: #10b981;
+  accent-color: var(--accent-blue);
   flex-shrink: 0;
 }
 
 .sheets-export-radio-card:has(input:checked) {
-  border-color: #10b981;
-  background: rgba(16, 185, 129, 0.05);
+  border-color: var(--text-muted);
+  background: var(--bg-selected);
 }
 
 .sheets-export-btn-primary {
   padding: 0.6rem 1.25rem;
   border-radius: 8px;
   border: none;
-  background: linear-gradient(135deg, #10b981, #0b8043);
-  color: #fff;
+  background: var(--accent-blue);
+  color: var(--accent-on);
   font-weight: 600;
   font-family: inherit;
   cursor: pointer;
   font-size: 0.875rem;
-  transition: opacity 0.15s, transform 0.1s;
+  transition: background 0.15s;
 }
 
 .sheets-export-btn-primary:hover {
-  opacity: 0.9;
-  transform: translateY(-1px);
+  background: var(--accent-blue-hover);
 }
 
 .sheets-export-btn-secondary {
   padding: 0.6rem 1.25rem;
   border-radius: 8px;
-  border: 1px solid var(--border-color, #30363d);
+  border: 1px solid var(--border-strong);
   background: transparent;
-  color: var(--text-secondary, #8b949e);
+  color: var(--text-secondary);
   font-weight: 500;
   font-family: inherit;
   cursor: pointer;
   font-size: 0.875rem;
-  transition: border-color 0.15s;
+  transition: border-color 0.15s, color 0.15s;
 }
 
 .sheets-export-btn-secondary:hover {
-  border-color: var(--text-secondary, #8b949e);
-  color: var(--text-primary, #e6edf3);
+  border-color: var(--text-muted);
+  color: var(--text-primary);
 }
 
 .sheets-export-link-btn {
   display: inline-block;
   padding: 0.65rem 1.5rem;
   border-radius: 8px;
-  background: linear-gradient(135deg, #10b981, #0b8043);
-  color: #fff;
+  background: var(--accent-blue);
+  color: var(--accent-on);
   font-weight: 600;
   font-family: inherit;
   font-size: 0.875rem;
   text-decoration: none;
-  transition: opacity 0.15s, transform 0.1s;
+  transition: background 0.15s;
 }
 
 .sheets-export-link-btn:hover {
-  opacity: 0.9;
-  transform: translateY(-1px);
+  background: var(--accent-blue-hover);
 }

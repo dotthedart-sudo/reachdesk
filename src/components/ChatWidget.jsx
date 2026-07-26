@@ -12,7 +12,7 @@ const QUICK_QUESTIONS = [
 ];
 
 const GREETING =
-  "Hi! I'm the ReachDesk assistant. Ask me anything about the app or your account.";
+  "Hi! I'm the ReachDesk CRM Assistant. Ask me anything about the app or your account.";
 
 // ── Helpers ────────────────────────────────────────────────────────────────────
 function formatTime(date) {
@@ -36,7 +36,7 @@ function ChatBubble({ msg }) {
           padding: '0.5rem 0.75rem',
           borderRadius: isUser ? '12px 12px 3px 12px' : '12px 12px 12px 3px',
           background: isUser ? 'var(--accent-blue)' : 'var(--bg-card-hover)',
-          color: isUser ? '#fff' : 'var(--text-primary)',
+          color: isUser ? 'var(--accent-on)' : 'var(--text-primary)',
           fontSize: '0.84rem',
           lineHeight: 1.5,
           border: isUser ? 'none' : '1px solid var(--border)',
@@ -48,7 +48,7 @@ function ChatBubble({ msg }) {
         <div
           style={{
             fontSize: '0.65rem',
-            color: isUser ? 'rgba(255,255,255,0.65)' : 'var(--text-muted)',
+            color: isUser ? 'color-mix(in srgb, var(--accent-on) 70%, transparent)' : 'var(--text-muted)',
             marginTop: '0.2rem',
             textAlign: isUser ? 'right' : 'left',
           }}
@@ -188,7 +188,7 @@ export default function ChatWidget({ profile }) {
       {isOpen && (
         <div
           role="dialog"
-          aria-label="ReachDesk assistant"
+          aria-label="ReachDesk CRM Assistant"
           style={{
             position: 'fixed',
             bottom: '88px',
@@ -225,18 +225,19 @@ export default function ChatWidget({ profile }) {
                   width: '28px',
                   height: '28px',
                   borderRadius: '50%',
-                  background: 'linear-gradient(135deg, var(--accent-blue), var(--accent-green))',
+                  background: 'var(--accent-blue)',
+                  border: '1px solid var(--border-strong)',
                   display: 'flex',
                   alignItems: 'center',
                   justifyContent: 'center',
                   flexShrink: 0,
                 }}
               >
-                <MessageCircle size={14} color="#fff" />
+                <MessageCircle size={14} color="var(--accent-on)" />
               </div>
               <div>
                 <div style={{ fontSize: '0.88rem', fontWeight: 700, color: 'var(--text-primary)', lineHeight: 1.1 }}>
-                  ReachDesk assistant
+                  ReachDesk CRM Assistant
                 </div>
                 <div style={{ fontSize: '0.68rem', color: 'var(--text-muted)' }}>
                   {isLoading ? 'Typing...' : 'Online'}
@@ -461,7 +462,7 @@ export default function ChatWidget({ profile }) {
                 borderRadius: '8px',
                 border: 'none',
                 background: inputValue.trim() && !isLoading ? 'var(--accent-blue)' : 'var(--border)',
-                color: '#fff',
+                color: inputValue.trim() && !isLoading ? 'var(--accent-on)' : 'var(--text-muted)',
                 cursor: inputValue.trim() && !isLoading ? 'pointer' : 'not-allowed',
                 display: 'flex',
                 alignItems: 'center',
@@ -479,7 +480,8 @@ export default function ChatWidget({ profile }) {
       {/* ── Floating Toggle Button ── */}
       <button
         onClick={() => setIsOpen((p) => !p)}
-        aria-label={isOpen ? 'Close chat assistant' : 'Open chat assistant'}
+        aria-label={isOpen ? 'Close ReachDesk CRM Assistant' : 'Open ReachDesk CRM Assistant'}
+        title="ReachDesk CRM Assistant"
         style={{
           position: 'fixed',
           bottom: '1.5rem',
@@ -487,23 +489,27 @@ export default function ChatWidget({ profile }) {
           width: '52px',
           height: '52px',
           borderRadius: '50%',
-          border: 'none',
-          background: 'linear-gradient(135deg, var(--accent-blue), var(--accent-green))',
-          color: '#fff',
+          border: '1px solid var(--border-strong)',
+          background: 'var(--bg-card)',
+          color: 'var(--text-primary)',
           cursor: 'pointer',
           display: 'flex',
           alignItems: 'center',
           justifyContent: 'center',
           boxShadow: '0 4px 16px rgba(0,0,0,0.35)',
           zIndex: 9991,
-          transition: 'transform 0.2s ease, box-shadow 0.2s ease',
+          transition: 'transform 0.2s ease, box-shadow 0.2s ease, background 0.15s ease, border-color 0.15s ease',
         }}
         onMouseEnter={(e) => {
-          e.currentTarget.style.transform = 'scale(1.08)';
+          e.currentTarget.style.transform = 'scale(1.06)';
+          e.currentTarget.style.background = 'var(--bg-card-hover)';
+          e.currentTarget.style.borderColor = 'var(--text-muted)';
           e.currentTarget.style.boxShadow = '0 6px 22px rgba(0,0,0,0.45)';
         }}
         onMouseLeave={(e) => {
           e.currentTarget.style.transform = 'scale(1)';
+          e.currentTarget.style.background = 'var(--bg-card)';
+          e.currentTarget.style.borderColor = 'var(--border-strong)';
           e.currentTarget.style.boxShadow = '0 4px 16px rgba(0,0,0,0.35)';
         }}
       >

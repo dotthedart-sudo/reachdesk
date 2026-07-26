@@ -206,15 +206,15 @@ export default function CSVImportModal({ onClose, onImportComplete }: CSVImportM
                 onDrop={handleDrop}
                 onClick={() => fileInputRef.current?.click()}
               >
-                <UploadCloud size={48} color="#8b5cf6" style={{ marginBottom: '1rem' }} />
+                <UploadCloud size={48} color="var(--text-primary)" style={{ marginBottom: '1rem' }} />
                 <h3 style={{ fontSize: '1.25rem', marginBottom: '0.5rem' }}>Drop your CSV file here</h3>
-                <p style={{ color: '#9ca3af', fontSize: '0.875rem' }}>or click to browse — .csv files only</p>
+                <p style={{ color: 'var(--text-muted)', fontSize: '0.875rem' }}>or click to browse — .csv files only</p>
                 <input type="file" accept=".csv" ref={fileInputRef} onChange={handleFileSelect} style={{ display: 'none' }} />
               </div>
               
               {file && !errorMsg && (
-                <div style={{ marginTop: '1.5rem', display: 'inline-flex', alignItems: 'center', gap: '0.75rem', background: 'rgba(124, 58, 237, 0.1)', padding: '0.5rem 1rem', borderRadius: '999px', border: '1px solid rgba(124, 58, 237, 0.3)', fontSize: '0.875rem' }}>
-                  <span style={{ color: '#8b5cf6' }}>{file.name}</span>
+                <div style={{ marginTop: '1.5rem', display: 'inline-flex', alignItems: 'center', gap: '0.75rem', background: 'var(--bg-hover)', padding: '0.5rem 1rem', borderRadius: '999px', border: '1px solid var(--border)', fontSize: '0.875rem' }}>
+                  <span style={{ color: 'var(--text-primary)' }}>{file.name}</span>
                   <span style={{ color: '#6b7280' }}>•</span>
                   <span>{csvData.length} rows detected</span>
                   <span style={{ color: '#6b7280' }}>•</span>

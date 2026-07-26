@@ -221,7 +221,7 @@ export default function Homepage({ currentUserEmail }) {
 
           <div className="hp-hero-media hp-hero-enter hp-hero-enter-3">
             <img
-              key={theme === 'dark' ? 'hero-dark' : 'hero-light'}
+              key={theme === 'dark' ? 'hero-dark-v2' : 'hero-light-v2'}
               src={theme === 'dark' ? heroDark : heroLight}
               alt="ReachDesk CRM illustration"
               className="hero-image"

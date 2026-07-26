@@ -157,7 +157,7 @@ export default function ExportSheetsModal({ onClose, leads, currentUser }) {
         {/* Header */}
         <div className="sheets-export-header">
           <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
-            <FileSpreadsheet size={20} color="#10b981" />
+            <FileSpreadsheet size={20} color="var(--text-primary)" />
             <h3 style={{ fontSize: '1.15rem', margin: 0, fontWeight: 600 }}>Export to Google Sheets</h3>
           </div>
           <button onClick={onClose} disabled={loading} style={{ background: 'transparent', border: 'none', color: '#9ca3af', cursor: loading ? 'not-allowed' : 'pointer' }}>
@@ -186,7 +186,7 @@ export default function ExportSheetsModal({ onClose, leads, currentUser }) {
                   className="sheets-export-option-btn"
                 >
                   <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem', width: '100%' }}>
-                    <div className="sheets-export-icon-box" style={{ background: 'rgba(16, 185, 129, 0.1)', color: '#10b981' }}>
+                    <div className="sheets-export-icon-box">
                       <FileSpreadsheet size={20} />
                     </div>
                     <div style={{ textAlign: 'left' }}>
@@ -203,7 +203,7 @@ export default function ExportSheetsModal({ onClose, leads, currentUser }) {
                   className="sheets-export-option-btn"
                 >
                   <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem', width: '100%' }}>
-                    <div className="sheets-export-icon-box" style={{ background: 'rgba(59, 130, 246, 0.1)', color: '#3b82f6' }}>
+                    <div className="sheets-export-icon-box">
                       <Loader size={20} className={loading ? "animate-spin" : ""} style={{ display: loading ? 'block' : 'none' }} />
                       <FileSpreadsheet size={20} style={{ display: loading ? 'none' : 'block' }} />
                     </div>
