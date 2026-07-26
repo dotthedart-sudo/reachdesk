@@ -35,6 +35,7 @@
     "canvas-confetti": "^1.9.4",
     "gray-matter": "^4.0.3",
     "lucide-react": "^1.21.0",
+    "motion": "^12.42.2",
     "papaparse": "^5.5.3",
     "perfect-freehand": "^1.2.3",
     "posthog-js": "^1.404.1",

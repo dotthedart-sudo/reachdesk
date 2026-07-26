@@ -18,6 +18,7 @@ import { FeatureMedia, StepMedia } from './marketing/MarketingMedia';
 import { Helmet } from 'react-helmet-async';
 import { siteMeta, generateOGTags } from '../config/metadata';
 import { getAppUrl, getMarketingUrl, isLocalDev } from '../utils/domain';
+import { ShinyButton } from '@/registry/magicui/shiny-button';
 
 export default function Homepage({ currentUserEmail }) {
   const navigate = useNavigate();
@@ -209,9 +210,9 @@ export default function Homepage({ currentUserEmail }) {
               The follow-up CRM for freelancers and agencies. Know who to contact today — so nothing slips while you deliver client work.
             </p>
             <div className="hp-hero-ctas hp-hero-enter hp-hero-enter-2">
-              <button type="button" onClick={handleSignUpClick} className="hp-btn-primary hp-btn-lg">
+              <ShinyButton type="button" onClick={handleSignUpClick} className="hp-btn-lg">
                 {isLoggedIn ? 'Open dashboard' : 'Start free trial'}
-              </button>
+              </ShinyButton>
               <a href="#pricing" className="hp-btn-text">
                 See pricing <ArrowRight size={14} aria-hidden />
               </a>
@@ -406,9 +407,9 @@ export default function Homepage({ currentUserEmail }) {
                     Coming soon
                   </button>
                 ) : (
-                  <button type="button" onClick={handleSignUpClick} className="rd-pricing-cta">
+                  <ShinyButton type="button" onClick={handleSignUpClick} className="rd-pricing-cta">
                     {plan.ctaLabel}
-                  </button>
+                  </ShinyButton>
                 )}
               </div>
             ))}

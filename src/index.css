@@ -5,9 +5,9 @@
   font-family: 'Mattone';
   src: url('/fonts/Mattone-Regular.woff2') format('woff2'),
        url('/fonts/mattone_extracted/Mattone-Regular.otf') format('opentype');
-  font-weight: 400;
+  font-weight: 400 700;
   font-style: normal;
-  font-display: swap;
+  font-display: block;
 }
 
 :root {
@@ -4079,31 +4079,58 @@ select option {
   background: transparent;
   border: none;
   box-shadow: none;
+  min-width: 0;
 }
 
 @media (min-width: 768px) {
   .hp-hero-media {
     justify-content: flex-end;
-    padding-right: clamp(8px, 2vw, 24px);
+    padding-right: clamp(4px, 1.5vw, 16px);
   }
 }
 
 .hero-image {
   display: block;
-  width: 100%;
-  max-width: 320px;
+  width: min(100%, 300px);
+  max-width: 100%;
   height: auto;
   margin: 0 auto;
   object-fit: contain;
+  object-position: center;
   background: transparent;
   border: none;
   box-shadow: none;
+  /* Keep line art crisp; avoid upscaling past native size */
+  image-rendering: auto;
 }
 
 @media (min-width: 768px) {
   .hero-image {
-    max-width: 480px;
+    width: min(100%, 520px);
     margin: 0;
+  }
+}
+
+@media (min-width: 1100px) {
+  .hero-image {
+    width: min(100%, 560px);
+  }
+}
+
+/* Light asset has more internal whitespace — nudge scale so subjects match dark */
+.hp-root[data-theme="light"] .hero-image {
+  width: min(100%, 280px);
+}
+
+@media (min-width: 768px) {
+  .hp-root[data-theme="light"] .hero-image {
+    width: min(100%, 500px);
+  }
+}
+
+@media (min-width: 1100px) {
+  .hp-root[data-theme="light"] .hero-image {
+    width: min(100%, 540px);
   }
 }
 

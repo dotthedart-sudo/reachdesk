@@ -4,6 +4,7 @@ import { supabase } from '../lib/supabase';
 import { useLocalCurrency } from '../utils/useLocalCurrency';
 import { APP_DOMAIN, isLocalDev } from '../utils/domain';
 import { PLANS, getPlanFeatures } from '../lib/planMarketing';
+import { ShinyButton } from '@/registry/magicui/shiny-button';
 
 // ─── Unified Pricing Data ──────────────────────────────────────────────────
 // ⚠️  SYNC WARNING: This BILLING object is mirrored for Supabase Edge Functions in:
@@ -541,33 +542,19 @@ function PlanCard({ plan, billing, isSelected, onSelect, handlePaddleCheckout, p
           </div>
         </>
       ) : isSelectable ? (
-        <button
+        <ShinyButton
           onClick={(e) => {
             e.stopPropagation();
             handlePaddleCheckout(id, pricing?.priceId);
           }}
+          className="shiny-button--full"
           style={{
-            width: '100%',
-            padding: '12px',
-            backgroundColor: 'var(--accent-blue)',
-            color: 'var(--bg-card)',
-            border: 'none',
-            borderRadius: '3px',
             fontSize: '0.85rem',
-            fontWeight: 600,
-            cursor: 'pointer',
             fontFamily: 'Mattone, sans-serif',
-            transition: 'background-color 0.2s',
-          }}
-          onMouseEnter={(e) => {
-            e.target.style.backgroundColor = 'var(--accent-blue-hover)';
-          }}
-          onMouseLeave={(e) => {
-            e.target.style.backgroundColor = 'var(--accent-blue)';
           }}
         >
           {cardStatus === 'upgrade' ? 'Upgrade' : 'Get Started'}
-        </button>
+        </ShinyButton>
       ) : (
         <button
           disabled

@@ -24,7 +24,15 @@ export default function LoadingSpinner() {
           animation: 'spin 1s linear infinite',
         }}
       />
-      <span className="hp-logo" style={{ color: 'var(--text-primary)' }}>REACHDESK CRM</span>
+      <span
+        className="loading-text hp-logo"
+        style={{
+          color: 'var(--text-primary)',
+          fontFamily: "'Mattone', sans-serif",
+        }}
+      >
+        REACHDESK CRM
+      </span>
     </div>
   );
 }

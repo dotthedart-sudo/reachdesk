@@ -4,6 +4,7 @@ import { ShieldAlert, Download, FileText, Database } from 'lucide-react';
 import { supabase } from '../lib/supabase';
 import { exportLeads, exportNotes } from '../utils/exportUtils';
 import ExportSheetsModal from './CRM/ExportSheetsModal';
+import { ShinyButton } from '@/registry/magicui/shiny-button';
 
 // ─────────────────────────────────────────────────────────────────────────────
 
@@ -185,24 +186,17 @@ export default function UpgradeLockModal({ profile, handleLogout, theme }) {
         </p>
 
         {/* Upgrade CTA */}
-        <button
+        <ShinyButton
           onClick={() => navigate('/upgrade')}
-          className="btn btn-primary"
+          className="shiny-button--full"
           style={{
-            width: '100%',
-            backgroundColor: 'var(--accent-blue)',
-            color: '#FFFFFF',
-            border: 'none',
-            borderRadius: '3px',
             padding: '0.75rem',
-            fontWeight: 'bold',
+            fontWeight: 600,
             fontFamily: "'Plus Jakarta Sans', sans-serif",
-            cursor: 'pointer',
-            justifyContent: 'center'
           }}
         >
           Upgrade Plan
-        </button>
+        </ShinyButton>
 
         {/* ── Export section ─────────────────────────────────────────────── */}
         <div style={{ width: '100%' }}>

@@ -31,3 +31,7 @@ export const getTeamIds = async (userId) => {
     return [userId];
   }
 };
+
+export function cn(...inputs) {
+  return inputs.filter(Boolean).join(' ');
+}

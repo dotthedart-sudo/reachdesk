@@ -10,6 +10,7 @@
 
 import { useEffect, useState, useCallback } from 'react'
 import { supabase } from './supabase' // matches src/lib/supabase.js
+import { ShinyButton } from '@/registry/magicui/shiny-button'
 
 // ---- Plan config -----------------------------------------------------
 // null = no cap enforced. These are BASE limits (monthly billing).
@@ -133,9 +134,9 @@ export function LeadLimitTopBar({
         <button onClick={onCleanup} style={{ background: 'transparent', color: '#E6EDF3', border: '1px solid #21262D', borderRadius: 3, padding: '4px 10px', fontSize: 12.5, fontWeight: 600, cursor: 'pointer' }}>
           Quick cleanup
         </button>
-        <button onClick={onUpgrade} style={{ background: '#5B8FB9', color: '#0D1117', border: 'none', borderRadius: 3, padding: '4px 10px', fontSize: 12.5, fontWeight: 600, cursor: 'pointer' }}>
+        <ShinyButton onClick={onUpgrade} className="shiny-button--compact">
           Upgrade
-        </button>
+        </ShinyButton>
       </div>
     </div>
   )
@@ -195,12 +196,9 @@ export function LeadLimitToast({
         >
           Quick cleanup
         </button>
-        <button
-          onClick={onUpgrade}
-          style={{ background: '#5B8FB9', color: '#0D1117', border: 'none', borderRadius: 3, padding: '6px 12px', fontSize: 12.5, fontWeight: 600, cursor: 'pointer' }}
-        >
+        <ShinyButton onClick={onUpgrade} className="btn-sm">
           Upgrade
-        </button>
+        </ShinyButton>
       </div>
     </div>
   )
@@ -280,21 +278,12 @@ export function LeadLimitModal({
           >
             Quick cleanup
           </button>
-          <button
+          <ShinyButton
             onClick={onUpgrade}
-            style={{
-              background: '#5B8FB9',
-              color: '#0D1117',
-              border: 'none',
-              borderRadius: 3,
-              padding: '10px 18px',
-              fontSize: 13.5,
-              fontWeight: 600,
-              cursor: 'pointer',
-            }}
+            style={{ padding: '10px 18px', fontSize: 13.5, fontWeight: 600 }}
           >
             Upgrade to {nextPlan}
-          </button>
+          </ShinyButton>
         </div>
       </div>
     </div>
@@ -364,9 +353,12 @@ export function BulkImportLimitModal({
           <button onClick={onCleanup} style={{ background: 'transparent', color: '#E6EDF3', border: '1px solid #21262D', borderRadius: 3, padding: '10px 18px', fontSize: 13.5, fontWeight: 600, cursor: 'pointer' }}>
             Quick cleanup
           </button>
-          <button onClick={onUpgrade} style={{ background: '#5B8FB9', color: '#0D1117', border: 'none', borderRadius: 3, padding: '10px 18px', fontSize: 13.5, fontWeight: 600, cursor: 'pointer' }}>
+          <ShinyButton
+            onClick={onUpgrade}
+            style={{ padding: '10px 18px', fontSize: 13.5, fontWeight: 600 }}
+          >
             Upgrade to {nextPlan}
-          </button>
+          </ShinyButton>
         </div>
       </div>
     </div>

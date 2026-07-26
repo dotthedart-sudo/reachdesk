@@ -1,5 +1,9 @@
+import path from 'path'
+import { fileURLToPath } from 'url'
 import { defineConfig } from 'vite'
 import react from '@vitejs/plugin-react'
+
+const __dirname = path.dirname(fileURLToPath(import.meta.url))
 
 // https://vite.dev/config/
 export default defineConfig({
@@ -8,6 +12,9 @@ export default defineConfig({
     historyApiFallback: true,
   },
   resolve: {
+    alias: {
+      '@': path.resolve(__dirname, './src'),
+    },
     // Add 'development' so Vite can resolve the excalidraw exports map
     // which uses "development" / "production" conditions for ./index.css
     conditions: ['development', 'browser', 'module', 'import', 'default'],

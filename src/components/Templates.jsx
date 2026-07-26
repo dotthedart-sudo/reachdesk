@@ -20,6 +20,7 @@ import {
 import { generateAIDraft } from '../utils/aiDraft';
 import { PLAN_LIMITS } from '../lib/utils';
 import { NEXT_PLAN, PLAN_LIMITS as LIMITS_NEW } from '../lib/leadLimits';
+import { ShinyButton } from '@/registry/magicui/shiny-button';
 
 const SECTIONS = [
   'INITIAL TEMPLATES',
@@ -1392,13 +1393,13 @@ export default function Templates({
               <X size={16} />
             </button>
           </div>
-          <button
+          <ShinyButton
             onClick={() => { setShowToast(false); navigate('/upgrade'); }}
-            className="btn btn-primary btn-sm"
-            style={{ alignSelf: 'flex-start', justifyContent: 'center', borderRadius: '3px' }}
+            className="btn-sm"
+            style={{ alignSelf: 'flex-start' }}
           >
             Upgrade Now
-          </button>
+          </ShinyButton>
         </div>
       )}
 
@@ -1454,24 +1455,15 @@ export default function Templates({
               >
                 Quick cleanup
               </button>
-              <button
+              <ShinyButton
                 onClick={() => {
                   setShowTemplateLimitBlockModal(false);
                   navigate('/upgrade');
                 }}
-                style={{
-                  background: '#5B8FB9',
-                  color: '#0D1117',
-                  border: 'none',
-                  borderRadius: 3,
-                  padding: '10px 18px',
-                  fontSize: 13.5,
-                  fontWeight: 600,
-                  cursor: 'pointer',
-                }}
+                style={{ padding: '10px 18px', fontSize: 13.5, fontWeight: 600 }}
               >
                 Upgrade to {NEXT_PLAN[planKey] ?? 'a higher plan'}
-              </button>
+              </ShinyButton>
             </div>
           </div>
         </div>

@@ -11,6 +11,7 @@
   <link rel="icon" type="image/png" sizes="16x16" href="/favicon-16x16.png">
   <link rel="manifest" href="/site.webmanifest">
 
+  <link rel="preload" href="/fonts/Mattone-Regular.woff2" as="font" type="font/woff2" crossorigin>
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link
@@ -31,6 +32,14 @@
     })();
   </script>
   <style>
+    /* Mattone must be available before the JS/CSS bundle — prevents loader FOUT */
+    @font-face {
+      font-family: 'Mattone';
+      src: url('/fonts/Mattone-Regular.woff2') format('woff2');
+      font-weight: 400 700;
+      font-style: normal;
+      font-display: block;
+    }
     html, body { margin: 0; background: #050505; color: #FFFFFF; }
     html.light, html.light body { background: #FAFAFA; color: #0A0A0A; }
     @keyframes spin {
@@ -60,11 +69,12 @@
       border-top: 3px solid #0A0A0A;
     }
     .loading-text {
-      font-family: 'Plus Jakarta Sans', system-ui, sans-serif;
-      font-size: 0.75rem;
-      font-weight: 600;
-      letter-spacing: 0.08em;
+      font-family: 'Mattone', sans-serif;
+      font-size: 15px;
+      font-weight: 700;
+      letter-spacing: 0.07em;
       text-transform: uppercase;
+      white-space: nowrap;
     }
   </style>
 </head>
