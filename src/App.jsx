@@ -1152,6 +1152,9 @@ function AppLayoutWrapper({ children }) {
 // Protected Page wrapper
 function ProtectedPage({ children }) {
   const { session, profile, subStatus, loading, handleLogout } = useAppContext();
+  if (!loading && session && profile && !profile.has_completed_setup) {
+    return <Navigate to="/setup" replace />;
+  }
   return (
     <ProtectedRoute session={session} profile={profile} subStatus={subStatus} loading={loading} handleLogout={handleLogout}>
       <AppLayoutWrapper>{children}</AppLayoutWrapper>
@@ -1302,10 +1305,31 @@ function AdminPanelPage() {
 }
 
 function AuthPage({ mode }) {
-  const { session, loading } = useAppContext();
-  // If already logged in, go straight to dashboard
-  if (!loading && session) return <Navigate to="/dashboard" replace />;
+  const { session, profile, loading } = useAppContext();
+  if (!loading && session) {
+    if (profile && !profile.has_completed_setup) return <Navigate to="/setup" replace />;
+    return <Navigate to="/dashboard" replace />;
+  }
   return <Auth mode={mode} />;
+}
+
+function SetupPage() {
+  const { session, profile, loading, fetchProfile, handleSaveSettings } = useAppContext();
+  const navigate = useNavigate();
+
+  if (loading) return <LoadingSpinner />;
+  if (!session) return <Navigate to="/signup" replace />;
+  if (profile?.has_completed_setup) return <Navigate to="/dashboard" replace />;
+  if (!profile) return <LoadingSpinner />;
+
+  return (
+    <SetupModal
+      profile={profile}
+      onRefreshProfile={fetchProfile}
+      onSaveSettings={handleSaveSettings}
+      navigate={navigate}
+    />
+  );
 }
 
 function HomepagePage() {
@@ -1415,7 +1439,6 @@ export default function App() {
 
 function AppRoutes() {
   const { loading, session, profile, fetchProfile, handleSaveSettings } = useAppContext();
-  const navigate = useNavigate();
   const location = useLocation();
 
   useEffect(() => {
@@ -1454,24 +1477,15 @@ function AppRoutes() {
 
   if (loading) return <LoadingSpinner />;
 
-  const showSetupModal = session && profile && !profile.has_completed_setup;
   const appMode = import.meta.env.VITE_APP_MODE;
 
   return (
     <Suspense fallback={<LoadingSpinner />}>
-      {session && profile && (
+      {session && profile && profile.has_completed_setup && (
         <UserNotificationBell profile={profile} onRefreshProfile={fetchProfile} />
       )}
-      {session && profile && (
+      {session && profile && profile.has_completed_setup && (
         <ChatWidget profile={profile} />
-      )}
-      {showSetupModal && (
-        <SetupModal
-          profile={profile}
-          onRefreshProfile={fetchProfile}
-          onSaveSettings={handleSaveSettings}
-          navigate={navigate}
-        />
       )}
       <Routes>
         {/* Public routes */}
@@ -1488,6 +1502,7 @@ function AppRoutes() {
         <Route path="/homepage" element={<HomepagePage />} />
         <Route path="/login" element={<AuthPage mode="login" />} />
         <Route path="/signup" element={<AuthPage mode="signup" />} />
+        <Route path="/setup" element={<SetupPage />} />
         <Route path="/i/:token" element={<PublicInvoice />} />
         <Route path="/reset-password" element={<ResetPassword />} />
         <Route path="/terms" element={<TermsOfService />} />

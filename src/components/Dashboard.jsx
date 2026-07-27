@@ -398,15 +398,20 @@ export default function Dashboard({ currentUser, onSelectLead }) {
     stageCounts[st] = leadsList.filter(l => l.status === st).length;
   });
 
+  const [reveal] = useState(() => sessionStorage.getItem('rd_reveal') === '1');
+  useEffect(() => { sessionStorage.removeItem('rd_reveal'); }, []);
+
+  const revealBlock = reveal ? ' rd-reveal-block' : '';
+
   return (
-    <div className="flex-col gap-4" style={{ textAlign: 'left' }}>
-      <div style={{ marginBottom: '1.5rem' }}>
+    <div className={`flex-col gap-4${reveal ? ' rd-dashboard-reveal' : ''}`} style={{ textAlign: 'left' }}>
+      <div className={reveal ? 'rd-reveal-block' : undefined} style={{ marginBottom: '1.5rem' }}>
         <h2>Welcome back, <span>{currentUser.full_name ? currentUser.full_name.trim().split(' ')[0] : currentUser.email.split('@')[0]}</span>!</h2>
         <p className="color-muted">Outreach engine tracking, conversions, and follow-ups status.</p>
       </div>
 
       {metrics.total === 0 && !loading ? (
-        <div className="card empty-state" style={{ marginTop: 'var(--space-5)' }}>
+        <div className={`card empty-state${revealBlock}`} style={{ marginTop: 'var(--space-5)' }}>
           <div className="empty-state-icon" style={{ width: 56, height: 56, color: 'var(--text-primary)', background: 'var(--bg-hover)', borderColor: 'var(--border)' }}>
             <BarChart2 size={28} />
           </div>
@@ -422,7 +427,7 @@ export default function Dashboard({ currentUser, onSelectLead }) {
         <>
           {/* Primary KPIs Row — uses dash-kpi-grid so the mobile @media override
               (max-width 768px → 1-column stack) applies correctly */}
-      <div className="dash-kpi-grid">
+      <div className={`dash-kpi-grid${revealBlock}`}>
         
         {/* Leads card */}
         <div className="card flex align-start gap-3" style={{ minHeight: 140 }}>
@@ -534,7 +539,7 @@ export default function Dashboard({ currentUser, onSelectLead }) {
       </div>
 
       {/* Stepper Pipeline Flow */}
-      <div className="card" style={{ marginTop: '0.5rem' }}>
+      <div className={`card${revealBlock}`} style={{ marginTop: '0.5rem' }}>
         <h3 style={{ fontSize: '0.9rem', marginBottom: '1rem', display: 'flex', alignItems: 'center', gap: '0.4rem', color: 'var(--text-secondary)' }}>
           <TrendingUp size={16} /> Lead Progression Pipeline
         </h3>
@@ -631,7 +636,7 @@ export default function Dashboard({ currentUser, onSelectLead }) {
 
 
       {/* Main Dual Grid: Column 1 = Up Next chronological feed, Column 2 = Urgent Reminders & Templates */}
-      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(320px, 1fr))', gap: '1.5rem', marginTop: '0.5rem' }}>
+      <div className={reveal ? 'rd-reveal-block' : undefined} style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(320px, 1fr))', gap: '1.5rem', marginTop: '0.5rem' }}>
         
         {/* Column 1: Upcoming Next Feed */}
         <div className="card" style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>

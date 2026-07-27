@@ -4,6 +4,7 @@ import { ArrowLeft, ShieldAlert, Check, Eye, EyeOff } from 'lucide-react';
 import { supabase } from '../lib/supabase';
 import { getAppUrl, getMarketingUrl, isLocalDev } from '../utils/domain';
 import { TRIAL_MARKETING } from '../lib/planMarketing';
+import AuthLogo from './AuthLogo';
 
 const BLOCKED_DOMAINS = [
   'mailinator.com', 'guerrillamail.com', '10minutemail.com', 'tempmail.com',
@@ -123,7 +124,7 @@ export default function Auth({ mode = 'login' }) {
             },
           });
           if (signUpErr) throw signUpErr;
-          navigate('/dashboard');
+          navigate('/setup');
         } else {
           const { error: loginErr } = await supabase.auth.signInWithPassword({
             email: email.trim(),
@@ -208,7 +209,7 @@ export default function Auth({ mode = 'login' }) {
         type: 'email',
       });
       if (verifyErr) throw verifyErr;
-      navigate('/dashboard');
+      navigate(isSignup ? '/setup' : '/dashboard');
     } catch (err) {
       setError('Invalid or expired code. Try again.');
     } finally {
@@ -237,7 +238,7 @@ export default function Auth({ mode = 'login' }) {
       ? 'Check your email'
       : step === 'email'
         ? (isSignup ? 'Continue with email' : 'Log in with email')
-        : (isSignup ? 'Create your account' : 'Welcome back');
+        : (isSignup ? 'Create your workspace' : 'Welcome back');
 
   const subtitle =
     step === 'otp'
@@ -246,20 +247,20 @@ export default function Auth({ mode = 'login' }) {
         ? (LOCAL_PASSWORD_AUTH
           ? 'Local dev: use email + password (OTP still optional below).'
           : 'We’ll email you a one-time code — no password needed.')
-        : (isSignup
-          ? `${TRIAL_MARKETING.headline}.`
-          : 'Log in to your ReachDesk workspace.');
+        : step === 'methods'
+          ? null
+          : (isSignup
+            ? `${TRIAL_MARKETING.headline}.`
+            : 'Log in to your ReachDesk workspace.');
 
   return (
     <div className="auth-page">
-      <a href={getMarketingUrl('/homepage')} className="auth-page-logo">
-        REACHDESK
-      </a>
+      <AuthLogo />
 
       <div className="auth-panel">
         <header className="auth-panel-header">
           <h1 className="auth-panel-title">{title}</h1>
-          <p className="auth-panel-sub">{subtitle}</p>
+          {subtitle && <p className="auth-panel-sub">{subtitle}</p>}
         </header>
 
         {error && (

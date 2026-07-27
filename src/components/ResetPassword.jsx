@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
 import { ShieldAlert, Eye, EyeOff, Check } from 'lucide-react';
 import { supabase } from '../lib/supabase';
-import { getMarketingUrl } from '../utils/domain';
+import AuthLogo from './AuthLogo';
 
 export default function ResetPassword() {
   const navigate = useNavigate();
@@ -79,9 +79,7 @@ export default function ResetPassword() {
 
   return (
     <div className="auth-page">
-      <a href={getMarketingUrl('/homepage')} className="auth-page-logo">
-        REACHDESK
-      </a>
+      <AuthLogo />
 
       <div className="auth-panel">
         <header className="auth-panel-header">

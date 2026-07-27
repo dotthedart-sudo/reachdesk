@@ -1,7 +1,8 @@
 import React, { useRef, useState } from 'react';
-import { Upload, X } from 'lucide-react';
+import { Upload, X, ArrowLeft } from 'lucide-react';
 import { supabase } from '../lib/supabase';
 import CurrencySelector from './CurrencySelector';
+import AuthLogo from './AuthLogo';
 
 const USE_CASES = [
   { id: 'leads', label: 'Lead outreach', desc: 'Finding & pitching clients' },
@@ -9,11 +10,27 @@ const USE_CASES = [
   { id: 'both', label: 'Both', desc: 'Full pipeline & revenue tracking' },
 ];
 
+const STEP_COPY = [
+  {
+    title: 'Name your workspace',
+    sub: 'This is how your CRM will appear in settings and exports.',
+  },
+  {
+    title: 'Set up your profile',
+    sub: 'Add a photo and your name — optional, but helps on invoices and reminders.',
+  },
+  {
+    title: 'Almost done',
+    sub: 'Pick defaults for currency and how you’ll use ReachDesk.',
+  },
+];
+
 /**
- * Post-auth workspace setup (Linear-style): photo, name, company — then optional prefs.
+ * Post-auth workspace setup — full-page Linear-style wizard (not a modal).
  */
 export default function SetupModal({ profile, onRefreshProfile, onSaveSettings, navigate }) {
   const fileRef = useRef(null);
+  const [step, setStep] = useState(0);
   const [fullName, setFullName] = useState(profile?.full_name || '');
   const [brandName, setBrandName] = useState(
     localStorage.getItem('reachdesk_brand_name') ||
@@ -76,8 +93,12 @@ export default function SetupModal({ profile, onRefreshProfile, onSaveSettings, 
     return avatarUrl;
   };
 
-  const handleSubmit = async (e) => {
-    e.preventDefault();
+  const goToDashboard = (path) => {
+    if (path === '/dashboard') sessionStorage.setItem('rd_reveal', '1');
+    navigate(path);
+  };
+
+  const handleFinish = async () => {
     setIsSubmitting(true);
     setError('');
 
@@ -109,9 +130,9 @@ export default function SetupModal({ profile, onRefreshProfile, onSaveSettings, 
 
       if (onRefreshProfile) await onRefreshProfile();
 
-      if (useCase === 'leads') navigate('/leads');
-      else if (useCase === 'clients') navigate('/invoices');
-      else navigate('/dashboard');
+      if (useCase === 'leads') goToDashboard('/leads');
+      else if (useCase === 'clients') goToDashboard('/invoices');
+      else goToDashboard('/dashboard');
     } catch (err) {
       console.error('Error during setup wizard submission:', err);
       setError(err.message || 'Failed to save setup. Please try again.');
@@ -130,7 +151,7 @@ export default function SetupModal({ profile, onRefreshProfile, onSaveSettings, 
 
       if (updateErr) throw updateErr;
       if (onRefreshProfile) await onRefreshProfile();
-      navigate('/dashboard');
+      goToDashboard('/dashboard');
     } catch (err) {
       console.error('Error skipping setup wizard:', err);
       setError('Failed to skip. Please try again.');
@@ -139,75 +160,123 @@ export default function SetupModal({ profile, onRefreshProfile, onSaveSettings, 
     }
   };
 
+  const handleNext = (e) => {
+    e.preventDefault();
+    setError('');
+
+    if (step === 0 && !brandName.trim()) {
+      setError('Enter a workspace name.');
+      return;
+    }
+    if (step === 1 && !fullName.trim()) {
+      setError('Enter your name.');
+      return;
+    }
+    if (step < 2) {
+      setStep((s) => s + 1);
+      return;
+    }
+    handleFinish();
+  };
+
+  const { title, sub } = STEP_COPY[step];
+
   return (
-    <div className="modal-backdrop rd-setup-backdrop">
-      <div className="modal-content rd-modal">
-        <div className="rd-modal-header rd-modal-header-center">
-          <div>
-            <p className="rd-modal-eyebrow">Welcome to ReachDesk</p>
-            <h3>Create your workspace</h3>
-            <p className="rd-modal-sub">Add a photo, your name, and company — takes a minute.</p>
+    <div className="auth-page rd-setup-page">
+      <AuthLogo />
+
+      <div className="auth-panel auth-panel-setup">
+        {step > 0 && (
+          <button
+            type="button"
+            className="auth-back rd-setup-back"
+            onClick={() => { setError(''); setStep((s) => s - 1); }}
+            disabled={isSubmitting}
+          >
+            <ArrowLeft size={16} /> Back
+          </button>
+        )}
+
+        <header className="auth-panel-header">
+          <h1 className="auth-panel-title">{title}</h1>
+          <p className="auth-panel-sub">{sub}</p>
+        </header>
+
+        {error && (
+          <div className="auth-error-banner" role="alert">
+            <span>{error}</span>
           </div>
-        </div>
+        )}
 
-        <form onSubmit={handleSubmit} className="rd-modal-form">
-          <div className="rd-modal-body">
-            {error && (
-              <div className="auth-error-banner" role="alert" style={{ marginBottom: 'var(--space-4)' }}>
-                <span>{error}</span>
+        <form onSubmit={handleNext} className="rd-setup-form">
+          {step === 0 && (
+            <div className="rd-setup-fields">
+              <div className="auth-field">
+                <label className="auth-field-label" htmlFor="setup-brand">Workspace name</label>
+                <input
+                  id="setup-brand"
+                  type="text"
+                  required
+                  autoFocus
+                  value={brandName}
+                  onChange={(e) => setBrandName(e.target.value)}
+                  placeholder="e.g. Acme Studio"
+                  className="form-input"
+                  disabled={isSubmitting}
+                />
               </div>
-            )}
+            </div>
+          )}
 
-            <div className="rd-form">
-              <div className="rd-form-group rd-setup-avatar">
-                <span className="form-label">Profile photo</span>
-                <div className="rd-setup-avatar-row">
+          {step === 1 && (
+            <div className="rd-setup-fields">
+              <div className="rd-setup-avatar-center">
+                <button
+                  type="button"
+                  className="rd-setup-avatar-btn rd-setup-avatar-btn-lg"
+                  onClick={() => !isSubmitting && fileRef.current?.click()}
+                  disabled={isSubmitting}
+                  aria-label="Upload profile photo"
+                >
+                  {avatarPreview ? (
+                    <img src={avatarPreview} alt="" />
+                  ) : (
+                    <Upload size={22} />
+                  )}
+                </button>
+                <div className="rd-setup-avatar-center-actions">
                   <button
                     type="button"
-                    className="rd-setup-avatar-btn"
-                    onClick={() => !isSubmitting && fileRef.current?.click()}
+                    className="auth-text-btn"
+                    onClick={() => fileRef.current?.click()}
                     disabled={isSubmitting}
                   >
-                    {avatarPreview ? (
-                      <img src={avatarPreview} alt="" />
-                    ) : (
-                      <Upload size={20} />
-                    )}
+                    Upload photo
                   </button>
-                  <div className="rd-setup-avatar-actions">
+                  {(avatarFile || (avatarPreview && avatarPreview !== profile?.avatar_url)) && (
                     <button
                       type="button"
-                      className="btn btn-secondary btn-sm"
-                      onClick={() => fileRef.current?.click()}
+                      className="auth-text-btn"
+                      onClick={clearAvatar}
                       disabled={isSubmitting}
                     >
-                      Upload photo
+                      <X size={12} /> Remove
                     </button>
-                    {(avatarFile || (avatarPreview && avatarPreview !== profile?.avatar_url)) && (
-                      <button
-                        type="button"
-                        className="auth-text-btn"
-                        onClick={clearAvatar}
-                        disabled={isSubmitting}
-                      >
-                        <X size={12} /> Remove
-                      </button>
-                    )}
-                    <span className="rd-setup-avatar-hint">Optional · JPG/PNG · max 2MB</span>
-                  </div>
-                  <input
-                    ref={fileRef}
-                    type="file"
-                    accept="image/jpeg,image/png,image/webp"
-                    onChange={handleAvatarChange}
-                    hidden
-                    disabled={isSubmitting}
-                  />
+                  )}
                 </div>
+                <span className="rd-setup-avatar-hint">Optional · JPG/PNG · max 2MB</span>
+                <input
+                  ref={fileRef}
+                  type="file"
+                  accept="image/jpeg,image/png,image/webp"
+                  onChange={handleAvatarChange}
+                  hidden
+                  disabled={isSubmitting}
+                />
               </div>
 
-              <div className="rd-form-group">
-                <label className="form-label" htmlFor="setup-full-name">Your name</label>
+              <div className="auth-field">
+                <label className="auth-field-label" htmlFor="setup-full-name">Your name</label>
                 <input
                   id="setup-full-name"
                   type="text"
@@ -220,43 +289,32 @@ export default function SetupModal({ profile, onRefreshProfile, onSaveSettings, 
                   disabled={isSubmitting}
                 />
               </div>
+            </div>
+          )}
 
-              <div className="rd-form-group">
-                <label className="form-label" htmlFor="setup-brand">Company / workspace name</label>
+          {step === 2 && (
+            <div className="rd-setup-fields">
+              <div className="auth-field">
+                <label className="auth-field-label">Default currency</label>
+                <CurrencySelector value={defaultCurrency} onChange={setDefaultCurrency} />
+              </div>
+
+              <div className="auth-field">
+                <label className="auth-field-label" htmlFor="setup-target">Monthly revenue target</label>
                 <input
-                  id="setup-brand"
-                  type="text"
-                  required
-                  value={brandName}
-                  onChange={(e) => setBrandName(e.target.value)}
-                  placeholder="e.g. Acme Studio"
+                  id="setup-target"
+                  type="number"
+                  min="0"
+                  value={revenueTarget}
+                  onChange={(e) => setRevenueTarget(e.target.value)}
+                  placeholder="Optional"
                   className="form-input"
                   disabled={isSubmitting}
                 />
               </div>
 
-              <div className="rd-form-row">
-                <div className="rd-form-group">
-                  <label className="form-label">Default currency</label>
-                  <CurrencySelector value={defaultCurrency} onChange={setDefaultCurrency} />
-                </div>
-                <div className="rd-form-group">
-                  <label className="form-label" htmlFor="setup-target">Monthly revenue target</label>
-                  <input
-                    id="setup-target"
-                    type="number"
-                    min="0"
-                    value={revenueTarget}
-                    onChange={(e) => setRevenueTarget(e.target.value)}
-                    placeholder="Optional"
-                    className="form-input"
-                    disabled={isSubmitting}
-                  />
-                </div>
-              </div>
-
-              <div className="rd-form-group">
-                <span className="form-label">What will you use ReachDesk for?</span>
+              <div className="auth-field">
+                <span className="auth-field-label">What will you use ReachDesk for?</span>
                 <div className="rd-choice-list" role="radiogroup">
                   {USE_CASES.map((opt) => (
                     <label
@@ -280,15 +338,15 @@ export default function SetupModal({ profile, onRefreshProfile, onSaveSettings, 
                 </div>
               </div>
             </div>
-          </div>
+          )}
 
-          <div className="rd-modal-footer rd-modal-footer-stack">
-            <button type="submit" className="btn btn-primary w-full" disabled={isSubmitting}>
-              {isSubmitting ? 'Setting up…' : 'Continue'}
+          <div className="rd-setup-actions">
+            <button type="submit" className="auth-btn auth-btn-primary" disabled={isSubmitting}>
+              {isSubmitting ? 'Setting up…' : step < 2 ? 'Continue' : 'Open workspace'}
             </button>
             <button
               type="button"
-              className="auth-text-btn"
+              className="auth-text-btn rd-setup-skip"
               onClick={handleSkip}
               disabled={isSubmitting}
             >
@@ -296,6 +354,12 @@ export default function SetupModal({ profile, onRefreshProfile, onSaveSettings, 
             </button>
           </div>
         </form>
+
+        <div className="rd-setup-progress" aria-hidden="true">
+          {[0, 1, 2].map((i) => (
+            <span key={i} className={`rd-setup-progress-dot${i === step ? ' is-active' : i < step ? ' is-done' : ''}`} />
+          ))}
+        </div>
       </div>
     </div>
   );
