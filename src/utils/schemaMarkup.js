@@ -7,7 +7,7 @@ export const organizationSchema = () => ({
   '@type': 'Organization',
   name: 'ReachDesk CRM',
   url: 'https://reachdeskcrm.com',
-  logo: 'https://reachdeskcrm.com/reachdesk-logo.svg',
+  logo: 'https://reachdeskcrm.com/logo.png',
   description: 'CRM for freelancers and agencies that centralizes leads and automates follow-ups.',
   sameAs: [
     // Add your social media profiles here

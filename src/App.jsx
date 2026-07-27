@@ -6,6 +6,7 @@ import { Lock } from 'lucide-react';
 import { subscribeToPush } from './utils/pushNotifications';
 import { isLocalDev, getAppUrl, getMarketingUrl } from './utils/domain';
 import { identifyUser, resetPostHog } from './utils/posthog';
+import { forceAppRefresh } from './utils/forceAppRefresh';
 
 // Helper for lazy loading components with automatic retry on dynamic import / chunk load failures (e.g. after new deployments)
 function lazyWithRetry(componentImport) {
@@ -18,10 +19,10 @@ function lazyWithRetry(componentImport) {
       sessionStorage.setItem('retry_lazy_reload', 'false');
       return component;
     } catch (error) {
-      console.warn('[lazyWithRetry] Dynamic import failed, triggering page reload:', error);
+      console.warn('[lazyWithRetry] Dynamic import failed, triggering hard refresh:', error);
       if (!pageHasAlreadyBeenReloaded) {
         sessionStorage.setItem('retry_lazy_reload', 'true');
-        window.location.reload();
+        forceAppRefresh({ clearFlags: false });
         return { default: () => null };
       }
       throw error;
@@ -50,7 +51,7 @@ class GlobalErrorBoundary extends React.Component {
       const hasReloaded = JSON.parse(sessionStorage.getItem('chunk_error_reloaded') || 'false');
       if (!hasReloaded) {
         sessionStorage.setItem('chunk_error_reloaded', 'true');
-        window.location.reload();
+        forceAppRefresh({ clearFlags: false });
       }
     }
   }
@@ -75,11 +76,8 @@ class GlobalErrorBoundary extends React.Component {
             A new version of ReachDesk CRM is active. Please refresh to load the latest release.
           </p>
           <button
-            onClick={() => {
-              sessionStorage.removeItem('chunk_error_reloaded');
-              sessionStorage.removeItem('retry_lazy_reload');
-              window.location.reload();
-            }}
+            type="button"
+            onClick={() => forceAppRefresh()}
             style={{
               padding: '8px 18px',
               backgroundColor: '#FFFFFF',
@@ -1340,7 +1338,6 @@ function HomepagePage() {
 // Root app
 export default function App() {
   const [swUpdateAvailable, setSwUpdateAvailable] = useState(false);
-  const [waitingWorker, setWaitingWorker] = useState(null);
 
   useEffect(() => {
     if ('serviceWorker' in navigator) {
@@ -1348,7 +1345,6 @@ export default function App() {
         .then((reg) => {
           if (reg.waiting) {
             setSwUpdateAvailable(true);
-            setWaitingWorker(reg.waiting);
           }
           reg.addEventListener('updatefound', () => {
             const newWorker = reg.installing;
@@ -1356,7 +1352,6 @@ export default function App() {
               newWorker.addEventListener('statechange', () => {
                 if (newWorker.state === 'installed' && navigator.serviceWorker.controller) {
                   setSwUpdateAvailable(true);
-                  setWaitingWorker(reg.waiting || newWorker);
                 }
               });
             }
@@ -1377,9 +1372,7 @@ export default function App() {
   }, []);
 
   const handleSwUpdateRefresh = () => {
-    if (waitingWorker) {
-      waitingWorker.postMessage({ type: 'SKIP_WAITING' });
-    }
+    forceAppRefresh();
   };
 
   return (
