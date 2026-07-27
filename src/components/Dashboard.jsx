@@ -79,12 +79,9 @@ export default function Dashboard({ currentUser, onSelectLead }) {
   const [windowDays, setWindowDays] = useState(2);
   const [expandedReplies, setExpandedReplies] = useState({});
   const [ignoredMismatches, setIgnoredMismatches] = useState({});
+  const [reveal] = useState(() => sessionStorage.getItem('rd_reveal') === '1');
 
-  if (!currentUser) {
-    return <div className="loading-container">Loading profile...</div>;
-  }
-
-  const plan = (currentUser.plan || 'trial').toLowerCase();
+  const plan = (currentUser?.plan || 'trial').toLowerCase();
   const limits = PLAN_LIMITS[plan] || PLAN_LIMITS.trial;
 
   const loadDashboardData = async () => {
@@ -241,6 +238,10 @@ export default function Dashboard({ currentUser, onSelectLead }) {
     }
   }, [currentUser, windowDays]);
 
+  useEffect(() => {
+    sessionStorage.removeItem('rd_reveal');
+  }, []);
+
   // Unified Handler: Suggestion mismatch apply
   const handleApplyMismatchSuggestion = async (lead, suggestion) => {
     try {
@@ -337,8 +338,12 @@ export default function Dashboard({ currentUser, onSelectLead }) {
     alert(`Friendly reminder template copied for Invoice #${inv.invoice_number}!`);
   };
 
-  if (loading) {
-    return <div className="loading-container">Loading analytics...</div>;
+  if (!currentUser || loading) {
+    return (
+      <div className="loading-container">
+        {!currentUser ? 'Loading profile...' : 'Loading analytics...'}
+      </div>
+    );
   }
 
   // Calculate Monthly Collected Revenue (this calendar month only, case-insensitive)
@@ -397,9 +402,6 @@ export default function Dashboard({ currentUser, onSelectLead }) {
   forwardStages.forEach(st => {
     stageCounts[st] = leadsList.filter(l => l.status === st).length;
   });
-
-  const [reveal] = useState(() => sessionStorage.getItem('rd_reveal') === '1');
-  useEffect(() => { sessionStorage.removeItem('rd_reveal'); }, []);
 
   const revealBlock = reveal ? ' rd-reveal-block' : '';
 

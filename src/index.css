@@ -3181,7 +3181,7 @@ select option {
   width: 100%;
   min-height: 44px;
   padding: 0 var(--space-4);
-  border-radius: 999px;
+  border-radius: 8px;
   font-family: var(--font-body);
   font-size: 0.9375rem;
   font-weight: 500;

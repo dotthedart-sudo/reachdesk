@@ -245,7 +245,9 @@ export default function Auth({ mode = 'login' }) {
       ? `Enter the 6-digit code we sent to ${email.trim()}`
       : step === 'email'
         ? (LOCAL_PASSWORD_AUTH
-          ? 'Local dev: use email + password (OTP still optional below).'
+          ? (isSignup
+            ? `${TRIAL_MARKETING.headline}.`
+            : 'Log in to your ReachDesk workspace.')
           : 'We’ll email you a one-time code — no password needed.')
         : step === 'methods'
           ? null
