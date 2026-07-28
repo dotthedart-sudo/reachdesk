@@ -1,30 +1,30 @@
-import { PLAN_LIMITS } from './utils';
+import { PLAN_LIMITS, AI_BOT_CREDITS, normalizePlan } from './planConfig';
 import { getPlanLeadLimit } from './leadLimits';
 
 /** Format lead/template counts from PLAN_LIMITS for marketing copy. */
 export function formatLeadCount(planId) {
-  const count = PLAN_LIMITS[planId]?.leads;
+  const key = normalizePlan(planId);
+  const count = PLAN_LIMITS[key]?.leads;
   if (count == null) return 'Unlimited leads';
   return `${count.toLocaleString()} leads`;
 }
 
 export function formatLeadCountForBilling(planId, billingCycle) {
-  const limit = getPlanLeadLimit(planId, billingCycle);
+  const limit = getPlanLeadLimit(normalizePlan(planId), billingCycle);
   if (limit == null) return 'Unlimited leads';
   return `${limit.toLocaleString()} leads`;
 }
 
-/** Yearly lead cap when billing is not yearly (Starter/Pro only). */
 export function getYearlyLeadUpsellCount(planId, billingCycle) {
+  const key = normalizePlan(planId);
   const isYearly = (billingCycle ?? '').toLowerCase() === 'yearly';
-  if (isYearly || (planId !== 'starter' && planId !== 'pro')) return null;
-  const base = getPlanLeadLimit(planId, billingCycle);
-  const yearly = getPlanLeadLimit(planId, 'yearly');
+  if (isYearly || (key !== 'starter' && key !== 'pro')) return null;
+  const base = getPlanLeadLimit(key, billingCycle);
+  const yearly = getPlanLeadLimit(key, 'yearly');
   if (base == null || yearly == null || yearly <= base) return null;
   return yearly;
 }
 
-/** Tagline + feature lead line — appends yearly upsell when not on yearly billing. */
 export function formatLeadLineForMarketing(planId, billingCycle) {
   const current = formatLeadCountForBilling(planId, billingCycle);
   const yearlyCount = getYearlyLeadUpsellCount(planId, billingCycle);
@@ -42,13 +42,15 @@ function formatLeadForTagline(planId, billingCycle) {
 }
 
 export function formatTemplateCount(planId) {
-  const count = PLAN_LIMITS[planId]?.templates;
+  const key = normalizePlan(planId);
+  const count = PLAN_LIMITS[key]?.templates;
   if (count == null) return 'Unlimited templates';
   return `${count} templates`;
 }
 
 export function formatUserCount(planId) {
-  const count = PLAN_LIMITS[planId]?.users;
+  const key = normalizePlan(planId);
+  const count = PLAN_LIMITS[key]?.users;
   if (count == null || count === Infinity) return 'Unlimited users';
   if (count === 1) return '1 user';
   return `${count} users`;
@@ -58,19 +60,13 @@ export function getPlanTagline(planId, billingCycle) {
   return `${formatLeadForTagline(planId, billingCycle)} · ${formatUserCount(planId)} · ${formatTemplateCount(planId)}`;
 }
 
-/** Monthly AI bot credits — marketing ladder from trial (10 / 7 days). */
-export const AI_BOT_CREDITS = {
-  trial: 10,
-  starter: 50,
-  pro: 250,
-  teams: 500,
-};
+export { AI_BOT_CREDITS };
 
 const STARTER_FEATURES_BASE = [
   '10 templates',
-  `${AI_BOT_CREDITS.starter} AI bot credits / month`,
+  `${AI_BOT_CREDITS.starter} AI credits / month`,
   '7-checkpoint follow-up reminders',
-  'Smart folders · Hot/Warm/Cold priorities',
+  'Smart folders · project/niche columns',
   'Notes · whiteboard',
   'Google Sheets import/export',
   'Convert lead to client',
@@ -79,8 +75,8 @@ const STARTER_FEATURES_BASE = [
 ];
 
 const PRO_FEATURES_BASE = [
-  'Unlimited templates',
-  `${AI_BOT_CREDITS.pro} AI bot credits / month`,
+  '50 templates',
+  `${AI_BOT_CREDITS.pro} AI credits / month`,
   'Everything in Starter',
   'Bulk CSV import',
   'Google Calendar sync',
@@ -88,23 +84,19 @@ const PRO_FEATURES_BASE = [
 ];
 
 const TEAMS_FEATURES_BASE = [
-  '3 team seats',
-  `${AI_BOT_CREDITS.teams} AI bot credits / month`,
-  'Shared pipeline',
+  `${AI_BOT_CREDITS.teams} AI credits / month`,
   'Everything in Pro',
+  'Up to 5 team seats',
+  'Shared pipeline · templates · folders',
 ];
 
-/**
- * Feature list for plan cards — lead count is dynamic per billing cycle.
- * Yearly Starter/Pro append a bonus row for 2× lead capacity.
- */
 export function getPlanFeatures(planId, billingCycle) {
-  const leadLine = formatLeadLineForMarketing(planId, billingCycle);
+  const key = normalizePlan(planId);
+  const leadLine = formatLeadLineForMarketing(key, billingCycle);
   const isYearly = (billingCycle ?? '').toLowerCase() === 'yearly';
-  const hasYearlyBonus =
-    isYearly && (planId === 'starter' || planId === 'pro');
+  const hasYearlyBonus = isYearly && (key === 'starter' || key === 'pro');
 
-  if (planId === 'starter') {
+  if (key === 'starter') {
     const features = [leadLine, ...STARTER_FEATURES_BASE];
     if (hasYearlyBonus) {
       features.push({ label: '2× lead capacity on yearly', badge: 'Bonus' });
@@ -112,7 +104,7 @@ export function getPlanFeatures(planId, billingCycle) {
     return features;
   }
 
-  if (planId === 'pro') {
+  if (key === 'pro') {
     const features = [leadLine, ...PRO_FEATURES_BASE];
     if (hasYearlyBonus) {
       features.push({ label: '2× lead capacity on yearly', badge: 'Bonus' });
@@ -120,17 +112,13 @@ export function getPlanFeatures(planId, billingCycle) {
     return features;
   }
 
-  if (planId === 'teams') {
+  if (key === 'teams') {
     return [leadLine, ...TEAMS_FEATURES_BASE];
   }
 
   return [];
 }
 
-/**
- * Single source of truth for plan cards on homepage + upgrade page.
- * Derived from PLAN_LIMITS — do not claim features limits don't allow.
- */
 export const MARKETING_PLANS = [
   {
     id: 'starter',
@@ -138,7 +126,6 @@ export const MARKETING_PLANS = [
     tagline: (billing) => getPlanTagline('starter', billing),
     getFeatures: (billing) => getPlanFeatures('starter', billing),
     comingSoon: false,
-    isEnterprise: false,
     highlighted: true,
     ctaLabel: 'Get Starter',
   },
@@ -148,7 +135,6 @@ export const MARKETING_PLANS = [
     tagline: (billing) => getPlanTagline('pro', billing),
     getFeatures: (billing) => getPlanFeatures('pro', billing),
     comingSoon: false,
-    isEnterprise: false,
     highlighted: false,
     ctaLabel: 'Get Pro',
   },
@@ -157,14 +143,12 @@ export const MARKETING_PLANS = [
     name: 'Teams',
     tagline: (billing) => getPlanTagline('teams', billing),
     getFeatures: (billing) => getPlanFeatures('teams', billing),
-    comingSoon: true,
-    isEnterprise: false,
+    comingSoon: false,
     highlighted: false,
-    ctaLabel: 'Coming soon',
+    ctaLabel: 'Get Teams',
   },
 ];
 
-/** Alias for Paywalls upgrade page */
 export const PLANS = MARKETING_PLANS;
 
 export const TRIAL_MARKETING = {
@@ -174,8 +158,8 @@ export const TRIAL_MARKETING = {
   days: 7,
   headline: 'Start 7-day free trial',
   ctaNav: 'Start free trial',
-  detail: `7-day trial · ${AI_BOT_CREDITS.trial} AI credits · ${PLAN_LIMITS.trial.leads} leads · ${PLAN_LIMITS.trial.templates} templates · card required`,
-  micro: 'Card required · cancel anytime before day 7',
+  detail: `7-day trial · ${AI_BOT_CREDITS.trial} AI credits · ${PLAN_LIMITS.trial.leads} leads · ${PLAN_LIMITS.trial.templates} templates · no card required`,
+  micro: 'No credit card · cancel anytime',
 };
 
 export const HOMEPAGE_OUTCOMES = [

@@ -393,11 +393,13 @@ export default function AppLayout({
           const daysLeft = Math.max(0, Math.ceil(msLeft / (1000 * 60 * 60 * 24)));
           const label = daysLeft === 0 ? 'less than a day' : daysLeft === 1 ? '1 day' : `${daysLeft} days`;
           return (
-            <div style={{ background: 'var(--bg-card)', border: '0.5px solid var(--border)', borderRadius: '4px', padding: '0.75rem 1.25rem', marginBottom: '1.5rem', display: 'flex', alignItems: 'center', gap: '0.75rem', fontSize: '0.8rem' }}>
-              <Clock size={14} style={{ color: 'var(--accent-blue)', flexShrink: 0 }} />
-              <span style={{ color: 'var(--text-secondary)', fontFamily: 'var(--font-body)' }}>
-                <strong style={{ color: 'var(--accent-blue)' }}>Free Trial Active</strong>
-                {' '}— Your trial ends in <strong style={{ color: 'var(--accent-blue)' }}>{label}</strong> ({new Date(profile.trial_ends_at).toLocaleDateString()}). Choose a plan in settings to avoid lock.
+            <div className="rd-info-banner">
+              <Clock size={16} style={{ color: 'var(--status-warm)', flexShrink: 0, marginTop: '2px' }} />
+              <span>
+                <strong>Free Trial Active</strong>
+                {' '}— Your trial ends in{' '}
+                <span className="rd-info-banner-accent">{label}</span>
+                {' '}({new Date(profile.trial_ends_at).toLocaleDateString()}). Choose a plan in settings to avoid lock.
               </span>
             </div>
           );

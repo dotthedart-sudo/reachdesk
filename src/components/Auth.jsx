@@ -1,9 +1,10 @@
 import React, { useState, useEffect } from 'react';
-import { useNavigate, Link } from 'react-router-dom';
+import { useNavigate, Link, useSearchParams } from 'react-router-dom';
 import { ArrowLeft, ShieldAlert, Check, Eye, EyeOff } from 'lucide-react';
 import { supabase } from '../lib/supabase';
 import { getAppUrl, getMarketingUrl, isLocalDev } from '../utils/domain';
 import { TRIAL_MARKETING } from '../lib/planMarketing';
+import { getStoredInviteToken, storeInviteToken } from '../lib/teamWorkspace';
 import AuthLogo from './AuthLogo';
 
 const BLOCKED_DOMAINS = [
@@ -39,6 +40,7 @@ function validateEmail(value) {
  */
 export default function Auth({ mode = 'login' }) {
   const navigate = useNavigate();
+  const [searchParams] = useSearchParams();
   const isSignup = mode === 'signup';
 
   const [step, setStep] = useState('methods'); // methods | email | otp
@@ -50,6 +52,17 @@ export default function Auth({ mode = 'login' }) {
   const [success, setSuccess] = useState('');
   const [loading, setLoading] = useState(false);
   const [resendCooldown, setResendCooldown] = useState(0);
+  const [pendingInvite, setPendingInvite] = useState(false);
+
+  useEffect(() => {
+    const inviteToken = searchParams.get('invite');
+    if (inviteToken) {
+      storeInviteToken(inviteToken);
+      setPendingInvite(true);
+    } else {
+      setPendingInvite(!!getStoredInviteToken());
+    }
+  }, [searchParams]);
 
   useEffect(() => {
     setStep('methods');
@@ -264,6 +277,15 @@ export default function Auth({ mode = 'login' }) {
           <h1 className="auth-panel-title">{title}</h1>
           {subtitle && <p className="auth-panel-sub">{subtitle}</p>}
         </header>
+
+        {pendingInvite && (
+          <div className="auth-success-banner" role="status" style={{ marginBottom: '0.75rem' }}>
+            <Check size={16} />
+            <span>
+              You&apos;ve been invited to a ReachDesk team workspace. Sign up or log in with the invited email address to join.
+            </span>
+          </div>
+        )}
 
         {error && (
           <div className="auth-error-banner" role="alert">

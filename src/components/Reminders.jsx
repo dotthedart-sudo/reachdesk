@@ -109,31 +109,22 @@ export default function Reminders({ currentUser, onSelectLead }) {
 
   return (
     <div className="flex-col gap-4" style={{ textAlign: 'left' }}>
-      <div className="flex justify-between align-center mb-4">
-        <div>
-          <h2 style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}><Bell size={22} /> Follow-up Reminders</h2>
-          <p className="color-muted" style={{ fontSize: '0.9rem' }}>
-            Automated outreach follow-up schedule (+12h, +24h, +72h, +5d, +7d, +14d, +21d).
-          </p>
-        </div>
+      <div className="mb-4">
+        <h2 style={{ display: 'flex', alignItems: 'center', gap: 'var(--space-2)', fontFamily: 'var(--font-heading)', margin: 0 }}>
+          <Bell size={22} style={{ color: 'var(--status-cold)' }} /> Follow-up Reminders
+        </h2>
+        <p className="color-muted" style={{ fontSize: 'var(--text-sm)', marginTop: 'var(--space-2)', lineHeight: 'var(--leading-body)' }}>
+          Automated outreach follow-up schedule (+12h, +24h, +72h, +5d, +7d, +14d, +21d).
+        </p>
       </div>
 
       {reminders.length === 0 && adminRequests.length === 0 ? (
-        <div style={{
-          display: 'flex',
-          flexDirection: 'column',
-          alignItems: 'center',
-          justifyContent: 'center',
-          minHeight: '320px',
-          width: '100%',
-          textAlign: 'center',
-          padding: '2rem'
-        }}>
-          <CheckCircle size={48} style={{ color: 'var(--success-color)', marginBottom: '1.25rem' }} />
-          <h3 style={{ color: 'var(--text-primary)', fontWeight: 600, fontSize: '1.25rem', margin: 0 }}>You're all caught up!</h3>
-          <p className="color-muted" style={{ fontSize: '0.9rem', marginTop: '0.5rem', maxWidth: '320px', lineHeight: 1.5 }}>
-            No pending follow-ups or upgrade requests right now.
-          </p>
+        <div className="card rd-empty-state">
+          <div className="rd-empty-state-icon">
+            <CheckCircle size={32} />
+          </div>
+          <h3>You&apos;re all caught up!</h3>
+          <p>No pending follow-ups or upgrade requests right now.</p>
         </div>
       ) : (
         <div className="grid-3">

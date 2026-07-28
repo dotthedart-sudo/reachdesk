@@ -1,12 +1,17 @@
 import React, { useState, useEffect, useRef, createContext, useContext, lazy, Suspense } from 'react';
 import { BrowserRouter, Routes, Route, Navigate, useNavigate, useLocation } from 'react-router-dom';
 import { supabase } from './lib/supabase';
-import { getTeamIds, PLAN_LIMITS } from './lib/utils';
+import { getTeamIds, PLAN_LIMITS, normalizePlan } from './lib/utils';
+import { registerLifetimeSession, validateLifetimeSession, clearLifetimeSession } from './lib/sessionManager';
+import {
+  ensureProOwnerWorkspaceIfNeeded,
+  processTeamInvites,
+} from './lib/teamWorkspace';
 import { Lock } from 'lucide-react';
 import { subscribeToPush } from './utils/pushNotifications';
 import { isLocalDev, getAppUrl, getMarketingUrl } from './utils/domain';
 import { identifyUser, resetPostHog } from './utils/posthog';
-import { forceAppRefresh } from './utils/forceAppRefresh';
+import { forceAppRefresh, clearAppRefreshFlags } from './utils/forceAppRefresh';
 
 // Helper for lazy loading components with automatic retry on dynamic import / chunk load failures (e.g. after new deployments)
 function lazyWithRetry(componentImport) {
@@ -20,7 +25,7 @@ function lazyWithRetry(componentImport) {
       return component;
     } catch (error) {
       console.warn('[lazyWithRetry] Dynamic import failed, triggering hard refresh:', error);
-      if (!pageHasAlreadyBeenReloaded) {
+      if (!pageHasAlreadyBeenReloaded && !isLocalDev()) {
         sessionStorage.setItem('retry_lazy_reload', 'true');
         forceAppRefresh({ clearFlags: false });
         return { default: () => null };
@@ -42,12 +47,15 @@ class GlobalErrorBoundary extends React.Component {
 
   componentDidCatch(error, errorInfo) {
     console.error('[GlobalErrorBoundary] Caught error:', error, errorInfo);
+    if (typeof window !== 'undefined') {
+      window.__lastBoundaryError = error?.message || String(error);
+    }
     const isChunkError =
       error?.name === 'ChunkLoadError' ||
       error?.message?.includes('dynamically imported module') ||
       error?.message?.includes('Expected a JavaScript-or-Wasm module');
 
-    if (isChunkError) {
+    if (isChunkError && !isLocalDev()) {
       const hasReloaded = JSON.parse(sessionStorage.getItem('chunk_error_reloaded') || 'false');
       if (!hasReloaded) {
         sessionStorage.setItem('chunk_error_reloaded', 'true');
@@ -437,7 +445,7 @@ function AppProvider({ children }) {
   const checkSubscriptionStatus = async (p) => {
     if (p.role === 'admin') return 'active';
     if (p.status === 'denied') return 'denied';
-    if (p.plan === 'enterprise') return 'active';
+    if (p.plan === 'enterprise' || p.plan === 'lifetime') return 'active';
 
     if (p.plan === 'trial') {
       if (p.trial_ends_at && new Date(p.trial_ends_at) < new Date()) {
@@ -489,24 +497,18 @@ function AppProvider({ children }) {
           const requestedPlan = activeSession.user.user_metadata?.requested_plan || 'trial';
           const referralSource = activeSession.user.user_metadata?.referral_source || null;
           const marketingConsent = activeSession.user.user_metadata?.marketing_consent || false;
-
-          const { data: invite } = await supabase.from('team_invitations')
-            .select('*').eq('invited_email', email).eq('status', 'pending').maybeSingle();
-
-          const teamId = invite ? invite.team_id : null;
           const status = 'approved';
-          const userPlan = invite ? 'teams' : 'trial';
-          const trialEnds = new Date(Date.now() + 14 * 24 * 60 * 60 * 1000).toISOString();
+          const trialEnds = new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString();
 
           const profileData = {
             id: userId,
             email,
             status,
-            plan: userPlan,
-            requested_plan: invite ? 'teams' : requestedPlan,
+            plan: 'trial',
+            requested_plan: requestedPlan,
             trial_ends_at: trialEnds,
-            team_id: teamId,
-            team_role: teamId ? 'member' : 'owner',
+            team_id: null,
+            team_role: 'owner',
             full_name: fullName,
             referral_source: referralSource,
             marketing_consent: marketingConsent,
@@ -525,8 +527,15 @@ function AppProvider({ children }) {
             throw profileErr;
           }
 
-          if (invite) {
-            await supabase.from('team_invitations').update({ status: 'accepted' }).eq('id', invite.id);
+          let joinedProfile = newProfile;
+          try {
+            const inviteResult = await processTeamInvites();
+            if (inviteResult?.ok) {
+              const { data: refreshed } = await supabase.from('user_profiles').select('*').eq('id', userId).maybeSingle();
+              if (refreshed) joinedProfile = refreshed;
+            }
+          } catch (inviteErr) {
+            console.warn('[Profile] Team invite accept failed:', inviteErr);
           }
 
           const isGoogle = activeSession.user.app_metadata?.provider === 'google';
@@ -543,7 +552,7 @@ function AppProvider({ children }) {
             }
           }).catch(err => console.warn('[Push] Admin new-signup notification failed:', err));
 
-          p = newProfile;
+          p = joinedProfile;
         }
 
         // Existing profile but missing full_name (e.g. OAuth signup without a display name).
@@ -563,7 +572,7 @@ function AppProvider({ children }) {
         if (p) {
           const now = new Date();
           const isAdminUser = p.role === 'admin';
-          const isEnterprise = p.plan === 'enterprise';
+          const isLifetimeOrLegacy = p.plan === 'enterprise' || p.plan === 'lifetime';
           
           let isTrialExpired = false;
           if (p.plan === 'trial') {
@@ -572,15 +581,26 @@ function AppProvider({ children }) {
           }
           
           let isSubscriptionExpired = false;
-          if (p.plan !== 'trial') {
+          if (p.plan !== 'trial' && !isLifetimeOrLegacy) {
             const planExpires = p.plan_expires_at ? new Date(p.plan_expires_at) : null;
             isSubscriptionExpired = planExpires && now > planExpires;
           }
 
-          const shouldLock = !isAdminUser && !isEnterprise && (isTrialExpired || isSubscriptionExpired);
+          const shouldLock = !isAdminUser && !isLifetimeOrLegacy && (isTrialExpired || isSubscriptionExpired);
           
           let profileToSet = p;
-          if (shouldLock && !p.account_locked) {
+          try {
+            const inviteResult = await processTeamInvites();
+            if (inviteResult?.ok) {
+              const { data: refreshed } = await supabase.from('user_profiles').select('*').eq('id', userId).maybeSingle();
+              if (refreshed) profileToSet = refreshed;
+            }
+            profileToSet = await ensureProOwnerWorkspaceIfNeeded(profileToSet);
+          } catch (teamErr) {
+            console.warn('[Profile] Team workspace setup failed:', teamErr);
+          }
+
+          if (shouldLock && !profileToSet.account_locked) {
             const lockedAt = now.toISOString();
             const { data: updatedProfile, error: updateError } = await supabase
               .from('user_profiles')
@@ -604,6 +624,17 @@ function AppProvider({ children }) {
             .then(({ error: laErr }) => {
               if (laErr) console.warn('[Profile] Failed to update last_active_at:', laErr);
             });
+
+          const sessionCheck = await validateLifetimeSession(userId, normalizePlan(profileToSet.plan));
+          if (!sessionCheck.valid) {
+            await supabase.auth.signOut();
+            clearLifetimeSession(userId);
+            setProfile(null);
+            setLoading(false);
+            alert('Your Lifetime account is active on another device. You have been signed out here.');
+            return;
+          }
+          await registerLifetimeSession(userId, normalizePlan(profileToSet.plan));
 
           setProfile(profileToSet);
           // Mark this user's profile as loaded so future auth events are ignored
@@ -655,7 +686,7 @@ function AppProvider({ children }) {
         supabase.from('invoices').select('*').eq('user_id', userId).order('created_at', { ascending: false }),
         supabase.from('revenue_entries').select('*').eq('user_id', userId).order('paid_at', { ascending: false }),
         supabase.from('leads').select('*').in('user_id', ids).order('created_at', { ascending: false }).order('id', { ascending: true }),
-        supabase.from('templates').select('*').eq('user_id', userId),
+        supabase.from('templates').select('*').or(`user_id.in.(${ids.join(',')}),user_id.is.null`),
         supabase.from('user_snippets').select('*').eq('user_id', userId).order('created_at', { ascending: true }),
       ]);
 
@@ -1340,8 +1371,24 @@ export default function App() {
   const [swUpdateAvailable, setSwUpdateAvailable] = useState(false);
 
   useEffect(() => {
-    if ('serviceWorker' in navigator) {
-      navigator.serviceWorker.register('/sw.js', { scope: '/' })
+    if (!('serviceWorker' in navigator)) return;
+
+    // Local dev: never register a service worker. A stale SW on localhost
+    // fights Vite HMR and traps users in an endless "Refresh Now" loop.
+    if (isLocalDev()) {
+      clearAppRefreshFlags();
+      navigator.serviceWorker.getRegistrations()
+        .then((regs) => Promise.all(regs.map((reg) => reg.unregister())))
+        .catch((err) => console.warn('[SW] Dev unregister failed:', err));
+      if ('caches' in window) {
+        caches.keys()
+          .then((keys) => Promise.all(keys.map((key) => caches.delete(key))))
+          .catch(() => {});
+      }
+      return;
+    }
+
+    navigator.serviceWorker.register('/sw.js', { scope: '/' })
         .then((reg) => {
           if (reg.waiting) {
             setSwUpdateAvailable(true);
@@ -1368,7 +1415,6 @@ export default function App() {
           window.location.reload();
         }
       });
-    }
   }, []);
 
   const handleSwUpdateRefresh = () => {

@@ -19,6 +19,7 @@ import {
 
 import HelpPopover from './HelpPopover';
 import { celebrateClosedWon } from '../utils/celebrateWin';
+import { useFirstVisitReveal } from '../hooks/useFirstVisitReveal';
 
 
 // Use the shared map so any currency code the user picks renders the correct symbol
@@ -79,7 +80,7 @@ export default function Dashboard({ currentUser, onSelectLead }) {
   const [windowDays, setWindowDays] = useState(2);
   const [expandedReplies, setExpandedReplies] = useState({});
   const [ignoredMismatches, setIgnoredMismatches] = useState({});
-  const [reveal] = useState(() => sessionStorage.getItem('rd_reveal') === '1');
+  const { reveal, rootClass, blockClass, blockProp } = useFirstVisitReveal();
 
   const plan = (currentUser?.plan || 'trial').toLowerCase();
   const limits = PLAN_LIMITS[plan] || PLAN_LIMITS.trial;
@@ -237,10 +238,6 @@ export default function Dashboard({ currentUser, onSelectLead }) {
       loadDashboardData();
     }
   }, [currentUser, windowDays]);
-
-  useEffect(() => {
-    sessionStorage.removeItem('rd_reveal');
-  }, []);
 
   // Unified Handler: Suggestion mismatch apply
   const handleApplyMismatchSuggestion = async (lead, suggestion) => {
@@ -403,11 +400,11 @@ export default function Dashboard({ currentUser, onSelectLead }) {
     stageCounts[st] = leadsList.filter(l => l.status === st).length;
   });
 
-  const revealBlock = reveal ? ' rd-reveal-block' : '';
+  const revealBlock = blockClass;
 
   return (
-    <div className={`flex-col gap-4${reveal ? ' rd-dashboard-reveal' : ''}`} style={{ textAlign: 'left' }}>
-      <div className={reveal ? 'rd-reveal-block' : undefined} style={{ marginBottom: '1.5rem' }}>
+    <div className={`flex-col gap-4${rootClass}`} style={{ textAlign: 'left' }}>
+      <div className={blockProp} style={{ marginBottom: '1.5rem' }}>
         <h2>Welcome back, <span>{currentUser.full_name ? currentUser.full_name.trim().split(' ')[0] : currentUser.email.split('@')[0]}</span>!</h2>
         <p className="color-muted">Outreach engine tracking, conversions, and follow-ups status.</p>
       </div>
@@ -638,7 +635,7 @@ export default function Dashboard({ currentUser, onSelectLead }) {
 
 
       {/* Main Dual Grid: Column 1 = Up Next chronological feed, Column 2 = Urgent Reminders & Templates */}
-      <div className={reveal ? 'rd-reveal-block' : undefined} style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(320px, 1fr))', gap: '1.5rem', marginTop: '0.5rem' }}>
+      <div className={blockProp} style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(320px, 1fr))', gap: '1.5rem', marginTop: '0.5rem' }}>
         
         {/* Column 1: Upcoming Next Feed */}
         <div className="card" style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>

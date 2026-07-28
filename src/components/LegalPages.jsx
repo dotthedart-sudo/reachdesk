@@ -53,15 +53,23 @@ export function TermsOfService() {
 
       <h3 style={{ color: 'var(--text-primary)', marginTop: '1rem', fontFamily: 'var(--font-headers)' }}>3. Subscription Plans and Free Trial</h3>
       <p>
-        ReachDesk CRM is offered on a subscription basis with the following tiers: Starter ($0.95/mo), Pro ($3.40/mo), and Teams ($7.00/mo). All new accounts receive a 7-day free trial, with no credit card required to start. At the end of the trial period, continued access to the Service requires an active paid subscription.
+        ReachDesk CRM is offered with a free trial and paid plans. All new accounts receive a 7-day free trial with no credit card required. The trial includes up to 50 leads and 5 templates. At the end of the trial period, continued access to the Service requires an active paid subscription.
       </p>
       <p>
-        Pricing for each plan is displayed within the Service and may be updated from time to time. Continued use of the Service after a price change constitutes acceptance of the new pricing for your next billing cycle.
+        Paid subscription tiers (USD reference prices; local currency amounts may be shown at checkout via Paddle):
+      </p>
+      <ul style={{ paddingLeft: '1.5rem', display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
+        <li><strong>Starter</strong> — from $5.00/month (750 leads, 10 templates, 1 user)</li>
+        <li><strong>Pro</strong> — from $15.00/month (5,000 leads, 50 templates, 1 user)</li>
+        <li><strong>Teams</strong> — from $29.00/month (unlimited leads, unlimited templates, up to 5 team seats)</li>
+      </ul>
+      <p>
+        Subscriptions are available on monthly, quarterly (approximately 15% off vs. monthly), or yearly (approximately 30% off vs. monthly) billing cycles. Yearly Starter and Pro plans include double the lead capacity shown for monthly billing. Exact prices, limits, and features for each plan are displayed within the Service and at checkout and may be updated from time to time. Continued use of the Service after a price change constitutes acceptance of the new pricing for your next billing cycle.
       </p>
 
       <h3 style={{ color: 'var(--text-primary)', marginTop: '1rem', fontFamily: 'var(--font-headers)' }}>4. Payment and Auto-Renewal</h3>
       <p>
-        Payments are processed securely via our payment processor, Paddle.com. By subscribing to a paid plan, you agree to allow Paddle.com to charge your payment method. Subscriptions renew automatically at the end of each billing cycle (monthly, quarterly, 6-month, or yearly) unless cancelled prior to the renewal date.
+        Payments are processed securely via our payment processor, Paddle.com. By subscribing to a paid plan, you agree to allow Paddle.com to charge your payment method. Subscriptions renew automatically at the end of each billing cycle (monthly, quarterly, or yearly) unless cancelled prior to the renewal date.
       </p>
       <p>
         You are responsible for ensuring that your payment details are kept up to date to prevent any disruption of service.
@@ -263,23 +271,23 @@ export function RefundPolicy() {
 
       <h3 style={{ color: 'var(--text-primary)', marginTop: '1rem', fontFamily: 'var(--font-headers)' }}>2. Payment Process</h3>
       <p>
-        All ReachDesk CRM subscription payments are processed securely via Paddle.com. Subscriptions renew automatically at the end of each billing cycle (monthly, quarterly, 6-month, or yearly) unless cancelled prior to the renewal date.
+        All ReachDesk CRM payments are processed securely via Paddle.com. Subscriptions renew automatically at the end of each billing cycle (monthly, quarterly, or yearly) unless cancelled prior to the renewal date.
       </p>
 
       <h3 style={{ color: 'var(--text-primary)', marginTop: '1rem', fontFamily: 'var(--font-headers)' }}>3. Refund Eligibility</h3>
       <p>
-        Because a free trial is provided to evaluate the Service before any payment is made, refunds are subject to specific conditions based on the billing plan you select:
+        Because a free trial is provided to evaluate the Service before any payment is made, refunds are subject to specific conditions based on the plan and billing cycle you select:
       </p>
       <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
-        <p><strong>Monthly plans:</strong> Monthly subscriptions are non-refundable. You may cancel your monthly subscription at any time to prevent future automatic renewals, but no refunds will be issued for the current billing period.</p>
-        <p><strong>Quarterly, 6-Month, and Yearly plans:</strong> If you cancel and request a refund within 7 days of your purchase, you may be eligible for a refund only if your usage of the platform has been minimal. Specifically, the refund will only be approved if you have added fewer than 50 leads AND created fewer than 3 templates in your workspace. After this 7-day window, subscriptions are completely non-refundable.</p>
+        <p><strong>Monthly subscriptions (Starter, Pro, or Teams):</strong> Non-refundable. You may cancel at any time to prevent future automatic renewals, but no refunds will be issued for the current billing period.</p>
+        <p><strong>Quarterly and Yearly subscriptions:</strong> If you cancel and request a refund within 7 days of your purchase, you may be eligible for a refund only if your usage has been minimal — specifically, fewer than 50 leads added and fewer than 3 templates created in your workspace. After this 7-day window, these subscriptions are non-refundable.</p>
       </div>
 
       <h3 style={{ color: 'var(--text-primary)', marginTop: '1rem', fontFamily: 'var(--font-headers)' }}>4. Non-Refundable Situations</h3>
       <p>Refunds will not be issued in the following cases:</p>
       <ul style={{ paddingLeft: '1.5rem', display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
-        <li>Any request made after 7 days of purchase for quarterly, 6-Month, and Yearly plans</li>
-        <li>Any refund request on a Monthly subscription plan</li>
+        <li>Any request made after 7 days of purchase for quarterly or yearly plans</li>
+        <li>Any refund request on a monthly subscription plan</li>
         <li>Plans where usage exceeds the limits (50 or more leads added, or 3 or more templates created) during the 7-day refund window</li>
         <li>Change of mind where the Service was accessible and functioning as described</li>
         <li>Failure to use the Service during an active subscription period</li>
@@ -288,7 +296,7 @@ export function RefundPolicy() {
 
       <h3 style={{ color: 'var(--text-primary)', marginTop: '1rem', fontFamily: 'var(--font-headers)' }}>5. How to Request a Refund</h3>
       <p>
-        To request a refund on an eligible quarterly, 6-Month, or Yearly plan, email <a href="mailto:support@reachdeskcrm.com" style={{ color: 'var(--primary-purple)', textDecoration: 'none' }}>support@reachdeskcrm.com</a> within 7 days of your purchase, including your account email, the payment details, and the reason for your request. We will review your usage and respond within 5 business days.
+        To request a refund on an eligible quarterly or yearly purchase, email <a href="mailto:support@reachdeskcrm.com" style={{ color: 'var(--primary-purple)', textDecoration: 'none' }}>support@reachdeskcrm.com</a> within 7 days of your purchase, including your account email, the payment details, and the reason for your request. We will review your usage and respond within 5 business days.
       </p>
 
       <h3 style={{ color: 'var(--text-primary)', marginTop: '1rem', fontFamily: 'var(--font-headers)' }}>6. Refund Method</h3>
@@ -298,7 +306,7 @@ export function RefundPolicy() {
 
       <h3 style={{ color: 'var(--text-primary)', marginTop: '1rem', fontFamily: 'var(--font-headers)' }}>7. Cancellations</h3>
       <p>
-        You may cancel your subscription at any time. Cancellation stops future automatic renewals. For Monthly plans, this prevents the next charge. For quarterly, 6-Month, and Yearly plans, cancellation stops the next renewal but does not refund the current period unless it meets the eligibility criteria in Section 3 and is requested within the 7-day window.
+        You may cancel your subscription at any time. Cancellation stops future automatic renewals. For monthly plans, this prevents the next charge. For quarterly and yearly plans, cancellation stops the next renewal but does not refund the current period unless it meets the eligibility criteria in Section 3 and is requested within the 7-day window.
       </p>
 
       <h3 style={{ color: 'var(--text-primary)', marginTop: '1rem', fontFamily: 'var(--font-headers)' }}>8. Changes to This Policy</h3>

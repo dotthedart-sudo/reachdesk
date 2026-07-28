@@ -3,6 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import { Sun, Moon, Check, ArrowRight } from 'lucide-react';
 import { useAppContext } from '../App';
 import { BILLING } from './Paywalls';
+import { formatPlanHeroAmount, formatPlanHeroPeriod, formatPlanHeroSub, formatPlanHeroBillingNote } from '../lib/regionalPricing';
 import {
   MARKETING_PLANS,
   TRIAL_MARKETING,
@@ -23,7 +24,7 @@ import { ShinyButton } from '@/registry/magicui/shiny-button';
 export default function Homepage({ currentUserEmail }) {
   const navigate = useNavigate();
   const { theme: appTheme, toggleTheme: toggleAppTheme } = useAppContext() || {};
-  const { formatLocalPrice, country, rate } = useLocalCurrency();
+  const { formatLocalPrice, country } = useLocalCurrency();
 
   const [theme, setTheme] = useState(() => {
     const appSaved = localStorage.getItem('reachdesk_theme');
@@ -101,53 +102,21 @@ export default function Homepage({ currentUserEmail }) {
     }
   };
 
-  const getUsdEquivalent = (localAmount) => {
-    const activeRate = rate || (country === 'PK' ? 278 : 123);
-    return `$${(parseFloat(localAmount) / activeRate).toFixed(2)}/mo`;
-  };
-
-  const getUsdEquivalentTotal = (localTotal) => {
-    const activeRate = rate || (country === 'PK' ? 278 : 123);
-    return `$${(parseFloat(localTotal) / activeRate).toFixed(2)} total`;
-  };
-
   const renderPlanPrice = (planId) => {
-    if (country === 'PK') return `Rs ${BILLING[billing][planId].pkrPerMonth}`;
-    if (country === 'BD') return `৳${BILLING[billing][planId].bdtPerMonth.toFixed(0)}`;
-    return `$${BILLING[billing][planId].usdPerMonth}`;
+    const tier = BILLING[billing]?.[planId];
+    return formatPlanHeroAmount(country, tier, billing);
   };
+
+  const renderPlanPeriod = () => formatPlanHeroPeriod(billing);
 
   const renderPlanDetailsSub = (planId) => {
-    if (country === 'PK') return getUsdEquivalent(BILLING[billing][planId].pkrPerMonth);
-    if (country === 'BD') return getUsdEquivalent(BILLING[billing][planId].bdtPerMonth);
-    const formatted = formatLocalPrice(BILLING[billing][planId].usdPerMonth);
-    return formatted ? `${formatted}/mo` : '';
+    const tier = BILLING[billing]?.[planId];
+    return formatPlanHeroSub(country, tier, billing, formatLocalPrice);
   };
 
-  const renderPlanBillingCycle = (planId) => {
-    const cycle = BILLING[billing][planId];
-    const months = BILLING[billing].months;
-    if (country === 'PK') {
-      return billing === 'monthly'
-        ? `Rs ${cycle.pkrTotal} billed monthly`
-        : `Rs ${cycle.pkrTotal} billed every ${months} months`;
-    }
-    if (country === 'BD') {
-      return billing === 'monthly'
-        ? `৳${cycle.bdtTotal.toFixed(0)} billed monthly`
-        : `৳${cycle.bdtTotal.toFixed(0)} billed every ${months} months`;
-    }
-    return billing === 'monthly'
-      ? `$${cycle.usdTotal} billed monthly`
-      : `$${cycle.usdTotal} billed every ${months} months`;
-  };
-
-  const renderPlanBillingCycleSub = (planId) => {
-    const cycle = BILLING[billing][planId];
-    if (country === 'PK') return getUsdEquivalentTotal(cycle.pkrTotal);
-    if (country === 'BD') return getUsdEquivalentTotal(cycle.bdtTotal);
-    const formatted = formatLocalPrice(cycle.usdTotal);
-    return formatted ? `${formatted} total` : '';
+  const renderPlanBillingNote = (planId) => {
+    const tier = BILLING[billing]?.[planId];
+    return formatPlanHeroBillingNote(country, tier, billing);
   };
 
   return (
@@ -375,15 +344,18 @@ export default function Homepage({ currentUserEmail }) {
                   </p>
                   <div className="rd-pricing-price-main">
                     <span className="rd-pricing-price-amount">{renderPlanPrice(plan.id)}</span>
-                    <span className="rd-pricing-price-period">/ month</span>
+                    {renderPlanPeriod() && (
+                      <span className="rd-pricing-price-period">{renderPlanPeriod()}</span>
+                    )}
                   </div>
                   {renderPlanDetailsSub(plan.id) && (
                     <span className="rd-pricing-price-sub">{renderPlanDetailsSub(plan.id)}</span>
                   )}
-                  <div className="rd-pricing-price-billing">
-                    <span>{renderPlanBillingCycle(plan.id)}</span>
-                    <span className="rd-pricing-price-sub">{renderPlanBillingCycleSub(plan.id)}</span>
-                  </div>
+                  {renderPlanBillingNote(plan.id) && (
+                    <div className="rd-pricing-price-billing">
+                      <span className="rd-pricing-price-sub">{renderPlanBillingNote(plan.id)}</span>
+                    </div>
+                  )}
                 </div>
 
                 <ul className="rd-pricing-features">

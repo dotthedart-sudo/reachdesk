@@ -346,7 +346,7 @@ function AdminPanelContent({ currentUser }) {
     const now = Date.now();
     const plan = (user.plan ?? '').toLowerCase();
     const status = (user.subscription_status ?? '').toLowerCase();
-    const isPaid = ['starter', 'pro', 'teams', 'enterprise'].includes(plan) && plan !== 'trial';
+    const isPaid = ['starter', 'pro', 'lifetime', 'teams'].includes(plan) && plan !== 'trial';
     if (isPaid) return { label: 'Paid', color: '#3b82f6', badge: 'paid', daysLeft: null };
     const trialStart = user.created_at ? new Date(user.created_at) : null;
     const trialEnd = trialStart ? new Date(trialStart.getTime() + 7 * 24 * 60 * 60 * 1000) : null;
@@ -681,7 +681,7 @@ function AdminPanelContent({ currentUser }) {
                             {/* Plan */}
                             <td style={{ padding: '0.75rem 1rem' }}>
                               <span className={`badge ${
-                                (user.plan ?? '') === 'enterprise' ? 'badge-approved' :
+                                (user.plan ?? '') === 'lifetime' ? 'badge-approved' :
                                 (user.plan ?? '') === 'pro' || (user.plan ?? '') === 'teams' ? 'badge-starter' :
                                 'badge-pending'
                               }`} style={{ textTransform: 'capitalize' }}>

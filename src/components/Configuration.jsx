@@ -2,13 +2,22 @@ import React, { useState, useEffect } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
 import { supabase } from '../lib/supabase';
 import { useAppContext } from '../App';
-import { PLAN_LIMITS } from '../lib/utils';
+import { PLAN_LIMITS, normalizePlan, isLifetimePlan } from '../lib/utils';
+import { getPlanLeadLimit } from '../lib/leadLimits';
+import { getAiCreditLimit } from '../lib/aiCredits';
+import {
+  ensureProTeamWorkspace,
+  getSeatsRemaining,
+  getSeatsUsed,
+  getTeamSeatLimit,
+  isProTeamOwner,
+} from '../lib/teamWorkspace';
 import { getAppUrl } from '../utils/domain';
 import { 
   Settings, Save, CreditCard, 
   AlertCircle, Users, Mail, UserMinus, User, Upload,
   Download, FileText, Sparkles, Plus, Trash2, Edit3,
-  Calendar, CheckCircle, Unlink, Lock, Check
+  Calendar, CheckCircle, Unlink, Lock, Check, Plug
 } from 'lucide-react';
 import { exportLeads, exportNotes } from '../utils/exportUtils';
 import CurrencySelector, { CURRENCY_MAP } from './CurrencySelector';
@@ -134,6 +143,7 @@ export default function Configuration({
   const [cancelLoading, setCancelLoading] = useState(false);
   const [cancelSuccessMsg, setCancelSuccessMsg] = useState('');
   const [cancelErrorMsg, setCancelErrorMsg] = useState('');
+  const [aiUsage, setAiUsage] = useState({ used: 0, limit: 0, loading: true });
 
   // Profile Settings States
   const [profileName, setProfileName] = useState(currentUser?.full_name || '');
@@ -200,32 +210,44 @@ export default function Configuration({
   const [teamSuccess, setTeamSuccess] = useState('');
   // Load Team Members
   const loadTeam = async () => {
-    if (!currentUser.team_id) {
+    if (!isProTeamOwner(currentUser)) {
       setTeamLoading(false);
       return;
     }
+
     setTeamLoading(true);
+    setTeamError('');
     try {
-      // Members
+      let teamId = currentUser.team_id;
+      if (!teamId) {
+        teamId = await ensureProTeamWorkspace(currentUser.id);
+        if (onRefreshProfile) await onRefreshProfile();
+      }
+      if (!teamId) {
+        setTeamMembers([]);
+        setTeamInvitations([]);
+        return;
+      }
+
       const { data: members, error: mErr } = await supabase
         .from('user_profiles')
         .select('id, email, team_role, plan')
-        .eq('team_id', currentUser.team_id);
+        .eq('team_id', teamId);
 
       if (mErr) throw mErr;
       setTeamMembers(members || []);
 
-      // Pending Invitations
       const { data: invites, error: iErr } = await supabase
         .from('team_invitations')
         .select('*')
-        .eq('team_id', currentUser.team_id)
+        .eq('team_id', teamId)
         .eq('status', 'pending');
 
       if (iErr) throw iErr;
       setTeamInvitations(invites || []);
     } catch (err) {
       console.error('Error loading team details:', err);
+      setTeamError(err.message || 'Failed to load team workspace.');
     } finally {
       setTeamLoading(false);
     }
@@ -233,7 +255,13 @@ export default function Configuration({
 
   useEffect(() => {
     if (currentUser) {
-      loadTeam();
+      if (isProTeamOwner(currentUser)) {
+        loadTeam();
+      } else {
+        setTeamMembers([]);
+        setTeamInvitations([]);
+        setTeamLoading(false);
+      }
       setProfileName(currentUser.full_name || '');
       setProfileAvatarUrl(currentUser.avatar_url || '');
       setProfileAvatarFile(null);
@@ -245,6 +273,33 @@ export default function Configuration({
       setMonthlyRevenueTarget(currentUser.monthly_revenue_target || '');
     }
   }, [currentUser]);
+
+  useEffect(() => {
+    async function fetchAiUsage() {
+      if (!currentUser?.id) {
+        setAiUsage({ used: 0, limit: 0, loading: false });
+        return;
+      }
+      setAiUsage((prev) => ({ ...prev, loading: true }));
+      try {
+        const { data, error } = await supabase.functions.invoke('get-ai-usage');
+        if (error) throw error;
+        setAiUsage({
+          used: data?.used ?? 0,
+          limit: data?.limit ?? getAiCreditLimit(currentUser.plan),
+          loading: false,
+        });
+      } catch (err) {
+        console.warn('Failed to load AI usage:', err);
+        setAiUsage({
+          used: 0,
+          limit: getAiCreditLimit(currentUser.plan),
+          loading: false,
+        });
+      }
+    }
+    fetchAiUsage();
+  }, [currentUser?.id, currentUser?.plan]);
 
   // ── Fetch calendar integration status ────────────────────────────────────
   useEffect(() => {
@@ -570,32 +625,33 @@ export default function Configuration({
 
     if (!inviteEmail.trim()) return;
 
-    try {
-      // 1. Verify plan limits
-      const plan = (currentUser.plan || 'teams').toLowerCase();
-      
-      // Calculate current members + pending invites
-      const totalCount = teamMembers.length + teamInvitations.length;
+    const seatLimit = getTeamSeatLimit(currentUser?.plan);
+    const seatsUsed = getSeatsUsed(teamMembers.length, teamInvitations.length);
+    if (seatsUsed >= seatLimit) {
+      setTeamError(`All ${seatLimit} seats are in use. Remove a member or cancel a pending invite to add someone else.`);
+      return;
+    }
 
-      if (plan === 'teams' && totalCount >= 3) {
-        setTeamError('Max 3 members allowed on Teams plan. Please contact us for Enterprise plan options.');
-        return;
+    try {
+      if (!currentUser.team_id) {
+        await ensureProTeamWorkspace(currentUser.id);
+        if (onRefreshProfile) await onRefreshProfile();
       }
 
-      // 2. Create Invite
-      const { error } = await supabase
-        .from('team_invitations')
-        .insert({
-          team_id: currentUser.team_id,
-          invited_email: inviteEmail.trim().toLowerCase(),
-          invited_by: currentUser.id,
-          status: 'pending'
-        });
+      const { data, error } = await supabase.functions.invoke('send-team-invite', {
+        body: { invitedEmail: inviteEmail.trim().toLowerCase() },
+      });
 
       if (error) throw error;
+      if (data?.success === false) throw new Error(data.error || 'Failed to send invite');
 
+      const sentTo = inviteEmail.trim();
       setInviteEmail('');
-      setTeamSuccess(`Invite sent to ${inviteEmail.trim()} successfully!`);
+      setTeamSuccess(
+        data?.emailSent
+          ? `Invite email sent to ${sentTo}. They must sign up with that address.`
+          : `Invite created for ${sentTo}.${data?.warning ? ` ${data.warning}` : ''}`
+      );
       loadTeam();
     } catch (err) {
       console.error('Error sending invite:', err);
@@ -603,17 +659,30 @@ export default function Configuration({
     }
   };
 
+  const handleCancelInvite = async (inviteId) => {
+    setTeamError('');
+    try {
+      const { error } = await supabase
+        .from('team_invitations')
+        .update({ status: 'cancelled' })
+        .eq('id', inviteId);
+      if (error) throw error;
+      setTeamSuccess('Invite cancelled.');
+      loadTeam();
+    } catch (err) {
+      console.error('Error cancelling invite:', err);
+      setTeamError('Failed to cancel invite.');
+    }
+  };
+
   const handleRemoveMember = async (memberId) => {
-    if (!confirm('Are you sure you want to remove this member from the team? They will be downgraded to a trial plan.')) return;
+    if (!confirm('Remove this member from your workspace? They will lose access to shared leads and templates.')) return;
     try {
       const { error } = await supabase
         .from('user_profiles')
-        .update({ 
-          team_id: null, 
-          team_role: 'owner', 
-          plan: 'trial',
-          status: 'approved',
-          trial_ends_at: new Date(Date.now() + 14 * 24 * 60 * 60 * 1000).toISOString() // 14-day trial
+        .update({
+          team_id: null,
+          team_role: 'owner',
         })
         .eq('id', memberId);
 
@@ -663,7 +732,12 @@ export default function Configuration({
     return <div className="loading-container">Loading profile...</div>;
   }
 
-  const isTeamOrEnterprise = ['teams', 'enterprise'].includes((currentUser.plan || '').toLowerCase());
+  const isProOwner = isProTeamOwner(currentUser);
+  const isLifetime = isLifetimePlan(currentUser?.plan);
+  const seatLimit = getTeamSeatLimit(currentUser?.plan);
+  const seatsUsed = getSeatsUsed(teamMembers.length, teamInvitations.length);
+  const seatsRemaining = getSeatsRemaining(currentUser?.plan, teamMembers.length, teamInvitations.length);
+  const seatsAtCap = seatsUsed >= seatLimit;
 
   return (
     <div className="flex-col gap-4" style={{ textAlign: 'left', maxWidth: '800px' }}>
@@ -1127,17 +1201,28 @@ export default function Configuration({
       </form>
 
 
-      {/* SECTION 3: Team Members invite panel */}
-      {isTeamOrEnterprise && currentUser.team_id && (
+      {/* SECTION 3: Team workspace (Teams owner) */}
+      {isProOwner && (
         <div className="card flex-col gap-3">
           <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', borderBottom: '1px solid var(--border-color)', paddingBottom: '0.5rem', marginBottom: '0.5rem' }}>
             <Users size={18} style={{ color: 'var(--primary-magenta)' }} />
-            <h3 style={{ fontSize: '1.1rem' }}>Team Workspace Members</h3>
+            <h3 style={{ fontSize: '1.1rem' }}>Team workspace</h3>
           </div>
 
           <p style={{ fontSize: '0.85rem', color: 'var(--text-secondary)' }}>
-            Your Team Plan allows up to <strong style={{ color: 'var(--primary-magenta)' }}>3 members</strong> (Enterprise allows unlimited). Invite teammates to share templates, leads, and tracking data.
+            Teams includes up to <strong style={{ color: 'var(--primary-magenta)' }}>{seatLimit} people</strong> on one shared pipeline — leads, templates, and follow-ups.
           </p>
+
+          <div style={{ fontSize: '0.85rem', fontWeight: 600, color: 'var(--text-primary)' }}>
+            {seatsUsed} of {seatLimit} seats used
+            {seatsRemaining > 0 ? ` · ${seatsRemaining} available` : ' · full'}
+          </div>
+
+          {seatsAtCap && (
+            <p style={{ fontSize: '0.8rem', color: 'var(--text-muted)' }}>
+              All seats are in use. Remove a member or cancel a pending invite to add someone else.
+            </p>
+          )}
 
           {teamError && <div style={{ color: 'var(--danger-color)', fontSize: '0.85rem' }}>{teamError}</div>}
           {teamSuccess && <div style={{ color: 'var(--success-color)', fontSize: '0.85rem' }}>{teamSuccess}</div>}
@@ -1145,38 +1230,51 @@ export default function Configuration({
           {teamLoading ? (
             <div>Loading team directory...</div>
           ) : (
-            <div className="flex-col gap-2" style={{ margin: '1rem 0' }}>
-              {teamMembers.map(member => (
-                <div key={member.id} className="flex justify-between align-center" style={{ padding: '0.5rem 0.75rem', background: 'var(--bg-tertiary)', border: '1px solid var(--border-color)', borderRadius: '6px' }}>
-                  <div>
-                    <span style={{ fontWeight: 600 }}>{member.email}</span>
-                    {member.id === currentUser.id && <span className="badge badge-approved" style={{ marginLeft: '0.5rem', fontSize: '0.7rem' }}>You</span>}
-                    <span style={{ fontSize: '0.75rem', color: 'var(--text-muted)', marginLeft: '0.5rem' }}>({member.team_role})</span>
+            <>
+              {teamMembers.length === 1 && teamInvitations.length === 0 && (
+                <p style={{ fontSize: '0.8rem', color: 'var(--text-muted)', margin: '0.5rem 0 0' }}>
+                  Invite a teammate by email. They&apos;ll join your workspace after signing up with that address.
+                </p>
+              )}
+              <div className="flex-col gap-2" style={{ margin: '1rem 0' }}>
+                {teamMembers.map(member => (
+                  <div key={member.id} className="flex justify-between align-center" style={{ padding: '0.5rem 0.75rem', background: 'var(--bg-tertiary)', border: '1px solid var(--border-color)', borderRadius: '6px' }}>
+                    <div>
+                      <span style={{ fontWeight: 600 }}>{member.email}</span>
+                      {member.id === currentUser.id && <span className="badge badge-approved" style={{ marginLeft: '0.5rem', fontSize: '0.7rem' }}>You</span>}
+                      <span style={{ fontSize: '0.75rem', color: 'var(--text-muted)', marginLeft: '0.5rem' }}>({member.team_role})</span>
+                    </div>
+                    {member.id !== currentUser.id && member.team_role !== 'owner' && (
+                      <button
+                        onClick={() => handleRemoveMember(member.id)}
+                        className="btn btn-danger btn-sm"
+                        style={{ padding: '0.2rem 0.5rem', display: 'flex', alignItems: 'center', gap: '0.25rem' }}
+                      >
+                        <UserMinus size={12} /> Remove
+                      </button>
+                    )}
                   </div>
-                  {member.id !== currentUser.id && member.team_role !== 'owner' && (
-                    <button 
-                      onClick={() => handleRemoveMember(member.id)}
-                      className="btn btn-danger btn-sm"
-                      style={{ padding: '0.2rem 0.5rem', display: 'flex', alignItems: 'center', gap: '0.25rem' }}
-                    >
-                      <UserMinus size={12} /> Remove
-                    </button>
-                  )}
-                </div>
-              ))}
+                ))}
 
-              {teamInvitations.map(invite => (
-                <div key={invite.id} className="flex justify-between align-center" style={{ padding: '0.5rem 0.75rem', background: 'var(--bg-tertiary)', border: '1px dashed var(--border-color)', borderRadius: '6px', opacity: 0.7 }}>
-                  <div>
-                    <span className="color-muted">{invite.invited_email}</span>
-                    <span className="badge badge-pending" style={{ marginLeft: '0.5rem', fontSize: '0.7rem' }}>Pending Invite</span>
+                {teamInvitations.map(invite => (
+                  <div key={invite.id} className="flex justify-between align-center" style={{ padding: '0.5rem 0.75rem', background: 'var(--bg-tertiary)', border: '1px dashed var(--border-color)', borderRadius: '6px', opacity: 0.85 }}>
+                    <div>
+                      <span className="color-muted">{invite.invited_email}</span>
+                      <span className="badge badge-pending" style={{ marginLeft: '0.5rem', fontSize: '0.7rem' }}>Pending invite</span>
+                    </div>
+                    <button
+                      type="button"
+                      onClick={() => handleCancelInvite(invite.id)}
+                      className="btn btn-secondary btn-sm"
+                    >
+                      Cancel
+                    </button>
                   </div>
-                </div>
-              ))}
-            </div>
+                ))}
+              </div>
+            </>
           )}
 
-          {/* Send Invitation Form */}
           <form onSubmit={handleSendInvite} style={{ display: 'flex', gap: '0.5rem' }}>
             <div style={{ position: 'relative', flex: 1 }}>
               <span style={{ position: 'absolute', left: '0.75rem', top: '50%', transform: 'translateY(-50%)', color: 'var(--text-muted)' }}>
@@ -1190,10 +1288,11 @@ export default function Configuration({
                 onChange={e => setInviteEmail(e.target.value)}
                 className="form-input w-full"
                 style={{ paddingLeft: '2.5rem' }}
+                disabled={seatsAtCap}
               />
             </div>
-            <button type="submit" className="btn btn-primary">
-              Send Invite
+            <button type="submit" className="btn btn-primary" disabled={seatsAtCap}>
+              Send invite
             </button>
           </form>
         </div>
@@ -1270,10 +1369,11 @@ export default function Configuration({
 
         {/* Usage Progress Section */}
         {(() => {
-          const planKey = (currentUser?.plan || 'trial').toLowerCase();
+          const planKey = normalizePlan(currentUser?.plan || 'trial');
           const limits = PLAN_LIMITS[planKey] || PLAN_LIMITS.trial;
-          const maxLeads = limits.leads;
+          const maxLeads = getPlanLeadLimit(planKey, currentUser?.billing_cycle) ?? limits.leads;
           const maxTemplates = limits.templates;
+          const maxAi = aiUsage.limit || getAiCreditLimit(planKey);
 
           return (
             <div style={{ borderTop: '1px solid var(--border-color)', paddingTop: '0.75rem', marginTop: '0.5rem', display: 'flex', flexDirection: 'column', gap: '0.75rem' }}>
@@ -1282,7 +1382,7 @@ export default function Configuration({
                 <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.85rem' }}>
                   <span style={{ color: 'var(--text-muted)' }}>Leads</span>
                   <span style={{ fontWeight: 600, color: 'var(--text-primary)' }}>
-                    {leadsCount} / {maxLeads === Infinity || maxLeads === null ? 'Unlimited' : maxLeads}
+                    {leadsCount} / {maxLeads === Infinity || maxLeads === null ? 'Unlimited' : maxLeads.toLocaleString()}
                   </span>
                 </div>
                 <div style={{ height: '8px', background: 'var(--border-color)', borderRadius: '4px', overflow: 'hidden' }}>
@@ -1312,18 +1412,57 @@ export default function Configuration({
                   }} />
                 </div>
               </div>
+
+              {/* AI Credits Usage */}
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '0.25rem' }}>
+                <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.85rem' }}>
+                  <span style={{ color: 'var(--text-muted)' }}>AI credits {planKey === 'trial' ? '(trial)' : '(this month)'}</span>
+                  <span style={{ fontWeight: 600, color: 'var(--text-primary)' }}>
+                    {aiUsage.loading ? '…' : `${aiUsage.used} / ${maxAi}`}
+                  </span>
+                </div>
+                <div style={{ height: '8px', background: 'var(--border-color)', borderRadius: '4px', overflow: 'hidden' }}>
+                  <div style={{
+                    height: '100%',
+                    background: 'var(--accent-blue)',
+                    width: `${maxAi ? Math.min(100, (aiUsage.used / maxAi) * 100) : 0}%`,
+                    borderRadius: '4px'
+                  }} />
+                </div>
+              </div>
+
+              {isProOwner && (
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '0.25rem' }}>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.85rem' }}>
+                    <span style={{ color: 'var(--text-muted)' }}>Team seats</span>
+                    <span style={{ fontWeight: 600, color: 'var(--text-primary)' }}>
+                      {teamLoading ? '…' : `${seatsUsed} / ${seatLimit}`}
+                    </span>
+                  </div>
+                  <div style={{ height: '8px', background: 'var(--border-color)', borderRadius: '4px', overflow: 'hidden' }}>
+                    <div style={{
+                      height: '100%',
+                      background: seatsAtCap ? 'var(--warning-color)' : 'var(--accent-blue)',
+                      width: `${Math.min(100, (seatsUsed / seatLimit) * 100)}%`,
+                      borderRadius: '4px'
+                    }} />
+                  </div>
+                </div>
+              )}
             </div>
           );
         })()}
 
         <div style={{ marginTop: '0.5rem', display: 'flex', flexDirection: 'column', gap: '0.5rem', alignItems: 'flex-start' }}>
-          <button
-            type="button"
-            className="btn btn-primary"
-            onClick={() => navigate('/upgrade')}
-          >
-            <CreditCard size={15} /> Manage Plan
-          </button>
+          {!isLifetime && (
+            <button
+              type="button"
+              className="btn btn-primary"
+              onClick={() => navigate('/upgrade')}
+            >
+              <CreditCard size={15} /> Manage Plan
+            </button>
+          )}
 
           {currentUser?.plan_status === 'active' && currentUser?.paddle_subscription_id && (
             <button
@@ -1349,49 +1488,43 @@ export default function Configuration({
 
       {/* ─── INTEGRATIONS SECTION ─────────────────────────────────────────── */}
       <div className="card flex-col gap-3" id="integrations">
-        <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', borderBottom: '1px solid var(--border-color)', paddingBottom: '0.5rem', marginBottom: '0.25rem' }}>
-          <Calendar size={18} style={{ color: 'var(--primary-purple)' }} />
-          <h3 style={{ fontSize: '1.1rem' }}>Integrations</h3>
+        <div className="rd-section-head" style={{ borderBottom: '1px solid var(--border-color)', paddingBottom: 'var(--space-3)', marginBottom: 'var(--space-1)' }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 'var(--space-2)' }}>
+            <Plug size={18} style={{ color: 'var(--status-cold)' }} />
+            <h3 style={{ fontSize: 'var(--text-md)', margin: 0, fontFamily: 'var(--font-heading)' }}>Integrations</h3>
+          </div>
         </div>
 
         {calSuccessMsg && (
-          <div style={{ padding: '0.75rem 1rem', borderRadius: '8px', background: 'rgba(16, 185, 129, 0.1)', border: '1px solid rgba(16, 185, 129, 0.2)', color: '#10b981', fontSize: '0.875rem', display: 'flex', alignItems: 'center', gap: '0.5rem', marginBottom: '0.5rem' }}>
+          <div style={{ padding: '0.75rem 1rem', borderRadius: 'var(--radius-md)', background: 'color-mix(in srgb, var(--success-color) 10%, transparent)', border: '1px solid color-mix(in srgb, var(--success-color) 25%, transparent)', color: 'var(--success-color)', fontSize: 'var(--text-sm)', display: 'flex', alignItems: 'center', gap: 'var(--space-2)' }}>
             <CheckCircle size={16} style={{ flexShrink: 0 }} />
             <span>{calSuccessMsg}</span>
           </div>
         )}
 
         {sheetsSuccessMsg && (
-          <div style={{ padding: '0.75rem 1rem', borderRadius: '8px', background: 'rgba(16, 185, 129, 0.1)', border: '1px solid rgba(16, 185, 129, 0.2)', color: '#10b981', fontSize: '0.875rem', display: 'flex', alignItems: 'center', gap: '0.5rem', marginBottom: '0.5rem' }}>
+          <div style={{ padding: '0.75rem 1rem', borderRadius: 'var(--radius-md)', background: 'color-mix(in srgb, var(--success-color) 10%, transparent)', border: '1px solid color-mix(in srgb, var(--success-color) 25%, transparent)', color: 'var(--success-color)', fontSize: 'var(--text-sm)', display: 'flex', alignItems: 'center', gap: 'var(--space-2)' }}>
             <CheckCircle size={16} style={{ flexShrink: 0 }} />
             <span>{sheetsSuccessMsg}</span>
           </div>
         )}
 
         {/* Google Calendar Row */}
-        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '1rem', flexWrap: 'wrap', padding: '0.75rem 0' }}>
-          <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
-            <div style={{
-              width: '40px', height: '40px', borderRadius: '8px', flexShrink: 0,
-              background: 'linear-gradient(135deg, #4285f4, #34a853)',
-              display: 'flex', alignItems: 'center', justifyContent: 'center'
-            }}>
-              <Calendar size={20} style={{ color: '#fff' }} />
-            </div>
-            <div>
-              <strong style={{ display: 'block', fontSize: '0.95rem' }}>Google Calendar</strong>
-              <span style={{ fontSize: '0.8rem', color: 'var(--text-muted)' }}>
-                {calLoading
-                  ? 'Checking status…'
-                  : calIntegration
-                    ? `Connected · since ${new Date(calIntegration.connected_at).toLocaleDateString()}`
-                    : 'Not connected — leads won\'t be auto-marked as Booked'
-                }
-              </span>
-            </div>
+        <div className="rd-integration-row">
+          <div className="rd-integration-icon rd-integration-icon--calendar">
+            <Calendar size={20} />
           </div>
-
-          <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
+          <div className="rd-integration-body">
+            <strong>Google Calendar</strong>
+            <span>
+              {calLoading
+                ? 'Checking status…'
+                : calIntegration
+                  ? `Connected · since ${new Date(calIntegration.connected_at).toLocaleDateString()}`
+                  : 'Not connected — leads won\'t be auto-marked as Booked'}
+            </span>
+          </div>
+          <div className="rd-integration-actions">
             {!PLAN_LIMITS[(currentUser?.plan || 'trial').toLowerCase()]?.calendarIntegration ? (
               <button
                 type="button"
@@ -1404,18 +1537,15 @@ export default function Configuration({
             ) : !calLoading && (
               calIntegration ? (
                 <>
-                  <span style={{
-                    padding: '0.2rem 0.65rem', borderRadius: '99px', fontSize: '0.75rem', fontWeight: 700,
-                    background: 'rgba(16,185,129,0.12)', color: '#10b981'
-                  }}>
-                    <Check size={14} style={{ marginRight: '3px' }} /> Connected
+                  <span className="rd-integration-status">
+                    <Check size={14} /> Connected
                   </span>
                   <button
                     type="button"
                     onClick={handleDisconnectCalendar}
                     disabled={calDisconnecting}
                     className="btn btn-secondary btn-sm"
-                    style={{ display: 'flex', alignItems: 'center', gap: '0.35rem', color: 'var(--danger-color, #ef4444)', borderColor: 'var(--danger-color, #ef4444)' }}
+                    style={{ display: 'flex', alignItems: 'center', gap: '0.35rem', color: 'var(--danger-color)', borderColor: 'var(--danger-color)' }}
                   >
                     <Unlink size={14} />
                     {calDisconnecting ? 'Disconnecting…' : 'Disconnect'}
@@ -1436,46 +1566,35 @@ export default function Configuration({
         </div>
 
         {/* Google Sheets Row */}
-        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '1rem', flexWrap: 'wrap', padding: '0.75rem 0', borderTop: '1px solid var(--border-color, #30363d)' }}>
-          <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
-            <div style={{
-              width: '40px', height: '40px', borderRadius: '8px', flexShrink: 0,
-              background: 'linear-gradient(135deg, #0f9d58, #0b8043)',
-              display: 'flex', alignItems: 'center', justifyContent: 'center'
-            }}>
-              <svg width="20" height="20" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
-                <path d="M19 3H5C3.9 3 3 3.9 3 5V19C3 20.1 3.9 21 5 21H19C20.1 21 21 20.1 21 19V5C21 3.9 20.1 3 19 3ZM10 17H7V14H10V17ZM10 12H7V9H10V12ZM17 17H12V14H17V17ZM17 12H12V9H17V12Z" fill="#fff"/>
-              </svg>
-            </div>
-            <div>
-              <strong style={{ display: 'block', fontSize: '0.95rem' }}>Google Sheets</strong>
-              <span style={{ fontSize: '0.8rem', color: 'var(--text-muted)' }}>
-                {sheetsLoading
-                  ? 'Checking status…'
-                  : sheetsIntegration
-                    ? `Connected · since ${new Date(sheetsIntegration.connected_at).toLocaleDateString()}`
-                    : 'Not connected — export and import from Google Sheets'
-                }
-              </span>
-            </div>
+        <div className="rd-integration-row">
+          <div className="rd-integration-icon rd-integration-icon--sheets">
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
+              <path d="M19 3H5C3.9 3 3 3.9 3 5V19C3 20.1 3.9 21 5 21H19C20.1 21 21 20.1 21 19V5C21 3.9 20.1 3 19 3ZM10 17H7V14H10V17ZM10 12H7V9H10V12ZM17 17H12V14H17V17ZM17 12H12V9H17V12Z" fill="currentColor"/>
+            </svg>
           </div>
-
-          <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
+          <div className="rd-integration-body">
+            <strong>Google Sheets</strong>
+            <span>
+              {sheetsLoading
+                ? 'Checking status…'
+                : sheetsIntegration
+                  ? `Connected · since ${new Date(sheetsIntegration.connected_at).toLocaleDateString()}`
+                  : 'Not connected — export and import from Google Sheets'}
+            </span>
+          </div>
+          <div className="rd-integration-actions">
             {!sheetsLoading && (
               sheetsIntegration ? (
                 <>
-                  <span style={{
-                    padding: '0.2rem 0.65rem', borderRadius: '99px', fontSize: '0.75rem', fontWeight: 700,
-                    background: 'rgba(16,185,129,0.12)', color: '#10b981'
-                  }}>
-                    <Check size={14} style={{ marginRight: '3px' }} /> Connected
+                  <span className="rd-integration-status">
+                    <Check size={14} /> Connected
                   </span>
                   <button
                     type="button"
                     onClick={handleDisconnectSheets}
                     disabled={sheetsDisconnecting}
                     className="btn btn-secondary btn-sm"
-                    style={{ display: 'flex', alignItems: 'center', gap: '0.35rem', color: 'var(--danger-color, #ef4444)', borderColor: 'var(--danger-color, #ef4444)' }}
+                    style={{ display: 'flex', alignItems: 'center', gap: '0.35rem', color: 'var(--danger-color)', borderColor: 'var(--danger-color)' }}
                   >
                     <Unlink size={14} />
                     {sheetsDisconnecting ? 'Disconnecting…' : 'Disconnect'}
@@ -1488,17 +1607,14 @@ export default function Configuration({
                   className="btn btn-primary btn-sm"
                   style={{ display: 'flex', alignItems: 'center', gap: '0.35rem' }}
                 >
-                  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg" style={{ marginRight: '2px' }}>
-                    <path d="M19 3H5C3.9 3 3 3.9 3 5V19C3 20.1 3.9 21 5 21H19C20.1 21 21 20.1 21 19V5C21 3.9 20.1 3 19 3ZM10 17H7V14H10V17ZM10 12H7V9H10V12ZM17 17H12V14H17V17ZM17 12H12V9H17V12Z" fill="currentColor"/>
-                  </svg>
-                  Connect
+                  Connect Sheets
                 </button>
               )
             )}
           </div>
         </div>
 
-        <p style={{ fontSize: '0.78rem', color: 'var(--text-muted)', margin: 0 }}>
+        <p className="rd-integration-footnote">
           Read-only access to your calendar events. ReachDesk never writes to your calendar.
           Disconnect at any time to revoke all access.
         </p>

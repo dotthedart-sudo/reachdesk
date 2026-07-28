@@ -1,5 +1,6 @@
 import { serve } from 'https://deno.land/std@0.168.0/http/server.ts';
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2';
+import { getAiCreditLimit, getAiCreditPeriodStart, normalizePlan } from '../_shared/aiCredits.ts';
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
@@ -12,8 +13,6 @@ type Mode = typeof ALLOWED_MODES[number];
 
 const GROQ_API_URL = 'https://api.groq.com/openai/v1/chat/completions';
 const GROQ_MODEL = 'llama-3.3-70b-versatile';
-const RATE_LIMIT_MAX = 20;    // requests
-const RATE_LIMIT_WINDOW = 60; // minutes
 
 // ── Base system prompts ───────────────────────────────────────────────────────
 const DRAFT_REPLY_PROMPT =
@@ -96,16 +95,16 @@ serve(async (req) => {
   // ── Plan Access Check ───────────────────────────────────────────────────
   const { data: userProfile } = await supabaseUserClient
     .from('user_profiles')
-    .select('plan')
+    .select('plan, created_at')
     .eq('id', userId)
     .maybeSingle();
 
-  const userPlan = (userProfile?.plan || 'trial').toLowerCase();
-  const ALLOWED_AI_PLANS = ['trial', 'starter', 'pro', 'teams', 'enterprise'];
+  const userPlan = normalizePlan(userProfile?.plan);
+  const creditLimit = getAiCreditLimit(userPlan);
 
-  if (!ALLOWED_AI_PLANS.includes(userPlan)) {
+  if (creditLimit <= 0) {
     return jsonResponse(
-      { error: 'This feature is available on Trial, Starter, and Pro plans.' },
+      { error: 'AI credits are not available on your plan.' },
       403,
     );
   }
@@ -147,26 +146,30 @@ serve(async (req) => {
     }
   }
 
-  // ── Rate limiting (Postgres-backed) ─────────────────────────────────────
+  // ── Plan-based AI credit limit ──────────────────────────────────────────
   const supabaseAdmin = createClient(
     Deno.env.get('SUPABASE_URL')!,
     Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!,
   );
 
-  const windowStart = new Date(Date.now() - RATE_LIMIT_WINDOW * 60 * 1000).toISOString();
+  const periodStart = getAiCreditPeriodStart(userPlan, userProfile?.created_at);
 
   const { count: requestCount, error: countError } = await supabaseAdmin
     .from('ai_usage_log')
     .select('id', { count: 'exact', head: true })
     .eq('user_id', userId)
-    .gte('created_at', windowStart);
+    .gte('created_at', periodStart);
 
   if (countError) {
-    console.error('[groq-chat] Rate limit check error:', countError);
-    // Soft-fail: allow request through if we cannot read the table
-  } else if ((requestCount ?? 0) >= RATE_LIMIT_MAX) {
+    console.error('[groq-chat] Credit check error:', countError);
+  } else if ((requestCount ?? 0) >= creditLimit) {
     return jsonResponse(
-      { error: `Rate limit exceeded. Maximum ${RATE_LIMIT_MAX} AI requests per hour.` },
+      {
+        error: 'AI credit limit reached for your plan.',
+        code: 'AI_CREDITS_EXCEEDED',
+        used: requestCount ?? 0,
+        limit: creditLimit,
+      },
       429,
     );
   }

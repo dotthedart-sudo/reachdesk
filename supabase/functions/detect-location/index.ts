@@ -91,7 +91,10 @@ serve(async (req) => {
     console.log('Returning final geolocation data:', ipapiInfo);
 
     return new Response(
-      JSON.stringify(ipapiInfo),
+      JSON.stringify({
+        ...ipapiInfo,
+        excluded: ipapiInfo.country_code === 'IL',
+      }),
       { 
         status: 200, 
         headers: { ...corsHeaders, 'Content-Type': 'application/json' } 
@@ -100,7 +103,7 @@ serve(async (req) => {
   } catch (error) {
     console.error('Error in detect-location function:', error.message);
     return new Response(
-      JSON.stringify({ country_code: null, currency: null }),
+      JSON.stringify({ country_code: null, currency: null, excluded: false }),
       { 
         status: 200, 
         headers: { ...corsHeaders, 'Content-Type': 'application/json' } 

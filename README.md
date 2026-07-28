@@ -13,13 +13,13 @@ down to work.
 - Email sequences and template snippets
 - Reach link click tracking per lead
 - Smart folders for project organization
-- Team lead assignment (Teams plan)
+- Team workspace (Teams plan, up to 5 seats)
 
 ## Pricing
-- Trial: 65 leads, 2 templates (free)
-- Starter: from $12/mo
-- Pro: from $25/mo
-- Teams: unlimited, multi-user
+- Trial: 50 leads, 5 templates (7-day free trial)
+- Starter: from $5/mo (750 leads, 10 templates)
+- Pro: from $15/mo (5,000 leads, 50 templates, solo)
+- Teams: from $29/mo (unlimited leads & templates, up to 5 seats)
 
 ## Key Pages
 - https://reachdeskcrm.com

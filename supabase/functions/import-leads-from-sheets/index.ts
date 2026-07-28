@@ -7,11 +7,11 @@ const corsHeaders = {
 };
 
 const PLAN_LIMITS = {
-  trial:   { leads: 65 },
-  starter: { leads: 1000 },
+  trial:   { leads: 50 },
+  starter: { leads: 750 },
   pro:     { leads: 5000 },
-  teams:   { leads: null },
-  enterprise: { leads: null }
+  lifetime: { leads: 5000000 },
+  teams:   { leads: null as number | null },
 };
 
 function splitFullName(fullName: string): { first_name: string; last_name: string } {
@@ -100,7 +100,7 @@ serve(async (req) => {
       .eq('id', userId)
       .maybeSingle();
 
-    const importAllowedPlans = ['trial', 'pro', 'enterprise'];
+    const importAllowedPlans = ['trial', 'starter', 'pro', 'lifetime'];
     const importAccessAllowed =
       importUserProfile?.role === 'admin' ||
       importAllowedPlans.includes(importUserProfile?.plan ?? '');

@@ -32,6 +32,7 @@ import { exportLeads, exportNotes } from '../utils/exportUtils';
 import { mergeTemplateFields, normalizePhoneNumber, generatePrefilledUrl } from '../utils/templateMerge';
 import { celebrateClosedWon } from '../utils/celebrateWin';
 import { generateAIDraft } from '../utils/aiDraft';
+import { useFirstVisitReveal } from '../hooks/useFirstVisitReveal';
 
 const PRESET_COLORS = [
   '#ef4444', // Red
@@ -74,6 +75,7 @@ export default function CRM({
 }) {
   const navigate = useNavigate();
   const { showToast, userSnippets } = useAppContext() || {};
+  const { rootClass, blockClass } = useFirstVisitReveal();
   const [leads, setLeads] = useState([]);
 
   // Reach Link Click System states
@@ -514,11 +516,11 @@ export default function CRM({
         leadsRes,
         rulesRes
       ] = await Promise.all([
-        supabase.from('folders').select('*').eq('user_id', currentUser.id).order('sort_order', { ascending: true }),
-        supabase.from('user_folders').select('*').eq('user_id', currentUser.id).order('created_at', { ascending: true }),
-        supabase.from('custom_statuses').select('*').eq('user_id', currentUser.id).order('sort_order', { ascending: true }),
-        supabase.from('templates').select('id, title, platform, is_starter, content').or(`user_id.eq.${currentUser.id},user_id.is.null`),
-        supabase.from('column_definitions').select('*').eq('user_id', currentUser.id).order('sort_order', { ascending: true }),
+        supabase.from('folders').select('*').in('user_id', teamIds).order('sort_order', { ascending: true }),
+        supabase.from('user_folders').select('*').in('user_id', teamIds).order('created_at', { ascending: true }),
+        supabase.from('custom_statuses').select('*').in('user_id', teamIds).order('sort_order', { ascending: true }),
+        supabase.from('templates').select('id, title, platform, is_starter, content').or(`user_id.in.(${teamIds.join(',')}),user_id.is.null`),
+        supabase.from('column_definitions').select('*').in('user_id', teamIds).order('sort_order', { ascending: true }),
         supabase.from('leads').select('*').in('user_id', teamIds).order('created_at', { ascending: false }).order('id', { ascending: true }),
         supabase.from('action_suggestion_rules').select('*')
       ]);
@@ -1873,9 +1875,9 @@ export default function CRM({
 
 
   return (
-    <div className="flex gap-4 w-full" style={{ minHeight: 'calc(100vh - 120px)' }}>
+    <div className={`flex gap-4 w-full${rootClass}`} style={{ minHeight: 'calc(100vh - 120px)' }}>
       {/* Folders Sidebar Section */}
-      <div className="folder-sidebar sidebar-folders">
+      <div className={`folder-sidebar sidebar-folders${blockClass}`}>
         {limits.folders ? (
           <>
             <h4 style={{ fontSize: 'var(--text-3xs)', letterSpacing: 'var(--tracking-label)', textTransform: 'uppercase', color: 'var(--text-muted)', fontWeight: 600, marginTop: 'var(--space-2)', marginBottom: 'var(--space-2)', paddingLeft: 'var(--space-2)', display: 'flex', alignItems: 'center', gap: 'var(--space-1)' }}>
@@ -2022,7 +2024,7 @@ export default function CRM({
       </div>
 
       {/* Leads Table Content Section */}
-      <div className="flex-col gap-4" style={{ flex: 1, textAlign: 'left' }}>
+      <div className={`flex-col gap-4${blockClass}`} style={{ flex: 1, textAlign: 'left' }}>
         {/* View Switcher Tabs */}
         <div className="flex gap-2" style={{ borderBottom: '1px solid var(--border-color)', paddingBottom: '1px', marginBottom: '1rem' }}>
           <button 
@@ -3219,7 +3221,7 @@ export default function CRM({
               <div className="form-group">
                 <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '0.25rem' }}>
                   <label className="form-label" style={{ fontWeight: 600, fontSize: '0.85rem', color: 'var(--text-secondary)', margin: 0 }}>Select Template</label>
-                  {['trial', 'starter', 'pro', 'teams', 'enterprise'].includes((currentUser?.plan || 'trial').toLowerCase()) ? (
+                  {['trial', 'starter', 'pro', 'teams'].includes((currentUser?.plan || 'trial').toLowerCase()) ? (
                     <button
                       type="button"
                       onClick={handleGenerateReachAI}

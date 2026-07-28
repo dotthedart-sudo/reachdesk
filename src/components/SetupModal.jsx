@@ -94,7 +94,7 @@ export default function SetupModal({ profile, onRefreshProfile, onSaveSettings, 
   };
 
   const goToDashboard = (path) => {
-    if (path === '/dashboard') sessionStorage.setItem('rd_reveal', '1');
+    sessionStorage.setItem('rd_reveal', '1');
     navigate(path);
   };
 

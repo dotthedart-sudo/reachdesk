@@ -35,7 +35,7 @@ serve(async (req) => {
       .eq('id', userId)
       .maybeSingle();
 
-    const sheetsAllowedPlans = ['trial', 'pro', 'enterprise'];
+    const sheetsAllowedPlans = ['trial', 'starter', 'pro', 'lifetime'];
     const sheetsAccessAllowed =
       userProfile?.role === 'admin' ||
       sheetsAllowedPlans.includes(userProfile?.plan ?? '');

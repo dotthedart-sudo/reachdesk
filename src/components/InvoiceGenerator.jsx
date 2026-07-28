@@ -17,6 +17,7 @@ import {
 } from 'lucide-react';
 import { supabase } from '../lib/supabase';
 import CurrencySelector from './CurrencySelector';
+import { useFirstVisitReveal } from '../hooks/useFirstVisitReveal';
 
 // Main Dashboard view for managing and creating invoices
 export default function InvoiceGenerator({ 
@@ -31,6 +32,7 @@ export default function InvoiceGenerator({
   bankAccount = '',
   bankIban = ''
 }) {
+  const { rootClass, blockClass } = useFirstVisitReveal();
   const [showCreateForm, setShowCreateForm] = useState(false);
   const [copiedId, setCopiedId] = useState(null);
   const [invoiceTab, setInvoiceTab] = useState('active'); // 'active' | 'drafts'
@@ -321,7 +323,7 @@ export default function InvoiceGenerator({
   });
 
   return (
-    <div className="flex-col gap-4">
+    <div className={`flex-col gap-4${rootClass}`}>
       <style>{`
         .dropdown-item-hover:hover {
           background-color: rgba(255, 255, 255, 0.05) !important;
@@ -330,7 +332,7 @@ export default function InvoiceGenerator({
           background-color: rgba(0, 0, 0, 0.05) !important;
         }
       `}</style>
-      <div className="flex justify-between align-center mb-4">
+      <div className={`flex justify-between align-center mb-4${blockClass}`}>
         <div>
           <h2>Client Invoices</h2>
           <p className="color-muted" style={{ fontSize: '0.9rem' }}>
@@ -348,7 +350,7 @@ export default function InvoiceGenerator({
 
       {showCreateForm ? (
         /* Invoice Creator Form */
-        <div className="card rd-page-form" style={{ maxWidth: '800px', margin: '0 auto', textAlign: 'left' }}>
+        <div className={`card rd-page-form${blockClass}`} style={{ maxWidth: '800px', margin: '0 auto', textAlign: 'left' }}>
           <div className="rd-page-form-header">
             <h3>
               {editingInvoice
@@ -641,7 +643,7 @@ export default function InvoiceGenerator({
         </div>
       ) : (
         /* Saved Invoices List */
-        <div className="table-container">
+        <div className={`table-container${blockClass}`}>
           <div className="table-header-bar" style={{ display: 'flex', flexDirection: 'column', gap: '0.75rem', alignItems: 'stretch' }}>
             <div className="flex justify-between align-center" style={{ width: '100%' }}>
               <h3>Saved Invoices</h3>

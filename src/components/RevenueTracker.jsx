@@ -122,7 +122,7 @@ export default function RevenueTracker({
 
       {showAddForm ? (
         /* Log Revenue Form */
-        <div className="card rd-page-form" style={{ maxWidth: '560px', margin: '0 auto', textAlign: 'left' }}>
+        <div className="card rd-page-form rd-page-form--narrow">
           <div className="rd-page-form-header">
             <h3>Log earnings</h3>
             <p className="rd-modal-sub">Record a payment so revenue stays accurate.</p>

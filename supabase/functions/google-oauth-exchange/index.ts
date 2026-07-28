@@ -37,7 +37,7 @@ serve(async (req) => {
       .eq('id', userId)
       .maybeSingle();
 
-    const calAllowedPlans = ['trial', 'pro', 'enterprise'];
+    const calAllowedPlans = ['trial', 'pro', 'lifetime'];
     const calAccessAllowed =
       userProfile?.role === 'admin' ||
       calAllowedPlans.includes(userProfile?.plan ?? '');

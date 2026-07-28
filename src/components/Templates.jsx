@@ -130,7 +130,8 @@ export default function Templates({
       let nextPlan = '';
       let nextLimit = '';
       if (planKey === 'trial') { nextPlan = 'Starter'; nextLimit = '10 templates'; }
-      else if (planKey === 'starter') { nextPlan = 'Pro'; nextLimit = 'unlimited templates'; }
+      else if (planKey === 'starter') { nextPlan = 'Pro'; nextLimit = '50 templates'; }
+      else if (planKey === 'pro') { nextPlan = 'Teams'; nextLimit = 'unlimited templates'; }
       
       setToastMessage(`You've reached your ${planName} plan limit of ${templateLimit} templates.${nextPlan ? ` Upgrade to ${nextPlan} for ${nextLimit}.` : ''}`);
       setShowToast(true);
@@ -230,7 +231,8 @@ export default function Templates({
         let nextPlan = '';
         let nextLimit = '';
         if (planKey === 'trial') { nextPlan = 'Starter'; nextLimit = '10 templates'; }
-        else if (planKey === 'starter') { nextPlan = 'Pro'; nextLimit = 'unlimited templates'; }
+        else if (planKey === 'starter') { nextPlan = 'Pro'; nextLimit = '50 templates'; }
+        else if (planKey === 'pro') { nextPlan = 'Teams'; nextLimit = 'unlimited templates'; }
         
         setToastMessage(`You've reached your ${planName} plan limit of ${templateLimit} templates.${nextPlan ? ` Upgrade to ${nextPlan} for ${nextLimit}.` : ''}`);
         setShowToast(true);
@@ -261,7 +263,8 @@ export default function Templates({
       let nextPlan = '';
       let nextLimit = '';
       if (planKey === 'trial') { nextPlan = 'Starter'; nextLimit = '10 templates'; }
-      else if (planKey === 'starter') { nextPlan = 'Pro'; nextLimit = 'unlimited templates'; }
+      else if (planKey === 'starter') { nextPlan = 'Pro'; nextLimit = '50 templates'; }
+      else if (planKey === 'pro') { nextPlan = 'Teams'; nextLimit = 'unlimited templates'; }
       
       setToastMessage(`You've reached your ${planName} plan limit of ${templateLimit} templates.${nextPlan ? ` Upgrade to ${nextPlan} for ${nextLimit}.` : ''}`);
       setShowToast(true);
@@ -1271,7 +1274,7 @@ export default function Templates({
                   <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '0.25rem' }}>
                     <label className="form-label" style={{ color: 'var(--text-secondary)', margin: 0 }}>Body Template *</label>
                     {!editingTemplate?.is_starter && (
-                      ['trial', 'starter', 'pro', 'teams', 'enterprise'].includes((currentUser?.plan || 'trial').toLowerCase()) ? (
+                      ['trial', 'starter', 'pro', 'teams'].includes((currentUser?.plan || 'trial').toLowerCase()) ? (
                         <button
                           type="button"
                           onClick={handleGenerateTemplateAI}

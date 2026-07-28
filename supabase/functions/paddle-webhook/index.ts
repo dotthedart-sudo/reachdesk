@@ -1,17 +1,8 @@
 import { serve } from 'https://deno.land/std@0.168.0/http/server.ts';
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2';
+import { getPlanFromPriceId, STARTER_MONTHLY_USD } from '../_shared/prices.ts';
 
 const DEFAULT_FROM_EMAIL = 'ReachDesk CRM <noreply@mail.app.reachdeskcrm.com>';
-const STARTER_MONTHLY_USD = '5.00';
-
-function getPlanFromPriceId(priceId: string | null | undefined): 'starter' | 'pro' | 'teams' | null {
-  if (!priceId) return null;
-  const cleanId = priceId.toLowerCase().trim();
-  if (cleanId === 'pri_01kw4zrvsjch1j1hm9vqndq7r2' || cleanId === 'pri_01kw4zvbpqshdr9y7csmvg3q1y' || cleanId === 'pri_01kw4zx77w40q2a6d482jxsfdt' || cleanId === 'pri_01kw4zyatgtp7e8w8t1eecpmsa') return 'starter';
-  if (cleanId === 'pri_01kw4zwwpdem0gmmxq0jgjvge2' || cleanId === 'pri_01kw4zvw87pbf6g5smfghvg4x2' || cleanId === 'pri_01kw4zxmrhznsdqf4n7d3yxdk7' || cleanId === 'pri_01kw4zyk2gt5yxgzsh4scggwts') return 'pro';
-  if (cleanId === 'pri_01kwj0es4nckpwbnqhsfptmpbz' || cleanId === 'pri_01kwj0fa4mff7eaw1bctv1j8sk' || cleanId === 'pri_01kwj0ftcceax0rmfks4aagvws' || cleanId === 'pri_01kwj0gbxpt1k67a0tqg6p9s7f') return 'teams';
-  return null;
-}
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
@@ -78,7 +69,8 @@ serve(async (req) => {
     const rawBody = await req.text()
     const signatureHeader = req.headers.get('Paddle-Signature')
     const secretKey = Deno.env.get('PADDLE_WEBHOOK_SECRET')
-    const isTestMode = req.headers.get('X-Test-Bypass') === 'true'
+    const testBypassSecret = Deno.env.get('TEST_BYPASS_SECRET')
+    const isTestMode = !!testBypassSecret && req.headers.get('X-Test-Bypass') === testBypassSecret
 
     if (!isTestMode && (!signatureHeader || !secretKey)) {
       console.error('[Webhook] Missing Paddle-Signature header or PADDLE_WEBHOOK_SECRET secret')
@@ -198,24 +190,44 @@ serve(async (req) => {
       const rawProductName = payload.data?.items?.[0]?.price?.product?.name || ''
 
       // Dynamically resolve plan from single source of truth (prices.ts)
-      let resolvedPlan = getPlanFromPriceId(priceId)
+      let resolvedPlan = getPlanFromPriceId(priceId);
       if (!resolvedPlan) {
-        // Fallback: check product name if priceId was not matched
-        const nameLower = rawProductName.toLowerCase()
-        if (nameLower.includes('pro')) resolvedPlan = 'pro'
-        else if (nameLower.includes('teams') || nameLower.includes('team')) resolvedPlan = 'teams'
-        else if (nameLower.includes('starter')) resolvedPlan = 'starter'
+        const nameLower = rawProductName.toLowerCase();
+        if (nameLower.includes('lifetime')) resolvedPlan = 'lifetime';
+        else if (nameLower.includes('pro')) resolvedPlan = 'pro';
+        else if (nameLower.includes('teams') || nameLower.includes('team')) resolvedPlan = 'teams';
+        else if (nameLower.includes('starter')) resolvedPlan = 'starter';
         else {
-          console.error('[Webhook] UNKNOWN price ID or product name received:', { priceId, rawProductName })
-          resolvedPlan = 'starter' // Safe fallback for unrecognized products
+          console.error('[Webhook] UNKNOWN price ID or product name received:', { priceId, rawProductName });
+          resolvedPlan = 'starter';
         }
       }
 
-      // 1. Update user profile to active plan
       const updateData: any = {
         plan: resolvedPlan,
         plan_status: 'active',
-        trial_ends_at: null
+        trial_ends_at: null,
+      };
+
+      if (resolvedPlan === 'lifetime') {
+        updateData.plan_expires_at = null;
+        updateData.billing_cycle = null;
+      }
+
+      if (resolvedPlan === 'teams') {
+        const { data: existingTeamProfile } = await supabaseAdmin
+          .from('user_profiles')
+          .select('team_id, team_role')
+          .eq('email', customerEmail)
+          .maybeSingle();
+        if (
+          existingTeamProfile
+          && !existingTeamProfile.team_id
+          && (existingTeamProfile.team_role || 'owner') !== 'member'
+        ) {
+          updateData.team_id = crypto.randomUUID();
+          updateData.team_role = 'owner';
+        }
       }
 
       if (paddleCustomerId) {

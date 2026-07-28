@@ -11,33 +11,21 @@
 import { useEffect, useState, useCallback } from 'react'
 import { supabase } from './supabase' // matches src/lib/supabase.js
 import { ShinyButton } from '@/registry/magicui/shiny-button'
+import {
+  PLAN_LIMITS as PLAN_LIMITS_FULL,
+  getPlanLeadLimit,
+  NEXT_PLAN,
+  NEXT_PLAN_ID,
+  normalizePlan,
+  isLifetimePlan,
+} from './planConfig'
 
-// ---- Plan config -----------------------------------------------------
-// null = no cap enforced. These are BASE limits (monthly billing).
-// Yearly billing_cycle doubles the lead limit — see getPlanLeadLimit() below.
-// Mirrors the CASE branches in check_lead_limit() / check_template_limit() in Supabase —
-// keep both in sync if these numbers change.
-export const PLAN_LIMITS: Record<string, { leads: number | null; templates: number | null }> = {
-  trial:      { leads: 65,   templates: 3 },
-  starter:    { leads: 1000, templates: 10 },
-  pro:        { leads: 5000, templates: null }, // unlimited templates on Pro
-  teams:      { leads: null, templates: null }, // unlimited leads + templates on Teams
-  enterprise: { leads: null, templates: null },
-}
+export { getPlanLeadLimit, NEXT_PLAN, NEXT_PLAN_ID, normalizePlan, isLifetimePlan }
 
-/** Yearly billing doubles the base lead limit. Templates are not affected. */
-export function getPlanLeadLimit(plan: string | null, billingCycle: string | null): number | null {
-  const base = plan ? PLAN_LIMITS[plan]?.leads ?? null : null
-  if (base === null) return null
-  return (billingCycle ?? '').toLowerCase() === 'yearly' ? base * 2 : base
-}
-
-export const NEXT_PLAN: Record<string, string> = {
-  trial: 'Starter',
-  starter: 'Pro',
-  pro: 'Teams',
-  teams: 'Enterprise',
-}
+/** Lead/template caps only — mirrors planConfig + DB plan_limits table. */
+export const PLAN_LIMITS: Record<string, { leads: number | null; templates: number | null }> = Object.fromEntries(
+  Object.entries(PLAN_LIMITS_FULL).map(([k, v]) => [k, { leads: v.leads, templates: v.templates }])
+)
 
 const LOW_THRESHOLD = 10 // show the warning banner once this many or fewer remain
 
@@ -77,7 +65,7 @@ export function useLeadLimitStatus(userId: string | undefined): LimitStatus {
 
   useEffect(() => { refresh() }, [refresh])
 
-  const leadLimit = getPlanLeadLimit(plan, billingCycle)
+  const leadLimit = getPlanLeadLimit(normalizePlan(plan ?? 'trial'), billingCycle)
   const leadsRemaining = leadLimit === null ? null : Math.max(leadLimit - leadCount, 0)
   const isAtLeadLimit = leadLimit !== null && leadCount >= leadLimit
   const isNearLeadLimit = leadsRemaining !== null && leadsRemaining > 0 && leadsRemaining <= LOW_THRESHOLD
@@ -211,6 +199,111 @@ export function shouldShowCountdownToast(remaining: number | null): remaining is
 
 // ---- Blocking modal (shown when the add-lead action is actually rejected) --
 
+export function LimitReachedModal({
+  open,
+  title,
+  message,
+  plan,
+  onCleanup,
+  onUpgrade,
+  onClose,
+  showUpgrade = true,
+}: {
+  open: boolean
+  title: string
+  message: string
+  plan?: string
+  onCleanup?: () => void
+  onUpgrade?: () => void
+  onClose: () => void
+  showUpgrade?: boolean
+}) {
+  if (!open) return null
+  const normalized = normalizePlan(plan ?? 'trial')
+  const nextPlan = NEXT_PLAN[normalized]
+  const lifetime = isLifetimePlan(normalized)
+
+  return (
+    <div
+      style={{
+        position: 'fixed',
+        inset: 0,
+        background: 'rgba(0,0,0,0.6)',
+        display: 'flex',
+        alignItems: 'center',
+        justifyContent: 'center',
+        zIndex: 2000,
+      }}
+      onClick={onClose}
+    >
+      <div
+        onClick={(e) => e.stopPropagation()}
+        style={{
+          background: '#0D1117',
+          border: '1px solid #21262D',
+          borderRadius: 3,
+          padding: 32,
+          maxWidth: 420,
+          width: '90%',
+          fontFamily: 'Inter, sans-serif',
+          textAlign: 'center',
+        }}
+      >
+        <div style={{ color: '#E05252', fontSize: 15, fontWeight: 700, marginBottom: 8, textTransform: 'uppercase', letterSpacing: '0.06em' }}>
+          {title}
+        </div>
+        <p style={{ color: '#E6EDF3', fontSize: 14.5, lineHeight: 1.6, marginBottom: 24 }}>
+          {message}
+        </p>
+        <div style={{ display: 'flex', gap: 10, justifyContent: 'center', flexWrap: 'wrap' }}>
+          {onCleanup && (
+            <button
+              onClick={onCleanup}
+              style={{
+                background: 'transparent',
+                color: '#E6EDF3',
+                border: '1px solid #21262D',
+                borderRadius: 3,
+                padding: '10px 18px',
+                fontSize: 13.5,
+                fontWeight: 600,
+                cursor: 'pointer',
+              }}
+            >
+              Quick cleanup
+            </button>
+          )}
+          {showUpgrade && !lifetime && nextPlan && onUpgrade && (
+            <ShinyButton
+              onClick={onUpgrade}
+              style={{ padding: '10px 18px', fontSize: 13.5, fontWeight: 600 }}
+            >
+              Upgrade to {nextPlan}
+            </ShinyButton>
+          )}
+          {(lifetime || !showUpgrade || !nextPlan) && (
+            <button
+              onClick={onClose}
+              style={{
+                background: 'var(--accent-blue)',
+                color: '#fff',
+                border: 'none',
+                borderRadius: 3,
+                padding: '10px 18px',
+                fontSize: 13.5,
+                fontWeight: 600,
+                cursor: 'pointer',
+              }}
+            >
+              Close
+            </button>
+          )}
+        </div>
+      </div>
+    </div>
+  )
+}
+
 export function LeadLimitModal({
   open,
   plan,
@@ -227,7 +320,9 @@ export function LeadLimitModal({
   onClose: () => void
 }) {
   if (!open) return null
-  const nextPlan = NEXT_PLAN[plan] ?? 'a higher plan'
+  const normalized = normalizePlan(plan)
+  const nextPlan = NEXT_PLAN[normalized]
+  const lifetime = isLifetimePlan(normalized)
 
   return (
     <div
@@ -259,8 +354,10 @@ export function LeadLimitModal({
           Lead limit reached
         </div>
         <p style={{ color: '#E6EDF3', fontSize: 14.5, lineHeight: 1.6, marginBottom: 24 }}>
-          You've hit your plan's limit of {limit} leads. You won't be able to add more until you
-          do a quick cleanup or upgrade to <strong>{nextPlan}</strong>.
+          {lifetime
+            ? `You've hit your plan's limit of ${limit.toLocaleString()} leads. Do a quick cleanup to free space.`
+            : <>You've hit your plan's limit of {limit.toLocaleString()} leads. You won't be able to add more until you
+              do a quick cleanup{nextPlan ? <> or upgrade to <strong>{nextPlan}</strong></> : null}.</>}
         </p>
         <div style={{ display: 'flex', gap: 10, justifyContent: 'center' }}>
           <button
@@ -278,12 +375,31 @@ export function LeadLimitModal({
           >
             Quick cleanup
           </button>
-          <ShinyButton
-            onClick={onUpgrade}
-            style={{ padding: '10px 18px', fontSize: 13.5, fontWeight: 600 }}
-          >
-            Upgrade to {nextPlan}
-          </ShinyButton>
+          {!lifetime && nextPlan && (
+            <ShinyButton
+              onClick={onUpgrade}
+              style={{ padding: '10px 18px', fontSize: 13.5, fontWeight: 600 }}
+            >
+              Upgrade to {nextPlan}
+            </ShinyButton>
+          )}
+          {lifetime && (
+            <button
+              onClick={onClose}
+              style={{
+                background: 'var(--accent-blue)',
+                color: '#fff',
+                border: 'none',
+                borderRadius: 3,
+                padding: '10px 18px',
+                fontSize: 13.5,
+                fontWeight: 600,
+                cursor: 'pointer',
+              }}
+            >
+              Close
+            </button>
+          )}
         </div>
       </div>
     </div>
@@ -331,7 +447,9 @@ export function BulkImportLimitModal({
   onClose: () => void
 }) {
   if (!open) return null
-  const nextPlan = NEXT_PLAN[plan] ?? 'a higher plan'
+  const normalized = normalizePlan(plan)
+  const nextPlan = NEXT_PLAN[normalized]
+  const lifetime = isLifetimePlan(normalized)
 
   return (
     <div
@@ -347,18 +465,24 @@ export function BulkImportLimitModal({
         </div>
         <p style={{ color: '#E6EDF3', fontSize: 14.5, lineHeight: 1.6, marginBottom: 24 }}>
           {importedCount} lead{importedCount === 1 ? '' : 's'} imported. The remaining {skippedCount} lead{skippedCount === 1 ? '' : 's'} {skippedCount === 1 ? 'was' : 'were'} skipped because it would exceed your plan's lead limit.
-          Do a quick cleanup or upgrade to <strong>{nextPlan}</strong> to import the rest.
+          {lifetime
+            ? ' Do a quick cleanup to import the rest.'
+            : nextPlan
+              ? <> Do a quick cleanup or upgrade to <strong>{nextPlan}</strong> to import the rest.</>
+              : ' Do a quick cleanup to import the rest.'}
         </p>
         <div style={{ display: 'flex', gap: 10, justifyContent: 'center' }}>
           <button onClick={onCleanup} style={{ background: 'transparent', color: '#E6EDF3', border: '1px solid #21262D', borderRadius: 3, padding: '10px 18px', fontSize: 13.5, fontWeight: 600, cursor: 'pointer' }}>
             Quick cleanup
           </button>
-          <ShinyButton
-            onClick={onUpgrade}
-            style={{ padding: '10px 18px', fontSize: 13.5, fontWeight: 600 }}
-          >
-            Upgrade to {nextPlan}
-          </ShinyButton>
+          {!lifetime && nextPlan && (
+            <ShinyButton
+              onClick={onUpgrade}
+              style={{ padding: '10px 18px', fontSize: 13.5, fontWeight: 600 }}
+            >
+              Upgrade to {nextPlan}
+            </ShinyButton>
+          )}
         </div>
       </div>
     </div>
