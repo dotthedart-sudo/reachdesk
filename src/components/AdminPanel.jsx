@@ -6,6 +6,7 @@ import {
   Users, CheckCircle, ShieldAlert, Award, Zap, Bell, Clock, Eye, Trash2, RotateCcw, X, CreditCard, Check,
   ChevronDown, ChevronUp, Calendar, Search
 } from 'lucide-react';
+import { BRAND_NAME, BRAND_LOGO_TEXT } from '../config/brand';
 
 class AdminErrorBoundary extends React.Component {
   constructor(props) {
@@ -192,7 +193,7 @@ function AdminPanelContent({ currentUser }) {
           (payload) => {
             setRequests(prev => [payload.new, ...prev]);
             if (hasNotificationSupport && Notification.permission === 'granted') {
-              new Notification('ReachDesk', { body: payload.new.message });
+              new Notification(BRAND_NAME, { body: payload.new.message });
             }
             fetchUsers();
           }
@@ -405,7 +406,7 @@ function AdminPanelContent({ currentUser }) {
       <div className="flex justify-between align-center mb-4">
         <div>
           <h2 style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
-            <span style={{fontFamily:'Mattone, sans-serif', textTransform:'uppercase', letterSpacing:'0.08em', fontSize:'18px', color:'var(--text-primary)', fontWeight:'400'}}>ReachDesk</span>
+            <span style={{fontFamily:'Mattone, sans-serif', textTransform:'uppercase', letterSpacing:'0.08em', fontSize:'18px', color:'var(--text-primary)', fontWeight:'400'}}>{BRAND_LOGO_TEXT}</span>
             <span style={{ fontSize: '0.85em', color: 'var(--text-muted)', fontWeight: 'normal', marginLeft: '0.25rem' }}>| System Admin Panel</span>
           </h2>
           <p className="color-muted" style={{ fontSize: '0.9rem' }}>

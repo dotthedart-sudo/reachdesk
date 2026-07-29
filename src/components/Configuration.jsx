@@ -20,6 +20,7 @@ import {
   Download, FileText, Sparkles, Plus, Trash2, Edit3,
   Calendar, CheckCircle, Unlink, Lock, Check, Plug
 } from 'lucide-react';
+import { BRAND_NAME } from '../config/brand';
 import { exportLeads, exportNotes } from '../utils/exportUtils';
 import CurrencySelector, { CURRENCY_MAP } from './CurrencySelector';
 import { getBrowserTimeZone, getSupportedTimeZones, formatTimeZoneLabel } from '../lib/dateTime';
@@ -358,7 +359,7 @@ export default function Configuration({
 
   // ── Disconnect Google Calendar ────────────────────────────────────────────
   const handleDisconnectCalendar = async () => {
-    if (!confirm('Disconnect Google Calendar? ReachDesk will no longer auto-detect bookings from your calendar.')) return;
+    if (!confirm(`Disconnect Google Calendar? ${BRAND_NAME} will no longer auto-detect bookings from your calendar.`)) return;
     setCalDisconnecting(true);
     try {
       // Step 1: Get the current access token to revoke
@@ -454,7 +455,7 @@ export default function Configuration({
 
   // ── Disconnect Google Sheets ──────────────────────────────────────────────
   const handleDisconnectSheets = async () => {
-    if (!confirm('Disconnect Google Sheets? ReachDesk will no longer be able to export or import leads from your sheets.')) return;
+    if (!confirm(`Disconnect Google Sheets? ${BRAND_NAME} will no longer be able to export or import leads from your sheets.`)) return;
     setSheetsDisconnecting(true);
     try {
       const { data: integration } = await supabase
@@ -1559,7 +1560,7 @@ export default function Configuration({
         </div>
 
         <p className="rd-integration-footnote">
-          ReachDesk reads your calendar to detect bookings and can create events you add in-app.
+          {BRAND_NAME} reads your calendar to detect bookings and can create events you add in-app.
           Disconnect anytime to revoke access. Reconnect if you connected before write access was enabled.
         </p>
       </div>

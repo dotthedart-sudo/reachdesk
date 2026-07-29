@@ -78,7 +78,7 @@ export default function BlogPost() {
   return (
     <>
       <Helmet>
-        <title>{post.title} | ReachDesk Blog</title>
+        <title>{post.title} | ReachDesk CRM Blog</title>
         <meta name="description" content={post.description} />
         <meta name="keywords" content={post.keywords} />
         {Object.entries(generateOGTags(post.title, post.description, ogCover)).map(([key, value]) => (

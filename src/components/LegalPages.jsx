@@ -28,7 +28,7 @@ function LegalContainer({ title, lastUpdated, children }) {
 
       {/* Simple Footer */}
       <footer className="landing-footer" style={{ borderTop: '1px solid var(--border-color)', paddingTop: '1.5rem', marginTop: 'auto' }}>
-        <p>© 2026 ReachDesk. All rights reserved.</p>
+        <p>© 2026 ReachDesk CRM. All rights reserved.</p>
       </footer>
     </div>
   );
@@ -182,12 +182,12 @@ export function PrivacyPolicy() {
       <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
         <p><strong>What we access:</strong></p>
         <ul style={{ paddingLeft: '1.5rem', display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
-          <li><strong>Google Calendar:</strong> We access your calendar events to automatically detect when a lead has booked a meeting with you, and to create events you add from within ReachDesk.</li>
+          <li><strong>Google Calendar:</strong> We access your calendar events to automatically detect when a lead has booked a meeting with you, and to create events you add from within ReachDesk CRM.</li>
           <li><strong>Google Sheets:</strong> We access spreadsheets you explicitly select to export your lead data to, or import lead data from.</li>
         </ul>
         <p><strong>How we use it:</strong></p>
         <ul style={{ paddingLeft: '1.5rem', display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
-          <li>Calendar event data is used to match meeting attendees against your existing leads and update their status, and to create events you explicitly add in ReachDesk.</li>
+          <li>Calendar event data is used to match meeting attendees against your existing leads and update their status, and to create events you explicitly add in ReachDesk CRM.</li>
           <li>Sheets data is used solely for the export/import actions you initiate — we do not access any other files in your Google Drive.</li>
         </ul>
         <p><strong>How we store it:</strong></p>

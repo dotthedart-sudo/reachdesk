@@ -189,6 +189,7 @@ export default function ChatWidget({ profile }) {
         <div
           role="dialog"
           aria-label="ReachDesk CRM Assistant"
+          className="chat-widget-panel"
           style={{
             position: 'fixed',
             bottom: '88px',
@@ -480,6 +481,7 @@ export default function ChatWidget({ profile }) {
       {/* ── Floating Toggle Button ── */}
       <button
         onClick={() => setIsOpen((p) => !p)}
+        className="chat-widget-fab"
         aria-label={isOpen ? 'Close ReachDesk CRM Assistant' : 'Open ReachDesk CRM Assistant'}
         title="ReachDesk CRM Assistant"
         style={{

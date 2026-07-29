@@ -255,7 +255,7 @@ export default function CSVImportModal({ onClose, onImportComplete }: CSVImportM
 
           {step === 3 && (
             <div>
-              <h3 style={{ fontSize: '1.25rem', marginBottom: '0.25rem' }}>Map your columns to ReachDesk fields</h3>
+              <h3 style={{ fontSize: '1.25rem', marginBottom: '0.25rem' }}>Map your columns to ReachDesk CRM fields</h3>
               <p style={{ color: '#9ca3af', fontSize: '0.875rem', marginBottom: '1.5rem' }}>
                 We've auto-matched what we could — review and adjust below
               </p>

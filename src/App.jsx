@@ -12,6 +12,7 @@ import { subscribeToPush } from './utils/pushNotifications';
 import { isLocalDev, getAppUrl, getMarketingUrl } from './utils/domain';
 import { identifyUser, resetPostHog } from './utils/posthog';
 import { forceAppRefresh, clearAppRefreshFlags } from './utils/forceAppRefresh';
+import { BRAND_NAME } from './config/brand';
 
 // Helper for lazy loading components with automatic retry on dynamic import / chunk load failures (e.g. after new deployments)
 function lazyWithRetry(componentImport) {
@@ -325,7 +326,7 @@ function AppProvider({ children }) {
   const [subStatus, setSubStatus] = useState('active');
   const [loading, setLoading] = useState(true);
   const [theme, setTheme] = useState('dark');
-  const [brandName, setBrandName] = useState('ReachDesk');
+  const [brandName, setBrandName] = useState(BRAND_NAME);
   const [currencySymbol, setCurrencySymbol] = useState('PKR');
   const [webhookUrl, setWebhookUrl] = useState('');
   const [teamIds, setTeamIds] = useState([]);
@@ -392,7 +393,7 @@ function AppProvider({ children }) {
     if (localTheme === 'light') document.documentElement.classList.add('light');
     else document.documentElement.classList.remove('light');
 
-    setBrandName(localStorage.getItem('reachdesk_brand_name') || 'ReachDesk');
+    setBrandName(localStorage.getItem('reachdesk_brand_name') || BRAND_NAME);
     setCurrencySymbol(localStorage.getItem('reachdesk_currency_symbol') || 'PKR');
     setWebhookUrl(localStorage.getItem('reachdesk_webhook_url') || '');
   }, []);

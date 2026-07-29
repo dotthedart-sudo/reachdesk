@@ -6,6 +6,7 @@ import { getAppUrl, getMarketingUrl, isLocalDev } from '../utils/domain';
 import { TRIAL_MARKETING } from '../lib/planMarketing';
 import { getStoredInviteToken, storeInviteToken } from '../lib/teamWorkspace';
 import AuthLogo from './AuthLogo';
+import { BRAND_NAME } from '../config/brand';
 
 const BLOCKED_DOMAINS = [
   'mailinator.com', 'guerrillamail.com', '10minutemail.com', 'tempmail.com',
@@ -260,13 +261,13 @@ export default function Auth({ mode = 'login' }) {
         ? (LOCAL_PASSWORD_AUTH
           ? (isSignup
             ? `${TRIAL_MARKETING.headline}.`
-            : 'Log in to your ReachDesk workspace.')
+            : `Log in to your ${BRAND_NAME} workspace.`)
           : 'We’ll email you a one-time code — no password needed.')
         : step === 'methods'
           ? null
           : (isSignup
             ? `${TRIAL_MARKETING.headline}.`
-            : 'Log in to your ReachDesk workspace.');
+            : `Log in to your ${BRAND_NAME} workspace.`);
 
   return (
     <div className="auth-page">
@@ -282,7 +283,7 @@ export default function Auth({ mode = 'login' }) {
           <div className="auth-success-banner" role="status" style={{ marginBottom: '0.75rem' }}>
             <Check size={16} />
             <span>
-              You&apos;ve been invited to a ReachDesk team workspace. Sign up or log in with the invited email address to join.
+              You&apos;ve been invited to a {BRAND_NAME} team workspace. Sign up or log in with the invited email address to join.
             </span>
           </div>
         )}

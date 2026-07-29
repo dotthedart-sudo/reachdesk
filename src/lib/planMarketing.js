@@ -166,7 +166,7 @@ export const HOMEPAGE_OUTCOMES = [
   {
     id: 'today',
     title: 'Know who to contact today',
-    desc: 'Open ReachDesk and see the exact leads waiting on a follow-up — not a buried spreadsheet row.',
+    desc: 'Open ReachDesk CRM and see the exact leads waiting on a follow-up — not a buried spreadsheet row.',
   },
   {
     id: 'slip',
@@ -189,7 +189,7 @@ export const HOMEPAGE_FEATURES = [
   {
     id: 'reminders',
     title: '7-checkpoint follow-ups',
-    desc: 'Mark a lead Contacted once. ReachDesk schedules the reminders so nothing slips while you\'re heads-down.',
+    desc: 'Mark a lead Contacted once. ReachDesk CRM schedules the reminders so nothing slips while you\'re heads-down.',
   },
   {
     id: 'templates',
@@ -212,7 +212,7 @@ export const HOW_IT_WORKS_STEPS = [
   {
     step: '2',
     title: 'Mark Contacted',
-    desc: 'ReachDesk schedules your follow-up checkpoints automatically.',
+    desc: 'ReachDesk CRM schedules your follow-up checkpoints automatically.',
   },
   {
     step: '3',

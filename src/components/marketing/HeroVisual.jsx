@@ -38,7 +38,7 @@ export default function HeroVisual({ theme, posterDark, posterLight, className =
           loop
           playsInline
           poster={poster}
-          aria-label="ReachDesk follow-up workflow demo"
+          aria-label="ReachDesk CRM follow-up workflow demo"
         >
           <source src={MARKETING_MEDIA.heroVideoWebm} type="video/webm" />
           <source src={MARKETING_MEDIA.heroVideo} type="video/mp4" />

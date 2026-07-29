@@ -69,7 +69,59 @@ const SORT_OPTIONS = [
   { value: 'status',    label: 'By Status' },
 ];
 
-export default function CRM({ 
+const EMPTY_QUICK_ADD_FORM = {
+  name: '',
+  profileUrl: '',
+  phone: '',
+  platform: 'LinkedIn',
+  priority: 'Warm',
+  notes: '',
+};
+
+function splitLeadName(name) {
+  const parts = (name || '').trim().split(/\s+/);
+  return {
+    first_name: parts[0] || '',
+    last_name: parts.slice(1).join(' ') || null,
+  };
+}
+
+function normalizeQuickAddProfileUrl(raw, platform) {
+  const val = (raw || '').trim();
+  if (!val) return null;
+
+  if (val.startsWith('http://') || val.startsWith('https://')) {
+    return val;
+  }
+
+  if (val.includes('.') || val.includes('/')) {
+    return `https://${val}`;
+  }
+
+  const handle = val.replace(/^@/, '');
+  if (platform === 'LinkedIn') return `https://linkedin.com/in/${handle}`;
+  if (platform === 'Twitter') return `https://twitter.com/${handle}`;
+
+  return `https://${val}`;
+}
+
+function mapProfileUrlToLeadFields(url, platformLabel) {
+  const urlUpdates = { linkedin_url: null, instagram_url: null, twitter_url: null, website: null };
+  if (!url) return { urlUpdates, links: [] };
+
+  const cleanUrl = url.startsWith('http') ? url : `https://${url}`;
+  const detected = detectPlatformLabel(cleanUrl);
+  const links = [{ url: cleanUrl, label: detected !== 'Website' ? detected : platformLabel }];
+
+  if (cleanUrl.includes('linkedin.com')) urlUpdates.linkedin_url = cleanUrl;
+  else if (cleanUrl.includes('instagram.com')) urlUpdates.instagram_url = cleanUrl;
+  else if (cleanUrl.includes('twitter.com') || cleanUrl.includes('x.com')) urlUpdates.twitter_url = cleanUrl;
+  else urlUpdates.website = cleanUrl;
+
+  return { urlUpdates, links };
+}
+
+export default function CRM({
   currentUser, 
   teamProfilesMap = {}, 
   isTeamView = false, 
@@ -416,11 +468,7 @@ export default function CRM({
   // Modals state
   const [showAddLeadModal, setShowAddLeadModal] = useState(false);
   const [showQuickAddModal, setShowQuickAddModal] = useState(false);
-  const [quickAddForm, setQuickAddForm] = useState({
-    first_name: '',
-    platform: 'LinkedIn',
-    priority: 'Warm'
-  });
+  const [quickAddForm, setQuickAddForm] = useState({ ...EMPTY_QUICK_ADD_FORM });
   const [showEditLeadModal, setShowEditLeadModal] = useState(false);
   const [newFieldName, setNewFieldName] = useState('');
   const [newFieldType, setNewFieldType] = useState('text');
@@ -1031,15 +1079,39 @@ export default function CRM({
   // Quick Add Lead
   const handleQuickAddSubmit = async (e) => {
     e.preventDefault();
+    if (isLeadLimitReached) return;
+
+    const { first_name, last_name } = splitLeadName(quickAddForm.name);
+    if (!first_name) return;
 
     try {
+      const profileUrl = normalizeQuickAddProfileUrl(quickAddForm.profileUrl, quickAddForm.platform);
+      const { urlUpdates, links } = mapProfileUrlToLeadFields(profileUrl, quickAddForm.platform);
+      const custom_fields = links.length > 0 ? { links } : {};
+
+      const tzFields = resolveLeadTimezoneForSave({
+        phone: quickAddForm.phone,
+        previousPhone: null,
+        defaultCountryCode: currentUser?.default_country_code || '+92',
+      });
+
       const { data, error } = await supabase.from('leads')
         .insert({
-          first_name: quickAddForm.first_name,
-          priority: quickAddForm.priority,
+          first_name,
+          last_name,
+          phone: quickAddForm.phone?.trim() || null,
+          linkedin_url: urlUpdates.linkedin_url,
+          instagram_url: urlUpdates.instagram_url,
+          twitter_url: urlUpdates.twitter_url,
+          website: urlUpdates.website,
+          priority: quickAddForm.priority || 'Warm',
           status: 'Lead',
+          notes: quickAddForm.notes?.trim() || null,
           user_id: currentUser.id,
-          folder_id: selectedFolderId || null
+          folder_id: selectedFolderId || null,
+          custom_fields,
+          timezone: tzFields.timezone,
+          timezone_source: tzFields.timezone_source,
         })
         .select()
         .single();
@@ -1047,9 +1119,8 @@ export default function CRM({
       if (error) throw error;
       setLeads(prev => [data, ...prev]);
       setShowQuickAddModal(false);
-      setQuickAddForm({ first_name: '', priority: 'Warm' });
+      setQuickAddForm({ ...EMPTY_QUICK_ADD_FORM });
 
-      // Check remaining quota for countdown toast
       try {
         const remaining = await getRemainingLeadQuota(currentUser.id);
         if (shouldShowCountdownToast(remaining)) {
@@ -3105,18 +3176,18 @@ export default function CRM({
             setShowLeadLimitBlockModal(true);
             return;
           }
-          setQuickAddForm({ first_name: '', platform: 'LinkedIn', priority: 'Warm' });
+          setQuickAddForm({ ...EMPTY_QUICK_ADD_FORM });
           setShowQuickAddModal(true);
         }}
         aria-label="Quick add lead"
       >
-        +
+        <Plus size={22} strokeWidth={2.5} />
       </button>
 
       {/* Minimal Quick Add Modal */}
       {showQuickAddModal && (
         <div className="modal-backdrop" style={{ zIndex: 1100 }}>
-          <div className="modal-content rd-modal rd-modal-sm">
+          <div className="modal-content rd-modal rd-modal-quick-add">
             <div className="rd-modal-header">
               <div>
                 <h3>Quick add</h3>
@@ -3130,43 +3201,79 @@ export default function CRM({
               <div className="rd-modal-body">
                 <div className="rd-form">
                   <div className="rd-form-group">
-                    <label className="form-label" htmlFor="quick-first-name">First name *</label>
+                    <label className="form-label" htmlFor="quick-name">Name *</label>
                     <input
-                      id="quick-first-name"
+                      id="quick-name"
                       type="text"
                       required
-                      value={quickAddForm.first_name}
-                      onChange={(e) => setQuickAddForm({ ...quickAddForm, first_name: e.target.value })}
+                      placeholder="e.g. Sophie Laurent"
+                      value={quickAddForm.name}
+                      onChange={(e) => setQuickAddForm({ ...quickAddForm, name: e.target.value })}
                       className="form-input"
                       autoFocus
                     />
                   </div>
                   <div className="rd-form-group">
-                    <label className="form-label" htmlFor="quick-source">Source</label>
-                    <select
-                      id="quick-source"
-                      value={quickAddForm.platform}
-                      onChange={(e) => setQuickAddForm({ ...quickAddForm, platform: e.target.value })}
-                      className="form-select"
-                    >
-                      <option value="LinkedIn">LinkedIn</option>
-                      <option value="Cold Email">Cold Email</option>
-                      <option value="Twitter">Twitter</option>
-                      <option value="WhatsApp">WhatsApp</option>
-                    </select>
+                    <label className="form-label" htmlFor="quick-profile-url">Profile URL</label>
+                    <input
+                      id="quick-profile-url"
+                      type="text"
+                      placeholder="Paste LinkedIn or profile link…"
+                      value={quickAddForm.profileUrl}
+                      onChange={(e) => setQuickAddForm({ ...quickAddForm, profileUrl: e.target.value })}
+                      className="form-input"
+                    />
                   </div>
                   <div className="rd-form-group">
-                    <label className="form-label" htmlFor="quick-priority">Priority</label>
-                    <select
-                      id="quick-priority"
-                      value={quickAddForm.priority}
-                      onChange={(e) => setQuickAddForm({ ...quickAddForm, priority: e.target.value })}
-                      className="form-select"
-                    >
-                      <option value="Cold">Cold</option>
-                      <option value="Warm">Warm</option>
-                      <option value="Hot">Hot</option>
-                    </select>
+                    <label className="form-label" htmlFor="quick-phone">Phone</label>
+                    <input
+                      id="quick-phone"
+                      type="text"
+                      placeholder="+1…"
+                      value={quickAddForm.phone}
+                      onChange={(e) => setQuickAddForm({ ...quickAddForm, phone: e.target.value })}
+                      className="form-input"
+                    />
+                  </div>
+                  <div className="rd-form-row">
+                    <div className="rd-form-group">
+                      <label className="form-label" htmlFor="quick-source">Found via</label>
+                      <select
+                        id="quick-source"
+                        value={quickAddForm.platform}
+                        onChange={(e) => setQuickAddForm({ ...quickAddForm, platform: e.target.value })}
+                        className="form-select"
+                      >
+                        <option value="LinkedIn">LinkedIn</option>
+                        <option value="Cold Email">Cold Email</option>
+                        <option value="Twitter">Twitter</option>
+                        <option value="WhatsApp">WhatsApp</option>
+                      </select>
+                    </div>
+                    <div className="rd-form-group">
+                      <label className="form-label" htmlFor="quick-priority">Priority</label>
+                      <select
+                        id="quick-priority"
+                        value={quickAddForm.priority}
+                        onChange={(e) => setQuickAddForm({ ...quickAddForm, priority: e.target.value })}
+                        className="form-select"
+                      >
+                        <option value="Cold">Cold</option>
+                        <option value="Warm">Warm</option>
+                        <option value="Hot">Hot</option>
+                      </select>
+                    </div>
+                  </div>
+                  <div className="rd-form-group">
+                    <label className="form-label" htmlFor="quick-notes">Notes</label>
+                    <input
+                      id="quick-notes"
+                      type="text"
+                      placeholder="Context for the next follow-up…"
+                      value={quickAddForm.notes}
+                      onChange={(e) => setQuickAddForm({ ...quickAddForm, notes: e.target.value })}
+                      className="form-input"
+                    />
                   </div>
                 </div>
               </div>

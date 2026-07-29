@@ -1,11 +1,12 @@
 // src/config/metadata.js
+import { BRAND_NAME } from './brand';
 
 // This is the source of truth for all meta tags across pages
 // Each page imports from here and passes its specific title/description to Helmet
 
 export const siteMeta = {
   site: {
-    name: 'ReachDesk CRM',
+    name: BRAND_NAME,
     url: 'https://reachdeskcrm.com',
     twitterHandle: '@reachdesk', // Update if you have a Twitter
     ogImage: 'https://reachdeskcrm.com/og-image.png', // Add OG image to public/
@@ -13,7 +14,7 @@ export const siteMeta = {
   
   pages: {
     homepage: {
-      title: 'ReachDesk — Your leads didn\'t ghost you. You ghosted them.',
+      title: `${BRAND_NAME} — Your leads didn't ghost you. You ghosted them.`,
       description: 'ReachDesk CRM tells freelancers who to follow up with today. Pipeline, 7-checkpoint reminders, templates, and invoices — so leads don\'t die while you deliver client work. 7-day trial.',
       keywords: 'CRM, freelancer, lead follow-up, lead tracking, follow-up reminders',
     },

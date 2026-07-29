@@ -3,6 +3,7 @@ import { Upload, X, ArrowLeft } from 'lucide-react';
 import { supabase } from '../lib/supabase';
 import CurrencySelector from './CurrencySelector';
 import AuthLogo from './AuthLogo';
+import { BRAND_NAME } from '../config/brand';
 
 const USE_CASES = [
   { id: 'leads', label: 'Lead outreach', desc: 'Finding & pitching clients' },
@@ -21,7 +22,7 @@ const STEP_COPY = [
   },
   {
     title: 'Almost done',
-    sub: 'Pick defaults for currency and how you’ll use ReachDesk.',
+    sub: `Pick defaults for currency and how you’ll use ${BRAND_NAME}.`,
   },
 ];
 
@@ -121,7 +122,7 @@ export default function SetupModal({ profile, onRefreshProfile, onSaveSettings, 
       if (updateErr) throw updateErr;
 
       onSaveSettings(
-        brandName.trim() || 'ReachDesk',
+        brandName.trim() || BRAND_NAME,
         defaultCurrency,
         localStorage.getItem('reachdesk_webhook_url') || '',
         localStorage.getItem('reachdesk_bank_account') || '',
@@ -314,7 +315,7 @@ export default function SetupModal({ profile, onRefreshProfile, onSaveSettings, 
               </div>
 
               <div className="auth-field">
-                <span className="auth-field-label">What will you use ReachDesk for?</span>
+                <span className="auth-field-label">What will you use {BRAND_NAME} for?</span>
                 <div className="rd-choice-list" role="radiogroup">
                   {USE_CASES.map((opt) => (
                     <label

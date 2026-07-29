@@ -330,7 +330,7 @@ export default function Dashboard({ currentUser, onSelectLead }) {
 
   // Unified Handler: Overdue Invoice Friendly Reminder Copy
   const handleCopyInvoiceReminder = (inv) => {
-    const template = `Hi ${inv.client_name},\n\nHope you are doing well.\n\nThis is a friendly reminder that invoice #${inv.invoice_number} for $${inv.total} was due on ${new Date(inv.due_date).toLocaleDateString()}.\n\nPlease let me know when we can expect payment.\n\nBest regards,\n${currentUser.full_name || 'ReachDesk User'}`;
+    const template = `Hi ${inv.client_name},\n\nHope you are doing well.\n\nThis is a friendly reminder that invoice #${inv.invoice_number} for $${inv.total} was due on ${new Date(inv.due_date).toLocaleDateString()}.\n\nPlease let me know when we can expect payment.\n\nBest regards,\n${currentUser.full_name || 'ReachDesk CRM User'}`;
     navigator.clipboard.writeText(template);
     alert(`Friendly reminder template copied for Invoice #${inv.invoice_number}!`);
   };

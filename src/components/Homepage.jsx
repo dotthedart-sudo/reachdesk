@@ -393,7 +393,7 @@ export default function Homepage({ currentUserEmail }) {
         <div className="hp-section-inner hp-final-cta-inner">
           <h2 className="hp-final-cta-title">Stop losing deals to forgotten follow-ups.</h2>
           <p className="hp-final-cta-sub">
-            {TRIAL_MARKETING.detail}. You send every message — ReachDesk keeps you on track.
+            {TRIAL_MARKETING.detail}. You send every message — ReachDesk CRM keeps you on track.
           </p>
           <button type="button" onClick={handleSignUpClick} className="hp-btn-primary hp-btn-lg hp-final-cta-btn">
             {isLoggedIn ? 'Open dashboard' : 'Start free trial'}

@@ -46,7 +46,7 @@ export default function BlogIndex() {
           {JSON.stringify({
             '@context': 'https://schema.org',
             '@type': 'CollectionPage',
-            name: 'ReachDesk Blog',
+            name: 'ReachDesk CRM Blog',
             description: pageDescription,
             url: 'https://reachdeskcrm.com/blog',
           })}
@@ -57,7 +57,7 @@ export default function BlogIndex() {
 
       <div className="blog-container">
         <div className="blog-header">
-          <h1>ReachDesk Blog</h1>
+          <h1>ReachDesk CRM Blog</h1>
           <p>Strategies for freelancers and agencies to never lose a lead</p>
         </div>
 

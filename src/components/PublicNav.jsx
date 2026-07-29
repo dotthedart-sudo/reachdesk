@@ -4,7 +4,9 @@ import { Sun, Moon } from 'lucide-react';
 import { useAppContext } from '../App';
 import { getAppUrl, getMarketingUrl, isLocalDev } from '../utils/domain';
 
-export default function PublicNav({ brandName = 'ReachDesk CRM' }) {
+import { BRAND_NAME, BRAND_LOGO_TEXT } from '../config/brand';
+
+export default function PublicNav({ brandName = BRAND_NAME }) {
   const { theme, toggleTheme, session } = useAppContext() || {};
   const isLoggedIn = !!session;
   const navigate = useNavigate();
@@ -49,7 +51,7 @@ export default function PublicNav({ brandName = 'ReachDesk CRM' }) {
           onClick={goHome}
           aria-label={`${brandName} home`}
         >
-          <span className="hp-logo">REACHDESK CRM</span>
+          <span className="hp-logo">{BRAND_LOGO_TEXT}</span>
         </button>
 
         <div className="hp-nav-center">

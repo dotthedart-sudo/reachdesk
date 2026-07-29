@@ -14,6 +14,7 @@ import MobileNav from './MobileNav';
 import { useLeadLimitStatus, LeadLimitTopBar } from '../lib/leadLimits';
 import { exportLeads } from '../utils/exportUtils';
 import { supabase } from '../lib/supabase';
+import { BRAND_LOGO_TEXT } from '../config/brand';
 
 export default function AppLayout({
   profile,
@@ -116,7 +117,7 @@ export default function AppLayout({
           onClick={() => { navigate('/dashboard'); setIsSidebarOpen(false); }}
           style={{ cursor: 'pointer', display: 'flex', alignItems: 'center' }}
         >
-          ReachDesk
+          {BRAND_LOGO_TEXT}
         </span>
         <div style={{ width: 20 }}></div>
       </div>
@@ -133,7 +134,7 @@ export default function AppLayout({
           <div className="sidebar-logo" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
             <div style={{ display: 'flex', alignItems: 'center' }}>
               <span className="logo-text nav-label">
-                ReachDesk
+                {BRAND_LOGO_TEXT}
               </span>
             </div>
 

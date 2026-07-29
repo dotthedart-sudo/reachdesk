@@ -80,7 +80,7 @@ function InteractiveLoopDiagram({ accentColor }) {
     },
     {
       title: "Auto Reminders",
-      desc: "ReachDesk schedules 7 automatic reminders at crucial intervals (Day 2, 4, 7, 10, 14, 21, 23).",
+      desc: "ReachDesk CRM schedules 7 automatic reminders at crucial intervals (Day 2, 4, 7, 10, 14, 21, 23).",
       tip: "You get notified when it is time to follow up so you never lose the conversation."
     },
     {
@@ -365,7 +365,7 @@ function GetStartedContent({ isAppView, theme, navigate }) {
           <section id="how-it-works" style={{ scrollMarginTop: '120px' }}>
             <h2 style={sectionTitle()}>How ReachDesk CRM Works</h2>
             <p style={{ color: muted, margin: '0 0 1.5rem 0' }}>
-              ReachDesk matches cold outreach with calendar tracking. Click on the steps below to see the sequence:
+              ReachDesk CRM matches cold outreach with calendar tracking. Click on the steps below to see the sequence:
             </p>
             <InteractiveLoopDiagram accentColor={accent} />
           </section>
@@ -418,7 +418,7 @@ function GetStartedContent({ isAppView, theme, navigate }) {
           <section id="reach-link" style={{ scrollMarginTop: '120px' }}>
             <h2 style={sectionTitle()}>Reach Launcher</h2>
             <p style={{ color: muted, margin: 0 }}>
-              The Reach icon in your CRM row opens the lead's social platform (LinkedIn, email, Twitter/X, Instagram) in a new tab. If a template is chosen, it copies to your clipboard. Once clicked, ReachDesk updates the lead's Last Contacted date automatically.
+              The Reach icon in your CRM row opens the lead's social platform (LinkedIn, email, Twitter/X, Instagram) in a new tab. If a template is chosen, it copies to your clipboard. Once clicked, ReachDesk CRM updates the lead's Last Contacted date automatically.
             </p>
           </section>
 
@@ -706,7 +706,7 @@ export default function GetStarted() {
         marginTop: 'auto',
         backgroundColor: 'var(--hp-bg)'
       }}>
-        <p>© 2026 ReachDesk. All rights reserved.</p>
+        <p>© 2026 ReachDesk CRM. All rights reserved.</p>
       </footer>
     </div>
   );

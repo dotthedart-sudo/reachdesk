@@ -56,7 +56,7 @@ export default function CSVImporter({
   const [progress, setProgress] = useState(0);
   const [importStats, setImportStats] = useState({ imported: 0, skipped: 0, errors: 0 });
 
-  // Map of available ReachDesk fields
+  // Map of available ReachDesk CRM fields
   const getAvailableFields = () => {
     const fields = [
       { key: 'first_name', label: 'First Name *' },
@@ -411,7 +411,7 @@ export default function CSVImporter({
                   <tr style={{ borderBottom: '1px solid var(--border-color)', background: 'var(--bg-secondary)', textAlign: 'left' }}>
                     <th style={{ padding: '0.5rem' }}>CSV Header</th>
                     <th style={{ padding: '0.5rem' }}>Preview Values</th>
-                    <th style={{ padding: '0.5rem' }}>Maps to ReachDesk Field</th>
+                    <th style={{ padding: '0.5rem' }}>Maps to ReachDesk CRM Field</th>
                   </tr>
                 </thead>
                 <tbody>
