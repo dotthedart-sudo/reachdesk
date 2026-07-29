@@ -60,12 +60,10 @@ export default function GoogleCalendarCallback() {
         return;
       }
 
-      const userId = session.user.id;
-
       // ── Call the exchange edge function ───────────────────────────────────
       try {
         const { data, error } = await supabase.functions.invoke('google-oauth-exchange', {
-          body: { code, userId },
+          body: { code },
         });
 
         if (error) throw error;

@@ -9,12 +9,13 @@ import {
   Filter, CheckSquare, Square, Folder, FolderPlus,
   MoreVertical, Check, ThumbsUp, ThumbsDown, SkipForward, AlertCircle, ChevronDown, FileText,
   Settings as Gear, MessageCircle, Zap, ExternalLink, Lock, Lightbulb, Copy, Sparkles, Mail,
-  Database, Info, Users
+  Database, Info, Users, Phone, Gem
 } from 'lucide-react';
 
 import EditableDropdown from './CRM/EditableDropdown';
 import ColumnManager from './CRM/ColumnManager';
 import LeadDrawer from './CRM/LeadDrawer';
+import OutreachTracker from './CRM/OutreachTracker';
 import CSVImporter from './CRM/CSVImporter';
 import CSVImportModal from './CRM/CSVImportModal';
 import ExportSheetsModal from './CRM/ExportSheetsModal';
@@ -29,6 +30,7 @@ import { ReachIcons, PhonePopup, detectDomainIcon, detectPlatformLabel } from '.
 import { updateLeadStatusAndCheckpoint, getSuggestionForStatus, REPLY_CHECK_STATUSES, FOLLOW_UP_CHECK_STATUSES, isClientStatus } from '../lib/reminders';
 import PriorityDropdown from './CRM/PriorityDropdown';
 import { exportLeads, exportNotes } from '../utils/exportUtils';
+import { resolveLeadTimezoneForSave } from '../lib/leadTimezone';
 import { mergeTemplateFields, normalizePhoneNumber, generatePrefilledUrl } from '../utils/templateMerge';
 import { celebrateClosedWon } from '../utils/celebrateWin';
 import { generateAIDraft } from '../utils/aiDraft';
@@ -400,6 +402,7 @@ export default function CRM({
   };
   const [showColumnManager, setShowColumnManager] = useState(false);
   const [showCSVImporter, setShowCSVImporter] = useState(false);
+  const [showBulkImportUpgradeModal, setShowBulkImportUpgradeModal] = useState(false);
 
   // Advanced Filter Drawer States
   const [showFilterDrawer, setShowFilterDrawer] = useState(false);
@@ -424,6 +427,7 @@ export default function CRM({
   const [showImportModal, setShowImportModal] = useState(false);
   const [showNewImportModal, setShowNewImportModal] = useState(false);
   const [showExportSheetsModal, setShowExportSheetsModal] = useState(false);
+  const [exportSheetsLeads, setExportSheetsLeads] = useState(null);
   const [showSheetsImportModal, setShowSheetsImportModal] = useState(false);
   const [sheetsConnected, setSheetsConnected] = useState(false);
   const [sheetsConnectedChecked, setSheetsConnectedChecked] = useState(false);
@@ -451,7 +455,10 @@ export default function CRM({
     priority: 'Warm', status: 'Lead', notes: '', folder_id: '',
     template_used: '',
     links: [],
-    custom_fields: {}
+    custom_fields: {},
+    timezone: '',
+    timezone_source: '',
+    timezoneTouched: false,
   });
   const [folderForm, setFolderForm] = useState({ name: '', color: '#A3A3A3' });
   const [importText, setImportText] = useState('');
@@ -899,6 +906,16 @@ export default function CRM({
   const leadLimit = getPlanLeadLimit(plan, currentUser.billing_cycle) || Infinity;
   const isLeadLimitReached = leadLimit !== Infinity && totalLeadsCount >= leadLimit;
   const canUseIntegrations = PLAN_LIMITS[(currentUser?.plan || 'trial').toLowerCase()]?.sheetsIntegration ?? false;
+  const canBulkImport = PLAN_LIMITS[(currentUser?.plan || 'trial').toLowerCase()]?.bulkImport ?? false;
+
+  const handleOpenBulkImport = (openModal) => {
+    if (!canBulkImport) {
+      setShowBulkImportUpgradeModal(true);
+      return;
+    }
+    if (isLeadLimitReached) return;
+    openModal();
+  };
 
   const leadLimitTooltip = 'Lead limit reached. Delete leads or upgrade.';
 
@@ -912,7 +929,10 @@ export default function CRM({
       priority: 'Warm', status: 'Lead', notes: '', folder_id: selectedFolderId || '',
       template_used: '',
       links: [],
-      custom_fields: {}
+      custom_fields: {},
+      timezone: '',
+      timezone_source: '',
+      timezoneTouched: false,
     });
     setPastedLink('');
     setShowAddLeadModal(true);
@@ -952,6 +972,15 @@ export default function CRM({
         links: linksArray
       };
 
+      const tzFields = resolveLeadTimezoneForSave({
+        timezone: leadForm.timezone,
+        timezone_source: leadForm.timezone_source,
+        timezoneManual: leadForm.timezoneTouched,
+        phone: leadForm.phone,
+        previousPhone: null,
+        defaultCountryCode: currentUser?.default_country_code || '+92',
+      });
+
       const { data, error } = await supabase.from('leads')
         .insert({
           first_name,
@@ -970,7 +999,9 @@ export default function CRM({
           user_id: currentUser.id,
           folder_id: leadForm.folder_id || null,
           template_used: leadForm.template_used || null,
-          custom_fields: finalCustomFields
+          custom_fields: finalCustomFields,
+          timezone: tzFields.timezone,
+          timezone_source: tzFields.timezone_source,
         })
         .select()
         .single();
@@ -1101,7 +1132,10 @@ export default function CRM({
       folder_id: lead.folder_id || '',
       template_used: lead.template_used || '',
       links: existingLinks,
-      custom_fields: lead.custom_fields || {}
+      custom_fields: lead.custom_fields || {},
+      timezone: lead.timezone || '',
+      timezone_source: lead.timezone_source || '',
+      timezoneTouched: lead.timezone_source === 'manual',
     });
     setPastedLink('');
     setShowEditLeadModal(true);
@@ -1139,6 +1173,15 @@ export default function CRM({
         links: linksArray
       };
 
+      const tzFields = resolveLeadTimezoneForSave({
+        timezone: leadForm.timezone,
+        timezone_source: leadForm.timezone_source,
+        timezoneManual: leadForm.timezoneTouched,
+        phone: leadForm.phone,
+        previousPhone: activeLead?.phone,
+        defaultCountryCode: currentUser?.default_country_code || '+92',
+      });
+
       const { data, error } = await supabase.from('leads')
         .update({
           first_name,
@@ -1156,7 +1199,9 @@ export default function CRM({
           notes: leadForm.notes || null,
           folder_id: leadForm.folder_id || null,
           template_used: leadForm.template_used || null,
-          custom_fields: finalCustomFields
+          custom_fields: finalCustomFields,
+          timezone: tzFields.timezone,
+          timezone_source: tzFields.timezone_source,
         })
         .eq('id', activeLead.id)
         .select()
@@ -1602,6 +1647,10 @@ export default function CRM({
 
   const handleImportCSVSubmit = async (e) => {
     e.preventDefault();
+    if (!canBulkImport) {
+      setShowBulkImportUpgradeModal(true);
+      return;
+    }
     if (isLeadLimitReached) {
       alert('Lead limit reached. Delete leads or upgrade to import more.');
       return;
@@ -1872,6 +1921,43 @@ export default function CRM({
   const totalFiltered = activeList.length;
   const paginatedList = activeList.slice((currentPage - 1) * pageSize, currentPage * pageSize);
 
+  const currentExportFolder = folders.find((f) => f.id === selectedFolderId);
+  const canExportCurrentFolder = !!currentExportFolder && view !== 'clients';
+
+  const slugifyExportLabel = (label) => String(label || 'export').toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '') || 'export';
+
+  const handleExportLeadsSubset = async (subset, label = 'all') => {
+    if (exporting) return;
+    setExporting('leads');
+    setShowExportDropdown(false);
+    try {
+      const filename = label === 'all'
+        ? 'reachdesk-leads.csv'
+        : `reachdesk-leads-${slugifyExportLabel(label)}.csv`;
+      await exportLeads(currentUser.id, subset, filename);
+    } catch (err) {
+      console.error('Export leads error:', err);
+      alert('Failed to export leads: ' + err.message);
+    } finally {
+      setExporting(null);
+    }
+  };
+
+  const openExportSheetsForLeads = (subset) => {
+    setShowExportDropdown(false);
+    if (!sheetsConnected) {
+      sessionStorage.setItem('sheets_oauth_return', window.location.pathname + window.location.search);
+      const redirectUri = `${window.location.origin}/auth/google-sheets/callback`;
+      const clientId = import.meta.env.VITE_GOOGLE_SHEETS_CLIENT_ID;
+      const scope = 'https://www.googleapis.com/auth/spreadsheets https://www.googleapis.com/auth/drive.file';
+      const authUrl = `https://accounts.google.com/o/oauth2/v2/auth?client_id=${encodeURIComponent(clientId)}&redirect_uri=${encodeURIComponent(redirectUri)}&response_type=code&scope=${encodeURIComponent(scope)}&access_type=offline&prompt=consent`;
+      window.location.href = authUrl;
+      return;
+    }
+    setExportSheetsLeads(subset);
+    setShowExportSheetsModal(true);
+  };
+
 
 
   return (
@@ -2043,8 +2129,24 @@ export default function CRM({
           >
             Pipeline View
           </button>
+          <button
+            type="button"
+            onClick={() => handleViewChange('outreach')}
+            className={`btn btn-sm ${view === 'outreach' ? 'btn-primary' : 'btn-secondary'}`}
+            style={{ borderBottomLeftRadius: 0, borderBottomRightRadius: 0, display: 'inline-flex', alignItems: 'center', gap: '0.35rem' }}
+          >
+            <Phone size={13} /> Outreach
+          </button>
         </div>
 
+        {view === 'outreach' ? (
+          <OutreachTracker
+            currentUser={currentUser}
+            leads={leads}
+            onOpenLead={setSelectedLead}
+          />
+        ) : (
+        <>
         {/* Toolbar */}
         <div className="flex justify-between align-center" style={{ flexWrap: 'wrap', gap: '1rem' }}>
           <div className="flex gap-2 align-center" style={{ flex: 1, minWidth: '300px' }}>
@@ -2078,7 +2180,7 @@ export default function CRM({
             </div>
 
             <button
-              onClick={() => setShowNewImportModal(true)}
+              onClick={() => handleOpenBulkImport(() => setShowNewImportModal(true))}
               className="btn btn-secondary"
               disabled={isLeadLimitReached}
               title={isLeadLimitReached ? leadLimitTooltip : undefined}
@@ -2119,9 +2221,18 @@ export default function CRM({
               </button>
               {showExportDropdown && (
                 <div className="dropdown-menu" style={{ position: 'absolute', right: 0, top: '100%', background: 'var(--bg-tertiary)', border: '1px solid var(--border-color)', borderRadius: '8px', zIndex: 100, display: 'flex', flexDirection: 'column', width: '180px', boxShadow: 'var(--glow-shadow)', padding: '0.25rem' }}>
-                  <button onClick={handleExportLeadsClick} className="dropdown-item" style={{ display: 'flex', alignItems: 'center', gap: '8px', background: 'transparent', border: 'none', padding: '0.5rem 0.75rem', textAlign: 'left', cursor: 'pointer', color: 'var(--text-primary)', width: '100%' }}>
-                    <Download size={14} /> Export Leads (CSV)
+                  <button onClick={() => handleExportLeadsClick()} className="dropdown-item" style={{ display: 'flex', alignItems: 'center', gap: '8px', background: 'transparent', border: 'none', padding: '0.5rem 0.75rem', textAlign: 'left', cursor: 'pointer', color: 'var(--text-primary)', width: '100%' }}>
+                    <Download size={14} /> Export all leads (CSV)
                   </button>
+                  {canExportCurrentFolder && (
+                    <button
+                      onClick={() => handleExportLeadsSubset(activeList, currentExportFolder.name)}
+                      className="dropdown-item"
+                      style={{ display: 'flex', alignItems: 'center', gap: '8px', background: 'transparent', border: 'none', padding: '0.5rem 0.75rem', textAlign: 'left', cursor: 'pointer', color: 'var(--text-primary)', width: '100%' }}
+                    >
+                      <Download size={14} /> Export this folder (CSV)
+                    </button>
+                  )}
                   <button onClick={handleExportNotesClick} className="dropdown-item" style={{ display: 'flex', alignItems: 'center', gap: '8px', background: 'transparent', border: 'none', padding: '0.5rem 0.75rem', textAlign: 'left', cursor: 'pointer', color: 'var(--text-primary)', width: '100%' }}>
                     <FileText size={14} /> Export Notes (TXT)
                   </button>
@@ -2130,25 +2241,22 @@ export default function CRM({
                     <>
                       <div style={{ height: '1px', background: 'var(--border-color)', margin: '0.25rem 0.5rem' }} />
                       <button
-                        onClick={() => {
-                          setShowExportDropdown(false);
-                          if (!sheetsConnected) {
-                            sessionStorage.setItem('sheets_oauth_return', window.location.pathname + window.location.search);
-                            const redirectUri = `${window.location.origin}/auth/google-sheets/callback`;
-                            const clientId = import.meta.env.VITE_GOOGLE_SHEETS_CLIENT_ID;
-                            const scope = 'https://www.googleapis.com/auth/spreadsheets https://www.googleapis.com/auth/drive.file';
-                            const authUrl = `https://accounts.google.com/o/oauth2/v2/auth?client_id=${encodeURIComponent(clientId)}&redirect_uri=${encodeURIComponent(redirectUri)}&response_type=code&scope=${encodeURIComponent(scope)}&access_type=offline&prompt=consent`;
-                            window.location.href = authUrl;
-                          } else {
-                            setShowExportSheetsModal(true);
-                          }
-                        }}
+                        onClick={() => openExportSheetsForLeads(leads)}
                         className="dropdown-item"
                         style={{ display: 'flex', alignItems: 'center', gap: '8px', background: 'transparent', border: 'none', padding: '0.5rem 0.75rem', textAlign: 'left', cursor: 'pointer', color: '#10b981', width: '100%', fontSize: '0.875rem' }}
                       >
                         <Download size={14} />
-                        {sheetsConnected ? 'Export to Google Sheets' : 'Connect Sheets to Export'}
+                        {sheetsConnected ? 'Export all to Google Sheets' : 'Connect Sheets to Export'}
                       </button>
+                      {canExportCurrentFolder && sheetsConnected && (
+                        <button
+                          onClick={() => openExportSheetsForLeads(activeList)}
+                          className="dropdown-item"
+                          style={{ display: 'flex', alignItems: 'center', gap: '8px', background: 'transparent', border: 'none', padding: '0.5rem 0.75rem', textAlign: 'left', cursor: 'pointer', color: '#10b981', width: '100%', fontSize: '0.875rem' }}
+                        >
+                          <Download size={14} /> Export folder to Google Sheets
+                        </button>
+                      )}
                     </>
                   )}
                 </div>
@@ -2371,6 +2479,27 @@ export default function CRM({
                 </select>
               )}
 
+              <button
+                type="button"
+                className="btn btn-secondary btn-sm"
+                disabled={!!exporting}
+                onClick={() => {
+                  const subset = leads.filter((l) => selectedIds.includes(l.id));
+                  handleExportLeadsSubset(subset, 'selected');
+                }}
+              >
+                <Download size={12} /> Export selected
+              </button>
+              {canUseIntegrations && sheetsConnected && (
+                <button
+                  type="button"
+                  className="btn btn-secondary btn-sm"
+                  onClick={() => openExportSheetsForLeads(leads.filter((l) => selectedIds.includes(l.id)))}
+                >
+                  <Download size={12} /> Sheets
+                </button>
+              )}
+
               <button onClick={handleBulkDelete} className="btn btn-danger btn-sm" style={{ backgroundColor: 'var(--danger-color)', color: 'white' }}>
                 <Trash2 size={12} /> Delete Selected
               </button>
@@ -2447,7 +2576,7 @@ export default function CRM({
               <button onClick={() => setShowAddLeadModal(true)} className="btn btn-primary">
                 <Plus size={14} /> Add Lead Manually
               </button>
-              <button onClick={() => setShowCSVImporter(true)} className="btn btn-secondary">
+              <button onClick={() => handleOpenBulkImport(() => setShowCSVImporter(true))} className="btn btn-secondary">
                 <Upload size={14} /> Import CSV
               </button>
               {PLAN_LIMITS[(currentUser?.plan || 'trial').toLowerCase()]?.sheetsIntegration && (
@@ -2911,6 +3040,8 @@ export default function CRM({
             </button>
           </div>
         </div>
+        </>
+        )}
       </div>
 
       {/* Add Lead Modal */}
@@ -2944,6 +3075,7 @@ export default function CRM({
                   showCustomFields
                   columnDefs={columnDefs}
                   view={view}
+                  defaultCountryCode={currentUser?.default_country_code || '+92'}
                   onClearCustomField={handleRemoveCustomFieldVal}
                   newFieldName={newFieldName}
                   setNewFieldName={setNewFieldName}
@@ -3079,6 +3211,7 @@ export default function CRM({
                   plan={plan}
                   templates={templates}
                   onStatusUpdate={fetchData}
+                  defaultCountryCode={currentUser?.default_country_code || '+92'}
                 />
               </div>
               <div className="rd-modal-footer">
@@ -3582,9 +3715,12 @@ export default function CRM({
       {/* Google Sheets Export Modal */}
       {showExportSheetsModal && (
         <ExportSheetsModal
-          leads={leads}
+          leads={exportSheetsLeads ?? leads}
           currentUser={currentUser}
-          onClose={() => setShowExportSheetsModal(false)}
+          onClose={() => {
+            setShowExportSheetsModal(false);
+            setExportSheetsLeads(null);
+          }}
         />
       )}
 
@@ -3811,6 +3947,24 @@ export default function CRM({
         onUpgrade={() => { setImportResult(null); navigate('/upgrade'); }}
         onClose={() => setImportResult(null)}
       />
+
+      {showBulkImportUpgradeModal && (
+        <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.5)', zIndex: 1100, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+          <div style={{ background: 'var(--bg-secondary)', border: '1px solid var(--border-color)', borderRadius: '12px', padding: '2rem', width: '90%', maxWidth: '420px', textAlign: 'center', display: 'flex', flexDirection: 'column', gap: '1.25rem' }}>
+            <Gem size={40} style={{ color: 'var(--primary-magenta)', alignSelf: 'center' }} />
+            <h3 style={{ margin: 0, color: 'var(--primary-magenta)' }}>Unlock Bulk CSV Import</h3>
+            <p className="color-muted" style={{ fontSize: '0.95rem', margin: 0, lineHeight: 1.5 }}>
+              CSV bulk import is available on <strong>Pro</strong> and above. Starter plans can add leads one at a time or connect Google Sheets.
+            </p>
+            <div style={{ display: 'flex', gap: '0.75rem', justifyContent: 'center', marginTop: '0.5rem' }}>
+              <button onClick={() => setShowBulkImportUpgradeModal(false)} className="btn btn-secondary btn-sm">Close</button>
+              <button onClick={() => { setShowBulkImportUpgradeModal(false); navigate('/upgrade'); }} className="btn btn-primary btn-sm">
+                Upgrade Plan
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* 🔍 Advanced Filter Drawer */}
       {showFilterDrawer && (

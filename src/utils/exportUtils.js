@@ -22,7 +22,7 @@ export function stripHTML(html = '') {
   return html.replace(/<[^>]*>/g, '').replace(/&nbsp;/g, ' ').replace(/&amp;/g, '&').replace(/&lt;/g, '<').replace(/&gt;/g, '>').replace(/&quot;/g, '"').trim();
 }
 
-export async function exportLeads(userId, leadsData = null) {
+export async function exportLeads(userId, leadsData = null, filename = 'reachdesk-leads.csv') {
   let leads = leadsData;
   if (!leads) {
     const { data, error } = await supabase
@@ -74,7 +74,7 @@ export async function exportLeads(userId, leadsData = null) {
   });
 
   const csv = [toCSVRow(headers), ...rows].join('\r\n');
-  triggerDownload(csv, 'reachdesk-leads.csv', 'text/csv;charset=utf-8;');
+  triggerDownload(csv, filename, 'text/csv;charset=utf-8;');
 }
 
 export async function exportNotes(userId) {

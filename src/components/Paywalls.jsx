@@ -6,7 +6,7 @@ import { APP_DOMAIN, isLocalDev } from '../utils/domain';
 import { PLANS, getPlanFeatures } from '../lib/planMarketing';
 import { ShinyButton } from '@/registry/magicui/shiny-button';
 import { isRegionExcluded, formatPlanHeroAmount, formatPlanHeroPeriod, formatPlanHeroSub, formatPlanHeroBillingNote } from '../lib/regionalPricing';
-import { isLifetimePlan, normalizePlan } from '../lib/planConfig';
+import { normalizePlan } from '../lib/planConfig';
 import AuthLogo from './AuthLogo';
 
 // ─── Unified Pricing Data ──────────────────────────────────────────────────
@@ -163,7 +163,6 @@ const PLAN_LEVELS = {
   starter: 1,
   pro: 2,
   teams: 3,
-  lifetime: 4,
 };
 
 function PlanCard({ plan, billing, handlePaddleCheckout, profile, country, formatLocalPrice }) {
@@ -179,7 +178,7 @@ function PlanCard({ plan, billing, handlePaddleCheckout, profile, country, forma
   const userPlanLevel = PLAN_LEVELS[currentUserPlan] ?? 0;
   const cardPlanLevel = PLAN_LEVELS[id.toLowerCase()] ?? 0;
   const isCurrentPlan = isPlanActive && currentUserPlan === id.toLowerCase();
-  const isUpgrade = isPlanActive && cardPlanLevel > userPlanLevel && !isLifetimePlan(currentUserPlan);
+  const isUpgrade = isPlanActive && cardPlanLevel > userPlanLevel;
 
   let cardStatus = 'disabled';
   let isSelectable = false;

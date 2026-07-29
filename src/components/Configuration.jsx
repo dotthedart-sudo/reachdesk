@@ -1,8 +1,8 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
 import { supabase } from '../lib/supabase';
 import { useAppContext } from '../App';
-import { PLAN_LIMITS, normalizePlan, isLifetimePlan } from '../lib/utils';
+import { PLAN_LIMITS, normalizePlan } from '../lib/utils';
 import { getPlanLeadLimit } from '../lib/leadLimits';
 import { getAiCreditLimit } from '../lib/aiCredits';
 import {
@@ -10,6 +10,7 @@ import {
   getSeatsRemaining,
   getSeatsUsed,
   getTeamSeatLimit,
+  hasTeamsPageAccess,
   isProTeamOwner,
 } from '../lib/teamWorkspace';
 import { getAppUrl } from '../utils/domain';
@@ -21,6 +22,7 @@ import {
 } from 'lucide-react';
 import { exportLeads, exportNotes } from '../utils/exportUtils';
 import CurrencySelector, { CURRENCY_MAP } from './CurrencySelector';
+import { getBrowserTimeZone, getSupportedTimeZones, formatTimeZoneLabel } from '../lib/dateTime';
 
 const PRESET_COLORS = [
   '#6b7280', '#3b82f6', '#f59e0b', '#10b981', '#8b5cf6',
@@ -160,6 +162,9 @@ export default function Configuration({
   const [monthlyRevenueTarget, setMonthlyRevenueTarget] = useState(currentUser?.monthly_revenue_target || '');
   const [alwaysDraft, setAlwaysDraft] = useState(currentUser?.always_draft_before_sending !== false);
   const [defaultCountryCode, setDefaultCountryCode] = useState(currentUser?.default_country_code || '+92');
+  const [profileTimezone, setProfileTimezone] = useState(currentUser?.timezone || '');
+  const browserTimezone = useMemo(() => getBrowserTimeZone(), []);
+  const timezoneOptions = useMemo(() => getSupportedTimeZones(), []);
 
   const [exporting, setExporting] = useState(null); // 'leads' | 'notes' | null
 
@@ -267,6 +272,7 @@ export default function Configuration({
       setProfileAvatarFile(null);
       setProfileAvatarPreview('');
       setProfileDefaultCurrency(currentUser.default_currency || 'PKR');
+      setProfileTimezone(currentUser.timezone || '');
       setRemindersEnabled(currentUser.reminders_enabled !== false);
       setSuggestionsEnabled(currentUser.suggestions_enabled !== false);
       setSuggestionsAutoApply(currentUser.suggestions_auto_apply !== false);
@@ -334,8 +340,9 @@ export default function Configuration({
     sessionStorage.setItem('google_oauth_state', state);
     const clientId = import.meta.env.VITE_GOOGLE_CLIENT_ID;
     const redirectUri = encodeURIComponent(getAppUrl('/auth/google/callback'));
+    // calendar.events = read + create/update events; calendar.readonly = list/watch calendars
     const scope = encodeURIComponent(
-      'https://www.googleapis.com/auth/calendar.readonly https://www.googleapis.com/auth/calendar.events.readonly'
+      'https://www.googleapis.com/auth/calendar.events https://www.googleapis.com/auth/calendar.readonly'
     );
     window.location.href = [
       'https://accounts.google.com/o/oauth2/v2/auth',
@@ -555,7 +562,8 @@ export default function Configuration({
           suggestions_auto_apply: suggestionsAutoApply,
           monthly_revenue_target: monthlyRevenueTarget ? Number(monthlyRevenueTarget) : null,
           always_draft_before_sending: alwaysDraft,
-          default_country_code: defaultCountryCode.trim() || '+92'
+          default_country_code: defaultCountryCode.trim() || '+92',
+          timezone: profileTimezone.trim() || null,
         })
         .eq('id', currentUser.id);
 
@@ -733,7 +741,6 @@ export default function Configuration({
   }
 
   const isProOwner = isProTeamOwner(currentUser);
-  const isLifetime = isLifetimePlan(currentUser?.plan);
   const seatLimit = getTeamSeatLimit(currentUser?.plan);
   const seatsUsed = getSeatsUsed(teamMembers.length, teamInvitations.length);
   const seatsRemaining = getSeatsRemaining(currentUser?.plan, teamMembers.length, teamInvitations.length);
@@ -857,6 +864,24 @@ export default function Configuration({
                 />
               </div>
               <span style={{ fontSize: '0.75rem', color: 'var(--text-muted)', marginTop: '0.25rem', display: 'block' }}>Monthly earnings goal</span>
+            </div>
+
+            <div className="rd-form-group">
+              <label className="form-label">Timezone</label>
+              <select
+                className="form-input"
+                value={profileTimezone}
+                onChange={(e) => setProfileTimezone(e.target.value)}
+                disabled={profileSaving}
+              >
+                <option value="">Auto — use browser ({formatTimeZoneLabel(browserTimezone)})</option>
+                {timezoneOptions.map((tz) => (
+                  <option key={tz} value={tz}>{tz.replace(/_/g, ' ')}</option>
+                ))}
+              </select>
+              <span style={{ fontSize: '0.75rem', color: 'var(--text-muted)', marginTop: '0.25rem', display: 'block' }}>
+                Calendar times and planned call dates use this timezone when set.
+              </span>
             </div>
           </div>
           </div>
@@ -1201,100 +1226,21 @@ export default function Configuration({
       </form>
 
 
-      {/* SECTION 3: Team workspace (Teams owner) */}
-      {isProOwner && (
+      {/* SECTION 3: Team workspace — managed on Teams page */}
+      {(isProOwner || hasTeamsPageAccess(currentUser)) && (
         <div className="card flex-col gap-3">
           <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', borderBottom: '1px solid var(--border-color)', paddingBottom: '0.5rem', marginBottom: '0.5rem' }}>
             <Users size={18} style={{ color: 'var(--primary-magenta)' }} />
             <h3 style={{ fontSize: '1.1rem' }}>Team workspace</h3>
           </div>
-
-          <p style={{ fontSize: '0.85rem', color: 'var(--text-secondary)' }}>
-            Teams includes up to <strong style={{ color: 'var(--primary-magenta)' }}>{seatLimit} people</strong> on one shared pipeline — leads, templates, and follow-ups.
+          <p style={{ fontSize: '0.85rem', color: 'var(--text-secondary)', margin: 0 }}>
+            Invite teammates, manage seats, and set sharing permissions from the Teams page.
           </p>
-
-          <div style={{ fontSize: '0.85rem', fontWeight: 600, color: 'var(--text-primary)' }}>
-            {seatsUsed} of {seatLimit} seats used
-            {seatsRemaining > 0 ? ` · ${seatsRemaining} available` : ' · full'}
-          </div>
-
-          {seatsAtCap && (
-            <p style={{ fontSize: '0.8rem', color: 'var(--text-muted)' }}>
-              All seats are in use. Remove a member or cancel a pending invite to add someone else.
-            </p>
-          )}
-
-          {teamError && <div style={{ color: 'var(--danger-color)', fontSize: '0.85rem' }}>{teamError}</div>}
-          {teamSuccess && <div style={{ color: 'var(--success-color)', fontSize: '0.85rem' }}>{teamSuccess}</div>}
-
-          {teamLoading ? (
-            <div>Loading team directory...</div>
-          ) : (
-            <>
-              {teamMembers.length === 1 && teamInvitations.length === 0 && (
-                <p style={{ fontSize: '0.8rem', color: 'var(--text-muted)', margin: '0.5rem 0 0' }}>
-                  Invite a teammate by email. They&apos;ll join your workspace after signing up with that address.
-                </p>
-              )}
-              <div className="flex-col gap-2" style={{ margin: '1rem 0' }}>
-                {teamMembers.map(member => (
-                  <div key={member.id} className="flex justify-between align-center" style={{ padding: '0.5rem 0.75rem', background: 'var(--bg-tertiary)', border: '1px solid var(--border-color)', borderRadius: '6px' }}>
-                    <div>
-                      <span style={{ fontWeight: 600 }}>{member.email}</span>
-                      {member.id === currentUser.id && <span className="badge badge-approved" style={{ marginLeft: '0.5rem', fontSize: '0.7rem' }}>You</span>}
-                      <span style={{ fontSize: '0.75rem', color: 'var(--text-muted)', marginLeft: '0.5rem' }}>({member.team_role})</span>
-                    </div>
-                    {member.id !== currentUser.id && member.team_role !== 'owner' && (
-                      <button
-                        onClick={() => handleRemoveMember(member.id)}
-                        className="btn btn-danger btn-sm"
-                        style={{ padding: '0.2rem 0.5rem', display: 'flex', alignItems: 'center', gap: '0.25rem' }}
-                      >
-                        <UserMinus size={12} /> Remove
-                      </button>
-                    )}
-                  </div>
-                ))}
-
-                {teamInvitations.map(invite => (
-                  <div key={invite.id} className="flex justify-between align-center" style={{ padding: '0.5rem 0.75rem', background: 'var(--bg-tertiary)', border: '1px dashed var(--border-color)', borderRadius: '6px', opacity: 0.85 }}>
-                    <div>
-                      <span className="color-muted">{invite.invited_email}</span>
-                      <span className="badge badge-pending" style={{ marginLeft: '0.5rem', fontSize: '0.7rem' }}>Pending invite</span>
-                    </div>
-                    <button
-                      type="button"
-                      onClick={() => handleCancelInvite(invite.id)}
-                      className="btn btn-secondary btn-sm"
-                    >
-                      Cancel
-                    </button>
-                  </div>
-                ))}
-              </div>
-            </>
-          )}
-
-          <form onSubmit={handleSendInvite} style={{ display: 'flex', gap: '0.5rem' }}>
-            <div style={{ position: 'relative', flex: 1 }}>
-              <span style={{ position: 'absolute', left: '0.75rem', top: '50%', transform: 'translateY(-50%)', color: 'var(--text-muted)' }}>
-                <Mail size={16} />
-              </span>
-              <input
-                type="email"
-                required
-                placeholder="colleague@email.com"
-                value={inviteEmail}
-                onChange={e => setInviteEmail(e.target.value)}
-                className="form-input w-full"
-                style={{ paddingLeft: '2.5rem' }}
-                disabled={seatsAtCap}
-              />
-            </div>
-            <button type="submit" className="btn btn-primary" disabled={seatsAtCap}>
-              Send invite
+          <div>
+            <button type="button" className="btn btn-primary" onClick={() => navigate('/teams')}>
+              Open Teams
             </button>
-          </form>
+          </div>
         </div>
       )}
 
@@ -1454,15 +1400,13 @@ export default function Configuration({
         })()}
 
         <div style={{ marginTop: '0.5rem', display: 'flex', flexDirection: 'column', gap: '0.5rem', alignItems: 'flex-start' }}>
-          {!isLifetime && (
-            <button
-              type="button"
-              className="btn btn-primary"
-              onClick={() => navigate('/upgrade')}
-            >
-              <CreditCard size={15} /> Manage Plan
-            </button>
-          )}
+          <button
+            type="button"
+            className="btn btn-primary"
+            onClick={() => navigate('/upgrade')}
+          >
+            <CreditCard size={15} /> Manage Plan
+          </button>
 
           {currentUser?.plan_status === 'active' && currentUser?.paddle_subscription_id && (
             <button
@@ -1615,8 +1559,8 @@ export default function Configuration({
         </div>
 
         <p className="rd-integration-footnote">
-          Read-only access to your calendar events. ReachDesk never writes to your calendar.
-          Disconnect at any time to revoke all access.
+          ReachDesk reads your calendar to detect bookings and can create events you add in-app.
+          Disconnect anytime to revoke access. Reconnect if you connected before write access was enabled.
         </p>
       </div>
 

@@ -182,12 +182,12 @@ export function PrivacyPolicy() {
       <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
         <p><strong>What we access:</strong></p>
         <ul style={{ paddingLeft: '1.5rem', display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
-          <li><strong>Google Calendar:</strong> We access your calendar events (read-only) to automatically detect when a lead has booked a meeting with you.</li>
+          <li><strong>Google Calendar:</strong> We access your calendar events to automatically detect when a lead has booked a meeting with you, and to create events you add from within ReachDesk.</li>
           <li><strong>Google Sheets:</strong> We access spreadsheets you explicitly select to export your lead data to, or import lead data from.</li>
         </ul>
         <p><strong>How we use it:</strong></p>
         <ul style={{ paddingLeft: '1.5rem', display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
-          <li>Calendar event data is used solely to match meeting attendees against your existing leads and update their status accordingly.</li>
+          <li>Calendar event data is used to match meeting attendees against your existing leads and update their status, and to create events you explicitly add in ReachDesk.</li>
           <li>Sheets data is used solely for the export/import actions you initiate — we do not access any other files in your Google Drive.</li>
         </ul>
         <p><strong>How we store it:</strong></p>

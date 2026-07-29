@@ -106,7 +106,7 @@ A: No — because Hot/Warm/Cold triage separates urgency levels. Only your Hot l
 A: Specificity. "Follow up" is not useful. "This lead replied positively 3 days ago — send them the proposal they asked about" is useful. The suggestion should tell you not just who to contact but what to do and why.
 
 **Q: Is ReachDesk CRM free?**
-A: There's a free trial with 65 leads and 2 templates — enough to test the workflow properly. Paid plans start at $12/month. [Start your free trial here](https://reachdeskcrm.com).
+A: There's a free trial with 50 leads and 5 templates — enough to test the workflow properly. Paid plans start at $5/month (Starter: 750 leads), Pro is $15/mo (5,000 leads), and Teams is $29/mo (unlimited + 5 seats). [Start your free trial here](https://reachdeskcrm.com).
 
 ---
 

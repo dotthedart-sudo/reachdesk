@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef, createContext, useContext, lazy, Suspense } from 'react';
-import { BrowserRouter, Routes, Route, Navigate, useNavigate, useLocation } from 'react-router-dom';
+import { BrowserRouter, Routes, Route, Navigate, useNavigate, useLocation, useSearchParams } from 'react-router-dom';
 import { supabase } from './lib/supabase';
 import { getTeamIds, PLAN_LIMITS, normalizePlan } from './lib/utils';
 import { registerLifetimeSession, validateLifetimeSession, clearLifetimeSession } from './lib/sessionManager';
@@ -116,6 +116,7 @@ const AdminPanel = lazyWithRetry(() => import('./components/AdminPanel'));
 const Homepage = lazyWithRetry(() => import('./components/Homepage'));
 const Auth = lazyWithRetry(() => import('./components/Auth'));
 const Configuration = lazyWithRetry(() => import('./components/Configuration'));
+const Teams = lazyWithRetry(() => import('./components/Teams'));
 const Dashboard = lazyWithRetry(() => import('./components/Dashboard'));
 const NotesList = lazyWithRetry(() => import('./components/NotesList'));
 const NoteEditor = lazyWithRetry(() => import('./components/NoteEditor'));
@@ -134,6 +135,7 @@ const RefundPolicy = lazyWithRetry(() => import('./components/LegalPages').then(
 const GetStarted = lazyWithRetry(() => import('./components/GetStarted'));
 const GoogleCalendarCallback = lazyWithRetry(() => import('./components/GoogleCalendarCallback'));
 const GoogleSheetsCallback = lazyWithRetry(() => import('./components/GoogleSheetsCallback'));
+const CalendarPageView = lazyWithRetry(() => import('./components/Calendar'));
 import UserNotificationBell from './components/UserNotificationBell';
 import SetupModal from './components/SetupModal';
 import ChatWidget from './components/ChatWidget';
@@ -539,17 +541,8 @@ function AppProvider({ children }) {
           }
 
           const isGoogle = activeSession.user.app_metadata?.provider === 'google';
-          supabase.functions.invoke('send-push-notification', {
-            body: {
-              notify_admin: true,
-              notification_type: 'new_signup',
-              from_email: email,
-              title: isGoogle ? 'New Signup (Google)' : 'New Signup',
-              body: isGoogle 
-                ? `${email} just signed up via Google on ReachDesk` 
-                : `${email} just signed up on ReachDesk`,
-              url: '/admin',
-            }
+          supabase.functions.invoke('notify-admin-signup', {
+            body: { is_google: isGoogle },
           }).catch(err => console.warn('[Push] Admin new-signup notification failed:', err));
 
           p = joinedProfile;
@@ -680,11 +673,25 @@ function AppProvider({ children }) {
 
   const fetchAllData = async (ids, userId, isAdmin, profileObj = null) => {
     try {
+      const p = profileObj || profile;
+      let revenueQuery = supabase.from('revenue_entries').select('*').eq('user_id', userId).order('paid_at', { ascending: false });
 
+      // Members may view owner/team revenue when the owner enables the permission
+      const role = (p?.team_role || 'owner').toLowerCase();
+      if (role === 'member' && p?.team_id) {
+        const { data: teamSettings } = await supabase
+          .from('teams')
+          .select('members_can_view_revenue')
+          .eq('id', p.team_id)
+          .maybeSingle();
+        if (teamSettings?.members_can_view_revenue && ids?.length) {
+          revenueQuery = supabase.from('revenue_entries').select('*').in('user_id', ids).order('paid_at', { ascending: false });
+        }
+      }
 
       const [inv, rev, l, t, snip] = await Promise.all([
         supabase.from('invoices').select('*').eq('user_id', userId).order('created_at', { ascending: false }),
-        supabase.from('revenue_entries').select('*').eq('user_id', userId).order('paid_at', { ascending: false }),
+        revenueQuery,
         supabase.from('leads').select('*').in('user_id', ids).order('created_at', { ascending: false }).order('id', { ascending: true }),
         supabase.from('templates').select('*').or(`user_id.in.(${ids.join(',')}),user_id.is.null`),
         supabase.from('user_snippets').select('*').eq('user_id', userId).order('created_at', { ascending: true }),
@@ -1216,7 +1223,18 @@ function UpgradeRoutePage() {
 
 // Main page components wired to context
 function DashboardPage() {
-  const { profile } = useAppContext();
+  const { profile, fetchProfile, showToast } = useAppContext();
+  const [searchParams, setSearchParams] = useSearchParams();
+
+  useEffect(() => {
+    if (searchParams.get('upgraded') !== 'true') return;
+    fetchProfile?.();
+    showToast?.('Upgrade successful! Your plan is now active.', 'success');
+    const next = new URLSearchParams(searchParams);
+    next.delete('upgraded');
+    setSearchParams(next, { replace: true });
+  }, []); // eslint-disable-line react-hooks/exhaustive-deps
+
   return <Dashboard currentUser={profile} />;
 }
 
@@ -1322,6 +1340,24 @@ function SettingsPage() {
       onRefreshProfile={fetchProfile}
     />
   );
+}
+
+function TeamsPage() {
+  const { profile, fetchProfile, fetchAllData } = useAppContext();
+  return (
+    <Teams
+      currentUser={profile}
+      onRefreshProfile={async () => {
+        await fetchProfile();
+        if (fetchAllData) await fetchAllData();
+      }}
+    />
+  );
+}
+
+function CalendarPage() {
+  const { profile } = useAppContext();
+  return <CalendarPageView currentUser={profile} />;
 }
 
 function AdminPanelPage() {
@@ -1566,6 +1602,8 @@ function AppRoutes() {
         <Route path="/notes/:id" element={<ProtectedPage><NoteEditorPage /></ProtectedPage>} />
         <Route path="/reminders" element={<ProtectedPage><RemindersPage /></ProtectedPage>} />
         <Route path="/settings" element={<ProtectedPage><SettingsPage /></ProtectedPage>} />
+        <Route path="/teams" element={<ProtectedPage><TeamsPage /></ProtectedPage>} />
+        <Route path="/calendar" element={<ProtectedPage><CalendarPage /></ProtectedPage>} />
         <Route path="/admin" element={<ProtectedPage><AdminPanelPage /></ProtectedPage>} />
 
         {/* Catch-all */}

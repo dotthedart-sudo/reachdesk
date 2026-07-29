@@ -60,14 +60,12 @@ export default function GoogleSheetsCallback() {
         return;
       }
 
-      const userId = session.user.id;
-      // Detect redirect uri based on environment
       const redirectUri = window.location.origin + '/auth/google-sheets/callback';
 
       // ── Call the exchange edge function ───────────────────────────────────
       try {
         const { data, error } = await supabase.functions.invoke('google-sheets-oauth-exchange', {
-          body: { code, userId, redirectUri },
+          body: { code, redirectUri },
         });
 
         if (error) throw error;

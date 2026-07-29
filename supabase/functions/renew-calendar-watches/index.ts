@@ -1,10 +1,10 @@
 import { serve } from 'https://deno.land/std@0.168.0/http/server.ts';
-import { createClient } from 'https://esm.sh/@supabase/supabase-js@2';
-
-const corsHeaders = {
-  'Access-Control-Allow-Origin': '*',
-  'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
-};
+import {
+  createServiceClient,
+  getEnv,
+  jsonResponse,
+  requirePrivileged,
+} from '../_shared/auth.ts';
 
 const GOOGLE_TOKEN_URL = 'https://oauth2.googleapis.com/token';
 const GOOGLE_CALENDAR_API = 'https://www.googleapis.com/calendar/v3';
@@ -45,19 +45,15 @@ async function stopWatchChannel(
 }
 
 serve(async (req) => {
-  if (req.method === 'OPTIONS') {
-    return new Response('ok', { headers: corsHeaders });
-  }
+  const authError = requirePrivileged(req);
+  if (authError) return authError;
 
   const clientId = Deno.env.get('GOOGLE_CLIENT_ID')!;
   const clientSecret = Deno.env.get('GOOGLE_CLIENT_SECRET')!;
-  const serviceRoleKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
+  const { serviceRoleKey } = getEnv();
 
   try {
-    const supabase = createClient(
-      Deno.env.get('SUPABASE_URL')!,
-      serviceRoleKey
-    );
+    const supabase = createServiceClient();
 
     // Find all integrations expiring within the next 2 days
     const renewalCutoff = new Date(Date.now() + 2 * 24 * 60 * 60 * 1000).toISOString();
@@ -73,10 +69,7 @@ serve(async (req) => {
 
     if (!expiring || expiring.length === 0) {
       console.log('[renew-calendar-watches] No watches need renewal.');
-      return new Response(
-        JSON.stringify({ message: 'No watches need renewal.', renewed: 0 }),
-        { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-      );
+      return jsonResponse({ message: 'No watches need renewal.', renewed: 0 });
     }
 
     console.log(`[renew-calendar-watches] Renewing ${expiring.length} watch(es)...`);
@@ -134,7 +127,7 @@ serve(async (req) => {
             'Content-Type': 'application/json',
             'Authorization': `Bearer ${serviceRoleKey}`,
           },
-          body: JSON.stringify({ userId, accessToken }),
+          body: JSON.stringify({ userId }),
         });
 
         const setupResult = await setupResp.json();
@@ -155,15 +148,12 @@ serve(async (req) => {
     const succeeded = results.filter(r => r.success).length;
     const failed = results.filter(r => !r.success).length;
 
-    return new Response(
-      JSON.stringify({ message: `Renewed ${succeeded} watch(es). Failed: ${failed}.`, results }),
-      { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-    );
+    return jsonResponse({
+      message: `Renewed ${succeeded} watch(es). Failed: ${failed}.`,
+      results,
+    });
   } catch (err) {
     console.error('[renew-calendar-watches] Unexpected error:', err);
-    return new Response(
-      JSON.stringify({ error: String(err) }),
-      { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-    );
+    return jsonResponse({ error: String(err) }, 500);
   }
 });

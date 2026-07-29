@@ -10,7 +10,6 @@ const PLAN_LIMITS = {
   trial:   { leads: 50 },
   starter: { leads: 750 },
   pro:     { leads: 5000 },
-  lifetime: { leads: 5000000 },
   teams:   { leads: null as number | null },
 };
 
@@ -100,7 +99,7 @@ serve(async (req) => {
       .eq('id', userId)
       .maybeSingle();
 
-    const importAllowedPlans = ['trial', 'starter', 'pro', 'lifetime'];
+    const importAllowedPlans = ['trial', 'starter', 'pro', 'teams'];
     const importAccessAllowed =
       importUserProfile?.role === 'admin' ||
       importAllowedPlans.includes(importUserProfile?.plan ?? '');
@@ -198,9 +197,10 @@ serve(async (req) => {
     let leadLimit = Infinity;
     let plan = 'trial';
     let limitReached = false;
+    let teamIds = [userId];
     try {
       // Get Team IDs
-      let teamIds = [userId];
+      teamIds = [userId];
       const { data: pProfile } = await supabaseAdmin.from('user_profiles')
         .select('team_id, plan').eq('id', userId).maybeSingle();
       
@@ -233,7 +233,7 @@ serve(async (req) => {
       const { data: leadsData } = await supabaseAdmin
         .from('leads')
         .select('id, email')
-        .eq('user_id', userId);
+        .in('user_id', teamIds);
         
       if (leadsData) {
         leadsData.forEach(lead => {

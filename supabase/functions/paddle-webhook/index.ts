@@ -70,7 +70,8 @@ serve(async (req) => {
     const signatureHeader = req.headers.get('Paddle-Signature')
     const secretKey = Deno.env.get('PADDLE_WEBHOOK_SECRET')
     const testBypassSecret = Deno.env.get('TEST_BYPASS_SECRET')
-    const isTestMode = !!testBypassSecret && req.headers.get('X-Test-Bypass') === testBypassSecret
+    const allowTestBypass = Deno.env.get('ALLOW_TEST_BYPASS') === 'true'
+    const isTestMode = allowTestBypass && !!testBypassSecret && req.headers.get('X-Test-Bypass') === testBypassSecret
 
     if (!isTestMode && (!signatureHeader || !secretKey)) {
       console.error('[Webhook] Missing Paddle-Signature header or PADDLE_WEBHOOK_SECRET secret')
@@ -193,8 +194,7 @@ serve(async (req) => {
       let resolvedPlan = getPlanFromPriceId(priceId);
       if (!resolvedPlan) {
         const nameLower = rawProductName.toLowerCase();
-        if (nameLower.includes('lifetime')) resolvedPlan = 'lifetime';
-        else if (nameLower.includes('pro')) resolvedPlan = 'pro';
+        if (nameLower.includes('pro')) resolvedPlan = 'pro';
         else if (nameLower.includes('teams') || nameLower.includes('team')) resolvedPlan = 'teams';
         else if (nameLower.includes('starter')) resolvedPlan = 'starter';
         else {
@@ -209,15 +209,10 @@ serve(async (req) => {
         trial_ends_at: null,
       };
 
-      if (resolvedPlan === 'lifetime') {
-        updateData.plan_expires_at = null;
-        updateData.billing_cycle = null;
-      }
-
       if (resolvedPlan === 'teams') {
         const { data: existingTeamProfile } = await supabaseAdmin
           .from('user_profiles')
-          .select('team_id, team_role')
+          .select('id, email, team_id, team_role')
           .eq('email', customerEmail)
           .maybeSingle();
         if (
@@ -225,7 +220,21 @@ serve(async (req) => {
           && !existingTeamProfile.team_id
           && (existingTeamProfile.team_role || 'owner') !== 'member'
         ) {
-          updateData.team_id = crypto.randomUUID();
+          const ownerEmail = existingTeamProfile.email || customerEmail;
+          const { data: team, error: teamError } = await supabaseAdmin
+            .from('teams')
+            .insert({
+              owner_id: existingTeamProfile.id,
+              name: `${ownerEmail}'s Team`,
+            })
+            .select('id')
+            .single();
+
+          if (teamError || !team) {
+            throw new Error(`Failed to create team workspace: ${teamError?.message || 'unknown error'}`);
+          }
+
+          updateData.team_id = team.id;
           updateData.team_role = 'owner';
         }
       }

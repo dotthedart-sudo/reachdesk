@@ -10,15 +10,13 @@ export const AI_BOT_CREDITS = {
   starter: 100,
   pro: 500,
   teams: 500,
-  lifetime: 10,
 };
 
 export const PLAN_SEATS = {
-  trial: 1,
+  trial: 5,
   starter: 1,
   pro: 1,
   teams: 5,
-  lifetime: 1,
 };
 
 export function normalizePlan(plan) {
@@ -32,7 +30,7 @@ export const PLAN_LIMITS = {
   trial: {
     leads: 50,
     templates: 5,
-    users: 1,
+    users: 5,
     folders: true,
     notes: true,
     bulkImport: true,
@@ -40,6 +38,7 @@ export const PLAN_LIMITS = {
     calendarIntegration: true,
     sheetsIntegration: true,
     projectColumn: true,
+    coldOutreach: true,
   },
   starter: {
     leads: 750,
@@ -52,6 +51,7 @@ export const PLAN_LIMITS = {
     calendarIntegration: false,
     sheetsIntegration: true,
     projectColumn: true,
+    coldOutreach: false,
   },
   pro: {
     leads: 5000,
@@ -64,6 +64,7 @@ export const PLAN_LIMITS = {
     calendarIntegration: true,
     sheetsIntegration: true,
     projectColumn: true,
+    coldOutreach: true,
   },
   teams: {
     leads: null,
@@ -76,18 +77,7 @@ export const PLAN_LIMITS = {
     calendarIntegration: true,
     sheetsIntegration: true,
     projectColumn: true,
-  },
-  lifetime: {
-    leads: 5000000,
-    templates: null,
-    users: 1,
-    folders: true,
-    notes: true,
-    bulkImport: true,
-    copyAnalytics: true,
-    calendarIntegration: true,
-    sheetsIntegration: true,
-    projectColumn: true,
+    coldOutreach: true,
   },
 };
 
@@ -96,7 +86,6 @@ export const NEXT_PLAN = {
   starter: 'Pro',
   pro: 'Teams',
   teams: null,
-  lifetime: null,
 };
 
 export const NEXT_PLAN_ID = {
@@ -104,15 +93,16 @@ export const NEXT_PLAN_ID = {
   starter: 'pro',
   pro: 'teams',
   teams: null,
-  lifetime: null,
 };
 
 export function getPlanLeadLimit(plan, billingCycle) {
   const key = normalizePlan(plan);
   const base = PLAN_LIMITS[key]?.leads ?? null;
   if (base === null) return null;
-  if (key === 'pro' && (billingCycle ?? '').toLowerCase() === 'yearly') {
-    return base * 2;
+  if (key === 'starter' || key === 'pro') {
+    if ((billingCycle ?? '').toLowerCase() === 'yearly') {
+      return base * 2;
+    }
   }
   return base;
 }
@@ -121,18 +111,15 @@ export function getPlanSeatLimit(plan) {
   return PLAN_SEATS[normalizePlan(plan)] ?? 1;
 }
 
-/** Seat cap for team workspace UI (grandfathered Pro owners with team_id). */
+/** Seat cap for team workspace UI (trial/Teams = 5; grandfathered Pro owners with team_id = 3). */
 export function getTeamWorkspaceSeatLimit(plan) {
   const key = normalizePlan(plan);
-  if (key === 'teams') return PLAN_SEATS.teams;
+  if (key === 'teams' || key === 'trial') return PLAN_SEATS.teams;
   if (key === 'pro') return LEGACY_PRO_TEAM_SEATS;
   return 1;
 }
 
 export function canInviteTeammates(plan) {
-  return normalizePlan(plan) === 'teams';
-}
-
-export function isLifetimePlan(plan) {
-  return normalizePlan(plan) === 'lifetime';
+  const key = normalizePlan(plan);
+  return key === 'teams' || key === 'trial';
 }

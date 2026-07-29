@@ -1,5 +1,4 @@
 import { supabase } from './supabase';
-import { isLifetimePlan } from './planConfig';
 
 const STORAGE_KEY = 'rd_device_fp';
 
@@ -16,12 +15,17 @@ function getOrCreateFingerprint() {
   }
 }
 
+function isLegacyLifetimePlan(plan) {
+  const p = (plan || '').toLowerCase();
+  return p === 'lifetime' || p === 'enterprise';
+}
+
 /**
- * Lifetime plan: enforce 1 concurrent session.
- * Same device + new IP is OK; different device signs out other sessions.
+ * Legacy lifetime plan: enforce 1 concurrent session.
+ * No-op for current plans (lifetime fully removed; zero remaining users).
  */
 export async function registerLifetimeSession(userId, plan) {
-  if (!userId || !isLifetimePlan(plan)) return { ok: true };
+  if (!userId || !isLegacyLifetimePlan(plan)) return { ok: true };
 
   const fingerprint = getOrCreateFingerprint();
   const sessionToken = crypto.randomUUID();
@@ -63,7 +67,7 @@ export async function registerLifetimeSession(userId, plan) {
 }
 
 export async function validateLifetimeSession(userId, plan) {
-  if (!userId || !isLifetimePlan(plan)) return { valid: true };
+  if (!userId || !isLegacyLifetimePlan(plan)) return { valid: true };
 
   const fingerprint = getOrCreateFingerprint();
   let localToken = null;

@@ -17,10 +17,9 @@ import {
   NEXT_PLAN,
   NEXT_PLAN_ID,
   normalizePlan,
-  isLifetimePlan,
 } from './planConfig'
 
-export { getPlanLeadLimit, NEXT_PLAN, NEXT_PLAN_ID, normalizePlan, isLifetimePlan }
+export { getPlanLeadLimit, NEXT_PLAN, NEXT_PLAN_ID, normalizePlan }
 
 /** Lead/template caps only — mirrors planConfig + DB plan_limits table. */
 export const PLAN_LIMITS: Record<string, { leads: number | null; templates: number | null }> = Object.fromEntries(
@@ -221,7 +220,6 @@ export function LimitReachedModal({
   if (!open) return null
   const normalized = normalizePlan(plan ?? 'trial')
   const nextPlan = NEXT_PLAN[normalized]
-  const lifetime = isLifetimePlan(normalized)
 
   return (
     <div
@@ -273,7 +271,7 @@ export function LimitReachedModal({
               Quick cleanup
             </button>
           )}
-          {showUpgrade && !lifetime && nextPlan && onUpgrade && (
+          {showUpgrade && nextPlan && onUpgrade && (
             <ShinyButton
               onClick={onUpgrade}
               style={{ padding: '10px 18px', fontSize: 13.5, fontWeight: 600 }}
@@ -281,7 +279,7 @@ export function LimitReachedModal({
               Upgrade to {nextPlan}
             </ShinyButton>
           )}
-          {(lifetime || !showUpgrade || !nextPlan) && (
+          {(!showUpgrade || !nextPlan) && (
             <button
               onClick={onClose}
               style={{
@@ -322,7 +320,6 @@ export function LeadLimitModal({
   if (!open) return null
   const normalized = normalizePlan(plan)
   const nextPlan = NEXT_PLAN[normalized]
-  const lifetime = isLifetimePlan(normalized)
 
   return (
     <div
@@ -354,10 +351,8 @@ export function LeadLimitModal({
           Lead limit reached
         </div>
         <p style={{ color: '#E6EDF3', fontSize: 14.5, lineHeight: 1.6, marginBottom: 24 }}>
-          {lifetime
-            ? `You've hit your plan's limit of ${limit.toLocaleString()} leads. Do a quick cleanup to free space.`
-            : <>You've hit your plan's limit of {limit.toLocaleString()} leads. You won't be able to add more until you
-              do a quick cleanup{nextPlan ? <> or upgrade to <strong>{nextPlan}</strong></> : null}.</>}
+          You've hit your plan's limit of {limit.toLocaleString()} leads. You won't be able to add more until you
+          do a quick cleanup{nextPlan ? <> or upgrade to <strong>{nextPlan}</strong></> : null}.
         </p>
         <div style={{ display: 'flex', gap: 10, justifyContent: 'center' }}>
           <button
@@ -375,30 +370,13 @@ export function LeadLimitModal({
           >
             Quick cleanup
           </button>
-          {!lifetime && nextPlan && (
+          {nextPlan && (
             <ShinyButton
               onClick={onUpgrade}
               style={{ padding: '10px 18px', fontSize: 13.5, fontWeight: 600 }}
             >
               Upgrade to {nextPlan}
             </ShinyButton>
-          )}
-          {lifetime && (
-            <button
-              onClick={onClose}
-              style={{
-                background: 'var(--accent-blue)',
-                color: '#fff',
-                border: 'none',
-                borderRadius: 3,
-                padding: '10px 18px',
-                fontSize: 13.5,
-                fontWeight: 600,
-                cursor: 'pointer',
-              }}
-            >
-              Close
-            </button>
           )}
         </div>
       </div>
@@ -449,7 +427,6 @@ export function BulkImportLimitModal({
   if (!open) return null
   const normalized = normalizePlan(plan)
   const nextPlan = NEXT_PLAN[normalized]
-  const lifetime = isLifetimePlan(normalized)
 
   return (
     <div
@@ -465,17 +442,15 @@ export function BulkImportLimitModal({
         </div>
         <p style={{ color: '#E6EDF3', fontSize: 14.5, lineHeight: 1.6, marginBottom: 24 }}>
           {importedCount} lead{importedCount === 1 ? '' : 's'} imported. The remaining {skippedCount} lead{skippedCount === 1 ? '' : 's'} {skippedCount === 1 ? 'was' : 'were'} skipped because it would exceed your plan's lead limit.
-          {lifetime
-            ? ' Do a quick cleanup to import the rest.'
-            : nextPlan
-              ? <> Do a quick cleanup or upgrade to <strong>{nextPlan}</strong> to import the rest.</>
-              : ' Do a quick cleanup to import the rest.'}
+          {nextPlan
+            ? <> Do a quick cleanup or upgrade to <strong>{nextPlan}</strong> to import the rest.</>
+            : ' Do a quick cleanup to import the rest.'}
         </p>
         <div style={{ display: 'flex', gap: 10, justifyContent: 'center' }}>
           <button onClick={onCleanup} style={{ background: 'transparent', color: '#E6EDF3', border: '1px solid #21262D', borderRadius: 3, padding: '10px 18px', fontSize: 13.5, fontWeight: 600, cursor: 'pointer' }}>
             Quick cleanup
           </button>
-          {!lifetime && nextPlan && (
+          {nextPlan && (
             <ShinyButton
               onClick={onUpgrade}
               style={{ padding: '10px 18px', fontSize: 13.5, fontWeight: 600 }}

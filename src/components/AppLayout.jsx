@@ -4,10 +4,11 @@ import {
   Users, BookOpen, Receipt, TrendingUp, ShieldAlert,
   Sun, Moon, LayoutDashboard, Clock, LogOut,
   Settings, FileText, Bell, CreditCard,
-  Menu, X as XIcon, HelpCircle,
-  PanelLeftClose, PanelLeftOpen
+  Menu, X as XIcon, HelpCircle, Calendar,
+  PanelLeftClose, PanelLeftOpen, UsersRound, Lock
 } from 'lucide-react';
-import { PLAN_LIMITS } from '../lib/utils';
+import { PLAN_LIMITS, normalizePlan } from '../lib/utils';
+import { isTeamsFeatureLocked } from '../lib/teamWorkspace';
 import UpgradeLockModal from './UpgradeLockModal';
 import MobileNav from './MobileNav';
 import { useLeadLimitStatus, LeadLimitTopBar } from '../lib/leadLimits';
@@ -199,6 +200,38 @@ export default function AppLayout({
 
             <li>
               <Link
+                to="/calendar"
+                title={tip(!PLAN_LIMITS[normalizePlan(profile?.plan)]?.calendarIntegration ? 'Calendar (Upgrade)' : 'Calendar')}
+                className={`sidebar-item ${pathname === '/calendar' ? 'active' : ''}`}
+                style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}
+              >
+                <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
+                  <Calendar size={18} /><span className="nav-label">Calendar</span>
+                </div>
+                {!PLAN_LIMITS[normalizePlan(profile?.plan)]?.calendarIntegration && (
+                  <Lock size={12} className="nav-label" style={{ opacity: 0.65 }} />
+                )}
+              </Link>
+            </li>
+
+            <li>
+              <Link
+                to="/teams"
+                title={tip(isTeamsFeatureLocked(profile) ? 'Teams (Upgrade)' : 'Teams')}
+                className={`sidebar-item ${pathname === '/teams' ? 'active' : ''}`}
+                style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}
+              >
+                <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
+                  <UsersRound size={18} /><span className="nav-label">Teams</span>
+                </div>
+                {isTeamsFeatureLocked(profile) && (
+                  <Lock size={12} className="nav-label" style={{ opacity: 0.65 }} />
+                )}
+              </Link>
+            </li>
+
+            <li>
+              <Link
                 to="/reminders"
                 title={tip('Reminders')}
                 className={`sidebar-item ${pathname === '/reminders' ? 'active' : ''}`}
@@ -288,6 +321,18 @@ export default function AppLayout({
                 className="mobile-menu-item"
               >
                 Notes
+              </Link>
+            </li>
+
+            <li>
+              <Link to="/calendar" onClick={() => setIsSidebarOpen(false)} className="mobile-menu-item">
+                {!PLAN_LIMITS[normalizePlan(profile?.plan)]?.calendarIntegration ? 'Calendar (Upgrade)' : 'Calendar'}
+              </Link>
+            </li>
+
+            <li>
+              <Link to="/teams" onClick={() => setIsSidebarOpen(false)} className="mobile-menu-item">
+                {isTeamsFeatureLocked(profile) ? 'Teams (Upgrade)' : 'Teams'}
               </Link>
             </li>
 

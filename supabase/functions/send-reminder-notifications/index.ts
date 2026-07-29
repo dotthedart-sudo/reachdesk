@@ -1,25 +1,20 @@
 import { serve } from 'https://deno.land/std@0.168.0/http/server.ts';
-import { createClient } from 'https://esm.sh/@supabase/supabase-js@2';
-
-const corsHeaders = {
-  'Access-Control-Allow-Origin': '*',
-  'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
-};
+import {
+  createServiceClient,
+  getEnv,
+  jsonResponse,
+  requirePrivileged,
+} from '../_shared/auth.ts';
 
 serve(async (req) => {
-  if (req.method === 'OPTIONS') {
-    return new Response('ok', { headers: corsHeaders });
-  }
+  const authError = requirePrivileged(req);
+  if (authError) return authError;
 
   try {
-    const supabase = createClient(
-      Deno.env.get('SUPABASE_URL')!,
-      Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!
-    );
-
+    const supabase = createServiceClient();
+    const { serviceRoleKey } = getEnv();
     const now = new Date().toISOString();
 
-    // 1. Fetch due reminders that have not been notified
     const { data: reminders, error: remError } = await supabase
       .from('follow_up_reminders')
       .select('id, user_id, lead_name, reminder_number')
@@ -30,12 +25,9 @@ serve(async (req) => {
     if (remError) throw remError;
 
     if (!reminders || reminders.length === 0) {
-      return new Response(JSON.stringify({ message: 'No pending due reminders.' }), {
-        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-      });
+      return jsonResponse({ message: 'No pending due reminders.' });
     }
 
-    // 2. Filter user_ids that have a push subscription
     const userIds = [...new Set(reminders.map((r) => r.user_id))];
     const { data: subs, error: subsError } = await supabase
       .from('push_subscriptions')
@@ -45,43 +37,47 @@ serve(async (req) => {
     if (subsError) throw subsError;
 
     const subscribedUserIds = new Set(subs?.map((s) => s.user_id) || []);
-
     const remindersToNotify = reminders.filter((r) => subscribedUserIds.has(r.user_id));
 
     if (remindersToNotify.length === 0) {
-      return new Response(JSON.stringify({ message: 'No reminders have active push subscriptions.' }), {
-        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-      });
+      return jsonResponse({ message: 'No reminders have active push subscriptions.' });
     }
 
-    // 3. For each due reminder, invoke the send-push-notification edge function
     const results = await Promise.allSettled(
       remindersToNotify.map(async (rem) => {
         const leadName = rem.lead_name || 'Lead';
         const bodyText = `Did ${leadName} reply? Tap to update status and stop reminders.`;
-        
-        // Invoke send-push-notification function
-        const { error: invokeError } = await supabase.functions.invoke('send-push-notification', {
-          body: {
-            target_user_id: rem.user_id,
-            title: 'ReachDesk CRM Reminder',
-            body: bodyText,
-            url: `/dashboard?reminderId=${rem.id}`,
+
+        const resp = await fetch(
+          `${Deno.env.get('SUPABASE_URL')}/functions/v1/send-push-notification`,
+          {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json',
+              Authorization: `Bearer ${serviceRoleKey}`,
+            },
+            body: JSON.stringify({
+              target_user_id: rem.user_id,
+              title: 'ReachDesk CRM Reminder',
+              body: bodyText,
+              url: `/dashboard?reminderId=${rem.id}`,
+            }),
           },
-        });
+        );
 
-        if (invokeError) throw invokeError;
+        if (!resp.ok) {
+          const errBody = await resp.text();
+          throw new Error(errBody || 'Push invoke failed');
+        }
 
-        // Mark as notified
         const { error: updateError } = await supabase
           .from('follow_up_reminders')
           .update({ notified: true })
           .eq('id', rem.id);
 
         if (updateError) throw updateError;
-
         return rem.id;
-      })
+      }),
     );
 
     const succeeded = results.filter((r) => r.status === 'fulfilled').length;
@@ -89,14 +85,9 @@ serve(async (req) => {
 
     console.log(`[send-reminder-notifications] Succeeded: ${succeeded}, Failed: ${failed}`);
 
-    return new Response(JSON.stringify({ succeeded, failed }), {
-      headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-    });
+    return jsonResponse({ succeeded, failed });
   } catch (err) {
     console.error('[send-reminder-notifications] Error:', err);
-    return new Response(JSON.stringify({ error: String(err) }), {
-      status: 500,
-      headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-    });
+    return jsonResponse({ error: String(err) }, 500);
   }
 });

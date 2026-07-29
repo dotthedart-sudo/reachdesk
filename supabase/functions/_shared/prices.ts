@@ -56,8 +56,8 @@ export const BILLING: BillingMap = {
   },
 };
 
-/** Active checkout plans; lifetime retained for legacy webhook resolution only. */
-export type PlanId = 'starter' | 'pro' | 'teams' | 'lifetime';
+/** Active checkout plans. */
+export type PlanId = 'starter' | 'pro' | 'teams';
 
 export function getPlanFromPriceId(priceId: string | null | undefined): PlanId | null {
   if (!priceId) return null;

@@ -1,21 +1,29 @@
 import { serve } from 'https://deno.land/std@0.168.0/http/server.ts';
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2';
 
-const DEFAULT_FROM_EMAIL = 'ReachDesk CRM <noreply@mail.app.reachdeskcrm.com>';
+const DEFAULT_FROM_EMAIL = 'ReachDesk CRM <invites@mail.app.reachdeskcrm.com>';
 const APP_URL = Deno.env.get('APP_URL') || 'https://app.reachdeskcrm.com';
 
 const TEAMS_SEAT_LIMIT = 5;
 const LEGACY_PRO_TEAM_SEAT_LIMIT = 3;
+const TRIAL_SEAT_LIMIT = 5;
 
 function getTeamSeatLimit(plan: string, teamId: string | null): number {
   const normalized = (plan || 'trial').toLowerCase();
   if (normalized === 'teams') return TEAMS_SEAT_LIMIT;
+  if (normalized === 'trial') return TRIAL_SEAT_LIMIT;
   if (normalized === 'pro' && teamId) return LEGACY_PRO_TEAM_SEAT_LIMIT;
   return 0;
 }
 
 function canInviteTeammates(plan: string, teamId: string | null): boolean {
   return getTeamSeatLimit(plan, teamId) > 0;
+}
+
+function hasActiveInviteAccess(plan: string, planStatus: string | null): boolean {
+  const normalized = (plan || 'trial').toLowerCase();
+  if (normalized === 'trial') return true;
+  return planStatus === 'active';
 }
 
 const corsHeaders = {
@@ -73,7 +81,7 @@ serve(async (req) => {
     if (!canInviteTeammates(plan, profile.team_id)) {
       return jsonResponse({ success: false, error: 'Teams plan required to invite teammates' }, 403);
     }
-    if (profile.plan_status !== 'active') {
+    if (!hasActiveInviteAccess(plan, profile.plan_status)) {
       return jsonResponse({ success: false, error: 'Active subscription required to invite teammates' }, 403);
     }
 
@@ -83,11 +91,31 @@ serve(async (req) => {
 
     let teamId = profile.team_id;
     if (!teamId) {
-      teamId = crypto.randomUUID();
-      await supabaseAdmin
+      const ownerEmail = profile.email || user.email || 'user';
+      const { data: team, error: teamError } = await supabaseAdmin
+        .from('teams')
+        .insert({ owner_id: user.id, name: `${ownerEmail}'s Team` })
+        .select('id')
+        .single();
+
+      if (teamError || !team) {
+        console.error('[send-team-invite] team insert failed:', teamError);
+        return jsonResponse(
+          { success: false, error: teamError?.message || 'Failed to create team workspace' },
+          500,
+        );
+      }
+
+      teamId = team.id;
+      const { error: profileUpdateError } = await supabaseAdmin
         .from('user_profiles')
         .update({ team_id: teamId, team_role: 'owner' })
         .eq('id', user.id);
+
+      if (profileUpdateError) {
+        console.error('[send-team-invite] profile update failed:', profileUpdateError);
+        return jsonResponse({ success: false, error: profileUpdateError.message }, 500);
+      }
     }
 
     const [{ count: memberCount }, { count: pendingCount }] = await Promise.all([

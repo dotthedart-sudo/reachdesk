@@ -3,6 +3,7 @@ import { Plus, X, ChevronDown, ChevronRight } from 'lucide-react';
 import GroupedStatusDropdown from './GroupedStatusDropdown';
 import GroupedTemplateDropdown from './GroupedTemplateDropdown';
 import { detectDomainIcon } from '../icons/PlatformIcons';
+import { inferTimezoneFromPhone, getSupportedTimeZones } from '../../lib/leadTimezone';
 
 /**
  * Shared Add/Edit lead fields — sectioned layout matching Auth spacing.
@@ -29,7 +30,33 @@ export default function LeadFormFields({
   newFieldType = 'text',
   setNewFieldType,
   onAddCustomField,
+  defaultCountryCode = '+92',
 }) {
+  const timezoneOptions = getSupportedTimeZones();
+
+  const handleDetectTimezone = () => {
+    const { timezone } = inferTimezoneFromPhone(leadForm.phone, defaultCountryCode);
+    if (timezone) {
+      setLeadForm((prev) => ({
+        ...prev,
+        timezone,
+        timezone_source: 'phone',
+        timezoneTouched: false,
+      }));
+    }
+  };
+
+  const handlePhoneBlur = () => {
+    if (leadForm.timezoneTouched || !leadForm.phone?.trim()) return;
+    const { timezone } = inferTimezoneFromPhone(leadForm.phone, defaultCountryCode);
+    if (timezone) {
+      setLeadForm((prev) => ({
+        ...prev,
+        timezone,
+        timezone_source: 'phone',
+      }));
+    }
+  };
   const customCols = columnDefs.filter(
     (c) => !c.is_default && c.table_view === (view === 'pipeline' ? 'pipeline' : 'contact_details')
   );
@@ -79,10 +106,40 @@ export default function LeadFormFields({
               type="text"
               value={leadForm.phone}
               onChange={(e) => setLeadForm({ ...leadForm, phone: e.target.value })}
+              onBlur={handlePhoneBlur}
               className="form-input"
               placeholder="+1…"
             />
           </div>
+        </div>
+
+        <div className="rd-form-group">
+          <label className="form-label" htmlFor="lead-timezone">Timezone</label>
+          <div style={{ display: 'flex', gap: '0.5rem', flexWrap: 'wrap' }}>
+            <select
+              id="lead-timezone"
+              className="form-input"
+              style={{ flex: 1, minWidth: 200 }}
+              value={leadForm.timezone || ''}
+              onChange={(e) => setLeadForm({
+                ...leadForm,
+                timezone: e.target.value,
+                timezone_source: e.target.value ? 'manual' : '',
+                timezoneTouched: !!e.target.value,
+              })}
+            >
+              <option value="">Auto-detect from phone</option>
+              {timezoneOptions.map((tz) => (
+                <option key={tz} value={tz}>{tz.replace(/_/g, ' ')}</option>
+              ))}
+            </select>
+            <button type="button" className="btn btn-secondary btn-sm" onClick={handleDetectTimezone}>
+              Detect from phone
+            </button>
+          </div>
+          <span style={{ fontSize: '0.75rem', color: 'var(--text-muted)', marginTop: '0.25rem', display: 'block' }}>
+            Used for “good time to call” hints in Calendar and Outreach.
+          </span>
         </div>
 
         <div className="rd-form-row">

@@ -3,6 +3,7 @@ import { createClient } from 'https://esm.sh/@supabase/supabase-js@2';
 
 const GOOGLE_CALENDAR_API = 'https://www.googleapis.com/calendar/v3';
 const GOOGLE_TOKEN_URL = 'https://oauth2.googleapis.com/token';
+const CONFIRMATION_FROM_EMAIL = 'ReachDesk CRM <invites@mail.app.reachdeskcrm.com>';
 
 async function refreshAccessToken(
   refreshToken: string,
@@ -24,6 +25,172 @@ async function refreshAccessToken(
     return null;
   }
   return await resp.json();
+}
+
+function formatMeetingDateTime(
+  event: any,
+  timeZone?: string | null,
+): { meetingDate: string; meetingTime: string } {
+  const tz = timeZone || event?.start?.timeZone || 'UTC';
+  const start = event?.start?.dateTime || event?.start?.date;
+  if (!start) {
+    return { meetingDate: 'TBD', meetingTime: 'TBD' };
+  }
+
+  // All-day events are date-only (YYYY-MM-DD)
+  if (!event?.start?.dateTime && event?.start?.date) {
+    const d = new Date(event.start.date + 'T12:00:00');
+    return {
+      meetingDate: d.toLocaleDateString('en-US', {
+        weekday: 'long',
+        year: 'numeric',
+        month: 'long',
+        day: 'numeric',
+        timeZone: tz,
+      }),
+      meetingTime: 'All day',
+    };
+  }
+
+  const d = new Date(start);
+  const meetingDate = d.toLocaleDateString('en-US', {
+    weekday: 'long',
+    year: 'numeric',
+    month: 'long',
+    day: 'numeric',
+    timeZone: tz,
+  });
+  const meetingTime = d.toLocaleTimeString('en-US', {
+    hour: 'numeric',
+    minute: '2-digit',
+    timeZone: tz,
+    timeZoneName: 'short',
+  });
+  return { meetingDate, meetingTime };
+}
+
+function getMeetingLink(event: any): string {
+  if (event?.hangoutLink) return event.hangoutLink;
+
+  const entryPoints = event?.conferenceData?.entryPoints || [];
+  const video = entryPoints.find((ep: any) => ep.entryPointType === 'video' && ep.uri);
+  if (video?.uri) return video.uri;
+
+  return event?.htmlLink || 'https://calendar.google.com';
+}
+
+function buildConfirmationHtml(params: {
+  ownerName: string;
+  meetingDate: string;
+  meetingTime: string;
+  meetingLink: string;
+}): string {
+  const { ownerName, meetingDate, meetingTime, meetingLink } = params;
+  return `
+<div style="background-color: #0D1117; color: #FFFFFF; font-family: sans-serif; padding: 30px; border-radius: 3px; max-width: 600px; margin: 0 auto; border: 1px solid #21262D;">
+  <div style="text-align: center; margin-bottom: 20px;">
+    <span style="font-family: Arial, sans-serif; text-transform: uppercase; letter-spacing: 0.08em; font-size: 22px; color: #FFFFFF; font-weight: bold;">ReachDesk</span>
+  </div>
+  <h2 style="color: #5B8FB9; border-bottom: 1px solid #21262D; padding-bottom: 10px;">Your meeting is confirmed</h2>
+  <p><strong>${ownerName}</strong> has scheduled a meeting with you.</p>
+  <table style="width: 100%; border-collapse: collapse; margin: 20px 0; color: #FFFFFF;">
+    <tr>
+      <td style="padding: 8px 0; border-bottom: 1px solid #21262D; color: #8B949E; width: 100px;">Date:</td>
+      <td style="padding: 8px 0; border-bottom: 1px solid #21262D; font-weight: bold;">${meetingDate}</td>
+    </tr>
+    <tr>
+      <td style="padding: 8px 0; border-bottom: 1px solid #21262D; color: #8B949E;">Time:</td>
+      <td style="padding: 8px 0; border-bottom: 1px solid #21262D; font-weight: bold;">${meetingTime}</td>
+    </tr>
+  </table>
+  <div style="text-align: center; margin: 28px 0;">
+    <a href="${meetingLink}" style="background-color: #5B8FB9; color: #0D1117; padding: 12px 24px; text-decoration: none; border-radius: 3px; font-weight: bold; display: inline-block;">Join Meeting</a>
+  </div>
+  <p style="color: #8B949E; font-size: 0.8rem; border-top: 1px solid #21262D; padding-top: 15px; margin-top: 30px;">
+    If you did not expect this, please contact ${ownerName} directly.
+  </p>
+</div>
+`.trim();
+}
+
+async function sendMeetingConfirmation(params: {
+  supabase: ReturnType<typeof createClient>;
+  userId: string;
+  ownerName: string;
+  ownerTimeZone?: string | null;
+  lead: { id: string; email: string };
+  event: any;
+}): Promise<boolean> {
+  const { supabase, userId, ownerName, ownerTimeZone, lead, event } = params;
+  const eventId = event?.id;
+  const attendeeEmail = (lead.email || '').trim().toLowerCase();
+
+  if (!eventId || !attendeeEmail) return false;
+
+  // Dedup: skip if we already sent for this event + attendee
+  const { data: existing } = await supabase
+    .from('calendar_meeting_confirmations')
+    .select('id')
+    .eq('google_event_id', eventId)
+    .eq('attendee_email', attendeeEmail)
+    .maybeSingle();
+
+  if (existing) {
+    console.log(`[calendar-webhook-receiver] Confirmation already sent for event ${eventId} → ${attendeeEmail}`);
+    return false;
+  }
+
+  const resendApiKey = Deno.env.get('RESEND_API_KEY');
+  if (!resendApiKey) {
+    console.warn('[calendar-webhook-receiver] RESEND_API_KEY not set — skipping confirmation email');
+    return false;
+  }
+
+  const { meetingDate, meetingTime } = formatMeetingDateTime(event, ownerTimeZone);
+  const meetingLink = getMeetingLink(event);
+  const html = buildConfirmationHtml({ ownerName, meetingDate, meetingTime, meetingLink });
+
+  const emailResponse = await fetch('https://api.resend.com/emails', {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      Authorization: `Bearer ${resendApiKey}`,
+    },
+    body: JSON.stringify({
+      from: CONFIRMATION_FROM_EMAIL,
+      reply_to: 'support@reachdeskcrm.com',
+      to: [attendeeEmail],
+      subject: `Meeting confirmed with ${ownerName}`,
+      html,
+    }),
+  });
+
+  if (!emailResponse.ok) {
+    const errText = await emailResponse.text();
+    console.error(`[calendar-webhook-receiver] Resend failed for ${attendeeEmail}:`, errText);
+    return false;
+  }
+
+  const { error: insertErr } = await supabase
+    .from('calendar_meeting_confirmations')
+    .insert({
+      user_id: userId,
+      google_event_id: eventId,
+      attendee_email: attendeeEmail,
+      lead_id: lead.id,
+    });
+
+  if (insertErr) {
+    // Unique violation = concurrent duplicate; treat as already sent
+    if (insertErr.code === '23505') {
+      console.log(`[calendar-webhook-receiver] Confirmation race for event ${eventId} → ${attendeeEmail}`);
+      return false;
+    }
+    console.error('[calendar-webhook-receiver] Failed to record confirmation send:', insertErr);
+  }
+
+  console.log(`[calendar-webhook-receiver] Confirmation email sent to ${attendeeEmail} for event ${eventId}`);
+  return true;
 }
 
 serve(async (req) => {
@@ -162,16 +329,19 @@ serve(async (req) => {
     return new Response('ok', { status: 200 });
   }
 
-  // ── Update matched leads to Booked and create draft invoices ─────────────
+  // Owner display name for confirmation emails
+  const { data: ownerProfile } = await supabase
+    .from('user_profiles')
+    .select('full_name, email, timezone')
+    .eq('id', userId)
+    .maybeSingle();
+  const ownerName = ownerProfile?.full_name || ownerProfile?.email || 'Your contact';
+  const ownerTimeZone = ownerProfile?.timezone || null;
+
+  // ── Update matched leads to Booked, create draft invoices, send confirmations
   const TERMINAL_STATUSES = ['Booked', 'Rescheduled', 'Client', 'Not Interested', 'Closed Won', 'Closed Lost'];
 
   for (const lead of matchingLeads) {
-    // Don't overwrite already-terminal statuses
-    if (TERMINAL_STATUSES.includes(lead.status || '')) {
-      console.log(`[calendar-webhook-receiver] Lead ${lead.id} already has terminal status '${lead.status}' — skipping`);
-      continue;
-    }
-
     // Find the calendar event matching this lead's email
     const leadEmailLower = lead.email?.toLowerCase();
     const matchingEvent = events.find((event: any) => {
@@ -180,6 +350,28 @@ serve(async (req) => {
       const hasEmailInOrganizer = event.organizer?.email && event.organizer.email.toLowerCase() === leadEmailLower;
       return hasEmailInAttendees || hasEmailInOrganizer;
     });
+
+    // ── Send meeting confirmation to prospect (once per event) ─────────────
+    if (matchingEvent && lead.email) {
+      try {
+        await sendMeetingConfirmation({
+          supabase,
+          userId,
+          ownerName,
+          ownerTimeZone,
+          lead: { id: lead.id, email: lead.email },
+          event: matchingEvent,
+        });
+      } catch (err) {
+        console.error(`[calendar-webhook-receiver] Confirmation email error for lead ${lead.id}:`, err);
+      }
+    }
+
+    // Don't overwrite already-terminal statuses
+    if (TERMINAL_STATUSES.includes(lead.status || '')) {
+      console.log(`[calendar-webhook-receiver] Lead ${lead.id} already has terminal status '${lead.status}' — skipping status update`);
+      continue;
+    }
 
     let meetingEndsAt: string | null = null;
     if (matchingEvent) {

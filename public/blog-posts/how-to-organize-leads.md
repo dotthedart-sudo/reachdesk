@@ -238,7 +238,7 @@ That's when the system becomes a competitive advantage. Because most freelancers
 
 Ready to build a lead organization system? Here's how:
 
-1. **Centralize:** Choose one CRM (it doesn't have to be expensive — [ReachDesk CRM starts at $12/month](https://reachdesk.com/pricing))
+1. **Centralize:** Choose one CRM (it doesn't have to be expensive — [ReachDesk CRM starts at $5/month](https://reachdeskcrm.com) for Starter with 750 leads; Pro is $15/mo for 5,000 leads; Teams is $29/mo for unlimited leads and 5 seats)
 2. **Migrate:** Log all your current active leads in one sitting. Yes, it takes an hour. You'll only do it once.
 3. **Tag:** Go through each lead and tag it Hot, Warm, or Cold based on current status
 4. **Systemize:** Set follow-up reminders per lead, based on their priority tag

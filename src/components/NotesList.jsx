@@ -39,7 +39,7 @@ export default function NotesList({ currentUser }) {
   const [showUpgradeModal, setShowUpgradeModal] = useState(false);
   
   // RLS / Plan check
-  const isPremiumUser = ['pro', 'lifetime', 'teams', 'trial'].includes(currentUser?.plan?.toLowerCase());
+  const isPremiumUser = ['pro', 'teams', 'trial'].includes(currentUser?.plan?.toLowerCase());
 
   // Load Notes and Folders
   const fetchData = async () => {
