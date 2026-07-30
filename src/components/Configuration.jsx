@@ -21,7 +21,7 @@ import {
   Calendar, CheckCircle, Unlink, Lock, Check, Plug
 } from 'lucide-react';
 import { BRAND_NAME } from '../config/brand';
-import { exportLeads, exportNotes } from '../utils/exportUtils';
+import { DIALER_OPTIONS, getDialerPrefs, setDialerPrefs } from '../lib/callDialer';
 import CurrencySelector, { CURRENCY_MAP } from './CurrencySelector';
 import { getBrowserTimeZone, getSupportedTimeZones, formatTimeZoneLabel } from '../lib/dateTime';
 
@@ -163,6 +163,10 @@ export default function Configuration({
   const [monthlyRevenueTarget, setMonthlyRevenueTarget] = useState(currentUser?.monthly_revenue_target || '');
   const [alwaysDraft, setAlwaysDraft] = useState(currentUser?.always_draft_before_sending !== false);
   const [defaultCountryCode, setDefaultCountryCode] = useState(currentUser?.default_country_code || '+92');
+  const dialerPrefsInit = getDialerPrefs(currentUser?.id);
+  const [defaultDialer, setDefaultDialer] = useState(dialerPrefsInit.dialer);
+  const [ghlDialerUrl, setGhlDialerUrl] = useState(dialerPrefsInit.ghlUrl);
+  const [customDialerUrl, setCustomDialerUrl] = useState(dialerPrefsInit.customUrl);
   const [profileTimezone, setProfileTimezone] = useState(currentUser?.timezone || '');
   const browserTimezone = useMemo(() => getBrowserTimeZone(), []);
   const timezoneOptions = useMemo(() => getSupportedTimeZones(), []);
@@ -572,6 +576,12 @@ export default function Configuration({
 
       if (onRefreshProfile) onRefreshProfile();
 
+      setDialerPrefs(currentUser.id, {
+        dialer: defaultDialer,
+        ghlUrl: ghlDialerUrl,
+        customUrl: customDialerUrl,
+      });
+
       // Automatically sync suggestions in database if enabled
       if (suggestionsEnabled && suggestionsAutoApply) {
         try {
@@ -964,6 +974,46 @@ export default function Configuration({
                     style={{ width: '80px', padding: '4px 8px', background: 'var(--bg-page)', border: '1px solid var(--border)', borderRadius: '3px', color: 'var(--text-primary)', fontSize: '0.85rem', textAlign: 'center' }}
                     disabled={profileSaving}
                   />
+                </div>
+
+                <div style={{ borderTop: '1px solid var(--border)', margin: '0.75rem 0', paddingTop: '0.75rem' }}>
+                  <span style={{ fontWeight: 600, fontSize: '0.9rem', display: 'block', marginBottom: '0.35rem' }}>Default dialer (Cold Calls)</span>
+                  <span style={{ fontSize: '0.8rem', color: 'var(--text-muted)', display: 'block', marginBottom: '0.5rem' }}>
+                    Used by the Call button in Cold Calls mode. Other options stay in the dropdown menu.
+                  </span>
+                  <select
+                    className="form-select"
+                    value={defaultDialer}
+                    onChange={(e) => setDefaultDialer(e.target.value)}
+                    disabled={profileSaving}
+                    style={{ maxWidth: 280, marginBottom: '0.5rem' }}
+                  >
+                    {DIALER_OPTIONS.map((o) => (
+                      <option key={o.id} value={o.id}>{o.label}</option>
+                    ))}
+                  </select>
+                  {defaultDialer === 'ghl' && (
+                    <input
+                      type="url"
+                      className="form-input"
+                      value={ghlDialerUrl}
+                      onChange={(e) => setGhlDialerUrl(e.target.value)}
+                      placeholder="https://app.gohighlevel.com/...?phone={phone}"
+                      disabled={profileSaving}
+                      style={{ fontSize: '0.85rem' }}
+                    />
+                  )}
+                  {defaultDialer === 'custom' && (
+                    <input
+                      type="url"
+                      className="form-input"
+                      value={customDialerUrl}
+                      onChange={(e) => setCustomDialerUrl(e.target.value)}
+                      placeholder="https://your-dialer.com/call?n={phone}"
+                      disabled={profileSaving}
+                      style={{ fontSize: '0.85rem' }}
+                    />
+                  )}
                 </div>
               </div>
             </div>

@@ -26,6 +26,9 @@ export default function CallActivityHub({
   currentUser,
   leads = [],
   onOpenLead,
+  embedded = false,
+  leadIdSet = null,
+  hideSessionControls = false,
 }) {
   const navigate = useNavigate();
   const [unlocked, setUnlocked] = useState(null);
@@ -65,6 +68,16 @@ export default function CallActivityHub({
     return !!teamPerms.memberPermissions[currentUser?.id]?.can_view_team_call_activity;
   }, [teamId, teamPerms, currentUser]);
 
+  const scopedLeads = useMemo(() => {
+    if (!leadIdSet || leadIdSet.size === 0) return leads;
+    return leads.filter((l) => leadIdSet.has(l.id));
+  }, [leads, leadIdSet]);
+
+  const filterAttempts = useCallback((rows) => {
+    if (!leadIdSet || leadIdSet.size === 0) return rows;
+    return rows.filter((a) => leadIdSet.has(a.lead_id));
+  }, [leadIdSet]);
+
   const loadMy = useCallback(async () => {
     if (!currentUser?.id || unlocked === false) {
       setLoadingMy(false);
@@ -74,13 +87,13 @@ export default function CallActivityHub({
     setError('');
     try {
       const data = await fetchMyCallAttempts(currentUser.id);
-      setAttempts(data);
+      setAttempts(filterAttempts(data));
     } catch (err) {
       setError(err.message || 'Failed to load call activity.');
     } finally {
       setLoadingMy(false);
     }
-  }, [currentUser?.id, unlocked]);
+  }, [currentUser?.id, unlocked, filterAttempts]);
 
   const loadTeam = useCallback(async () => {
     if (!teamId || !canViewTeamFeed) {
@@ -100,14 +113,14 @@ export default function CallActivityHub({
         }),
         fetchTeamCallStats({ fromDate: today.toISOString() }),
       ]);
-      setTeamRows(rows);
+      setTeamRows(filterAttempts(rows));
       setTeamStats(stats);
     } catch (err) {
       console.error('[CallActivityHub] team load failed:', err);
     } finally {
       setLoadingTeam(false);
     }
-  }, [teamId, canViewTeamFeed, memberFilter, outcomeFilter]);
+  }, [teamId, canViewTeamFeed, memberFilter, outcomeFilter, filterAttempts]);
 
   useEffect(() => {
     if (unlocked) loadMy();
@@ -125,20 +138,20 @@ export default function CallActivityHub({
 
   const attemptsByLead = useMemo(() => {
     const map = new Map();
-    for (const a of attempts) {
+    for (const a of filterAttempts(attempts)) {
       if (!map.has(a.lead_id)) map.set(a.lead_id, a);
     }
     return map;
-  }, [attempts]);
+  }, [attempts, filterAttempts]);
 
   const sessionQueue = useMemo(() => {
     const flatAttempts = [...attemptsByLead.values()];
-    let q = buildOutreachSessionQueue(leads, flatAttempts);
+    let q = buildOutreachSessionQueue(scopedLeads, flatAttempts);
     if (prioritizeCallable) {
       q = sortByCallability(q, new Date(), defaultCountryCode);
     }
     return q;
-  }, [leads, attemptsByLead, prioritizeCallable, defaultCountryCode]);
+  }, [scopedLeads, attemptsByLead, prioritizeCallable, defaultCountryCode]);
 
   const handleLogged = (row) => {
     setAttempts((prev) => [row, ...prev]);
@@ -192,6 +205,7 @@ export default function CallActivityHub({
 
   return (
     <div className="flex-col gap-3">
+      {!embedded && (
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '0.75rem' }}>
         <div>
           <h3 style={{ margin: 0, fontSize: '1.05rem', display: 'flex', alignItems: 'center', gap: '0.4rem' }}>
@@ -203,6 +217,7 @@ export default function CallActivityHub({
               : 'Log calls on any lead in your workspace and track follow-ups.'}
           </p>
         </div>
+        {!hideSessionControls && (
         <div style={{ display: 'flex', gap: '0.5rem', flexWrap: 'wrap' }}>
           <button
             type="button"
@@ -217,7 +232,17 @@ export default function CallActivityHub({
             <Plus size={14} /> Log Call
           </button>
         </div>
+        )}
       </div>
+      )}
+
+      {embedded && !hideSessionControls && (
+        <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '0.5rem' }}>
+          <button type="button" className="btn btn-primary btn-sm" onClick={() => setLogOpen(true)}>
+            <Plus size={14} /> Log Call
+          </button>
+        </div>
+      )}
 
       {showTeamTab && (
         <div className="flex gap-2" style={{ borderBottom: '1px solid var(--border-color)', paddingBottom: 1 }}>
@@ -268,7 +293,7 @@ export default function CallActivityHub({
         </>
       ) : (
         <MyCallFeed
-          leads={leads}
+          leads={scopedLeads}
           attempts={attempts}
           loading={loadingMy}
           defaultCountryCode={defaultCountryCode}
@@ -283,7 +308,7 @@ export default function CallActivityHub({
       <LogCallModal
         open={logOpen}
         onClose={() => setLogOpen(false)}
-        leads={leads}
+        leads={scopedLeads}
         userId={currentUser.id}
         teamId={teamId}
         showNoteSharing={showNoteSharing}

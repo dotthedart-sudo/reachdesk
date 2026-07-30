@@ -106,7 +106,7 @@ export default function CallingSession({
         <button type="button" className="btn btn-primary" onClick={() => setLogOpen(true)}>
           <Phone size={14} /> Log outcome
         </button>
-        <button type="button" className="btn btn-secondary" onClick={() => onOpenLead?.(lead)}>
+        <button type="button" className="btn btn-secondary" onClick={() => onOpenLead?.(lead, 'calls')}>
           Open lead
         </button>
         <button type="button" className="btn btn-secondary" onClick={advance}>

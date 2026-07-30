@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useRef, useMemo } from 'react';
 import { useSearchParams, useNavigate, Link } from 'react-router-dom';
 import { supabase } from '../lib/supabase';
 import { useAppContext } from '../App';
@@ -17,11 +17,17 @@ import EditableDropdown from './CRM/EditableDropdown';
 import ColumnManager from './CRM/ColumnManager';
 import LeadDrawer from './CRM/LeadDrawer';
 import OutreachTracker from './CRM/OutreachTracker';
+import CallQueueTable from './CRM/callActivity/CallQueueTable';
 import CSVImporter from './CRM/CSVImporter';
 import CSVImportModal from './CRM/CSVImportModal';
 import ExportSheetsModal from './CRM/ExportSheetsModal';
 import SheetsImportModal from './CRM/SheetsImportModal';
 import FolderBrowser from './CRM/FolderBrowser';
+import CopyableCell from './CRM/CopyableCell';
+import ResizableTh from './CRM/ResizableTh';
+import { getTableColumns, getLeadCellCopyValue, CALL_QUEUE_DEFAULT_DEFS } from './CRM/crmTableColumns';
+import { useCrmColumnWidths } from './CRM/useCrmColumnWidths';
+import './CRM/DataTableEnhancements.css';
 import ConvertModal from './CRM/ConvertModal';
 import LeadFormFields from './CRM/LeadFormFields';
 import GroupedStatusDropdown from './CRM/GroupedStatusDropdown';
@@ -211,20 +217,76 @@ export default function CRM({
     }
   });
 
-  // View and Folder states persisted in URL
+  // View, mode, and Folder states persisted in URL
   const [searchParams, setSearchParams] = useSearchParams();
-  const view = searchParams.get('view') || 'contact_details';
+  const legacyOutreachView = searchParams.get('view') === 'outreach';
+  const modeParam = searchParams.get('mode');
+  const outreachMode = modeParam === 'calls' || legacyOutreachView
+    ? 'calls'
+    : (modeParam || (() => {
+        try { return localStorage.getItem('crm_outreach_mode') || 'messages'; } catch { return 'messages'; }
+      })());
+  const callSubView = searchParams.get('callView') || 'queue';
+  const view = legacyOutreachView && !modeParam
+    ? 'contact_details'
+    : (searchParams.get('view') || 'contact_details');
   const folderParam = searchParams.get('folder');
   const isBrowseMode = !folderParam;
   const activeFolderId = folderParam;
   const activeManualFolderId = folders.find((f) => f.id === activeFolderId)?.id || '';
 
+  const showListBadge = !activeFolderId || activeFolderId === 'all' || activeFolderId === 'unfiled';
+
+  useEffect(() => {
+    if (searchParams.get('view') === 'outreach' && !searchParams.get('mode')) {
+      setSearchParams((prev) => {
+        const next = new URLSearchParams(prev);
+        next.set('mode', 'calls');
+        next.delete('view');
+        if (!next.get('callView')) next.set('callView', 'queue');
+        return next;
+      }, { replace: true });
+    }
+  }, []);
+
+  const handleModeChange = (newMode) => {
+    try {
+      localStorage.setItem('crm_outreach_mode', newMode);
+      if (activeFolderId) localStorage.setItem(`crm_list_mode_${activeFolderId}`, newMode);
+    } catch { /* ignore */ }
+    setSearchParams((prev) => {
+      const next = new URLSearchParams(prev);
+      next.set('mode', newMode);
+      if (newMode === 'calls') {
+        if (!next.get('callView')) next.set('callView', 'queue');
+        if (next.get('view') === 'outreach') next.delete('view');
+      } else {
+        next.delete('callView');
+        if (!next.get('view') || next.get('view') === 'outreach') next.set('view', 'pipeline');
+      }
+      return next;
+    });
+  };
+
+  const handleCallSubViewChange = (sub) => {
+    setSearchParams((prev) => {
+      const next = new URLSearchParams(prev);
+      next.set('mode', 'calls');
+      next.set('callView', sub);
+      if (next.get('view') === 'outreach') next.delete('view');
+      return next;
+    });
+  };
+
   const handleViewChange = (newView) => {
     setSearchParams(prev => {
       const next = new URLSearchParams(prev);
       next.set('view', newView);
+      next.set('mode', 'messages');
+      next.delete('callView');
       return next;
     });
+    try { localStorage.setItem('crm_outreach_mode', 'messages'); } catch { /* ignore */ }
   };
   const [columnDefs, setColumnDefs] = useState(() => {
     try {
@@ -234,6 +296,20 @@ export default function CRM({
       return [];
     }
   });
+
+  const { getWidth, setWidth } = useCrmColumnWidths(outreachMode === 'calls' ? 'call_queue' : view);
+  const tableCols = useMemo(() => getTableColumns(columnDefs, view), [columnDefs, view]);
+
+  const cellWidth = (key) => ({
+    width: getWidth(key),
+    minWidth: getWidth(key),
+    maxWidth: getWidth(key),
+  });
+
+  const handleCopyCell = () => {
+    showToast?.('Copied to clipboard', 'success');
+  };
+
   const [selectedLead, setSelectedLead] = useState(null);
   const [drawerInitialTab, setDrawerInitialTab] = useState(null);
   const [pastedLink, setPastedLink] = useState('');
@@ -387,7 +463,7 @@ export default function CRM({
     }
   };
 
-  const handleReachSend = (dest) => {
+  const handleReachSend = async (dest) => {
     localStorage.setItem(`reach_last_dest_${currentUser?.id}_${reachChannel}`, dest);
     localStorage.setItem(`reach_last_tmpl_${currentUser?.id}_${reachChannel}`, selectedReachTemplateId);
 
@@ -407,6 +483,28 @@ export default function CRM({
       showToast?.(`Copied! Paste it on ${reachLead?.first_name || 'their'} profile.`);
       window.open(reachUrl, '_blank');
     }
+
+    if (reachLead?.id) {
+      try {
+        const updates = { last_contacted_at: new Date().toISOString() };
+        if (selectedReachTemplateId) {
+          const tmpl = templates.find((t) => t.id === selectedReachTemplateId);
+          if (tmpl?.name) updates.template_used = tmpl.name;
+        }
+        const { data, error } = await supabase
+          .from('leads')
+          .update(updates)
+          .eq('id', reachLead.id)
+          .select()
+          .single();
+        if (!error && data) {
+          setLeads((prev) => prev.map((l) => (l.id === reachLead.id ? data : l)));
+        }
+      } catch (err) {
+        console.error('Error updating lead after reach send:', err);
+      }
+    }
+
     setReachModalOpen(false);
   };
 
@@ -736,7 +834,13 @@ export default function CRM({
           },
           { user_id: currentUser.id, table_view: 'clients', column_key: 'contract_value', column_label: 'Contract Value', column_type: 'text', is_visible: true, is_default: true, sort_order: 4, dropdown_options: [] },
           { user_id: currentUser.id, table_view: 'clients', column_key: 'billing_invoice_link', column_label: 'Invoice Link', column_type: 'link', is_visible: true, is_default: true, sort_order: 5, dropdown_options: [] },
-          { user_id: currentUser.id, table_view: 'clients', column_key: 'start_date', column_label: 'Start Date', column_type: 'date', is_visible: true, is_default: true, sort_order: 6, dropdown_options: [] }
+          { user_id: currentUser.id, table_view: 'clients', column_key: 'start_date', column_label: 'Start Date', column_type: 'date', is_visible: true, is_default: true, sort_order: 6, dropdown_options: [] },
+
+          ...CALL_QUEUE_DEFAULT_DEFS.map((d, idx) => ({
+            ...d,
+            user_id: currentUser.id,
+            sort_order: idx,
+          })),
         ];
 
         const { data: seeded, error: seedErr } = await supabase
@@ -795,6 +899,7 @@ export default function CRM({
           { table_view: 'pipeline', column_key: 'email',             column_label: 'Email',             column_type: 'text',     is_visible: false, sort_order: 8, dropdown_options: [] },
           { table_view: 'pipeline', column_key: 'phone',             column_label: 'Phone',             column_type: 'text',     is_visible: false, sort_order: 9, dropdown_options: [] },
           { table_view: 'pipeline', column_key: 'company',           column_label: 'Company',           column_type: 'text',     is_visible: false, sort_order: 10, dropdown_options: [] },
+          ...CALL_QUEUE_DEFAULT_DEFS,
         ];
 
         const existingKeys = new Set(dedupedCols.map(c => `${c.table_view}::${c.column_key}`));
@@ -859,6 +964,8 @@ export default function CRM({
     }
   };
 
+  const handleLeadFieldChange = (leadId, field, newVal) => handleDropdownChange(leadId, field, newVal);
+
   const handleClearFilters = () => {
     setStatusFilter('');
     setPriorityFilter('');
@@ -872,8 +979,10 @@ export default function CRM({
   };
 
   const handleResetToDefault = async (targetView) => {
-    const viewToReset = targetView || view;
-    if (!confirm(`Are you sure you want to reset ${viewToReset === 'contact_details' ? 'Contact Details' : 'Pipeline'} to default? All custom columns for this view will be deleted.`)) return;
+    const viewToReset = targetView || (outreachMode === 'calls' ? 'call_queue' : view);
+    const label = viewToReset === 'call_queue' ? 'Cold Calls · Queue'
+      : viewToReset === 'contact_details' ? 'Message · Contact' : 'Message · Pipeline';
+    if (!confirm(`Reset ${label} columns to default? Custom columns for this view will be deleted.`)) return;
     try {
       await supabase
         .from('column_definitions')
@@ -2006,6 +2115,8 @@ export default function CRM({
     }
   });
 
+  const listLeadIdSet = useMemo(() => new Set(sortedLeads.map((l) => l.id)), [sortedLeads]);
+
   const filteredClients = clients.filter(c => {
     const fullSearch = `${c.name} ${c.email} ${c.phone}`.toLowerCase();
     const searchMatch = fullSearch.includes(searchQuery.toLowerCase());
@@ -2019,6 +2130,18 @@ export default function CRM({
         next.delete('folder');
       } else {
         next.set('folder', id);
+        try {
+          const savedMode = localStorage.getItem(`crm_list_mode_${id}`)
+            || localStorage.getItem('crm_outreach_mode')
+            || 'messages';
+          next.set('mode', savedMode);
+          if (savedMode === 'calls') {
+            if (!next.get('callView')) next.set('callView', 'queue');
+          } else {
+            next.delete('callView');
+            if (!next.get('view') || next.get('view') === 'outreach') next.set('view', 'pipeline');
+          }
+        } catch { /* ignore */ }
       }
       return next;
     });
@@ -2072,7 +2195,8 @@ export default function CRM({
 
   return (
     <div className={`flex gap-4 w-full${rootClass}`} style={{ minHeight: 'calc(100vh - 120px)' }}>
-      {/* Folders Sidebar Section */}
+      {/* Folders Sidebar — hidden on Lists home (browse mode) */}
+      {!isBrowseMode && (
       <div className={`folder-sidebar sidebar-folders${blockClass}`}>
         {limits.folders ? (
           <>
@@ -2083,7 +2207,7 @@ export default function CRM({
               style={{ marginBottom: 'var(--space-2)' }}
             >
               <LayoutGrid size={16} style={{ color: 'var(--accent-blue)' }} />
-              <span>Lead lists</span>
+              <span>Lists</span>
             </button>
 
             <h4 style={{ fontSize: 'var(--text-3xs)', letterSpacing: 'var(--tracking-label)', textTransform: 'uppercase', color: 'var(--text-muted)', fontWeight: 600, marginTop: 'var(--space-2)', marginBottom: 'var(--space-2)', paddingLeft: 'var(--space-2)', display: 'flex', alignItems: 'center', gap: 'var(--space-1)' }}>
@@ -2130,9 +2254,9 @@ export default function CRM({
             <div style={{ borderTop: '1px solid var(--border)', margin: 'var(--space-2) 0' }}></div>
 
             <h4 style={{ fontSize: 'var(--text-3xs)', letterSpacing: 'var(--tracking-label)', textTransform: 'uppercase', color: 'var(--text-muted)', fontWeight: 600, marginTop: 'var(--space-5)', marginBottom: 'var(--space-2)', paddingLeft: 'var(--space-2)', display: 'flex', alignItems: 'center', gap: 'var(--space-1)' }}>
-              Smart Lists
-              <HelpPopover title="Smart Lists">
-                Smart lists auto-filter leads using rules you define (e.g. Status = Contacted). They update live as your leads change.
+              Auto lists
+              <HelpPopover title="Auto lists">
+                Auto lists filter leads automatically using rules (e.g. Status = Contacted). Leads appear here when they match — you don&apos;t assign them manually.
               </HelpPopover>
             </h4>
             {userFolders.map(uf => {
@@ -2223,6 +2347,7 @@ export default function CRM({
           </div>
         )}
       </div>
+      )}
 
       {/* Leads Table Content Section */}
       <div className={`flex-col gap-4${blockClass}`} style={{ flex: 1, textAlign: 'left' }}>
@@ -2249,13 +2374,45 @@ export default function CRM({
         <>
         <nav className="crm-list-breadcrumb" aria-label="List location">
           <button type="button" className="crm-list-breadcrumb-link" onClick={() => handleSelectFolder('home')}>
-            Lead lists
+            Lists
           </button>
           <ChevronRight size={14} className="crm-list-breadcrumb-sep" aria-hidden />
           <span className="crm-list-breadcrumb-current">{getActiveFolderLabel()}</span>
         </nav>
 
-        {/* View Switcher Tabs */}
+        {/* Outreach mode switcher */}
+        <div
+          className="flex gap-2"
+          style={{
+            marginBottom: '0.75rem',
+            padding: '0.25rem',
+            background: 'var(--bg-tertiary)',
+            borderRadius: '8px',
+            border: '1px solid var(--border-color)',
+            width: 'fit-content',
+          }}
+        >
+          <button
+            type="button"
+            onClick={() => handleModeChange('messages')}
+            className={`btn btn-sm ${outreachMode === 'messages' ? 'btn-primary' : 'btn-secondary'}`}
+            style={{ borderRadius: '6px' }}
+          >
+            <Mail size={13} /> Message Outreach
+          </button>
+          <button
+            type="button"
+            onClick={() => handleModeChange('calls')}
+            className={`btn btn-sm ${outreachMode === 'calls' ? 'btn-primary' : 'btn-secondary'}`}
+            style={{ borderRadius: '6px', display: 'inline-flex', alignItems: 'center', gap: '0.35rem' }}
+          >
+            <Phone size={13} /> Cold Calls
+          </button>
+        </div>
+
+        {outreachMode === 'messages' ? (
+        <>
+        {/* Message sub-views */}
         <div className="flex gap-2" style={{ borderBottom: '1px solid var(--border-color)', paddingBottom: '1px', marginBottom: '1rem' }}>
           <button 
             type="button"
@@ -2273,22 +2430,59 @@ export default function CRM({
           >
             Pipeline View
           </button>
+        </div>
+        </>
+        ) : (
+        <>
+        {/* Calls sub-views */}
+        <div className="flex gap-2" style={{ borderBottom: '1px solid var(--border-color)', paddingBottom: '1px', marginBottom: '1rem' }}>
           <button
             type="button"
-            onClick={() => handleViewChange('outreach')}
-            className={`btn btn-sm ${view === 'outreach' ? 'btn-primary' : 'btn-secondary'}`}
-            style={{ borderBottomLeftRadius: 0, borderBottomRightRadius: 0, display: 'inline-flex', alignItems: 'center', gap: '0.35rem' }}
+            onClick={() => handleCallSubViewChange('queue')}
+            className={`btn btn-sm ${callSubView === 'queue' ? 'btn-primary' : 'btn-secondary'}`}
+            style={{ borderBottomLeftRadius: 0, borderBottomRightRadius: 0 }}
           >
-            <Phone size={13} /> Call Activity
+            Call Queue
+          </button>
+          <button
+            type="button"
+            onClick={() => handleCallSubViewChange('log')}
+            className={`btn btn-sm ${callSubView === 'log' ? 'btn-primary' : 'btn-secondary'}`}
+            style={{ borderBottomLeftRadius: 0, borderBottomRightRadius: 0 }}
+          >
+            Call Log
           </button>
         </div>
+        </>
+        )}
 
-        {view === 'outreach' ? (
-          <OutreachTracker
-            currentUser={currentUser}
-            leads={leads}
-            onOpenLead={handleOpenLead}
-          />
+        {outreachMode === 'calls' ? (
+          callSubView === 'queue' ? (
+            <CallQueueTable
+              leads={sortedLeads}
+              columnDefs={columnDefs}
+              getWidth={getWidth}
+              setWidth={setWidth}
+              currentUser={currentUser}
+              teamId={currentUser?.team_id || null}
+              onOpenLead={handleOpenLead}
+              onStatusChange={handleStatusChange}
+              onFieldChange={handleLeadFieldChange}
+              onCopied={handleCopyCell}
+              onRefresh={fetchData}
+              onOpenColumnManager={() => setShowColumnManager(true)}
+              showNoteSharing={!!currentUser?.team_id}
+            />
+          ) : (
+            <OutreachTracker
+              currentUser={currentUser}
+              leads={sortedLeads}
+              onOpenLead={handleOpenLead}
+              embedded
+              leadIdSet={listLeadIdSet}
+              hideSessionControls
+            />
+          )
         ) : (
         <>
         {/* Toolbar */}
@@ -2735,10 +2929,10 @@ export default function CRM({
           </div>
         ) : (
           <div className="card" style={{ padding: 0, overflowX: 'auto', overflowY: 'visible', height: 'auto' }}>
-            <table className="data-table" style={{ borderCollapse: 'collapse' }}>
+            <table className="data-table data-table--resizable" style={{ borderCollapse: 'collapse' }}>
             <thead>
               <tr style={{ borderBottom: '1px solid var(--border)', textAlign: 'left', background: 'var(--bg-tertiary)' }}>
-                <th style={{ width: '40px' }}>
+                <th style={{ width: '40px', minWidth: '40px', maxWidth: '40px' }}>
                   <button 
                     type="button"
                     onClick={() => handleSelectAll(paginatedList)}
@@ -2752,53 +2946,50 @@ export default function CRM({
                   </button>
                 </th>
                 {view === 'contact_details' && (
-                  <th style={{ width: '36px', userSelect: 'none' }}>#</th>
+                  <th style={{ width: '36px', minWidth: '36px', maxWidth: '36px', userSelect: 'none' }}>#</th>
                 )}
-                {(() => {
-                  const allViewCols = columnDefs
-                    .filter(c => c.table_view === view)
-                    .filter((c, index, self) => self.findIndex(t => t.column_key === c.column_key) === index);
-                  const pinnedKeys = view === 'contact_details' ? ['name', 'status', 'platform'] : ['name', 'status'];
-                  const pinnedCols = pinnedKeys
-                    .map(key => allViewCols.find(c => c.column_key === key))
-                    .filter(Boolean);
-                  const otherCols = allViewCols
-                    .filter(c => !pinnedKeys.includes(c.column_key) && c.is_visible)
-                    .sort((a, b) => a.sort_order - b.sort_order);
-                  const headerCols = [...pinnedCols, ...otherCols];
-                  return headerCols.map(col => {
-                    const isProject = col.column_key === 'project';
-                    const userPlan = (currentUser?.plan || 'trial').toLowerCase();
-                    const isProjectUnlocked = !['trial', 'starter'].includes(userPlan);
-                    return (
-                      <th key={col.id}>
-                        <div style={{ display: 'inline-flex', alignItems: 'center', gap: 'var(--space-1)' }}>
-                          {col.column_key === 'status' ? (
-                            <>
-                              Status
-                              <HelpPopover title="Status & Checkpoints" align="left">
-                                The checkpoint bubble next to Status tracks whether a lead has replied or needs a follow-up check. Click it to log outcomes and automatically schedule/cancel reminders.
-                              </HelpPopover>
-                            </>
-                          ) : col.column_key === 'platform' ? (
-                            <>
-                              Reach
-                              <HelpPopover title="Reach Link System" align="left">
-                                Click a lead's Reach icon to open their outreach channel (LinkedIn, email, etc.) and optionally select a template. The app tracks that you reached out and updates Last Contacted.
-                              </HelpPopover>
-                            </>
-                          ) : col.column_label}
-                          {isProject && !isProjectUnlocked && (
-                            <Lock size={12} style={{ color: 'var(--text-muted)' }} title="Locked on Starter/Trial plans" />
-                          )}
-                        </div>
-                      </th>
-                    );
-                  });
-                })()
-                }
-                {isTeamView && <th>Added By</th>}
-                <th style={{ textAlign: 'right' }}>
+                {tableCols.map(col => {
+                  const isProject = col.column_key === 'project';
+                  const userPlan = (currentUser?.plan || 'trial').toLowerCase();
+                  const isProjectUnlocked = !['trial', 'starter'].includes(userPlan);
+                  return (
+                    <ResizableTh
+                      key={col.id}
+                      columnKey={col.column_key}
+                      width={getWidth(col.column_key)}
+                      onResize={setWidth}
+                    >
+                      <div style={{ display: 'inline-flex', alignItems: 'center', gap: 'var(--space-1)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                        {col.column_key === 'status' ? (
+                          <>
+                            Status
+                            <HelpPopover title="Status & Checkpoints" align="left">
+                              The checkpoint bubble next to Status tracks whether a lead has replied or needs a follow-up check. Click it to log outcomes and automatically schedule/cancel reminders.
+                            </HelpPopover>
+                          </>
+                        ) : col.column_key === 'platform' ? (
+                          <>
+                            Reach
+                            <HelpPopover title="Reach Link System" align="left">
+                              Click a lead's Reach icon to open their outreach channel (LinkedIn, email, etc.) and optionally select a template. The app tracks that you reached out and updates Last Contacted.
+                            </HelpPopover>
+                          </>
+                        ) : col.column_key === 'action_to_take' ? (
+                          'Next step'
+                        ) : col.column_label}
+                        {isProject && !isProjectUnlocked && (
+                          <Lock size={12} style={{ color: 'var(--text-muted)' }} title="Locked on Starter/Trial plans" />
+                        )}
+                      </div>
+                    </ResizableTh>
+                  );
+                })}
+                {isTeamView && (
+                  <ResizableTh columnKey="_added_by" width={getWidth('_added_by')} onResize={setWidth}>
+                    Added By
+                  </ResizableTh>
+                )}
+                <th style={{ textAlign: 'right', width: 100, minWidth: 100 }}>
                   <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'flex-end', gap: '0.5rem' }}>
                     <HelpPopover title="Column Manager" align="right">
                       Customise which columns appear in your CRM table, in what order, and for which view (Contact Details / Pipeline / Clients). Add custom columns on Pro/Teams.
@@ -2819,7 +3010,7 @@ export default function CRM({
             <tbody>
               {paginatedList.length === 0 ? (
                 <tr>
-                  <td colSpan={columnDefs.filter(c => c.table_view === view && c.is_visible).length + (isTeamView ? 3 : 2) + (view === 'contact_details' ? 1 : 0)} style={{ padding: '3rem', textAlign: 'center', color: 'var(--text-muted)' }}>
+                  <td colSpan={tableCols.length + (isTeamView ? 3 : 2) + (view === 'contact_details' ? 1 : 0)} style={{ padding: '3rem', textAlign: 'center', color: 'var(--text-muted)' }}>
                     No records found matching current parameters.
                   </td>
                 </tr>
@@ -2827,19 +3018,6 @@ export default function CRM({
                 paginatedList.map((lead, rowIndex) => {
                   const isSelected = selectedIds.includes(lead.id);
                   const addedByEmail = teamProfilesMap[lead.user_id];
-                  const allViewCols = columnDefs
-                    .filter(c => c.table_view === view)
-                    .filter((c, index, self) => self.findIndex(t => t.column_key === c.column_key) === index);
-
-                  // FIX 2B: Pin Name, Status, Reach to front; append other visible cols sorted by sort_order
-                  const pinnedKeys = view === 'contact_details' ? ['name', 'status', 'platform'] : ['name', 'status'];
-                  const pinnedCols = pinnedKeys
-                    .map(key => allViewCols.find(c => c.column_key === key))
-                    .filter(Boolean);
-                  const otherCols = allViewCols
-                    .filter(c => !pinnedKeys.includes(c.column_key) && c.is_visible)
-                    .sort((a, b) => a.sort_order - b.sort_order);
-                  const activeCols = [...pinnedCols, ...otherCols];
 
                   return (
                     <tr 
@@ -2865,60 +3043,66 @@ export default function CRM({
                         </td>
                       )}
                       
-                      {activeCols.map(col => {
+                      {tableCols.map(col => {
                         const isCustom = !col.is_default;
                         const cellValue = isCustom ? lead.custom_fields?.[col.column_key] : lead[col.column_key];
+                        const copyValue = getLeadCellCopyValue(lead, col);
+                        const tdProps = { key: col.id, style: cellWidth(col.column_key) };
 
                         if (col.column_key === 'name') {
                           const folder = folders.find(f => f.id === lead.folder_id);
+                          const displayName = `${lead.first_name || ''} ${lead.last_name || ''}`.trim() || '—';
                           return (
-                            <td key={col.id}>
-                              <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
-                                <span style={{ fontWeight: 600 }} data-ph-mask>
-                                  {`${lead.first_name || ''} ${lead.last_name || ''}`.trim() || '—'}
+                            <td {...tdProps}>
+                              <CopyableCell value={copyValue} onCopied={handleCopyCell}>
+                                <span style={{ display: 'inline-flex', alignItems: 'center', gap: '0.5rem', minWidth: 0 }}>
+                                  <span style={{ fontWeight: 600 }} data-ph-mask>{displayName}</span>
+                                  {showListBadge && folder && (
+                                    <span className="badge" style={{ fontSize: '0.65rem', display: 'inline-flex', alignItems: 'center', gap: '0.2rem', padding: '0.1rem 0.35rem', borderColor: folder.color, color: folder.color, background: `${folder.color}11`, flexShrink: 0, maxWidth: '140px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }} title={folder.name}>
+                                      <Folder size={10} /> {folder.name}
+                                    </span>
+                                  )}
                                 </span>
-                                {folder && (
-                                  <span className="badge" style={{ fontSize: '0.65rem', display: 'inline-flex', alignItems: 'center', gap: '0.2rem', padding: '0.1rem 0.35rem', borderColor: folder.color, color: folder.color, background: `${folder.color}11` }}>
-                                    <Folder size={10} /> {folder.name}
-                                  </span>
-                                )}
-                              </div>
+                              </CopyableCell>
                             </td>
                           );
                         }
 
                         if (col.column_key === 'template_used') {
                           return (
-                            <td key={col.id} onClick={(e) => e.stopPropagation()}>
-                              <div style={{ display: 'flex', alignItems: 'center', gap: '0.35rem' }}>
-                                <div style={{ flex: 1, minWidth: 0 }}>
-                                  <GroupedTemplateDropdown
-                                    value={lead.template_used || ''}
-                                    onChange={(val) => handleDropdownChange(lead.id, 'template_used', val)}
-                                    templates={templates}
-                                    placeholder="None"
-                                  />
+                            <td {...tdProps} onClick={(e) => e.stopPropagation()}>
+                              <CopyableCell value={lead.template_used || ''} onCopied={handleCopyCell} variant="inline">
+                                <div style={{ display: 'flex', alignItems: 'center', gap: '0.35rem' }}>
+                                  <div style={{ flex: 1, minWidth: 0 }}>
+                                    <GroupedTemplateDropdown
+                                      value={lead.template_used || ''}
+                                      onChange={(val) => handleDropdownChange(lead.id, 'template_used', val)}
+                                      templates={templates}
+                                      placeholder="None"
+                                    />
+                                  </div>
+                                  {lead.template_used && (
+                                    <button
+                                      type="button"
+                                      onClick={() => handleCopyPersonalizedMessage(lead, lead.template_used)}
+                                      className="btn btn-secondary btn-sm"
+                                      style={{
+                                        padding: '4px 6px',
+                                        minHeight: 'auto',
+                                        display: 'inline-flex',
+                                        alignItems: 'center',
+                                        justifyContent: 'center',
+                                        borderColor: 'var(--border)',
+                                        borderRadius: '3px',
+                                        flexShrink: 0,
+                                      }}
+                                      title="Copy personalized message"
+                                    >
+                                      <Copy size={13} />
+                                    </button>
+                                  )}
                                 </div>
-                                {lead.template_used && (
-                                  <button
-                                    type="button"
-                                    onClick={() => handleCopyPersonalizedMessage(lead, lead.template_used)}
-                                    className="btn btn-secondary btn-sm"
-                                    style={{
-                                      padding: '4px 6px',
-                                      minHeight: 'auto',
-                                      display: 'inline-flex',
-                                      alignItems: 'center',
-                                      justifyContent: 'center',
-                                      borderColor: 'var(--border)',
-                                      borderRadius: '3px'
-                                    }}
-                                    title="Copy personalized message"
-                                  >
-                                    <Copy size={13} />
-                                  </button>
-                                )}
-                              </div>
+                              </CopyableCell>
                             </td>
                           );
                         }
@@ -2926,25 +3110,29 @@ export default function CRM({
                         if (col.column_key === 'status') {
                           const currentStatus = cellValue || 'Lead';
                           return (
-                            <td key={col.id} onClick={(e) => e.stopPropagation()}>
-                              <GroupedStatusDropdown
-                                value={currentStatus}
-                                onChange={(newVal) => handleDropdownChange(lead.id, 'status', newVal)}
-                                isTableInline={true}
-                                onUpdate={fetchData}
-                              />
+                            <td {...tdProps} onClick={(e) => e.stopPropagation()}>
+                              <CopyableCell value={currentStatus} onCopied={handleCopyCell} variant="inline">
+                                <GroupedStatusDropdown
+                                  value={currentStatus}
+                                  onChange={(newVal) => handleDropdownChange(lead.id, 'status', newVal)}
+                                  isTableInline={true}
+                                  onUpdate={fetchData}
+                                />
+                              </CopyableCell>
                             </td>
                           );
                         }
 
                         if (col.column_key === 'priority') {
                           return (
-                            <td key={col.id} onClick={(e) => e.stopPropagation()}>
-                              <PriorityDropdown
-                                value={lead.priority}
-                                onChange={(val) => handleDropdownChange(lead.id, 'priority', val)}
-                                onUpdate={fetchData}
-                              />
+                            <td {...tdProps} onClick={(e) => e.stopPropagation()}>
+                              <CopyableCell value={lead.priority || ''} onCopied={handleCopyCell} variant="inline">
+                                <PriorityDropdown
+                                  value={lead.priority}
+                                  onChange={(val) => handleDropdownChange(lead.id, 'priority', val)}
+                                  onUpdate={fetchData}
+                                />
+                              </CopyableCell>
                             </td>
                           );
                         }
@@ -2959,9 +3147,10 @@ export default function CRM({
                           const showLightbulb = isActionToTake && (isSuggestionMismatch || isCheckpointDue);
 
                           return (
-                            <td key={col.id} onClick={(e) => e.stopPropagation()}>
-                              <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
-                                <EditableDropdown
+                            <td {...tdProps} onClick={(e) => e.stopPropagation()}>
+                              <CopyableCell value={cellValue || ''} onCopied={handleCopyCell} variant="inline">
+                                <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+                                  <EditableDropdown
                                   value={cellValue}
                                   columnDef={col}
                                   onChange={(val) => {
@@ -3010,7 +3199,8 @@ export default function CRM({
                                     <Lightbulb size={16} />
                                   </button>
                                 )}
-                              </div>
+                                </div>
+                              </CopyableCell>
                             </td>
                           );
                         }
@@ -3023,16 +3213,18 @@ export default function CRM({
                             catch { domain = cellValue.slice(0, 22); }
                           }
                           return (
-                            <td key={col.id} onClick={(e) => e.stopPropagation()}>
-                              {linkHref ? (
-                                <a href={linkHref} target="_blank" rel="noopener noreferrer"
-                                  style={{ color: 'var(--accent-blue)', textDecoration: 'none', fontSize: '0.8rem', display: 'inline-flex', alignItems: 'center', gap: '4px' }}
-                                >
-                                  <ExternalLink size={11} />{domain}
-                                </a>
-                              ) : (
-                                <span style={{ color: 'var(--text-muted)' }}>—</span>
-                              )}
+                            <td {...tdProps} onClick={(e) => e.stopPropagation()}>
+                              <CopyableCell value={cellValue || ''} onCopied={handleCopyCell}>
+                                {linkHref ? (
+                                  <a href={linkHref} target="_blank" rel="noopener noreferrer"
+                                    style={{ color: 'var(--accent-blue)', textDecoration: 'none', fontSize: '0.8rem', display: 'inline-flex', alignItems: 'center', gap: '4px' }}
+                                  >
+                                    <ExternalLink size={11} />{domain}
+                                  </a>
+                                ) : (
+                                  <span style={{ color: 'var(--text-muted)' }}>—</span>
+                                )}
+                              </CopyableCell>
                             </td>
                           );
                         }
@@ -3048,15 +3240,17 @@ export default function CRM({
                             } catch {}
                           }
                           return (
-                            <td key={col.id} style={{ fontSize: '0.82rem', color: 'var(--text-secondary)', whiteSpace: 'nowrap' }}>
-                              {formatted}
+                            <td {...tdProps} style={{ ...tdProps.style, fontSize: '0.82rem', color: 'var(--text-secondary)', whiteSpace: 'nowrap' }}>
+                              <CopyableCell value={formatted === '—' ? '' : formatted} onCopied={handleCopyCell}>
+                                {formatted}
+                              </CopyableCell>
                             </td>
                           );
                         }
 
                         if (col.column_key === 'platform' || col.column_type === 'reach' || col.column_type === 'system') {
                           return (
-                            <td key={col.id} onClick={(e) => e.stopPropagation()}>
+                            <td {...tdProps} onClick={(e) => e.stopPropagation()}>
                               <ReachIcons lead={lead} columnDefs={columnDefs} onReachClick={handleReachClick} />
                             </td>
                           );
@@ -3066,12 +3260,14 @@ export default function CRM({
                         if (['linkedin_url', 'instagram_url', 'twitter_url', 'website'].includes(col.column_key) && cellValue) {
                           const url = cellValue.startsWith('http') ? cellValue : `https://${cellValue}`;
                           return (
-                            <td key={col.id} onClick={(e) => e.stopPropagation()}>
-                              <a href={url} target="_blank" rel="noopener noreferrer"
-                                style={{ color: 'var(--accent-blue)', textDecoration: 'none', fontSize: '0.85rem' }}
-                                data-ph-mask>
-                                {cellValue}
-                              </a>
+                            <td {...tdProps} onClick={(e) => e.stopPropagation()} data-ph-mask>
+                              <CopyableCell value={cellValue} onCopied={handleCopyCell}>
+                                <a href={url} target="_blank" rel="noopener noreferrer"
+                                  style={{ color: 'var(--accent-blue)', textDecoration: 'none', fontSize: '0.85rem' }}
+                                >
+                                  {cellValue}
+                                </a>
+                              </CopyableCell>
                             </td>
                           );
                         }
@@ -3079,12 +3275,15 @@ export default function CRM({
                         // ── Clickable email ────────────────────────────────────
                         if (col.column_key === 'email' && cellValue) {
                           return (
-                            <td key={col.id} onClick={(e) => e.stopPropagation()}>
-                              <a href={`mailto:${cellValue}`}
-                                style={{ color: 'var(--accent-blue)', textDecoration: 'none', fontSize: '0.85rem' }}
-                                data-ph-mask>
-                                {cellValue}
-                              </a>
+                            <td {...tdProps} onClick={(e) => e.stopPropagation()}>
+                              <CopyableCell value={cellValue} onCopied={handleCopyCell}>
+                                <a href={`mailto:${cellValue}`}
+                                  style={{ color: 'var(--accent-blue)', textDecoration: 'none', fontSize: '0.85rem' }}
+                                  data-ph-mask
+                                >
+                                  {cellValue}
+                                </a>
+                              </CopyableCell>
                             </td>
                           );
                         }
@@ -3092,22 +3291,28 @@ export default function CRM({
                         // ── Phone popup ────────────────────────────────────────
                         if (col.column_key === 'phone') {
                           return (
-                            <td key={col.id} onClick={(e) => e.stopPropagation()} data-ph-mask>
-                              <PhonePopup phone={cellValue} />
+                            <td {...tdProps} onClick={(e) => e.stopPropagation()} data-ph-mask>
+                              <CopyableCell value={cellValue || ''} onCopied={handleCopyCell} variant="inline">
+                                <PhonePopup phone={cellValue} />
+                              </CopyableCell>
                             </td>
                           );
                         }
 
                         return (
-                          <td key={col.id} data-ph-mask>
-                            {cellValue || '—'}
+                          <td {...tdProps} data-ph-mask>
+                            <CopyableCell value={copyValue} onCopied={handleCopyCell}>
+                              {cellValue || '—'}
+                            </CopyableCell>
                           </td>
                         );
                       })}
 
                       {isTeamView && (
-                        <td style={{ fontSize: '0.85rem', color: 'var(--text-secondary)' }}>
-                          {addedByEmail || 'Unknown'}
+                        <td style={{ ...cellWidth('_added_by'), fontSize: '0.85rem', color: 'var(--text-secondary)' }}>
+                          <CopyableCell value={addedByEmail || ''} onCopied={handleCopyCell}>
+                            {addedByEmail || 'Unknown'}
+                          </CopyableCell>
                         </td>
                       )}
                       
@@ -3827,7 +4032,7 @@ export default function CRM({
       <ColumnManager
         isOpen={showColumnManager}
         onClose={() => setShowColumnManager(false)}
-        view={view}
+        view={outreachMode === 'calls' ? 'call_queue' : view}
         columns={columnDefs}
         onUpdateColumns={(newCols) => {
           setColumnDefs(newCols.sort((a, b) => a.sort_order - b.sort_order));
@@ -3928,7 +4133,7 @@ export default function CRM({
         <div className="modal-backdrop">
           <div className="modal-content" style={{ maxWidth: '600px', width: '90%' }}>
             <div className="modal-header">
-              <h3>Create smart list</h3>
+              <h3>Create auto list</h3>
               <button onClick={() => setShowSmartFolderModal(false)} className="theme-toggle"><X size={18} /></button>
             </div>
             <form onSubmit={async (e) => {
@@ -3970,7 +4175,10 @@ export default function CRM({
               </div>
               
               <div className="form-group">
-                <label className="form-label">Rules (All rules must match - AND logic)</label>
+                <label className="form-label">Rules (all rules must match)</label>
+                <p style={{ fontSize: '0.75rem', color: 'var(--text-muted)', margin: '0 0 0.5rem' }}>
+                  Leads matching these rules appear in this list automatically — you don&apos;t assign them manually.
+                </p>
                 <div className="flex-col gap-2" style={{ marginTop: '0.5rem', marginBottom: '0.5rem' }}>
                   {smartFolderForm.rules.map((rule, idx) => (
                     <div key={idx} className="flex gap-2 align-center" style={{ flexWrap: 'wrap', marginBottom: '0.5rem' }}>
@@ -4099,7 +4307,7 @@ export default function CRM({
                 >
                   Cancel
                 </button>
-                <button type="submit" className="btn btn-primary">Create smart list</button>
+                <button type="submit" className="btn btn-primary">Create auto list</button>
               </div>
             </form>
           </div>

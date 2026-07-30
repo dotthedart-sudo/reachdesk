@@ -27,9 +27,7 @@ export async function getEffectiveCalendarAccess(profile) {
 }
 
 export function hasTeamCallActivity(profile) {
-  if (!profile?.team_id) return false;
-  const plan = normalizePlan(profile.plan);
-  return plan === 'teams' || plan === 'trial';
+  return !!profile?.team_id;
 }
 
 export async function insertCallAttempt({

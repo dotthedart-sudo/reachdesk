@@ -30,16 +30,27 @@ const PROTECTED_ACTION_VALUES = new Set([
   'No Action'
 ]);
 
-const DEFAULT_ACTION_OPTIONS = [
+export const DEFAULT_ACTION_OPTIONS = [
   { label: 'Send first pitch', color: '#3b82f6' },
   { label: 'Wait for reply', color: '#6b7280' },
   { label: 'Send a follow up', color: '#f59e0b' },
   { label: 'Send a different pitch', color: '#8b5cf6' },
   { label: 'Send proposal', color: '#5B8FB9' },
   { label: 'Send Calendly', color: '#6366f1' },
-  { label: 'Prepare for call', color: '#8b5cf6' },
+  { label: 'Hand off to calls', color: '#8b5cf6' },
   { label: 'Send invoice', color: '#10b981' },
   { label: 'No action needed', color: '#6b7280' }
+];
+
+export const CALL_ACTION_OPTIONS = [
+  { label: 'Call now', color: '#3b82f6' },
+  { label: 'Leave voicemail', color: '#6366f1' },
+  { label: 'Callback scheduled', color: '#f59e0b' },
+  { label: 'Try again tomorrow', color: '#8b5cf6' },
+  { label: 'Wrong number — remove', color: '#ef4444' },
+  { label: 'Not interested — close', color: '#6b7280' },
+  { label: 'Send info by email', color: '#10b981' },
+  { label: 'No call needed', color: '#6b7280' },
 ];
 
 export default function EditableDropdown({
@@ -60,7 +71,12 @@ export default function EditableDropdown({
   const [newOptionColor, setNewOptionColor] = useState(PRESET_COLORS[0]);
 
   const isActionToTake = columnDef?.column_key === 'action_to_take';
-  const rawOptions = isActionToTake ? DEFAULT_ACTION_OPTIONS : (columnDef?.dropdown_options || []);
+  const isCallAction = columnDef?.column_key === 'call_action';
+  const rawOptions = isCallAction
+    ? CALL_ACTION_OPTIONS
+    : isActionToTake
+      ? DEFAULT_ACTION_OPTIONS
+      : (columnDef?.dropdown_options || []);
 
   // Close dropdown on click outside
   useEffect(() => {
@@ -244,6 +260,7 @@ const ACTION_COLORS = {
         </div>
       )}
       <div style={{ borderTop: '1px solid var(--border-color)', margin: '4px 0' }} />
+      {!isCallAction && (
       <button
         type="button"
         className="dropdown-item text-primary"
@@ -265,6 +282,7 @@ const ACTION_COLORS = {
       >
         <Pencil size={12} /> Edit Options
       </button>
+      )}
     </div>,
     document.body
   );

@@ -1,0 +1,77 @@
+.data-table.data-table--resizable {
+  table-layout: fixed;
+}
+
+.data-table.data-table--resizable th,
+.data-table.data-table--resizable td {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  vertical-align: middle;
+}
+
+.col-resize-handle {
+  position: absolute;
+  top: 0;
+  right: 0;
+  width: 6px;
+  height: 100%;
+  cursor: col-resize;
+  z-index: 2;
+}
+
+.col-resize-handle:hover,
+.col-resize-handle:active {
+  background: var(--accent-blue, #5b8fb9);
+  opacity: 0.35;
+}
+
+.copyable-cell {
+  display: flex;
+  align-items: center;
+  gap: 0.35rem;
+  min-width: 0;
+  width: 100%;
+}
+
+.copyable-cell__content {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.copyable-cell--inline {
+  align-items: center;
+}
+
+.copyable-cell__slot {
+  flex: 1;
+  min-width: 0;
+}
+
+.copyable-cell__btn {
+  flex-shrink: 0;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 2px 4px;
+  border: 1px solid var(--border-color);
+  border-radius: 4px;
+  background: var(--bg-card);
+  color: var(--text-muted);
+  cursor: pointer;
+  opacity: 0;
+  transition: opacity 0.12s ease, color 0.12s ease, border-color 0.12s ease;
+}
+
+.copyable-cell__btn:hover {
+  color: var(--text-primary);
+  border-color: var(--accent-blue);
+}
+
+.data-table tr:hover .copyable-cell__btn,
+.copyable-cell:hover .copyable-cell__btn,
+.copyable-cell__btn:focus-visible {
+  opacity: 1;
+}
