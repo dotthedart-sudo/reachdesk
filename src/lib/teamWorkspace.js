@@ -104,16 +104,114 @@ export function storeInviteToken(token) {
   } catch { /* ignore */ }
 }
 
-export async function processTeamInvites() {
+const INVITE_RETRY_DELAY_MS = 600;
+
+function delay(ms) {
+  return new Promise((resolve) => setTimeout(resolve, ms));
+}
+
+/** Look up team owner profile (teams.owner_id, then team_role=owner fallback). */
+export async function getTeamOwnerProfileForMember(profile) {
+  if (!profile?.team_id) return null;
+  if ((profile.team_role || 'owner').toLowerCase() !== 'member') return null;
+
+  const { data: team } = await supabase
+    .from('teams')
+    .select('owner_id')
+    .eq('id', profile.team_id)
+    .maybeSingle();
+
+  if (team?.owner_id) {
+    const { data: ownerById } = await supabase
+      .from('user_profiles')
+      .select('id, plan, plan_status, team_id, team_role')
+      .eq('id', team.owner_id)
+      .maybeSingle();
+    if (ownerById) return ownerById;
+  }
+
+  const { data: ownerByRole } = await supabase
+    .from('user_profiles')
+    .select('id, plan, plan_status, team_id, team_role')
+    .eq('team_id', profile.team_id)
+    .eq('team_role', 'owner')
+    .maybeSingle();
+
+  return ownerByRole ?? null;
+}
+
+/** Member on a team whose owner has active Teams plan — bypasses personal trial/sub lock. */
+export async function isActiveTeamMember(profile) {
+  if (!profile?.team_id) return false;
+  if ((profile.team_role || 'owner').toLowerCase() !== 'member') return false;
+
+  const owner = await getTeamOwnerProfileForMember(profile);
+  if (!owner) return false;
+
+  const ownerPlan = normalizePlan(owner.plan);
+  if (ownerPlan !== 'teams') return false;
+  if (owner.plan_status && owner.plan_status !== 'active') return false;
+  return true;
+}
+
+/**
+ * Accept pending team invite (URL token or email match). Retries briefly for signup race conditions.
+ */
+export async function processTeamInvites({ retries = 2 } = {}) {
   const token = getStoredInviteToken();
-  if (token) {
-    const result = await acceptTeamInvitationByToken(token);
-    if (result?.ok) {
-      storeInviteToken(null);
-      return result;
+  let lastResult = { ok: false };
+
+  for (let attempt = 0; attempt <= retries; attempt += 1) {
+    if (token) {
+      try {
+        const result = await acceptTeamInvitationByToken(token);
+        lastResult = result ?? { ok: false };
+        if (result?.ok) {
+          storeInviteToken(null);
+          return result;
+        }
+      } catch (err) {
+        console.warn('[teamWorkspace] accept_team_invitation failed:', err);
+        lastResult = { ok: false, error: err.message };
+      }
+    }
+
+    try {
+      const emailResult = await acceptPendingTeamInviteByEmail();
+      lastResult = emailResult ?? { ok: false };
+      if (emailResult?.ok) {
+        storeInviteToken(null);
+        return emailResult;
+      }
+    } catch (err) {
+      console.warn('[teamWorkspace] accept_pending_team_invite_by_email failed:', err);
+      lastResult = { ok: false, error: err.message };
+    }
+
+    if (attempt < retries) {
+      await delay(INVITE_RETRY_DELAY_MS);
     }
   }
-  return acceptPendingTeamInviteByEmail();
+
+  if (!lastResult?.ok && (token || lastResult?.error)) {
+    console.warn('[teamWorkspace] processTeamInvites did not accept invite:', lastResult);
+  }
+
+  return lastResult;
+}
+
+/** Refresh profile after invite accept (for auth callback when full fetchProfile is skipped). */
+export async function refreshProfileAfterInvite(userId) {
+  const result = await processTeamInvites({ retries: 2 });
+  if (!result?.ok || !userId) return { result, profile: null };
+
+  const { data: refreshed } = await supabase
+    .from('user_profiles')
+    .select('*')
+    .eq('id', userId)
+    .maybeSingle();
+
+  return { result, profile: refreshed ?? null };
 }
 
 export async function ensureProOwnerWorkspaceIfNeeded(profile) {

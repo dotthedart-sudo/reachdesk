@@ -1,10 +1,16 @@
+-- Requires: ALTER DATABASE postgres SET app.settings.cron_secret TO 'same-as-CRON_SECRET';
+-- See scratch/setup_cron.sql for full idempotent setup.
 SELECT cron.schedule(
   'cleanup-draft-invoices-daily',
   '0 3 * * *',
   $$
   SELECT net.http_post(
-    url:='https://efxgwqfdstrhrnnvtynl.supabase.co/functions/v1/cleanup-draft-invoices',
-    headers:='{"Authorization": "Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImVmeGd3cWZkc3RyaHJubnZ0eW5sIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODE0MzIzMzUsImV4cCI6MjA5NzAwODMzNX0.SIx6dg2axCiitN0NtUkh4Ho7ryreKWskVOQzFEY8-yc"}'::jsonb
+    url := 'https://efxgwqfdstrhrnnvtynl.supabase.co/functions/v1/cleanup-draft-invoices',
+    headers := jsonb_build_object(
+      'x-cron-secret', current_setting('app.settings.cron_secret', true),
+      'Content-Type', 'application/json'
+    ),
+    body := '{}'::jsonb
   );
   $$
 );

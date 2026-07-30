@@ -7,7 +7,9 @@
     "dev": "vite",
     "build": "node scripts/generate-sitemap.cjs && vite build",
     "lint": "eslint .",
-    "preview": "vite preview"
+    "preview": "vite preview",
+    "deploy:supabase": "node scratch/deploy_supabase.cjs --apply",
+    "deploy:supabase:dry-run": "node scratch/deploy_supabase.cjs"
   },
   "dependencies": {
     "@excalidraw/excalidraw": "^0.18.1",

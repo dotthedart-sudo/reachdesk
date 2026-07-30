@@ -4,7 +4,7 @@ import { ArrowLeft, ShieldAlert, Check, Eye, EyeOff } from 'lucide-react';
 import { supabase } from '../lib/supabase';
 import { getAppUrl, getMarketingUrl, isLocalDev } from '../utils/domain';
 import { TRIAL_MARKETING } from '../lib/planMarketing';
-import { getStoredInviteToken, storeInviteToken } from '../lib/teamWorkspace';
+import { getStoredInviteToken, storeInviteToken, processTeamInvites } from '../lib/teamWorkspace';
 import AuthLogo from './AuthLogo';
 import { BRAND_NAME } from '../config/brand';
 
@@ -82,6 +82,17 @@ export default function Auth({ mode = 'login' }) {
     return () => clearInterval(timer);
   }, [resendCooldown]);
 
+  const finishAuthNavigation = async (destination, { acceptInvite = false } = {}) => {
+    if (acceptInvite) {
+      try {
+        await processTeamInvites({ retries: 3 });
+      } catch (inviteErr) {
+        console.warn('[Auth] Team invite accept failed:', inviteErr);
+      }
+    }
+    navigate(destination);
+  };
+
   const sendOtp = async (targetEmail) => {
     const { error: otpErr } = await supabase.auth.signInWithOtp({
       email: targetEmail,
@@ -138,14 +149,14 @@ export default function Auth({ mode = 'login' }) {
             },
           });
           if (signUpErr) throw signUpErr;
-          navigate('/setup');
+          await finishAuthNavigation('/setup');
         } else {
           const { error: loginErr } = await supabase.auth.signInWithPassword({
             email: email.trim(),
             password: password.trim(),
           });
           if (loginErr) throw loginErr;
-          navigate('/dashboard');
+          await finishAuthNavigation('/dashboard', { acceptInvite: !!getStoredInviteToken() });
         }
       } catch (err) {
         let msg = err.message || (isSignup ? 'Sign up failed.' : 'Login failed.');
@@ -223,7 +234,9 @@ export default function Auth({ mode = 'login' }) {
         type: 'email',
       });
       if (verifyErr) throw verifyErr;
-      navigate(isSignup ? '/setup' : '/dashboard');
+      await finishAuthNavigation(isSignup ? '/setup' : '/dashboard', {
+        acceptInvite: !isSignup && !!getStoredInviteToken(),
+      });
     } catch (err) {
       setError('Invalid or expired code. Try again.');
     } finally {

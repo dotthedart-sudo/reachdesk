@@ -6,6 +6,9 @@ import { registerLifetimeSession, validateLifetimeSession, clearLifetimeSession 
 import {
   ensureProOwnerWorkspaceIfNeeded,
   processTeamInvites,
+  isActiveTeamMember,
+  getStoredInviteToken,
+  refreshProfileAfterInvite,
 } from './lib/teamWorkspace';
 import { Lock } from 'lucide-react';
 import { subscribeToPush } from './utils/pushNotifications';
@@ -432,6 +435,15 @@ function AppProvider({ children }) {
           // Pass the live session explicitly — the React `session` state is still
           // stale inside fetchProfile's closure when called from this callback.
           fetchProfile(session.user.id, session);
+        } else if (getStoredInviteToken()) {
+          // Signup may finish auth before fetchProfile runs again — retry invite accept.
+          refreshProfileAfterInvite(session.user.id).then(async ({ result, profile: refreshed }) => {
+            if (!result?.ok || !refreshed) return;
+            setProfile(refreshed);
+            setSubStatus(await checkSubscriptionStatus(refreshed));
+            const ids = await getTeamIds(session.user.id);
+            setTeamIds(ids);
+          }).catch((err) => console.warn('[Profile] Invite retry failed:', err));
         }
       } else {
         // Signed out — clear the ref so next login loads fresh
@@ -449,6 +461,7 @@ function AppProvider({ children }) {
     if (p.role === 'admin') return 'active';
     if (p.status === 'denied') return 'denied';
     if (p.plan === 'enterprise' || p.plan === 'lifetime') return 'active';
+    if (await isActiveTeamMember(p)) return 'active';
 
     if (p.plan === 'trial') {
       if (p.trial_ends_at && new Date(p.trial_ends_at) < new Date()) {
@@ -532,10 +545,12 @@ function AppProvider({ children }) {
 
           let joinedProfile = newProfile;
           try {
-            const inviteResult = await processTeamInvites();
+            const inviteResult = await processTeamInvites({ retries: 3 });
             if (inviteResult?.ok) {
               const { data: refreshed } = await supabase.from('user_profiles').select('*').eq('id', userId).maybeSingle();
               if (refreshed) joinedProfile = refreshed;
+            } else if (getStoredInviteToken()) {
+              console.warn('[Profile] Team invite not accepted on signup:', inviteResult);
             }
           } catch (inviteErr) {
             console.warn('[Profile] Team invite accept failed:', inviteErr);
@@ -565,26 +580,10 @@ function AppProvider({ children }) {
 
         if (p) {
           const now = new Date();
-          const isAdminUser = p.role === 'admin';
-          const isLifetimeOrLegacy = p.plan === 'enterprise' || p.plan === 'lifetime';
-          
-          let isTrialExpired = false;
-          if (p.plan === 'trial') {
-            const trialEnds = p.trial_ends_at ? new Date(p.trial_ends_at) : null;
-            isTrialExpired = trialEnds && now > trialEnds && p.status !== 'approved';
-          }
-          
-          let isSubscriptionExpired = false;
-          if (p.plan !== 'trial' && !isLifetimeOrLegacy) {
-            const planExpires = p.plan_expires_at ? new Date(p.plan_expires_at) : null;
-            isSubscriptionExpired = planExpires && now > planExpires;
-          }
-
-          const shouldLock = !isAdminUser && !isLifetimeOrLegacy && (isTrialExpired || isSubscriptionExpired);
-          
           let profileToSet = p;
+
           try {
-            const inviteResult = await processTeamInvites();
+            const inviteResult = await processTeamInvites({ retries: 2 });
             if (inviteResult?.ok) {
               const { data: refreshed } = await supabase.from('user_profiles').select('*').eq('id', userId).maybeSingle();
               if (refreshed) profileToSet = refreshed;
@@ -594,7 +593,37 @@ function AppProvider({ children }) {
             console.warn('[Profile] Team workspace setup failed:', teamErr);
           }
 
-          if (shouldLock && !profileToSet.account_locked) {
+          const isAdminUser = profileToSet.role === 'admin';
+          const isLifetimeOrLegacy = profileToSet.plan === 'enterprise' || profileToSet.plan === 'lifetime';
+          const onActiveTeam = await isActiveTeamMember(profileToSet);
+
+          let isTrialExpired = false;
+          if (!onActiveTeam && profileToSet.plan === 'trial') {
+            const trialEnds = profileToSet.trial_ends_at ? new Date(profileToSet.trial_ends_at) : null;
+            isTrialExpired = trialEnds && now > trialEnds && profileToSet.status !== 'approved';
+          }
+
+          let isSubscriptionExpired = false;
+          if (!onActiveTeam && profileToSet.plan !== 'trial' && !isLifetimeOrLegacy) {
+            const planExpires = profileToSet.plan_expires_at ? new Date(profileToSet.plan_expires_at) : null;
+            isSubscriptionExpired = planExpires && now > planExpires;
+          }
+
+          const shouldLock = !onActiveTeam && !isAdminUser && !isLifetimeOrLegacy && (isTrialExpired || isSubscriptionExpired);
+
+          if (onActiveTeam && profileToSet.account_locked) {
+            const { data: unlockedProfile, error: unlockError } = await supabase
+              .from('user_profiles')
+              .update({ account_locked: false, locked_at: null })
+              .eq('id', userId)
+              .select()
+              .single();
+            if (!unlockError && unlockedProfile) {
+              profileToSet = unlockedProfile;
+            } else {
+              profileToSet = { ...profileToSet, account_locked: false, locked_at: null };
+            }
+          } else if (shouldLock && !profileToSet.account_locked) {
             const lockedAt = now.toISOString();
             const { data: updatedProfile, error: updateError } = await supabase
               .from('user_profiles')
@@ -605,7 +634,7 @@ function AppProvider({ children }) {
             if (!updateError && updatedProfile) {
               profileToSet = updatedProfile;
             } else {
-              profileToSet = { ...p, account_locked: true, locked_at: lockedAt };
+              profileToSet = { ...profileToSet, account_locked: true, locked_at: lockedAt };
             }
           }
 
