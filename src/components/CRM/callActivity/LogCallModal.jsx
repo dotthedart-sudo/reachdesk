@@ -1,7 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import { X } from 'lucide-react';
 import { CALL_OUTCOMES, leadDisplayName } from '../../../lib/outreachQueue';
-import { insertCallAttempt } from '../../../lib/callActivity';
+import { logCallWithUpdates } from '../../../lib/callActivity';
 
 export default function LogCallModal({
   open,
@@ -13,11 +13,13 @@ export default function LogCallModal({
   onLogged,
   fixedLead = null,
   showNoteSharing = false,
+  updateLeadFields = true,
 }) {
   const [leadId, setLeadId] = useState(defaultLeadId || '');
   const [outcome, setOutcome] = useState('No Answer');
   const [note, setNote] = useState('');
   const [noteVisibility, setNoteVisibility] = useState('team');
+  const [applyStatusAction, setApplyStatusAction] = useState(true);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState('');
 
@@ -27,8 +29,9 @@ export default function LogCallModal({
     setOutcome('No Answer');
     setNote('');
     setNoteVisibility('team');
+    setApplyStatusAction(updateLeadFields);
     setError('');
-  }, [open, defaultLeadId, fixedLead?.id]);
+  }, [open, defaultLeadId, fixedLead?.id, updateLeadFields]);
 
   if (!open) return null;
 
@@ -42,15 +45,16 @@ export default function LogCallModal({
     setSaving(true);
     setError('');
     try {
-      const data = await insertCallAttempt({
+      const { attempt, leadUpdates } = await logCallWithUpdates({
         userId,
         leadId: resolvedLeadId,
         outcome,
         note,
         noteVisibility: showNoteSharing ? noteVisibility : 'team',
         teamId,
+        updateLeadFields: applyStatusAction,
       });
-      onLogged?.(data);
+      onLogged?.({ attempt, leadUpdates });
       onClose();
     } catch (err) {
       console.error('[LogCallModal] failed:', err);
@@ -134,6 +138,15 @@ export default function LogCallModal({
               placeholder="What happened on the call…"
             />
           </div>
+
+          <label style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', fontSize: '0.85rem', cursor: 'pointer' }}>
+            <input
+              type="checkbox"
+              checked={applyStatusAction}
+              onChange={(e) => setApplyStatusAction(e.target.checked)}
+            />
+            Update status and call next step from outcome
+          </label>
 
           {showNoteSharing && note.trim() && (
             <label style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', fontSize: '0.85rem', cursor: 'pointer' }}>

@@ -73,7 +73,7 @@ export default function EditableDropdown({
   const isActionToTake = columnDef?.column_key === 'action_to_take';
   const isCallAction = columnDef?.column_key === 'call_action';
   const rawOptions = isCallAction
-    ? CALL_ACTION_OPTIONS
+    ? (columnDef?.dropdown_options?.length ? columnDef.dropdown_options : CALL_ACTION_OPTIONS)
     : isActionToTake
       ? DEFAULT_ACTION_OPTIONS
       : (columnDef?.dropdown_options || []);
@@ -260,7 +260,6 @@ const ACTION_COLORS = {
         </div>
       )}
       <div style={{ borderTop: '1px solid var(--border-color)', margin: '4px 0' }} />
-      {!isCallAction && (
       <button
         type="button"
         className="dropdown-item text-primary"
@@ -282,7 +281,6 @@ const ACTION_COLORS = {
       >
         <Pencil size={12} /> Edit Options
       </button>
-      )}
     </div>,
     document.body
   );

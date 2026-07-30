@@ -29,6 +29,7 @@ export default function CallActivityHub({
   embedded = false,
   leadIdSet = null,
   hideSessionControls = false,
+  onGoToQueue = null,
 }) {
   const navigate = useNavigate();
   const [unlocked, setUnlocked] = useState(null);
@@ -153,9 +154,11 @@ export default function CallActivityHub({
     return q;
   }, [scopedLeads, attemptsByLead, prioritizeCallable, defaultCountryCode]);
 
-  const handleLogged = (row) => {
-    setAttempts((prev) => [row, ...prev]);
-    if (tab === 'team') loadTeam();
+  const handleLogged = (payload) => {
+    const attempt = payload?.attempt || payload;
+    if (attempt?.id) setAttempts((prev) => [attempt, ...prev]);
+    setLogLead(null);
+    onRefresh?.();
   };
 
   const handleAttemptUpdated = (updated) => {
@@ -297,6 +300,7 @@ export default function CallActivityHub({
           attempts={attempts}
           loading={loadingMy}
           defaultCountryCode={defaultCountryCode}
+          onGoToQueue={onGoToQueue}
           onOpenLead={onOpenLead}
           onLogCall={() => setLogOpen(true)}
           onAttemptUpdated={handleAttemptUpdated}

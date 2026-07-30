@@ -107,6 +107,16 @@ export function getPlanLeadLimit(plan, billingCycle) {
   return base;
 }
 
+/** Plan used for limits and feature gates (team members inherit workspace owner plan). */
+export function getEffectivePlan(profile) {
+  if (!profile) return 'trial';
+  return normalizePlan(profile.effective_plan ?? profile.plan);
+}
+
+export function getEffectiveBillingCycle(profile) {
+  return profile?.effective_billing_cycle ?? profile?.billing_cycle ?? null;
+}
+
 export function getPlanSeatLimit(plan) {
   return PLAN_SEATS[normalizePlan(plan)] ?? 1;
 }

@@ -17,6 +17,8 @@ import {
   NEXT_PLAN,
   NEXT_PLAN_ID,
   normalizePlan,
+  getEffectivePlan,
+  getEffectiveBillingCycle,
 } from './planConfig'
 
 export { getPlanLeadLimit, NEXT_PLAN, NEXT_PLAN_ID, normalizePlan }
@@ -52,12 +54,24 @@ export function useLeadLimitStatus(userId: string | undefined): LimitStatus {
     setLoading(true)
 
     const [{ data: profile }, { count }] = await Promise.all([
-      supabase.from('user_profiles').select('plan, billing_cycle').eq('id', userId).single(),
+      supabase.from('user_profiles').select('plan, billing_cycle, team_id, team_role').eq('id', userId).single(),
       supabase.from('leads').select('id', { count: 'exact', head: true }).eq('user_id', userId),
     ])
 
-    setPlan(profile?.plan ?? null)
-    setBillingCycle(profile?.billing_cycle ?? null)
+    let resolvedProfile = profile
+    if (profile && (profile.team_role || 'owner').toLowerCase() === 'member' && profile.team_id) {
+      const { data: planCtx } = await supabase.rpc('get_my_plan_context')
+      if (planCtx) {
+        resolvedProfile = {
+          ...profile,
+          effective_plan: planCtx.plan,
+          effective_billing_cycle: planCtx.billing_cycle,
+        }
+      }
+    }
+
+    setPlan(getEffectivePlan(resolvedProfile ?? undefined))
+    setBillingCycle(getEffectiveBillingCycle(resolvedProfile ?? undefined))
     setLeadCount(count ?? 0)
     setLoading(false)
   }, [userId])

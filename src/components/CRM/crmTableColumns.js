@@ -1,15 +1,26 @@
 /** Shared column order logic for CRM data tables (contact_details / pipeline / clients / call_queue). */
 
+export const CALL_ACTION_DEFAULT_OPTIONS = [
+  { label: 'Call now', color: '#3b82f6' },
+  { label: 'Leave voicemail', color: '#6366f1' },
+  { label: 'Callback scheduled', color: '#f59e0b' },
+  { label: 'Try again tomorrow', color: '#8b5cf6' },
+  { label: 'Wrong number — remove', color: '#ef4444' },
+  { label: 'Not interested — close', color: '#6b7280' },
+  { label: 'Send info by email', color: '#10b981' },
+  { label: 'No call needed', color: '#6b7280' },
+];
+
 export const CALL_QUEUE_DEFAULT_DEFS = [
   { table_view: 'call_queue', column_key: 'name', column_label: 'Name', column_type: 'text', is_visible: true, is_default: true, sort_order: 0, dropdown_options: [] },
   { table_view: 'call_queue', column_key: 'phone', column_label: 'Phone', column_type: 'text', is_visible: true, is_default: true, sort_order: 1, dropdown_options: [] },
   { table_view: 'call_queue', column_key: 'local_time', column_label: 'Local time', column_type: 'computed', is_visible: true, is_default: true, sort_order: 2, dropdown_options: [] },
-  { table_view: 'call_queue', column_key: 'status', column_label: 'Status', column_type: 'status', is_visible: true, is_default: true, sort_order: 3, dropdown_options: [] },
-  { table_view: 'call_queue', column_key: 'call_action', column_label: 'Call next step', column_type: 'dropdown', is_visible: true, is_default: true, sort_order: 4, dropdown_options: [] },
+  { table_view: 'call_queue', column_key: 'call_action', column_label: 'Call next step', column_type: 'dropdown', is_visible: true, is_default: true, sort_order: 3, dropdown_options: CALL_ACTION_DEFAULT_OPTIONS },
+  { table_view: 'call_queue', column_key: 'status', column_label: 'Status', column_type: 'status', is_visible: true, is_default: true, sort_order: 4, dropdown_options: [] },
   { table_view: 'call_queue', column_key: 'last_called', column_label: 'Last called', column_type: 'date', is_visible: true, is_default: true, sort_order: 5, dropdown_options: [] },
   { table_view: 'call_queue', column_key: 'outcome', column_label: 'Outcome', column_type: 'text', is_visible: true, is_default: true, sort_order: 6, dropdown_options: [] },
   { table_view: 'call_queue', column_key: 'attempts', column_label: 'Attempts', column_type: 'number', is_visible: true, is_default: true, sort_order: 7, dropdown_options: [] },
-  { table_view: 'call_queue', column_key: 'priority', column_label: 'Priority', column_type: 'priority', is_visible: true, is_default: true, sort_order: 8, dropdown_options: [] },
+  { table_view: 'call_queue', column_key: 'priority', column_label: 'Priority', column_type: 'priority', is_visible: false, is_default: true, sort_order: 8, dropdown_options: [] },
   { table_view: 'call_queue', column_key: '_actions', column_label: 'Actions', column_type: 'actions', is_visible: true, is_default: true, sort_order: 9, dropdown_options: [] },
 ];
 

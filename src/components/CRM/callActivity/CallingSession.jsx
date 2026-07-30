@@ -1,10 +1,11 @@
 import React, { useEffect, useState } from 'react';
 import { Phone, SkipForward, PhoneCall, AlertCircle } from 'lucide-react';
-import { CALL_OUTCOMES, leadDisplayName } from '../../../lib/outreachQueue';
-import { insertCallAttempt, fetchRecentCallsOnLead } from '../../../lib/callActivity';
+import { leadDisplayName } from '../../../lib/outreachQueue';
+import { logCallWithUpdates, fetchRecentCallsOnLead } from '../../../lib/callActivity';
 import CallWindowBadge from '../CallWindowBadge';
 import { getLeadLocalTime } from '../../../lib/leadTimezone';
 import LogCallModal from './LogCallModal';
+import QuickLogChips, { QUICK_LOG_OUTCOMES } from './QuickLogChips';
 
 export default function CallingSession({
   queue,
@@ -19,6 +20,7 @@ export default function CallingSession({
   const [index, setIndex] = useState(0);
   const [logOpen, setLogOpen] = useState(false);
   const [recentTeamCalls, setRecentTeamCalls] = useState([]);
+  const [undo, setUndo] = useState(null);
 
   const lead = queue[index] || null;
   const remaining = Math.max(0, queue.length - index);
@@ -34,6 +36,12 @@ export default function CallingSession({
       .catch(() => setRecentTeamCalls([]));
   }, [lead?.id, userId]);
 
+  useEffect(() => {
+    if (!undo) return undefined;
+    const t = setTimeout(() => setUndo(null), 2000);
+    return () => clearTimeout(t);
+  }, [undo]);
+
   if (!lead) {
     return (
       <div className="card flex-col gap-3" style={{ padding: '2rem', textAlign: 'center', alignItems: 'center' }}>
@@ -42,12 +50,29 @@ export default function CallingSession({
         <p style={{ margin: 0, color: 'var(--text-muted)', fontSize: '0.9rem' }}>
           No more leads in this calling session.
         </p>
-        <button type="button" className="btn btn-primary" onClick={onClose}>Back to activity</button>
+        <button type="button" className="btn btn-primary" onClick={onClose}>Back to queue</button>
       </div>
     );
   }
 
   const advance = () => setIndex((i) => i + 1);
+
+  const handleQuickLog = async (outcome) => {
+    try {
+      const result = await logCallWithUpdates({
+        userId,
+        leadId: lead.id,
+        outcome,
+        teamId,
+        updateLeadFields: true,
+      });
+      onLogged?.(result);
+      setUndo({ outcome, leadName: leadDisplayName(lead) });
+      advance();
+    } catch (err) {
+      alert(err.message || 'Failed to log call');
+    }
+  };
 
   return (
     <div className="card flex-col gap-3" style={{ padding: '1.25rem', maxWidth: 520, margin: '0 auto' }}>
@@ -57,6 +82,12 @@ export default function CallingSession({
         </span>
         <button type="button" className="btn btn-secondary btn-sm" onClick={onClose}>End session</button>
       </div>
+
+      {undo && (
+        <div style={{ fontSize: '0.8rem', color: 'var(--accent-green)', padding: '0.35rem 0.5rem', background: 'rgba(16, 185, 129, 0.1)', borderRadius: 4 }}>
+          Logged {undo.outcome} for {undo.leadName}
+        </div>
+      )}
 
       {recentTeamCalls.length > 0 && (
         <div
@@ -99,13 +130,23 @@ export default function CallingSession({
           )}
           {lead.email && <span>{lead.email}</span>}
           {lead.status && <span>Status: {lead.status}</span>}
+          {lead.call_action && <span>Next: {lead.call_action}</span>}
         </div>
       </div>
 
+      <div>
+        <div style={{ fontSize: '0.75rem', fontWeight: 600, color: 'var(--text-muted)', marginBottom: '0.35rem', textTransform: 'uppercase', letterSpacing: '0.04em' }}>
+          Log outcome
+        </div>
+        <QuickLogChips onLog={handleQuickLog} onMore={() => setLogOpen(true)} />
+      </div>
+
       <div style={{ display: 'flex', flexWrap: 'wrap', gap: '0.5rem' }}>
-        <button type="button" className="btn btn-primary" onClick={() => setLogOpen(true)}>
-          <Phone size={14} /> Log outcome
-        </button>
+        {lead.phone && (
+          <a href={`tel:${lead.phone}`} className="btn btn-primary" style={{ textDecoration: 'none' }}>
+            <Phone size={14} /> Call
+          </a>
+        )}
         <button type="button" className="btn btn-secondary" onClick={() => onOpenLead?.(lead, 'calls')}>
           Open lead
         </button>
@@ -114,33 +155,16 @@ export default function CallingSession({
         </button>
       </div>
 
-      <div style={{ display: 'flex', flexWrap: 'wrap', gap: '0.4rem' }}>
-        {CALL_OUTCOMES.map((o) => (
-          <button
-            key={o}
-            type="button"
-            className="btn btn-sm btn-secondary"
-            style={{ fontSize: '0.75rem' }}
-            onClick={async () => {
-              try {
-                const data = await insertCallAttempt({
-                  userId,
-                  leadId: lead.id,
-                  outcome: o,
-                  note: null,
-                  teamId,
-                });
-                onLogged?.(data);
-                advance();
-              } catch (err) {
-                alert(err.message || 'Failed to log call');
-              }
-            }}
-          >
-            {o}
-          </button>
-        ))}
-      </div>
+      <details style={{ fontSize: '0.8rem', color: 'var(--text-muted)' }}>
+        <summary style={{ cursor: 'pointer' }}>All outcomes</summary>
+        <div style={{ display: 'flex', flexWrap: 'wrap', gap: '0.35rem', marginTop: '0.5rem' }}>
+          {QUICK_LOG_OUTCOMES.map(({ label, outcome }) => (
+            <button key={outcome} type="button" className="btn btn-sm btn-secondary" onClick={() => handleQuickLog(outcome)}>
+              {label}
+            </button>
+          ))}
+        </div>
+      </details>
 
       <LogCallModal
         open={logOpen}
@@ -150,8 +174,9 @@ export default function CallingSession({
         teamId={teamId}
         fixedLead={lead}
         showNoteSharing={showNoteSharing}
-        onLogged={(row) => {
-          onLogged?.(row);
+        onLogged={(result) => {
+          onLogged?.(result);
+          setLogOpen(false);
           advance();
         }}
       />

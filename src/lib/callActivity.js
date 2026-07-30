@@ -1,13 +1,14 @@
 import { supabase } from './supabase';
-import { PLAN_LIMITS, normalizePlan } from './planConfig';
+import { PLAN_LIMITS, normalizePlan, getEffectivePlan } from './planConfig';
 import { isActiveTeamMember } from './teamWorkspace';
+import { applyOutcomeToLead } from './callOutcomeRules';
 
 export { CALL_OUTCOMES, computeNextFollowUp, leadDisplayName } from './outreachQueue';
 
 export function hasOutreachByPlan(profile) {
   if (!profile) return false;
   if (profile.role === 'admin') return true;
-  const key = normalizePlan(profile.plan);
+  const key = getEffectivePlan(profile);
   return !!PLAN_LIMITS[key]?.coldOutreach;
 }
 
@@ -21,7 +22,7 @@ export async function getEffectiveOutreachAccess(profile) {
 export async function getEffectiveCalendarAccess(profile) {
   if (!profile) return false;
   if (profile.role === 'admin') return true;
-  const key = normalizePlan(profile.plan);
+  const key = getEffectivePlan(profile);
   if (PLAN_LIMITS[key]?.calendarIntegration) return true;
   return isActiveTeamMember(profile);
 }
@@ -54,6 +55,34 @@ export async function insertCallAttempt({
     .single();
   if (error) throw error;
   return data;
+}
+
+/** Log call attempt and optionally update lead status + call_action from outcome rules. */
+export async function logCallWithUpdates({
+  userId,
+  leadId,
+  outcome,
+  note = null,
+  noteVisibility = 'team',
+  teamId = null,
+  updateLeadFields = true,
+  customOutcomeRules = null,
+}) {
+  const attempt = await insertCallAttempt({
+    userId,
+    leadId,
+    outcome,
+    note,
+    noteVisibility,
+    teamId,
+  });
+
+  let leadUpdates = null;
+  if (updateLeadFields) {
+    leadUpdates = await applyOutcomeToLead(leadId, outcome, userId, customOutcomeRules);
+  }
+
+  return { attempt, leadUpdates };
 }
 
 export async function updateCallAttempt(id, { outcome, note, noteVisibility }) {

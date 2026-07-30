@@ -2,7 +2,7 @@ import React, { useState, useEffect, useRef, useMemo } from 'react';
 import { useSearchParams, useNavigate, Link } from 'react-router-dom';
 import { supabase } from '../lib/supabase';
 import { useAppContext } from '../App';
-import { getTeamIds, PLAN_LIMITS } from '../lib/utils';
+import { getTeamIds, PLAN_LIMITS, getEffectivePlan, getEffectiveBillingCycle } from '../lib/utils';
 import { LeadLimitModal, LeadLimitToast, getRemainingLeadQuota, shouldShowCountdownToast, prepareBulkImport, BulkImportLimitModal, getPlanLeadLimit } from '../lib/leadLimits';
 import { PLAN_LIMITS as PLAN_FEATURE_FLAGS, normalizePlan } from '../lib/planConfig';
 import {
@@ -23,9 +23,10 @@ import CSVImportModal from './CRM/CSVImportModal';
 import ExportSheetsModal from './CRM/ExportSheetsModal';
 import SheetsImportModal from './CRM/SheetsImportModal';
 import FolderBrowser from './CRM/FolderBrowser';
+import ListSwitcher from './CRM/ListSwitcher';
 import CopyableCell from './CRM/CopyableCell';
 import ResizableTh from './CRM/ResizableTh';
-import { getTableColumns, getLeadCellCopyValue, CALL_QUEUE_DEFAULT_DEFS } from './CRM/crmTableColumns';
+import { getTableColumns, getLeadCellCopyValue, CALL_QUEUE_DEFAULT_DEFS, CALL_ACTION_DEFAULT_OPTIONS } from './CRM/crmTableColumns';
 import { useCrmColumnWidths } from './CRM/useCrmColumnWidths';
 import './CRM/DataTableEnhancements.css';
 import ConvertModal from './CRM/ConvertModal';
@@ -75,6 +76,13 @@ const SORT_OPTIONS = [
   { value: 'hot',       label: 'Hot First' },
   { value: 'name',      label: 'Name A → Z' },
   { value: 'status',    label: 'By Status' },
+];
+
+const CALL_SORT_OPTIONS = [
+  { value: 'call_now', label: 'Call now first' },
+  { value: 'newest', label: 'Recently added' },
+  { value: 'name', label: 'Name A → Z' },
+  { value: 'status', label: 'By status' },
 ];
 
 const EMPTY_QUICK_ADD_FORM = {
@@ -234,8 +242,6 @@ export default function CRM({
   const isBrowseMode = !folderParam;
   const activeFolderId = folderParam;
   const activeManualFolderId = folders.find((f) => f.id === activeFolderId)?.id || '';
-
-  const showListBadge = !activeFolderId || activeFolderId === 'all' || activeFolderId === 'unfiled';
 
   useEffect(() => {
     if (searchParams.get('view') === 'outreach' && !searchParams.get('mode')) {
@@ -569,6 +575,7 @@ export default function CRM({
   const [filterStatuses, setFilterStatuses] = useState([]);
   const [filterPriorities, setFilterPriorities] = useState([]);
   const [filterActions, setFilterActions] = useState([]);
+  const [filterCallActions, setFilterCallActions] = useState([]);
   const [filterProjects, setFilterProjects] = useState([]);
   const [filterDateRange, setFilterDateRange] = useState('all'); // 'all' | 'today' | '7days' | '30days'
   const [filterDateField, setFilterDateField] = useState('created_at'); // 'created_at' | 'last_contacted_at'
@@ -656,7 +663,7 @@ export default function CRM({
     return <div className="loading-container">Loading profile...</div>;
   }
 
-  const plan = (currentUser.plan || 'trial').toLowerCase();
+  const plan = getEffectivePlan(currentUser);
   const limits = PLAN_LIMITS[plan] || PLAN_LIMITS.trial;
 
   // 1. Fetch CRM Data
@@ -761,16 +768,7 @@ export default function CRM({
           // ── Contact Details view — Default visible: Name, Status, Reach
           { user_id: currentUser.id, table_view: 'contact_details', column_key: 'name',              column_label: 'Name',             column_type: 'text',     is_visible: true,  is_default: true, sort_order: 0, dropdown_options: [] },
           { user_id: currentUser.id, table_view: 'contact_details', column_key: 'status',            column_label: 'Status',           column_type: 'status',   is_visible: true,  is_default: true, sort_order: 1, dropdown_options: [] },
-          { user_id: currentUser.id, table_view: 'contact_details', column_key: 'platform',          column_label: 'Reach',            column_type: 'reach',    is_visible: true,  is_default: true, sort_order: 2, dropdown_options: [] },
-          { user_id: currentUser.id, table_view: 'contact_details', column_key: 'email',             column_label: 'Email',            column_type: 'text',     is_visible: false, is_default: true, sort_order: 3, dropdown_options: [] },
-          { user_id: currentUser.id, table_view: 'contact_details', column_key: 'phone',             column_label: 'Phone',            column_type: 'text',     is_visible: false, is_default: true, sort_order: 4, dropdown_options: [] },
-          { user_id: currentUser.id, table_view: 'contact_details', column_key: 'company',           column_label: 'Company',          column_type: 'text',     is_visible: false, is_default: true, sort_order: 5, dropdown_options: [] },
-          { user_id: currentUser.id, table_view: 'contact_details', column_key: 'instagram_url',     column_label: 'Instagram',        column_type: 'text',     is_visible: false, is_default: true, sort_order: 6, dropdown_options: [] },
-          { user_id: currentUser.id, table_view: 'contact_details', column_key: 'website',           column_label: 'Website',          column_type: 'text',     is_visible: false, is_default: true, sort_order: 7, dropdown_options: [] },
-          { user_id: currentUser.id, table_view: 'contact_details', column_key: 'priority',          column_label: 'Priority',         column_type: 'priority', is_visible: false, is_default: true, sort_order: 8, dropdown_options: [] },
-          { user_id: currentUser.id, table_view: 'contact_details', column_key: 'niche',             column_label: 'Niche',            column_type: 'text',     is_visible: false, is_default: true, sort_order: 9, dropdown_options: [] },
-          { user_id: currentUser.id, table_view: 'contact_details', column_key: 'template_used',     column_label: 'Template Used',   column_type: 'link',     is_visible: false, is_default: true, sort_order: 10, dropdown_options: [] },
-          { user_id: currentUser.id, table_view: 'contact_details', column_key: 'action_to_take',    column_label: 'Action to Take',   column_type: 'dropdown', is_visible: false, is_default: true, sort_order: 11, dropdown_options: [
+          { user_id: currentUser.id, table_view: 'contact_details', column_key: 'action_to_take',    column_label: 'Next step',        column_type: 'dropdown', is_visible: true,  is_default: true, sort_order: 2, dropdown_options: [
             { label: 'Send first pitch', color: '#FFFFFF' },
             { label: 'Wait for reply', color: '#737373' },
             { label: 'Send a follow up', color: '#D4D4D4' },
@@ -781,7 +779,16 @@ export default function CRM({
             { label: 'Send invoice', color: '#FFFFFF' },
             { label: 'No action needed', color: '#525252' }
           ] },
-          { user_id: currentUser.id, table_view: 'contact_details', column_key: 'last_contacted_at', column_label: 'Last Contacted At',column_type: 'date',     is_visible: false, is_default: true, sort_order: 12, dropdown_options: [] },
+          { user_id: currentUser.id, table_view: 'contact_details', column_key: 'platform',          column_label: 'Reach',            column_type: 'reach',    is_visible: true,  is_default: true, sort_order: 3, dropdown_options: [] },
+          { user_id: currentUser.id, table_view: 'contact_details', column_key: 'phone',             column_label: 'Phone',            column_type: 'text',     is_visible: true,  is_default: true, sort_order: 4, dropdown_options: [] },
+          { user_id: currentUser.id, table_view: 'contact_details', column_key: 'last_contacted_at', column_label: 'Last Contacted At',column_type: 'date',     is_visible: true,  is_default: true, sort_order: 5, dropdown_options: [] },
+          { user_id: currentUser.id, table_view: 'contact_details', column_key: 'email',             column_label: 'Email',            column_type: 'text',     is_visible: false, is_default: true, sort_order: 6, dropdown_options: [] },
+          { user_id: currentUser.id, table_view: 'contact_details', column_key: 'company',           column_label: 'Company',          column_type: 'text',     is_visible: false, is_default: true, sort_order: 7, dropdown_options: [] },
+          { user_id: currentUser.id, table_view: 'contact_details', column_key: 'instagram_url',     column_label: 'Instagram',        column_type: 'text',     is_visible: false, is_default: true, sort_order: 8, dropdown_options: [] },
+          { user_id: currentUser.id, table_view: 'contact_details', column_key: 'website',           column_label: 'Website',          column_type: 'text',     is_visible: false, is_default: true, sort_order: 9, dropdown_options: [] },
+          { user_id: currentUser.id, table_view: 'contact_details', column_key: 'priority',          column_label: 'Priority',         column_type: 'priority', is_visible: false, is_default: true, sort_order: 10, dropdown_options: [] },
+          { user_id: currentUser.id, table_view: 'contact_details', column_key: 'niche',             column_label: 'Niche',            column_type: 'text',     is_visible: false, is_default: true, sort_order: 11, dropdown_options: [] },
+          { user_id: currentUser.id, table_view: 'contact_details', column_key: 'template_used',     column_label: 'Template Used',   column_type: 'link',     is_visible: false, is_default: true, sort_order: 12, dropdown_options: [] },
           { user_id: currentUser.id, table_view: 'contact_details', column_key: 'linkedin_url',      column_label: 'LinkedIn',         column_type: 'text',     is_visible: false, is_default: true, sort_order: 13, dropdown_options: [] },
           { user_id: currentUser.id, table_view: 'contact_details', column_key: 'twitter_url',       column_label: 'Twitter / X',      column_type: 'text',     is_visible: false, is_default: true, sort_order: 14, dropdown_options: [] },
           { user_id: currentUser.id, table_view: 'contact_details', column_key: 'created_at',        column_label: 'Added On',         column_type: 'date',     is_visible: false, is_default: true, sort_order: 15, dropdown_options: [] },
@@ -867,19 +874,19 @@ export default function CRM({
           // contact_details
           { table_view: 'contact_details', column_key: 'name',              column_label: 'Name',             column_type: 'text',     is_visible: true,  sort_order: 0,  dropdown_options: [] },
           { table_view: 'contact_details', column_key: 'status',            column_label: 'Status',           column_type: 'status',   is_visible: true,  sort_order: 1,  dropdown_options: [] },
-          { table_view: 'contact_details', column_key: 'platform',          column_label: 'Reach',            column_type: 'reach',    is_visible: true,  sort_order: 2,  dropdown_options: [] },
-          { table_view: 'contact_details', column_key: 'email',             column_label: 'Email',            column_type: 'text',     is_visible: false, sort_order: 3,  dropdown_options: [] },
-          { table_view: 'contact_details', column_key: 'phone',             column_label: 'Phone',            column_type: 'text',     is_visible: false, sort_order: 4,  dropdown_options: [] },
-          { table_view: 'contact_details', column_key: 'company',           column_label: 'Company',          column_type: 'text',     is_visible: false, sort_order: 5,  dropdown_options: [] },
-          { table_view: 'contact_details', column_key: 'instagram_url',     column_label: 'Instagram',        column_type: 'text',     is_visible: false, sort_order: 6,  dropdown_options: [] },
-          { table_view: 'contact_details', column_key: 'website',           column_label: 'Website',          column_type: 'text',     is_visible: false, sort_order: 7,  dropdown_options: [] },
-          { table_view: 'contact_details', column_key: 'priority',          column_label: 'Priority',         column_type: 'priority', is_visible: false, sort_order: 8,  dropdown_options: [] },
-          { table_view: 'contact_details', column_key: 'niche',             column_label: 'Niche',            column_type: 'text',     is_visible: false, sort_order: 9,  dropdown_options: [] },
-          { table_view: 'contact_details', column_key: 'template_used',     column_label: 'Template Used',   column_type: 'link',     is_visible: false, sort_order: 10, dropdown_options: [] },
-          { table_view: 'contact_details', column_key: 'action_to_take',    column_label: 'Action to Take',   column_type: 'dropdown', is_visible: false, sort_order: 11, dropdown_options: [
+          { table_view: 'contact_details', column_key: 'action_to_take',    column_label: 'Next step',        column_type: 'dropdown', is_visible: true,  sort_order: 2,  dropdown_options: [
             { label: 'Send first pitch', color: '#FFFFFF' }, { label: 'Wait for reply', color: '#737373' }, { label: 'Send a follow up', color: '#D4D4D4' }, { label: 'Send a different pitch', color: '#A3A3A3' }, { label: 'Send proposal', color: '#E5E5E5' }, { label: 'Send Calendly', color: '#D4D4D4' }, { label: 'Prepare for call', color: '#A3A3A3' }, { label: 'Send invoice', color: '#FFFFFF' }, { label: 'No action needed', color: '#525252' }
           ] },
-          { table_view: 'contact_details', column_key: 'last_contacted_at', column_label: 'Last Contacted At', column_type: 'date',    is_visible: false, sort_order: 12, dropdown_options: [] },
+          { table_view: 'contact_details', column_key: 'platform',          column_label: 'Reach',            column_type: 'reach',    is_visible: true,  sort_order: 3,  dropdown_options: [] },
+          { table_view: 'contact_details', column_key: 'phone',             column_label: 'Phone',            column_type: 'text',     is_visible: true,  sort_order: 4,  dropdown_options: [] },
+          { table_view: 'contact_details', column_key: 'last_contacted_at', column_label: 'Last Contacted At', column_type: 'date',    is_visible: true,  sort_order: 5,  dropdown_options: [] },
+          { table_view: 'contact_details', column_key: 'email',             column_label: 'Email',            column_type: 'text',     is_visible: false, sort_order: 6,  dropdown_options: [] },
+          { table_view: 'contact_details', column_key: 'company',           column_label: 'Company',          column_type: 'text',     is_visible: false, sort_order: 7,  dropdown_options: [] },
+          { table_view: 'contact_details', column_key: 'instagram_url',     column_label: 'Instagram',        column_type: 'text',     is_visible: false, sort_order: 8,  dropdown_options: [] },
+          { table_view: 'contact_details', column_key: 'website',           column_label: 'Website',          column_type: 'text',     is_visible: false, sort_order: 9,  dropdown_options: [] },
+          { table_view: 'contact_details', column_key: 'priority',          column_label: 'Priority',         column_type: 'priority', is_visible: false, sort_order: 10, dropdown_options: [] },
+          { table_view: 'contact_details', column_key: 'niche',             column_label: 'Niche',            column_type: 'text',     is_visible: false, sort_order: 11, dropdown_options: [] },
+          { table_view: 'contact_details', column_key: 'template_used',     column_label: 'Template Used',   column_type: 'link',     is_visible: false, sort_order: 12, dropdown_options: [] },
           { table_view: 'contact_details', column_key: 'linkedin_url',      column_label: 'LinkedIn',          column_type: 'text',    is_visible: false, sort_order: 13, dropdown_options: [] },
           { table_view: 'contact_details', column_key: 'twitter_url',       column_label: 'Twitter / X',       column_type: 'text',    is_visible: false, sort_order: 14, dropdown_options: [] },
           { table_view: 'contact_details', column_key: 'created_at',        column_label: 'Added On',          column_type: 'date',    is_visible: false, sort_order: 15, dropdown_options: [] },
@@ -1070,9 +1077,9 @@ export default function CRM({
 
 
   const totalLeadsCount = leads.length;
-  const leadLimit = getPlanLeadLimit(plan, currentUser.billing_cycle) || Infinity;
+  const leadLimit = getPlanLeadLimit(plan, getEffectiveBillingCycle(currentUser)) || Infinity;
   const isLeadLimitReached = leadLimit !== Infinity && totalLeadsCount >= leadLimit;
-  const planKey = normalizePlan(currentUser?.plan);
+  const planKey = normalizePlan(plan);
   const planFeatures = PLAN_FEATURE_FLAGS[planKey] || PLAN_FEATURE_FLAGS.trial;
   // CSV export is never plan-gated — only bulk import and Sheets integrations use flags below.
   const canUseIntegrations = planFeatures.sheetsIntegration ?? false;
@@ -2060,7 +2067,11 @@ export default function CRM({
         }
       }
     }
-    return searchMatch && folderMatch && statusMatch && priorityMatch && statusDrawerMatch && priorityDrawerMatch && actionDrawerMatch && projectDrawerMatch && dateRangeMatch;
+    // Multi-select call-action filter (Cold Calls mode)
+    const callActionMatch = filterCallActions.length === 0 ||
+      filterCallActions.includes(l.call_action);
+
+    return searchMatch && folderMatch && statusMatch && priorityMatch && statusDrawerMatch && priorityDrawerMatch && actionDrawerMatch && callActionMatch && projectDrawerMatch && dateRangeMatch;
   });
 
   // Apply sort
@@ -2108,6 +2119,18 @@ export default function CRM({
         const aStatus = statusOrder.indexOf((a.status || '').toLowerCase().trim());
         const bStatus = statusOrder.indexOf((b.status || '').toLowerCase().trim());
         return (aStatus === -1 ? 99 : aStatus) - (bStatus === -1 ? 99 : bStatus);
+      }
+
+      case 'call_now': {
+        const score = (lead) => {
+          const action = (lead.call_action || '').trim();
+          if (action === 'Call now') return 0;
+          if (!action) return 1;
+          if (action === 'Callback scheduled') return 2;
+          if (action === 'Try again tomorrow') return 4;
+          return 3;
+        };
+        return score(a) - score(b);
       }
       
       default:
@@ -2194,163 +2217,12 @@ export default function CRM({
 
 
   return (
-    <div className={`flex gap-4 w-full${rootClass}`} style={{ minHeight: 'calc(100vh - 120px)' }}>
-      {/* Folders Sidebar — hidden on Lists home (browse mode) */}
-      {!isBrowseMode && (
-      <div className={`folder-sidebar sidebar-folders${blockClass}`}>
-        {limits.folders ? (
-          <>
-            <button
-              type="button"
-              onClick={() => handleSelectFolder('home')}
-              className={`folder-item ${isBrowseMode ? 'active' : ''}`}
-              style={{ marginBottom: 'var(--space-2)' }}
-            >
-              <LayoutGrid size={16} style={{ color: 'var(--accent-blue)' }} />
-              <span>Lists</span>
-            </button>
-
-            <h4 style={{ fontSize: 'var(--text-3xs)', letterSpacing: 'var(--tracking-label)', textTransform: 'uppercase', color: 'var(--text-muted)', fontWeight: 600, marginTop: 'var(--space-2)', marginBottom: 'var(--space-2)', paddingLeft: 'var(--space-2)', display: 'flex', alignItems: 'center', gap: 'var(--space-1)' }}>
-              System Views
-              <HelpPopover title="System Views">
-                System views (Hot, Warm, Cold, Clients, Calendly Sent) are auto-populated by lead Priority and Status. Names can be changed in Configuration.
-              </HelpPopover>
-            </h4>
-            
-            {/* System Folders */}
-            {[
-              { id: 'all', dbId: 'all', defaultLabel: 'All Leads', iconColor: 'var(--text-muted)' },
-              { id: 'hot', dbId: 'hot', defaultLabel: 'Hot', iconColor: 'var(--status-hot)' },
-              { id: 'warm', dbId: 'warm', defaultLabel: 'Warm', iconColor: 'var(--status-warm)' },
-              { id: 'cold', dbId: 'cold', defaultLabel: 'Cold', iconColor: 'var(--status-cold)' },
-              { id: 'needs-followup', dbId: 'needs-followup', defaultLabel: 'Needs Follow-Up', iconColor: 'var(--accent-blue)' },
-              { id: 'recently-followed-up', dbId: 'recently-followed-up', defaultLabel: 'Recently Followed Up', iconColor: 'var(--accent-green)' },
-              { id: 'calendly', dbId: 'calendly', defaultLabel: 'Calendly Sent', iconColor: 'var(--accent-blue)' },
-              { id: 'clients', dbId: 'clients', defaultLabel: 'Clients', iconColor: 'var(--accent-blue)' }
-            ].map(sysFolder => {
-              const label = systemFolderNames[sysFolder.id] || sysFolder.defaultLabel;
-              const isSelected = activeFolderId === sysFolder.dbId;
-              return (
-                <div key={sysFolder.id} className="group-hover flex justify-between align-center" style={{ width: '100%' }}>
-                  <button 
-                    onClick={() => handleSelectFolder(sysFolder.dbId)}
-                    className={`folder-item ${isSelected ? 'active' : ''}`}
-                  >
-                    <Folder size={16} style={{ color: sysFolder.iconColor }} />
-                    <span style={{ textOverflow: 'ellipsis', overflow: 'hidden', whiteSpace: 'nowrap', maxWidth: '120px' }}>{label}</span>
-                  </button>
-                  <button 
-                    onClick={() => triggerRename(sysFolder.id, label)}
-                    className="btn-icon edit-btn" 
-                    style={{ padding: 'var(--space-1)', color: 'var(--text-secondary)', display: 'none' }}
-                    title="Rename Folder"
-                  >
-                    <Edit3 size={12} />
-                  </button>
-                </div>
-              );
-            })}
-
-            <div style={{ borderTop: '1px solid var(--border)', margin: 'var(--space-2) 0' }}></div>
-
-            <h4 style={{ fontSize: 'var(--text-3xs)', letterSpacing: 'var(--tracking-label)', textTransform: 'uppercase', color: 'var(--text-muted)', fontWeight: 600, marginTop: 'var(--space-5)', marginBottom: 'var(--space-2)', paddingLeft: 'var(--space-2)', display: 'flex', alignItems: 'center', gap: 'var(--space-1)' }}>
-              Auto lists
-              <HelpPopover title="Auto lists">
-                Auto lists filter leads automatically using rules (e.g. Status = Contacted). Leads appear here when they match — you don&apos;t assign them manually.
-              </HelpPopover>
-            </h4>
-            {userFolders.map(uf => {
-              const count = getLeadCountForFolder(uf.id);
-
-              return (
-                <div key={uf.id} className="group-hover flex justify-between align-center" style={{ width: '100%' }}>
-                  <button
-                    onClick={() => handleSelectFolder(uf.id)}
-                    className={`folder-item ${activeFolderId === uf.id ? 'active' : ''}`}
-                  >
-                    <Folder size={16} style={{ color: 'var(--accent-blue)' }} />
-                    <span style={{ textOverflow: 'ellipsis', overflow: 'hidden', whiteSpace: 'nowrap', maxWidth: '100px' }}>{uf.name}</span>
-                    <span style={{ fontSize: 'var(--text-xs)', color: 'var(--text-muted)' }}>({count})</span>
-                  </button>
-                  <div className="flex gap-1">
-                    <button 
-                      onClick={() => handleDeleteSmartFolder(uf.id)}
-                      className="btn-icon delete-btn" 
-                      style={{ padding: '0.2rem', color: 'var(--danger-color)', display: 'none' }}
-                      title="Delete Smart Folder"
-                    >
-                      <Trash2 size={12} />
-                    </button>
-                  </div>
-                </div>
-              );
-            })}
-            <button 
-              onClick={() => {
-                setSmartFolderForm({ name: '', rules: [{ field: 'Status', operator: 'is', value: '' }] });
-                setShowSmartFolderModal(true);
-              }}
-              className="btn btn-secondary btn-sm"
-              style={{ marginTop: '0.25rem', fontSize: '0.75rem', justifyContent: 'center' }}
-            >
-              <FolderPlus size={14} /> + Smart List
-            </button>
-
-            <div style={{ borderTop: '1px solid var(--border)', margin: 'var(--space-2) 0' }}></div>
-
-            <h4 style={{ fontSize: 'var(--text-3xs)', letterSpacing: 'var(--tracking-label)', textTransform: 'uppercase', color: 'var(--text-muted)', fontWeight: 600, marginTop: 'var(--space-5)', marginBottom: 'var(--space-2)', paddingLeft: 'var(--space-2)' }}>Your Lists</h4>
-            {folders.map(f => {
-              const count = getLeadCountForFolder(f.id);
-              return (
-                <div key={f.id} className="group-hover flex justify-between align-center" style={{ width: '100%' }}>
-                  <button
-                    onClick={() => handleSelectFolder(f.id)}
-                    className={`folder-item ${activeFolderId === f.id ? 'active' : ''}`}
-                  >
-                    <Folder size={16} style={{ color: f.color }} />
-                    <span style={{ textOverflow: 'ellipsis', overflow: 'hidden', whiteSpace: 'nowrap', maxWidth: '100px' }}>{f.name}</span>
-                    <span style={{ fontSize: 'var(--text-xs)', color: 'var(--text-muted)' }}>({count})</span>
-                  </button>
-                  <div className="flex gap-1">
-                    <button 
-                      onClick={() => triggerRename(f.id, f.name)}
-                      className="btn-icon edit-btn" 
-                      style={{ padding: '0.2rem', color: 'var(--text-secondary)', display: 'none' }}
-                      title="Rename Folder"
-                    >
-                      <Edit3 size={12} />
-                    </button>
-                    <button 
-                      onClick={() => handleDeleteFolder(f.id)}
-                      className="btn-icon delete-btn" 
-                      style={{ padding: '0.2rem', color: 'var(--danger-color)', display: 'none' }}
-                      title="Delete Folder"
-                    >
-                      <Trash2 size={12} />
-                    </button>
-                  </div>
-                </div>
-              );
-            })}
-            <button 
-              onClick={() => setShowFolderModal(true)}
-              className="btn btn-secondary btn-sm"
-              style={{ marginTop: '0.25rem', fontSize: '0.75rem', justifyContent: 'center' }}
-            >
-              <FolderPlus size={14} /> + New List
-            </button>
-          </>
-        ) : (
-          <div className="card flex-col gap-2" style={{ padding: '0.75rem', fontSize: '0.8rem', borderColor: 'var(--border-color)' }}>
-            <span style={{ fontWeight: 600, display: 'flex', alignItems: 'center', gap: '0.4rem' }}><Folder size={14} /> Folders</span>
-            <p className="color-muted" style={{ fontSize: '0.75rem' }}>Create and manage folders to organize your leads.</p>
-          </div>
-        )}
-      </div>
-      )}
-
-      {/* Leads Table Content Section */}
-      <div className={`flex-col gap-4${blockClass}`} style={{ flex: 1, textAlign: 'left' }}>
+    <div
+      className={`crm-workspace flex w-full${isBrowseMode ? '' : ' crm-workspace--list'}${rootClass}`}
+      style={{ minHeight: 'calc(100vh - 120px)' }}
+    >
+      {/* Leads Table Content Section — no Lists sidebar; switch lists via breadcrumb */}
+      <div className={`flex-col gap-4${blockClass}`} style={{ flex: 1, textAlign: 'left', minWidth: 0, width: '100%' }}>
         {isBrowseMode ? (
           <FolderBrowser
             folders={folders}
@@ -2377,7 +2249,15 @@ export default function CRM({
             Lists
           </button>
           <ChevronRight size={14} className="crm-list-breadcrumb-sep" aria-hidden />
-          <span className="crm-list-breadcrumb-current">{getActiveFolderLabel()}</span>
+          <ListSwitcher
+            activeFolderId={activeFolderId}
+            currentLabel={getActiveFolderLabel()}
+            folders={folders}
+            userFolders={userFolders}
+            systemFolderNames={systemFolderNames}
+            getLeadCount={getLeadCountForFolder}
+            onSelectFolder={handleSelectFolder}
+          />
         </nav>
 
         {/* Outreach mode switcher */}
@@ -2458,6 +2338,58 @@ export default function CRM({
 
         {outreachMode === 'calls' ? (
           callSubView === 'queue' ? (
+            <>
+            <div className="flex justify-between align-center" style={{ flexWrap: 'wrap', gap: '1rem', marginBottom: '0.5rem' }}>
+              <div className="flex gap-2 align-center" style={{ flex: 1, minWidth: '280px' }}>
+                <div style={{ position: 'relative', flex: 1, maxWidth: 360 }}>
+                  <span style={{ position: 'absolute', left: '0.75rem', top: '50%', transform: 'translateY(-50%)', color: 'var(--text-muted)' }}>
+                    <Search size={16} />
+                  </span>
+                  <input
+                    type="text"
+                    placeholder="Search leads…"
+                    value={searchQuery}
+                    onChange={(e) => setSearchQuery(e.target.value)}
+                    className="form-input w-full"
+                    style={{ paddingLeft: '2.5rem' }}
+                  />
+                </div>
+              </div>
+              <div className="flex gap-2 align-center" style={{ flexWrap: 'wrap' }}>
+                <select
+                  className="form-input"
+                  value={statusFilter}
+                  onChange={(e) => setStatusFilter(e.target.value)}
+                  style={{ width: 'auto', minWidth: 130, fontSize: '0.85rem' }}
+                >
+                  <option value="">Status: All</option>
+                  {statuses.map((st) => (
+                    <option key={st.label} value={st.label}>{st.label}</option>
+                  ))}
+                </select>
+                <select
+                  className="form-input"
+                  value={filterCallActions[0] || ''}
+                  onChange={(e) => setFilterCallActions(e.target.value ? [e.target.value] : [])}
+                  style={{ width: 'auto', minWidth: 150, fontSize: '0.85rem' }}
+                >
+                  <option value="">Call step: All</option>
+                  {CALL_ACTION_DEFAULT_OPTIONS.map((opt) => (
+                    <option key={opt.label} value={opt.label}>{opt.label}</option>
+                  ))}
+                </select>
+                <select
+                  className="form-input"
+                  value={sortOption}
+                  onChange={(e) => setSortOption(e.target.value)}
+                  style={{ width: 'auto', minWidth: 140, fontSize: '0.85rem' }}
+                >
+                  {CALL_SORT_OPTIONS.map((opt) => (
+                    <option key={opt.value} value={opt.value}>{opt.label}</option>
+                  ))}
+                </select>
+              </div>
+            </div>
             <CallQueueTable
               leads={sortedLeads}
               columnDefs={columnDefs}
@@ -2472,7 +2404,12 @@ export default function CRM({
               onRefresh={fetchData}
               onOpenColumnManager={() => setShowColumnManager(true)}
               showNoteSharing={!!currentUser?.team_id}
+              suggestionRules={suggestionRules}
+              onUpdateColumnDef={(id, newOpts) => {
+                setColumnDefs((prev) => prev.map((c) => (c.id === id ? { ...c, dropdown_options: newOpts } : c)));
+              }}
             />
+            </>
           ) : (
             <OutreachTracker
               currentUser={currentUser}
@@ -2481,6 +2418,7 @@ export default function CRM({
               embedded
               leadIdSet={listLeadIdSet}
               hideSessionControls
+              onGoToQueue={() => handleCallSubViewChange('queue')}
             />
           )
         ) : (
@@ -2950,7 +2888,7 @@ export default function CRM({
                 )}
                 {tableCols.map(col => {
                   const isProject = col.column_key === 'project';
-                  const userPlan = (currentUser?.plan || 'trial').toLowerCase();
+                  const userPlan = plan;
                   const isProjectUnlocked = !['trial', 'starter'].includes(userPlan);
                   return (
                     <ResizableTh
@@ -3050,19 +2988,11 @@ export default function CRM({
                         const tdProps = { key: col.id, style: cellWidth(col.column_key) };
 
                         if (col.column_key === 'name') {
-                          const folder = folders.find(f => f.id === lead.folder_id);
                           const displayName = `${lead.first_name || ''} ${lead.last_name || ''}`.trim() || '—';
                           return (
                             <td {...tdProps}>
                               <CopyableCell value={copyValue} onCopied={handleCopyCell}>
-                                <span style={{ display: 'inline-flex', alignItems: 'center', gap: '0.5rem', minWidth: 0 }}>
-                                  <span style={{ fontWeight: 600 }} data-ph-mask>{displayName}</span>
-                                  {showListBadge && folder && (
-                                    <span className="badge" style={{ fontSize: '0.65rem', display: 'inline-flex', alignItems: 'center', gap: '0.2rem', padding: '0.1rem 0.35rem', borderColor: folder.color, color: folder.color, background: `${folder.color}11`, flexShrink: 0, maxWidth: '140px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }} title={folder.name}>
-                                      <Folder size={10} /> {folder.name}
-                                    </span>
-                                  )}
-                                </span>
+                                <span style={{ fontWeight: 600 }} data-ph-mask>{displayName}</span>
                               </CopyableCell>
                             </td>
                           );
@@ -3741,7 +3671,7 @@ export default function CRM({
               <div className="form-group">
                 <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '0.25rem' }}>
                   <label className="form-label" style={{ fontWeight: 600, fontSize: '0.85rem', color: 'var(--text-secondary)', margin: 0 }}>Select Template</label>
-                  {['trial', 'starter', 'pro', 'teams'].includes((currentUser?.plan || 'trial').toLowerCase()) ? (
+                  {['trial', 'starter', 'pro', 'teams'].includes(plan) ? (
                     <button
                       type="button"
                       onClick={handleGenerateReachAI}
@@ -4464,12 +4394,12 @@ export default function CRM({
               <div>
                 <div style={{ display: 'flex', alignItems: 'center', gap: '0.35rem', marginBottom: '0.5rem' }}>
                   <span style={{ fontSize: '0.65rem', letterSpacing: '0.1em', textTransform: 'uppercase', color: 'var(--text-muted)', fontWeight: 600 }}>Project</span>
-                  {!(!['trial', 'starter'].includes((currentUser?.plan || 'trial').toLowerCase())) && (
+                  {!(!['trial', 'starter'].includes(plan)) && (
                     <Lock size={11} style={{ color: 'var(--text-muted)' }} />
                   )}
                 </div>
 
-                {!(!['trial', 'starter'].includes((currentUser?.plan || 'trial').toLowerCase())) ? (
+                {!(!['trial', 'starter'].includes(plan)) ? (
                   <div style={{ fontSize: '0.75rem', color: 'var(--text-muted)', fontStyle: 'italic', background: 'var(--bg-secondary)', padding: '0.5rem', borderRadius: '4px', border: '1px dashed var(--border)' }}>
                     Gated feature. Upgrade to Pro/Teams to categorize and filter leads by project.
                   </div>

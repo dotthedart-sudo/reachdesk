@@ -3,7 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import { CURRENCY_MAP } from './CurrencySelector';
 import { supabase } from '../lib/supabase';
 import { useAppContext } from '../App';
-import { getTeamIds, PLAN_LIMITS } from '../lib/utils';
+import { getTeamIds, PLAN_LIMITS, getEffectivePlan } from '../lib/utils';
 import { 
   updateLeadStatusAndCheckpoint, 
   applySuggestion, 
@@ -82,7 +82,7 @@ export default function Dashboard({ currentUser, onSelectLead }) {
   const [ignoredMismatches, setIgnoredMismatches] = useState({});
   const { reveal, rootClass, blockClass, blockProp } = useFirstVisitReveal();
 
-  const plan = (currentUser?.plan || 'trial').toLowerCase();
+  const plan = getEffectivePlan(currentUser);
   const limits = PLAN_LIMITS[plan] || PLAN_LIMITS.trial;
 
   const loadDashboardData = async () => {

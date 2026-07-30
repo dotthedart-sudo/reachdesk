@@ -200,6 +200,12 @@ h3 { font-size: var(--text-md); }
   background: var(--bg-page);
 }
 
+/* CRM inside a list: pull content left — no Lists rail, less empty gutter */
+.main-content:has(.crm-workspace--list) {
+  padding-left: clamp(12px, 1.5vw, 20px);
+  padding-right: clamp(12px, 1.5vw, 20px);
+}
+
 /* Simulation Top Bar */
 .sim-bar {
   background: var(--bg-secondary);

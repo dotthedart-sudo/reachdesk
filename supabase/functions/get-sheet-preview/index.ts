@@ -120,8 +120,29 @@ serve(async (req) => {
     const headers = values[0] || [];
     const rows = values.slice(1) || [];
 
+    // Fetch total row count for this tab (header + data rows in sheet grid)
+    let totalRowsInSheet = rows.length;
+    try {
+      const metaUrl = `https://sheets.googleapis.com/v4/spreadsheets/${spreadsheetId}?fields=sheets(properties(title,gridProperties(rowCount)))`;
+      const metaResp = await fetch(metaUrl, {
+        headers: { Authorization: `Bearer ${accessToken}` },
+      });
+      if (metaResp.ok) {
+        const meta = await metaResp.json();
+        const sheet = (meta.sheets || []).find(
+          (s: { properties?: { title?: string } }) => s.properties?.title === sheetName
+        );
+        const rowCount = sheet?.properties?.gridProperties?.rowCount;
+        if (typeof rowCount === 'number' && rowCount > 1) {
+          totalRowsInSheet = rowCount - 1;
+        }
+      }
+    } catch (metaErr) {
+      console.warn('[get-sheet-preview] Could not fetch sheet row count:', metaErr);
+    }
+
     return new Response(
-      JSON.stringify({ headers, rows }),
+      JSON.stringify({ headers, rows, totalRows: totalRowsInSheet }),
       { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
     );
   } catch (err) {

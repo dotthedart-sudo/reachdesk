@@ -192,31 +192,35 @@ serve(async (req) => {
     const rows = values.slice(1) as any[][];
     const totalRows = rows.length;
 
-    // ── Step 2: Enforce leads limit ──────────────────────────────────────────
+    // ── Step 2: Enforce leads limit (team members inherit workspace owner plan) ─
     let currentCount = 0;
     let leadLimit = Infinity;
     let plan = 'trial';
+    let billingCycle: string | null = null;
     let limitReached = false;
     let teamIds = [userId];
     try {
-      // Get Team IDs
+      const { data: planCtx } = await supabaseAdmin.rpc('get_user_plan_context', { p_user_id: userId });
+      plan = (planCtx?.plan || 'trial').toLowerCase();
+      billingCycle = planCtx?.billing_cycle ?? null;
+
       teamIds = [userId];
       const { data: pProfile } = await supabaseAdmin.from('user_profiles')
         .select('team_id, plan').eq('id', userId).maybeSingle();
       
-      if (pProfile) {
-        plan = (pProfile.plan || 'trial').toLowerCase();
-        if (pProfile.team_id) {
-          const { data: members } = await supabaseAdmin.from('user_profiles')
-            .select('id').eq('team_id', pProfile.team_id);
-          if (members && members.length > 0) {
-            teamIds = members.map(m => m.id);
-          }
+      if (pProfile?.team_id) {
+        const { data: members } = await supabaseAdmin.from('user_profiles')
+          .select('id').eq('team_id', pProfile.team_id);
+        if (members && members.length > 0) {
+          teamIds = members.map(m => m.id);
         }
       }
       
       const baseLimit = (PLAN_LIMITS[plan] || PLAN_LIMITS.trial).leads;
       leadLimit = baseLimit === null ? Infinity : baseLimit;
+      if (billingCycle?.toLowerCase() === 'yearly' && (plan === 'starter' || plan === 'pro')) {
+        leadLimit = leadLimit * 2;
+      }
 
       const { count } = await supabaseAdmin
         .from('leads')
@@ -249,6 +253,9 @@ serve(async (req) => {
     // ── Step 4: Map and validate rows ────────────────────────────────────────
     let importedCount = 0;
     let skippedCount = 0;
+    let addedToListCount = 0;
+    let skippedDuplicates = 0;
+    let skippedLimit = 0;
     let errorCount = 0;
 
     const batchSize = 50;
@@ -256,6 +263,8 @@ serve(async (req) => {
       const batch = rows.slice(i, i + batchSize);
       const insertData: any[] = [];
       const updateData: any[] = [];
+      const folderOnlyUpdates: { id: string }[] = [];
+      const batchInsertEmails = new Set<string>();
 
       for (const row of batch) {
         const leadObj: any = {
@@ -291,27 +300,41 @@ serve(async (req) => {
         if (!leadObj.first_name) leadObj.first_name = null;
         if (!leadObj.email) leadObj.email = null;
 
-        if (!leadObj.first_name && !leadObj.email) {
+        if (!leadObj.first_name && !leadObj.email && !leadObj.phone) {
           errorCount++;
           continue;
         }
 
         const emailLower = leadObj.email ? leadObj.email.toLowerCase().trim() : '';
         const existingLeadId = emailLower ? existingEmails.get(emailLower) : null;
+        const isInBatchDuplicate = emailLower ? batchInsertEmails.has(emailLower) : false;
 
-        if (existingLeadId) {
+        if (existingLeadId || isInBatchDuplicate) {
           if (duplicateStrategy === 'skip') {
-            skippedCount++;
-          } else if (duplicateStrategy === 'overwrite') {
+            if (folderId && existingLeadId && !isInBatchDuplicate) {
+              folderOnlyUpdates.push({ id: existingLeadId });
+              addedToListCount++;
+            } else {
+              skippedCount++;
+              skippedDuplicates++;
+            }
+          } else if (duplicateStrategy === 'overwrite' && existingLeadId && !isInBatchDuplicate) {
             leadObj.id = existingLeadId;
             updateData.push(leadObj);
+          } else {
+            skippedCount++;
+            skippedDuplicates++;
           }
         } else {
           if (leadLimit !== Infinity && currentCount >= leadLimit) {
             limitReached = true;
             skippedCount++;
+            skippedLimit++;
           } else {
             insertData.push(leadObj);
+            if (emailLower) {
+              batchInsertEmails.add(emailLower);
+            }
             if (leadLimit !== Infinity) {
               currentCount++;
             }
@@ -322,15 +345,33 @@ serve(async (req) => {
       // Execute batch operations
       try {
         if (insertData.length > 0) {
-          const { error } = await supabaseAdmin.from('leads').insert(insertData);
+          const { data: inserted, error } = await supabaseAdmin.from('leads').insert(insertData).select('id, email');
           if (error) {
             console.error('Batch insert error:', error.message);
             errorCount += insertData.length;
+            insertData.forEach((l) => {
+              if (l.email) existingEmails.delete(l.email.toLowerCase().trim());
+            });
           } else {
             importedCount += insertData.length;
-            insertData.forEach(l => {
-              if (l.email) existingEmails.set(l.email.toLowerCase().trim(), 'new');
+            (inserted || []).forEach((l: { id: string; email: string | null }) => {
+              if (l.email) existingEmails.set(l.email.toLowerCase().trim(), l.id);
             });
+          }
+        }
+
+        if (folderOnlyUpdates.length > 0 && folderId) {
+          const ids = [...new Set(folderOnlyUpdates.map((u) => u.id))];
+          const { error } = await supabaseAdmin
+            .from('leads')
+            .update({ folder_id: folderId })
+            .in('id', ids);
+          if (error) {
+            console.error('Folder assign error:', error.message);
+            errorCount += ids.length;
+            addedToListCount -= ids.length;
+            skippedCount += ids.length;
+            skippedDuplicates += ids.length;
           }
         }
 
@@ -369,7 +410,17 @@ serve(async (req) => {
     }
 
     return new Response(
-      JSON.stringify({ imported: importedCount, skipped: skippedCount, errors: errorCount, limitReached, planLimit: leadLimit }),
+      JSON.stringify({
+        imported: importedCount,
+        skipped: skippedCount,
+        addedToList: addedToListCount,
+        skippedDuplicates,
+        skippedLimit,
+        errors: errorCount,
+        totalRows,
+        limitReached,
+        planLimit: leadLimit,
+      }),
       { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
     );
   } catch (err) {

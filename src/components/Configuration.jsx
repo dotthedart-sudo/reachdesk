@@ -2,7 +2,7 @@ import React, { useState, useEffect, useMemo } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
 import { supabase } from '../lib/supabase';
 import { useAppContext } from '../App';
-import { PLAN_LIMITS, normalizePlan } from '../lib/utils';
+import { PLAN_LIMITS, normalizePlan, getEffectivePlan, getEffectiveBillingCycle } from '../lib/utils';
 import { getPlanLeadLimit } from '../lib/leadLimits';
 import { getAiCreditLimit } from '../lib/aiCredits';
 import {
@@ -22,6 +22,15 @@ import {
 } from 'lucide-react';
 import { BRAND_NAME } from '../config/brand';
 import { DIALER_OPTIONS, getDialerPrefs, setDialerPrefs } from '../lib/callDialer';
+import {
+  DEFAULT_CALL_OUTCOME_RULES,
+  DEFAULT_CALL_STATUS_RULES,
+  loadCallOutcomeRules,
+  saveCallOutcomeRules,
+  loadCallStatusRules,
+  saveCallStatusRules,
+} from '../lib/callOutcomeRules';
+import { CALL_OUTCOMES } from '../lib/outreachQueue';
 import CurrencySelector, { CURRENCY_MAP } from './CurrencySelector';
 import { getBrowserTimeZone, getSupportedTimeZones, formatTimeZoneLabel } from '../lib/dateTime';
 
@@ -168,6 +177,8 @@ export default function Configuration({
   const [ghlDialerUrl, setGhlDialerUrl] = useState(dialerPrefsInit.ghlUrl);
   const [customDialerUrl, setCustomDialerUrl] = useState(dialerPrefsInit.customUrl);
   const [profileTimezone, setProfileTimezone] = useState(currentUser?.timezone || '');
+  const [callOutcomeRules, setCallOutcomeRules] = useState(DEFAULT_CALL_OUTCOME_RULES);
+  const [callStatusRules, setCallStatusRules] = useState(DEFAULT_CALL_STATUS_RULES);
   const browserTimezone = useMemo(() => getBrowserTimeZone(), []);
   const timezoneOptions = useMemo(() => getSupportedTimeZones(), []);
 
@@ -278,6 +289,8 @@ export default function Configuration({
       setProfileAvatarPreview('');
       setProfileDefaultCurrency(currentUser.default_currency || 'PKR');
       setProfileTimezone(currentUser.timezone || '');
+      setCallOutcomeRules(loadCallOutcomeRules(currentUser.id));
+      setCallStatusRules(loadCallStatusRules(currentUser.id));
       setRemindersEnabled(currentUser.reminders_enabled !== false);
       setSuggestionsEnabled(currentUser.suggestions_enabled !== false);
       setSuggestionsAutoApply(currentUser.suggestions_auto_apply !== false);
@@ -581,6 +594,9 @@ export default function Configuration({
         ghlUrl: ghlDialerUrl,
         customUrl: customDialerUrl,
       });
+
+      saveCallOutcomeRules(currentUser.id, callOutcomeRules);
+      saveCallStatusRules(currentUser.id, callStatusRules);
 
       // Automatically sync suggestions in database if enabled
       if (suggestionsEnabled && suggestionsAutoApply) {
@@ -977,6 +993,130 @@ export default function Configuration({
                 </div>
 
                 <div style={{ borderTop: '1px solid var(--border)', margin: '0.75rem 0', paddingTop: '0.75rem' }}>
+                  <span style={{ fontWeight: 600, fontSize: '0.9rem', display: 'block', marginBottom: '0.25rem' }}>Call outcome rules</span>
+                  <span style={{ fontSize: '0.8rem', color: 'var(--text-muted)', display: 'block', marginBottom: '0.75rem' }}>
+                    When you log a call, Reachdesk can auto-update status and call next step. Customize mappings below.
+                  </span>
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
+                    {callOutcomeRules.map((rule, idx) => (
+                      <div key={rule.outcome} style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: '0.5rem', alignItems: 'center', fontSize: '0.82rem' }}>
+                        <select
+                          className="form-input"
+                          value={rule.outcome}
+                          onChange={(e) => {
+                            const next = [...callOutcomeRules];
+                            next[idx] = { ...next[idx], outcome: e.target.value };
+                            setCallOutcomeRules(next);
+                          }}
+                          disabled={profileSaving}
+                        >
+                          {CALL_OUTCOMES.map((o) => (
+                            <option key={o} value={o}>{o}</option>
+                          ))}
+                        </select>
+                        <input
+                          type="text"
+                          className="form-input"
+                          placeholder="Status (optional)"
+                          value={rule.suggested_status || ''}
+                          onChange={(e) => {
+                            const next = [...callOutcomeRules];
+                            next[idx] = { ...next[idx], suggested_status: e.target.value || null };
+                            setCallOutcomeRules(next);
+                          }}
+                          disabled={profileSaving}
+                        />
+                        <input
+                          type="text"
+                          className="form-input"
+                          placeholder="Call next step"
+                          value={rule.suggested_call_action || ''}
+                          onChange={(e) => {
+                            const next = [...callOutcomeRules];
+                            next[idx] = { ...next[idx], suggested_call_action: e.target.value || null };
+                            setCallOutcomeRules(next);
+                          }}
+                          disabled={profileSaving}
+                        />
+                      </div>
+                    ))}
+                  </div>
+                  <button
+                    type="button"
+                    className="btn btn-secondary btn-sm"
+                    style={{ marginTop: '0.5rem' }}
+                    disabled={profileSaving}
+                    onClick={() => setCallOutcomeRules([...DEFAULT_CALL_OUTCOME_RULES])}
+                  >
+                    Reset outcome rules to defaults
+                  </button>
+                </div>
+
+                <div style={{ borderTop: '1px solid var(--border)', margin: '0.75rem 0', paddingTop: '0.75rem' }}>
+                  <span style={{ fontWeight: 600, fontSize: '0.9rem', display: 'block', marginBottom: '0.25rem' }}>Status → call next step</span>
+                  <span style={{ fontSize: '0.8rem', color: 'var(--text-muted)', display: 'block', marginBottom: '0.75rem' }}>
+                    Suggested call action shown as a lightbulb in Call Queue when status changes.
+                  </span>
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
+                    {callStatusRules.map((rule, idx) => (
+                      <div key={`${rule.status}-${idx}`} style={{ display: 'grid', gridTemplateColumns: '1fr 1fr auto', gap: '0.5rem', alignItems: 'center', fontSize: '0.82rem' }}>
+                        <input
+                          type="text"
+                          className="form-input"
+                          placeholder="Lead status"
+                          value={rule.status}
+                          onChange={(e) => {
+                            const next = [...callStatusRules];
+                            next[idx] = { ...next[idx], status: e.target.value };
+                            setCallStatusRules(next);
+                          }}
+                          disabled={profileSaving}
+                        />
+                        <input
+                          type="text"
+                          className="form-input"
+                          placeholder="Suggested call next step"
+                          value={rule.suggested_call_action || ''}
+                          onChange={(e) => {
+                            const next = [...callStatusRules];
+                            next[idx] = { ...next[idx], suggested_call_action: e.target.value };
+                            setCallStatusRules(next);
+                          }}
+                          disabled={profileSaving}
+                        />
+                        <button
+                          type="button"
+                          className="btn-icon"
+                          title="Remove rule"
+                          disabled={profileSaving}
+                          onClick={() => setCallStatusRules(callStatusRules.filter((_, i) => i !== idx))}
+                        >
+                          <Trash2 size={14} />
+                        </button>
+                      </div>
+                    ))}
+                  </div>
+                  <button
+                    type="button"
+                    className="btn btn-secondary btn-sm"
+                    style={{ marginTop: '0.5rem', marginRight: '0.5rem' }}
+                    disabled={profileSaving}
+                    onClick={() => setCallStatusRules([...callStatusRules, { status: '', suggested_call_action: '' }])}
+                  >
+                    <Plus size={14} /> Add status rule
+                  </button>
+                  <button
+                    type="button"
+                    className="btn btn-secondary btn-sm"
+                    style={{ marginTop: '0.5rem' }}
+                    disabled={profileSaving}
+                    onClick={() => setCallStatusRules([...DEFAULT_CALL_STATUS_RULES])}
+                  >
+                    Reset to defaults
+                  </button>
+                </div>
+
+                <div style={{ borderTop: '1px solid var(--border)', margin: '0.75rem 0', paddingTop: '0.75rem' }}>
                   <span style={{ fontWeight: 600, fontSize: '0.9rem', display: 'block', marginBottom: '0.35rem' }}>Default dialer (Cold Calls)</span>
                   <span style={{ fontSize: '0.8rem', color: 'var(--text-muted)', display: 'block', marginBottom: '0.5rem' }}>
                     Used by the Call button in Cold Calls mode. Other options stay in the dropdown menu.
@@ -1366,9 +1506,9 @@ export default function Configuration({
 
         {/* Usage Progress Section */}
         {(() => {
-          const planKey = normalizePlan(currentUser?.plan || 'trial');
+          const planKey = getEffectivePlan(currentUser);
           const limits = PLAN_LIMITS[planKey] || PLAN_LIMITS.trial;
-          const maxLeads = getPlanLeadLimit(planKey, currentUser?.billing_cycle) ?? limits.leads;
+          const maxLeads = getPlanLeadLimit(planKey, getEffectiveBillingCycle(currentUser)) ?? limits.leads;
           const maxTemplates = limits.templates;
           const maxAi = aiUsage.limit || getAiCreditLimit(planKey);
 
@@ -1520,7 +1660,7 @@ export default function Configuration({
             </span>
           </div>
           <div className="rd-integration-actions">
-            {!PLAN_LIMITS[(currentUser?.plan || 'trial').toLowerCase()]?.calendarIntegration ? (
+            {!PLAN_LIMITS[getEffectivePlan(currentUser)]?.calendarIntegration ? (
               <button
                 type="button"
                 onClick={() => navigate('/upgrade')}

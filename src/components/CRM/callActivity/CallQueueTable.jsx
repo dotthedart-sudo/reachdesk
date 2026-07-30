@@ -1,5 +1,5 @@
 import React, { useEffect, useMemo, useState } from 'react';
-import { PhoneCall, Settings as Gear } from 'lucide-react';
+import { PhoneCall, Settings as Gear, Lightbulb } from 'lucide-react';
 import CopyableCell from '../CopyableCell';
 import GroupedStatusDropdown from '../GroupedStatusDropdown';
 import PriorityDropdown from '../PriorityDropdown';
@@ -7,19 +7,14 @@ import EditableDropdown from '../EditableDropdown';
 import CallWindowBadge from '../CallWindowBadge';
 import CallButton from './CallButton';
 import LogCallModal from './LogCallModal';
+import QuickLogChips from './QuickLogChips';
 import OutcomeBadge from './OutcomeBadge';
 import ResizableTh from '../ResizableTh';
 import { getTableColumns, CALL_QUEUE_DEFAULT_DEFS } from '../crmTableColumns';
-import { fetchMyCallAttempts } from '../../../lib/callActivity';
+import { logCallWithUpdates, fetchMyCallAttempts } from '../../../lib/callActivity';
+import { getCallActionForStatus } from '../../../lib/callOutcomeRules';
 import { attemptsByLeadMap, buildOutreachSessionQueue } from '../../../lib/outreachQueue';
 import CallingSession from './CallingSession';
-
-const CALL_ACTION_COL = {
-  column_key: 'call_action',
-  column_label: 'Call next step',
-  column_type: 'dropdown',
-  is_default: true,
-};
 
 export default function CallQueueTable({
   leads = [],
@@ -35,6 +30,8 @@ export default function CallQueueTable({
   onRefresh,
   onOpenColumnManager,
   showNoteSharing = false,
+  suggestionRules = [],
+  onUpdateColumnDef,
 }) {
   const [attempts, setAttempts] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -43,12 +40,24 @@ export default function CallQueueTable({
 
   const userId = currentUser?.id;
   const defaultCountryCode = currentUser?.default_country_code || '+92';
+  const suggestionsEnabled = currentUser?.suggestions_enabled !== false;
 
   const tableCols = useMemo(() => {
     const cols = getTableColumns(columnDefs, 'call_queue');
     if (cols.length > 0) return cols;
     return CALL_QUEUE_DEFAULT_DEFS.map((d, i) => ({ ...d, id: `default-${d.column_key}`, sort_order: i }));
   }, [columnDefs]);
+
+  const callActionColDef = useMemo(
+    () => tableCols.find((c) => c.column_key === 'call_action') || {
+      column_key: 'call_action',
+      column_label: 'Call next step',
+      column_type: 'dropdown',
+      is_default: true,
+      dropdown_options: [],
+    },
+    [tableCols],
+  );
 
   const cellWidth = (key) => ({
     width: getWidth?.(key),
@@ -83,10 +92,26 @@ export default function CallQueueTable({
     [leads, scopedAttempts],
   );
 
-  const handleLogged = (row) => {
-    setAttempts((prev) => [row, ...prev]);
+  const handleLogged = ({ attempt, leadUpdates } = {}) => {
+    if (attempt) setAttempts((prev) => [attempt, ...prev]);
     setLogLead(null);
-    onRefresh?.();
+    if (leadUpdates) {
+      onRefresh?.();
+    } else {
+      onRefresh?.();
+    }
+  };
+
+  const handleQuickLog = async (lead, outcome) => {
+    if (!userId || !lead?.id) return;
+    const result = await logCallWithUpdates({
+      userId,
+      leadId: lead.id,
+      outcome,
+      teamId,
+      updateLeadFields: true,
+    });
+    handleLogged(result);
   };
 
   const renderCell = (col, lead, last, attemptList) => {
@@ -114,14 +139,37 @@ export default function CallQueueTable({
             onUpdate={onRefresh}
           />
         );
-      case 'call_action':
+      case 'call_action': {
+        const expected = suggestionsEnabled
+          ? getCallActionForStatus(lead.status, userId, suggestionRules)
+          : null;
+        const isMismatch = expected && lead.call_action !== expected;
+
         return (
-          <EditableDropdown
-            value={lead.call_action || ''}
-            columnDef={CALL_ACTION_COL}
-            onChange={(val) => onFieldChange?.(lead.id, 'call_action', val)}
-          />
+          <div style={{ display: 'inline-flex', alignItems: 'center', gap: '0.25rem' }}>
+            <EditableDropdown
+              value={lead.call_action || ''}
+              columnDef={callActionColDef}
+              onChange={(val) => onFieldChange?.(lead.id, 'call_action', val)}
+              onUpdateColumnDef={onUpdateColumnDef}
+            />
+            {isMismatch && (
+              <button
+                type="button"
+                className="btn-icon"
+                title={`Apply suggested: ${expected}`}
+                style={{ color: 'var(--status-warm)', padding: 2 }}
+                onClick={(e) => {
+                  e.stopPropagation();
+                  onFieldChange?.(lead.id, 'call_action', expected);
+                }}
+              >
+                <Lightbulb size={14} />
+              </button>
+            )}
+          </div>
         );
+      }
       case 'last_called':
         return (
           <span style={{ fontSize: '0.85rem', color: 'var(--text-secondary)' }}>
@@ -141,11 +189,15 @@ export default function CallQueueTable({
         );
       case '_actions':
         return (
-          <div style={{ display: 'flex', gap: '0.35rem', flexWrap: 'wrap', alignItems: 'center' }}>
-            <CallButton phone={lead.phone} userId={userId} onCopied={onCopied} />
-            <button type="button" className="btn btn-secondary btn-sm" onClick={() => setLogLead(lead)}>
-              Log
-            </button>
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '0.35rem', minWidth: 180 }}>
+            <div style={{ display: 'flex', gap: '0.35rem', flexWrap: 'wrap', alignItems: 'center' }}>
+              <CallButton phone={lead.phone} userId={userId} onCopied={onCopied} />
+            </div>
+            <QuickLogChips
+              compact
+              onLog={(outcome) => handleQuickLog(lead, outcome)}
+              onMore={() => setLogLead(lead)}
+            />
           </div>
         );
       default:

@@ -1,13 +1,14 @@
 import React, { useState, useEffect, useRef, createContext, useContext, lazy, Suspense } from 'react';
 import { BrowserRouter, Routes, Route, Navigate, useNavigate, useLocation, useSearchParams } from 'react-router-dom';
 import { supabase } from './lib/supabase';
-import { getTeamIds, PLAN_LIMITS, normalizePlan } from './lib/utils';
+import { getTeamIds, PLAN_LIMITS, normalizePlan, getEffectivePlan } from './lib/utils';
 import { registerLifetimeSession, validateLifetimeSession, clearLifetimeSession } from './lib/sessionManager';
 import { getEffectiveOutreachAccess, getEffectiveCalendarAccess } from './lib/callActivity';
 import {
   ensureProOwnerWorkspaceIfNeeded,
   processTeamInvites,
   isActiveTeamMember,
+  enrichProfileWithEffectivePlan,
   getStoredInviteToken,
   refreshProfileAfterInvite,
 } from './lib/teamWorkspace';
@@ -442,7 +443,7 @@ function AppProvider({ children }) {
           // Signup may finish auth before fetchProfile runs again — retry invite accept.
           refreshProfileAfterInvite(session.user.id).then(async ({ result, profile: refreshed }) => {
             if (!result?.ok || !refreshed) return;
-            setProfile(refreshed);
+            setProfile(await enrichProfileWithEffectivePlan(refreshed));
             setSubStatus(await checkSubscriptionStatus(refreshed));
             const ids = await getTeamIds(session.user.id);
             setTeamIds(ids);
@@ -669,6 +670,8 @@ function AppProvider({ children }) {
             return;
           }
           await registerLifetimeSession(userId, normalizePlan(profileToSet.plan));
+
+          profileToSet = await enrichProfileWithEffectivePlan(profileToSet);
 
           // Commit profile immediately — post-load steps must not block or undo this.
           setProfile(profileToSet);
@@ -1346,7 +1349,7 @@ function RevenuePage() {
 
 function NotesPage() {
   const { profile } = useAppContext();
-  const limits = PLAN_LIMITS[(profile?.plan || 'trial').toLowerCase()] || PLAN_LIMITS.trial;
+  const limits = PLAN_LIMITS[getEffectivePlan(profile)] || PLAN_LIMITS.trial;
   if (!limits.notes) {
     return (
       <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', minHeight: '300px', gap: '1rem', color: 'var(--text-muted)' }}>
@@ -1361,7 +1364,7 @@ function NotesPage() {
 
 function NoteEditorPage() {
   const { profile } = useAppContext();
-  const limits = PLAN_LIMITS[(profile?.plan || 'trial').toLowerCase()] || PLAN_LIMITS.trial;
+  const limits = PLAN_LIMITS[getEffectivePlan(profile)] || PLAN_LIMITS.trial;
   if (!limits.notes) {
     return (
       <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', minHeight: '300px', gap: '1rem', color: 'var(--text-muted)' }}>

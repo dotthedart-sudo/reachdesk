@@ -18,6 +18,7 @@ export default function MyCallFeed({
   defaultCountryCode = '+92',
   onOpenLead,
   onLogCall,
+  onGoToQueue,
   onAttemptUpdated,
   onAttemptDeleted,
   currentUserId,
@@ -107,10 +108,22 @@ export default function MyCallFeed({
   if (rows.length === 0) {
     return (
       <div className="card" style={{ padding: '2rem', textAlign: 'center', color: 'var(--text-muted)' }}>
-        <p style={{ margin: '0 0 0.75rem' }}>No call activity yet for leads in your workspace.</p>
-        <button type="button" className="btn btn-primary" onClick={onLogCall}>
-          <Plus size={14} /> Log your first call
-        </button>
+        <p style={{ margin: '0 0 0.5rem', fontWeight: 600, color: 'var(--text-primary)' }}>Call Log is your history feed</p>
+        <p style={{ margin: '0 0 1rem', fontSize: '0.9rem' }}>
+          Work leads in <strong>Call Queue</strong> — log outcomes with one click and status updates automatically.
+        </p>
+        <div style={{ display: 'flex', gap: '0.5rem', justifyContent: 'center', flexWrap: 'wrap' }}>
+          {onGoToQueue && (
+            <button type="button" className="btn btn-primary" onClick={onGoToQueue}>
+              Open Call Queue
+            </button>
+          )}
+          {onLogCall && (
+            <button type="button" className="btn btn-secondary" onClick={onLogCall}>
+              <Plus size={14} /> Log a call
+            </button>
+          )}
+        </div>
       </div>
     );
   }

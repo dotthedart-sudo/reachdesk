@@ -24,9 +24,9 @@ export default function SheetsImportModal({ onClose, onImportComplete, currentUs
   const [tabs, setTabs] = useState<string[]>([]);
   const [selectedTab, setSelectedTab] = useState('');
 
-  // Preview data
   const [headers, setHeaders] = useState<string[]>([]);
   const [previewRows, setPreviewRows] = useState<any[][]>([]);
+  const [previewTotalRows, setPreviewTotalRows] = useState<number | null>(null);
 
   // Mapping
   const [mapping, setMapping] = useState<Record<number, string>>({});
@@ -41,7 +41,17 @@ export default function SheetsImportModal({ onClose, onImportComplete, currentUs
   const [createdFolderId, setCreatedFolderId] = useState<string | null>(null);
 
   // Import results
-  const [importStats, setImportStats] = useState({ imported: 0, skipped: 0, errors: 0 });
+  const [importStats, setImportStats] = useState({
+    imported: 0,
+    skipped: 0,
+    addedToList: 0,
+    skippedDuplicates: 0,
+    skippedLimit: 0,
+    errors: 0,
+    totalRows: 0,
+    limitReached: false,
+    planLimit: null as number | null,
+  });
 
   const availableFields = [
     { label: '── Contact Fields ──', value: '', disabled: true },
@@ -148,6 +158,7 @@ export default function SheetsImportModal({ onClose, onImportComplete, currentUs
 
       setHeaders(fetchedHeaders);
       setPreviewRows(fetchedRows);
+      setPreviewTotalRows(typeof data.totalRows === 'number' ? data.totalRows : fetchedRows.length);
 
       const newMapping = autoMatchHeaders(fetchedHeaders);
       setMapping(newMapping);
@@ -164,7 +175,10 @@ export default function SheetsImportModal({ onClose, onImportComplete, currentUs
 
   const validateMapping = () => {
     const mappedValues = Object.values(mapping);
-    return mappedValues.includes('email') || mappedValues.includes('first_name') || mappedValues.includes('full_name');
+    return mappedValues.includes('email')
+      || mappedValues.includes('first_name')
+      || mappedValues.includes('full_name')
+      || mappedValues.includes('phone');
   };
 
   const handleExecuteImport = async () => {
@@ -216,7 +230,13 @@ export default function SheetsImportModal({ onClose, onImportComplete, currentUs
       setImportStats({
         imported: data.imported || 0,
         skipped: data.skipped || 0,
+        addedToList: data.addedToList || 0,
+        skippedDuplicates: data.skippedDuplicates || 0,
+        skippedLimit: data.skippedLimit || 0,
         errors: data.errors || 0,
+        totalRows: data.totalRows || 0,
+        limitReached: !!data.limitReached,
+        planLimit: data.planLimit ?? null,
       });
     } catch (err: any) {
       setErrorMsg(err.message || 'Import failed. Please try again.');
@@ -330,7 +350,11 @@ export default function SheetsImportModal({ onClose, onImportComplete, currentUs
           {step === 2 && (
             <div>
               <h3 style={{ fontSize: '1.25rem', marginBottom: '0.25rem' }}>Preview of your sheet data</h3>
-              <p style={{ color: '#9ca3af', fontSize: '0.875rem', marginBottom: '1.5rem' }}>First 10 rows shown — make sure it looks right</p>
+              <p style={{ color: '#9ca3af', fontSize: '0.875rem', marginBottom: '1.5rem' }}>
+                {previewTotalRows != null
+                  ? `Your sheet has ${previewTotalRows} data row${previewTotalRows === 1 ? '' : 's'} — preview shows the first ${Math.min(previewRows.length, 5)} only.`
+                  : 'Preview shows the first rows only — the full sheet tab is imported.'}
+              </p>
 
               <div className="csv-preview-table-container">
                 <table className="csv-preview-table">
@@ -421,8 +445,10 @@ export default function SheetsImportModal({ onClose, onImportComplete, currentUs
                 <label className="csv-radio-card">
                   <input type="radio" name="duplicate" checked={duplicateStrategy === 'skip'} onChange={() => setDuplicateStrategy('skip')} />
                   <div>
-                    <div style={{ fontWeight: 500 }}>Skip duplicate</div>
-                    <div style={{ fontSize: '0.875rem', color: '#9ca3af' }}>Keep existing lead as-is</div>
+                    <div style={{ fontWeight: 500 }}>Skip duplicate (recommended)</div>
+                    <div style={{ fontSize: '0.875rem', color: '#9ca3af' }}>
+                      Keep existing lead data. If importing to a list, duplicates are still added to that list.
+                    </div>
                   </div>
                 </label>
                 <label className="csv-radio-card">
@@ -498,21 +524,56 @@ export default function SheetsImportModal({ onClose, onImportComplete, currentUs
               ) : (
                 <>
                   <Check size={64} color="var(--text-primary)" style={{ marginBottom: '1rem', display: 'inline-block' }} />
-                  <h3 style={{ fontSize: '1.5rem', marginBottom: '2rem' }}>Import Complete!</h3>
-                  <div style={{ display: 'flex', gap: '1rem', justifyContent: 'center' }}>
+                  <h3 style={{ fontSize: '1.5rem', marginBottom: '1rem' }}>Import Complete!</h3>
+                  {importStats.totalRows > 0 && (
+                    <p style={{ color: '#9ca3af', fontSize: '0.875rem', marginBottom: '1.5rem' }}>
+                      Processed {importStats.totalRows} row{importStats.totalRows === 1 ? '' : 's'} from your sheet.
+                    </p>
+                  )}
+                  <div style={{ display: 'flex', gap: '1rem', justifyContent: 'center', flexWrap: 'wrap' }}>
                     <div className="csv-stat-card">
                       <div style={{ fontSize: '1.5rem', fontWeight: 700, color: 'var(--text-primary)', marginBottom: '0.25rem' }}>{importStats.imported}</div>
-                      <div style={{ fontSize: '0.875rem', color: '#9ca3af' }}>Imported</div>
+                      <div style={{ fontSize: '0.875rem', color: '#9ca3af' }}>New leads</div>
                     </div>
+                    {importStats.addedToList > 0 && (
+                      <div className="csv-stat-card">
+                        <div style={{ fontSize: '1.5rem', fontWeight: 700, color: 'var(--accent-blue)', marginBottom: '0.25rem' }}>{importStats.addedToList}</div>
+                        <div style={{ fontSize: '0.875rem', color: '#9ca3af' }}>Added to list</div>
+                      </div>
+                    )}
                     <div className="csv-stat-card">
                       <div style={{ fontSize: '1.5rem', fontWeight: 700, color: '#f59e0b', marginBottom: '0.25rem' }}>{importStats.skipped}</div>
                       <div style={{ fontSize: '0.875rem', color: '#9ca3af' }}>Skipped</div>
                     </div>
                     <div className="csv-stat-card">
                       <div style={{ fontSize: '1.5rem', fontWeight: 700, color: '#ef4444', marginBottom: '0.25rem' }}>{importStats.errors}</div>
-                      <div style={{ fontSize: '0.875rem', color: '#9ca3af' }}>Errors</div>
+                      <div style={{ fontSize: '0.875rem', color: '#9ca3af' }}>Invalid rows</div>
                     </div>
                   </div>
+                  {(importStats.skippedDuplicates > 0 || importStats.skippedLimit > 0 || importStats.errors > 0 || importStats.addedToList > 0) && (
+                    <div style={{ marginTop: '1.5rem', textAlign: 'left', maxWidth: 420, margin: '1.5rem auto 0', fontSize: '0.85rem', color: 'var(--text-secondary)', lineHeight: 1.5 }}>
+                      {importStats.addedToList > 0 && (
+                        <p style={{ margin: '0 0 0.5rem' }}>
+                          <strong>{importStats.addedToList}</strong> already in CRM — assigned to your list (data unchanged).
+                        </p>
+                      )}
+                      {importStats.skippedDuplicates > 0 && (
+                        <p style={{ margin: '0 0 0.5rem' }}>
+                          <strong>{importStats.skippedDuplicates}</strong> skipped — same email already in CRM. Choose &quot;Create new list&quot; or pick a list so existing leads are included, or use Overwrite to refresh their data.
+                        </p>
+                      )}
+                      {importStats.skippedLimit > 0 && (
+                        <p style={{ margin: '0 0 0.5rem' }}>
+                          <strong>{importStats.skippedLimit}</strong> skipped — plan lead limit reached{importStats.planLimit ? ` (${importStats.planLimit} max)` : ''}.
+                        </p>
+                      )}
+                      {importStats.errors > 0 && (
+                        <p style={{ margin: 0 }}>
+                          <strong>{importStats.errors}</strong> invalid — row missing name, email, and phone. Check column mapping.
+                        </p>
+                      )}
+                    </div>
+                  )}
                 </>
               )}
             </div>

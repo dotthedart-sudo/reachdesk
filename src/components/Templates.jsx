@@ -18,7 +18,7 @@ import {
   AlertCircle
 } from 'lucide-react';
 import { generateAIDraft } from '../utils/aiDraft';
-import { PLAN_LIMITS } from '../lib/utils';
+import { PLAN_LIMITS, getEffectivePlan } from '../lib/utils';
 import { NEXT_PLAN, PLAN_LIMITS as LIMITS_NEW } from '../lib/leadLimits';
 import { ShinyButton } from '@/registry/magicui/shiny-button';
 
@@ -111,7 +111,7 @@ export default function Templates({
   // Allowed templates (starters + user's own)
   const allowedTemplates = templates.filter(t => t.is_starter || t.user_id === currentUser.id);
 
-  const planKey = (currentUser.plan || 'trial').toLowerCase();
+  const planKey = getEffectivePlan(currentUser);
   const templateLimit = (LIMITS_NEW[planKey] || LIMITS_NEW.trial).templates ?? Infinity;
   const userTemplates = allowedTemplates.filter(t => t.user_id && !t.is_starter);
   const isTemplateLimitReached = templateLimit !== Infinity && userTemplates.length >= templateLimit;

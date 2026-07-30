@@ -5,7 +5,7 @@ import {
 import ListsTableView from './ListsTableView';
 import './FolderBrowser.css';
 
-const SYSTEM_VIEWS = [
+export const SYSTEM_VIEWS = [
   { id: 'hot', label: 'Hot', iconColor: 'var(--status-hot)' },
   { id: 'warm', label: 'Warm', iconColor: 'var(--status-warm)' },
   { id: 'cold', label: 'Cold', iconColor: 'var(--status-cold)' },
@@ -46,6 +46,16 @@ export default function FolderBrowser({
           <button type="button" className="btn btn-secondary btn-sm" onClick={onCreateSmartList}>
             <Sparkles size={14} /> Auto list
           </button>
+          {canBulkImport && onImportCsv && (
+            <button type="button" className="btn btn-secondary btn-sm" onClick={onImportCsv}>
+              <Upload size={14} /> Import CSV
+            </button>
+          )}
+          {canUseIntegrations && onImportSheets && (
+            <button type="button" className="btn btn-secondary btn-sm" onClick={onImportSheets}>
+              <Database size={14} /> Import from Sheets
+            </button>
+          )}
         </div>
       </div>
 
@@ -56,19 +66,7 @@ export default function FolderBrowser({
           </div>
           <div>
             <strong>No leads yet</strong>
-            <p>Import leads first — each import can become its own list.</p>
-          </div>
-          <div className="crm-folder-browser-empty-actions">
-            {canBulkImport && onImportCsv && (
-              <button type="button" className="btn btn-secondary btn-sm" onClick={onImportCsv}>
-                <Upload size={14} /> Import CSV
-              </button>
-            )}
-            {canUseIntegrations && onImportSheets && (
-              <button type="button" className="btn btn-secondary btn-sm" onClick={onImportSheets}>
-                <Database size={14} /> Import from Sheets
-              </button>
-            )}
+            <p>Use Import CSV or Import from Sheets above — each import can become its own list.</p>
           </div>
         </div>
       )}

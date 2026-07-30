@@ -190,12 +190,18 @@
   justify-content: center;
 }
 
+/* Inside a list: use full width; no secondary Lists rail */
+.crm-workspace--list {
+  width: 100%;
+  max-width: 100%;
+}
+
 .crm-list-breadcrumb {
   display: flex;
   align-items: center;
   flex-wrap: wrap;
   gap: var(--space-2);
-  margin-bottom: var(--space-4);
+  margin-bottom: var(--space-2);
   font-size: var(--text-sm);
 }
 
@@ -220,6 +226,117 @@
 .crm-list-breadcrumb-current {
   color: var(--text-primary);
   font-weight: 600;
+}
+
+.crm-list-switcher {
+  position: relative;
+}
+
+.crm-list-switcher-trigger {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-1);
+  padding: var(--space-1) var(--space-2);
+  margin: calc(var(--space-1) * -1) calc(var(--space-2) * -1);
+  border: none;
+  border-radius: var(--radius-sm);
+  background: transparent;
+  color: var(--text-primary);
+  font-size: inherit;
+  font-weight: 600;
+  cursor: pointer;
+  max-width: min(420px, 70vw);
+}
+
+.crm-list-switcher-trigger:hover {
+  background: var(--bg-hover);
+}
+
+.crm-list-switcher-trigger-label {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.crm-list-switcher-chevron {
+  color: var(--text-muted);
+  flex-shrink: 0;
+  transition: transform 0.15s ease;
+}
+
+.crm-list-switcher-chevron--open {
+  transform: rotate(180deg);
+}
+
+.crm-list-switcher-menu {
+  position: absolute;
+  top: calc(100% + var(--space-1));
+  left: 0;
+  z-index: 50;
+  min-width: 260px;
+  max-width: min(360px, 90vw);
+  max-height: min(420px, 60vh);
+  overflow-y: auto;
+  padding: var(--space-2);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  background: var(--bg-card);
+  box-shadow: var(--shadow-md, 0 8px 24px rgba(0, 0, 0, 0.12));
+}
+
+.crm-list-switcher-section + .crm-list-switcher-section {
+  margin-top: var(--space-2);
+  padding-top: var(--space-2);
+  border-top: 1px solid var(--border);
+}
+
+.crm-list-switcher-section-title {
+  padding: var(--space-1) var(--space-2);
+  font-size: var(--text-3xs);
+  letter-spacing: var(--tracking-label);
+  text-transform: uppercase;
+  color: var(--text-muted);
+  font-weight: 600;
+}
+
+.crm-list-switcher-item {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  width: 100%;
+  padding: var(--space-2);
+  border: none;
+  border-radius: var(--radius-sm);
+  background: transparent;
+  color: var(--text-secondary);
+  font-size: var(--text-sm);
+  text-align: left;
+  cursor: pointer;
+}
+
+.crm-list-switcher-item:hover {
+  background: var(--bg-hover);
+  color: var(--text-primary);
+}
+
+.crm-list-switcher-item--active {
+  background: var(--bg-selected);
+  color: var(--text-primary);
+  font-weight: 600;
+}
+
+.crm-list-switcher-item-label {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.crm-list-switcher-item-count {
+  flex-shrink: 0;
+  font-size: var(--text-xs);
+  color: var(--text-muted);
 }
 
 /* Google Sheets-style lists table */

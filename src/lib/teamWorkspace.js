@@ -274,3 +274,26 @@ export async function updateTeamSettings(teamId, settings) {
 }
 
 export { canInviteTeammates };
+
+/** Attach workspace owner plan for limits/features when user is a team member. */
+export async function enrichProfileWithEffectivePlan(profile) {
+  if (!profile?.id) return profile;
+  if ((profile.team_role || 'owner').toLowerCase() !== 'member' || !profile.team_id) {
+    return profile;
+  }
+
+  try {
+    const { data, error } = await supabase.rpc('get_my_plan_context');
+    if (error || !data) return profile;
+
+    return {
+      ...profile,
+      effective_plan: data.plan ?? profile.plan,
+      effective_billing_cycle: data.billing_cycle ?? profile.billing_cycle,
+      inherits_team_plan: !!data.inherits_workspace,
+    };
+  } catch (err) {
+    console.warn('[teamWorkspace] get_my_plan_context failed:', err);
+    return profile;
+  }
+}

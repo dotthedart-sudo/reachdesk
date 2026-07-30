@@ -57,28 +57,49 @@ export function attemptsByLeadMap(attempts) {
   return map;
 }
 
-/** Same queue as Outreach Tracker "Start Calling Session". */
+/** Same queue as Outreach Tracker "Start Calling Session". Respects call_action on each lead. */
 export function buildOutreachSessionQueue(leads, attempts) {
   const byLead = attemptsByLeadMap(attempts);
   const today = startOfToday();
+  const callNow = [];
   const needs = [];
   const neverCalled = [];
 
   for (const lead of leads || []) {
+    const action = (lead.call_action || '').trim();
+    if (action && SKIP_QUEUE_CALL_ACTIONS.has(action)) continue;
+
     const last = byLead.get(lead.id);
     if (!last) {
+      if (action === 'Try again tomorrow') continue;
       neverCalled.push(lead);
       continue;
     }
+
     if (TERMINAL_OUTCOMES.has(last.outcome)) continue;
+
     const next = computeNextFollowUp(last);
-    if (next && next.getTime() <= today.getTime()) {
+    const dueForFollowUp = next && next.getTime() <= today.getTime();
+
+    if (PRIORITY_CALL_ACTIONS.has(action)) {
+      callNow.push(lead);
+    } else if (dueForFollowUp) {
       needs.push(lead);
+    } else if (action === 'Try again tomorrow') {
+      // Wait until follow-up date
     }
   }
 
-  return [...needs, ...neverCalled];
+  return [...callNow, ...needs, ...neverCalled];
 }
+
+const SKIP_QUEUE_CALL_ACTIONS = new Set([
+  'No call needed',
+  'Wrong number — remove',
+  'Not interested — close',
+]);
+
+const PRIORITY_CALL_ACTIONS = new Set(['Call now']);
 
 export function leadsNeverCalled(leads, attempts) {
   const called = new Set((attempts || []).map((a) => a.lead_id));

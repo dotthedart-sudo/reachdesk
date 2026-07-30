@@ -10,6 +10,8 @@ import RichTextEditor from './RichTextEditor';
 import GroupedStatusDropdown from './GroupedStatusDropdown';
 import GroupedTemplateDropdown from './GroupedTemplateDropdown';
 import { updateLeadStatusAndCheckpoint, getSuggestionForStatus, isClientStatus } from '../../lib/reminders';
+import { getCallActionForStatus } from '../../lib/callOutcomeRules';
+import { CALL_ACTION_DEFAULT_OPTIONS } from './crmTableColumns';
 import PriorityDropdown from './PriorityDropdown';
 import { mergeTemplateFields } from '../../utils/templateMerge';
 import { celebrateClosedWon } from '../../utils/celebrateWin';
@@ -1047,6 +1049,43 @@ export default function LeadDrawer({
                 </div>
               );
             })}
+
+            {!isClientView && (
+              <div className="form-group">
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '0.25rem' }}>
+                  <label className="form-label" style={{ margin: 0 }}>Call next step</label>
+                  {(() => {
+                    const expected = getCallActionForStatus(formData.status || 'Lead', currentUser?.id, suggestionRules);
+                    const val = formData.call_action || '';
+                    const isMismatch = currentUser?.suggestions_enabled !== false && expected && val !== expected;
+                    if (!isMismatch || !showSuggestion) return null;
+                    return (
+                      <button
+                        type="button"
+                        onClick={() => handleDropdownChange('call_action', expected)}
+                        className="btn btn-secondary btn-sm"
+                        style={{ fontSize: '0.72rem', padding: '0.2rem 0.45rem' }}
+                      >
+                        Apply: {expected}
+                      </button>
+                    );
+                  })()}
+                </div>
+                <EditableDropdown
+                  value={formData.call_action || ''}
+                  columnDef={{
+                    id: 'drawer-call-action',
+                    column_key: 'call_action',
+                    column_label: 'Call next step',
+                    column_type: 'dropdown',
+                    dropdown_options: columnDefs.find((c) => c.column_key === 'call_action' && c.table_view === 'call_queue')?.dropdown_options?.length
+                      ? columnDefs.find((c) => c.column_key === 'call_action' && c.table_view === 'call_queue').dropdown_options
+                      : CALL_ACTION_DEFAULT_OPTIONS,
+                  }}
+                  onChange={(newVal) => handleDropdownChange('call_action', newVal)}
+                />
+              </div>
+            )}
 
             {/* Pipeline Notes */}
             <div className="form-group">
