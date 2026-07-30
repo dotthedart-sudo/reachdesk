@@ -4,6 +4,13 @@ import { supabase } from './lib/supabase';
 import { getTeamIds, PLAN_LIMITS, normalizePlan } from './lib/utils';
 import { registerLifetimeSession, validateLifetimeSession, clearLifetimeSession } from './lib/sessionManager';
 import { getEffectiveOutreachAccess, getEffectiveCalendarAccess } from './lib/callActivity';
+import {
+  ensureProOwnerWorkspaceIfNeeded,
+  processTeamInvites,
+  isActiveTeamMember,
+  getStoredInviteToken,
+  refreshProfileAfterInvite,
+} from './lib/teamWorkspace';
 import { Lock } from 'lucide-react';
 import { subscribeToPush } from './utils/pushNotifications';
 import { isLocalDev, getAppUrl, getMarketingUrl } from './utils/domain';
@@ -534,12 +541,19 @@ function AppProvider({ children }) {
 
           const { data: newProfile, error: profileErr } = await supabase.from('user_profiles').upsert(profileData).select().single();
 
+          let joinedProfile = newProfile;
           if (profileErr) {
             console.error('Failed to auto-create/update user profile:', profileErr);
-            throw profileErr;
+            const { data: existing } = await supabase.from('user_profiles').select('*').eq('id', userId).maybeSingle();
+            if (existing) {
+              p = existing;
+              joinedProfile = null;
+            } else {
+              throw profileErr;
+            }
           }
 
-          let joinedProfile = newProfile;
+          if (joinedProfile) {
           try {
             const inviteResult = await processTeamInvites({ retries: 3 });
             if (inviteResult?.ok) {
@@ -558,6 +572,7 @@ function AppProvider({ children }) {
           }).catch(err => console.warn('[Push] Admin new-signup notification failed:', err));
 
           p = joinedProfile;
+          }
         }
 
         // Existing profile but missing full_name (e.g. OAuth signup without a display name).
@@ -655,33 +670,40 @@ function AppProvider({ children }) {
           }
           await registerLifetimeSession(userId, normalizePlan(profileToSet.plan));
 
+          // Commit profile immediately — post-load steps must not block or undo this.
           setProfile(profileToSet);
-          setOutreachUnlocked(await getEffectiveOutreachAccess(profileToSet));
-          setCalendarUnlocked(await getEffectiveCalendarAccess(profileToSet));
-          // Mark this user's profile as loaded so future auth events are ignored
           loadedUserIdRef.current = userId;
-          identifyUser(userId, {
-            email: profileToSet.email,
-            plan: profileToSet.plan,
-            role: profileToSet.role,
-            status: profileToSet.status,
-          });
-          const status = await checkSubscriptionStatus(profileToSet);
-          setSubStatus(status);
-
-          const ids = await getTeamIds(userId);
-          setTeamIds(ids);
-
-          const { data: members } = await supabase.from('user_profiles')
-            .select('id, email')
-            .in('id', ids);
-          const mapping = {};
-          members?.forEach(m => { mapping[m.id] = m.email; });
-          setTeamProfilesMap(mapping);
-
-          // Fetch workspace data
-          await fetchAllData(ids, userId, p.role === 'admin', p);
           setLoading(false);
+
+          try {
+            setOutreachUnlocked(await getEffectiveOutreachAccess(profileToSet));
+            setCalendarUnlocked(await getEffectiveCalendarAccess(profileToSet));
+            identifyUser(userId, {
+              email: profileToSet.email,
+              plan: profileToSet.plan,
+              role: profileToSet.role,
+              status: profileToSet.status,
+            });
+            const status = await checkSubscriptionStatus(profileToSet);
+            setSubStatus(status);
+
+            const ids = await getTeamIds(userId);
+            setTeamIds(ids);
+
+            if (ids.length > 0) {
+              const { data: members } = await supabase.from('user_profiles')
+                .select('id, email')
+                .in('id', ids);
+              const mapping = {};
+              members?.forEach(m => { mapping[m.id] = m.email; });
+              setTeamProfilesMap(mapping);
+            }
+
+            await fetchAllData(ids, userId, profileToSet.role === 'admin', profileToSet);
+          } catch (postLoadErr) {
+            console.error('[Profile] Post-load setup failed (profile kept):', postLoadErr);
+            setSubStatus(await checkSubscriptionStatus(profileToSet).catch(() => 'active'));
+          }
           return; // Success, exit function
         }
       } catch (err) {
@@ -694,8 +716,10 @@ function AppProvider({ children }) {
         await new Promise(resolve => setTimeout(resolve, 500));
       }
     }
-    // If we reach here, we failed to fetch the profile after all attempts
-    setProfile(null);
+    // Only clear profile if we never successfully loaded one this session
+    if (loadedUserIdRef.current !== userId) {
+      setProfile(null);
+    }
     setLoading(false);
   };
 
@@ -1148,7 +1172,7 @@ function AppProvider({ children }) {
     handleAddRevenueLog, handleDeleteRevenueLog,
     handleAddTemplate, handleDeleteTemplate, handleUpdateTemplate,
     handleAddSnippet, handleDeleteSnippet, handleUpdateSnippet,
-    fetchProfile: () => fetchProfile(session?.user?.id),
+    fetchProfile: () => fetchProfile(session?.user?.id, session),
     fetchAllData: () => fetchAllData(teamIds, session?.user?.id, profile?.role === 'admin'),
   };
 
