@@ -7,7 +7,7 @@ import {
   Menu, X as XIcon, HelpCircle, Calendar,
   PanelLeftClose, PanelLeftOpen, UsersRound, Lock
 } from 'lucide-react';
-import { PLAN_LIMITS, normalizePlan } from '../lib/utils';
+import { useAppContext } from '../App';
 import { isTeamsFeatureLocked } from '../lib/teamWorkspace';
 import UpgradeLockModal from './UpgradeLockModal';
 import MobileNav from './MobileNav';
@@ -62,6 +62,7 @@ export default function AppLayout({
   // ───────────────────────────────────────────────────────────────────────────
 
   const limitStatus = useLeadLimitStatus(profile?.id);
+  const { calendarUnlocked } = useAppContext() || {};
 
   const handleExportLeads = async () => {
     if (!profile?.id) return;
@@ -74,7 +75,6 @@ export default function AppLayout({
   };
 
   const isAdmin = profile?.role === 'admin';
-  const planLimits = PLAN_LIMITS[(profile?.plan || 'trial').toLowerCase()] || PLAN_LIMITS.trial;
 
   const handleNotesClickMobile = () => {
     setIsSidebarOpen(false);
@@ -202,14 +202,14 @@ export default function AppLayout({
             <li>
               <Link
                 to="/calendar"
-                title={tip(!PLAN_LIMITS[normalizePlan(profile?.plan)]?.calendarIntegration ? 'Calendar (Upgrade)' : 'Calendar')}
+                title={tip(!calendarUnlocked ? 'Calendar (Upgrade)' : 'Calendar')}
                 className={`sidebar-item ${pathname === '/calendar' ? 'active' : ''}`}
                 style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}
               >
                 <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
                   <Calendar size={18} /><span className="nav-label">Calendar</span>
                 </div>
-                {!PLAN_LIMITS[normalizePlan(profile?.plan)]?.calendarIntegration && (
+                {!calendarUnlocked && (
                   <Lock size={12} className="nav-label" style={{ opacity: 0.65 }} />
                 )}
               </Link>
@@ -327,7 +327,7 @@ export default function AppLayout({
 
             <li>
               <Link to="/calendar" onClick={() => setIsSidebarOpen(false)} className="mobile-menu-item">
-                {!PLAN_LIMITS[normalizePlan(profile?.plan)]?.calendarIntegration ? 'Calendar (Upgrade)' : 'Calendar'}
+                {!calendarUnlocked ? 'Calendar (Upgrade)' : 'Calendar'}
               </Link>
             </li>
 

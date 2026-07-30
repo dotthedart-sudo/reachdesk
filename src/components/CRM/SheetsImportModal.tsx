@@ -7,10 +7,13 @@ import './CSVImportModal.css';
 
 interface SheetsImportModalProps {
   onClose: () => void;
-  onImportComplete: () => void;
+  onImportComplete: (folderId?: string) => void;
+  currentUserId: string;
 }
 
-export default function SheetsImportModal({ onClose, onImportComplete }: SheetsImportModalProps) {
+type ListDestination = 'auto' | 'existing' | 'none';
+
+export default function SheetsImportModal({ onClose, onImportComplete, currentUserId }: SheetsImportModalProps) {
   const [step, setStep] = useState(0); // 0=picker, 1=tab select, 2=preview, 3=map, 4=settings, 5=running
   const [pickerLoading, setPickerLoading] = useState(false);
   const [loading, setLoading] = useState(false);
@@ -31,9 +34,11 @@ export default function SheetsImportModal({ onClose, onImportComplete }: SheetsI
 
   // Settings
   const [duplicateStrategy, setDuplicateStrategy] = useState<'skip' | 'overwrite'>('skip');
+  const [listDestination, setListDestination] = useState<ListDestination>('auto');
   const [folderId, setFolderId] = useState('');
   const [defaultPriority, setDefaultPriority] = useState('Warm');
   const [folders, setFolders] = useState<any[]>([]);
+  const [createdFolderId, setCreatedFolderId] = useState<string | null>(null);
 
   // Import results
   const [importStats, setImportStats] = useState({ imported: 0, skipped: 0, errors: 0 });
@@ -64,18 +69,20 @@ export default function SheetsImportModal({ onClose, onImportComplete }: SheetsI
 
   useEffect(() => {
     async function fetchFolders() {
-      const { data: userData } = await supabase.auth.getUser();
-      if (userData?.user?.id) {
-        const { data } = await supabase
-          .from('folders')
-          .select('id, name, color')
-          .eq('user_id', userData.user.id)
-          .order('name');
-        if (data) setFolders(data);
-      }
+      if (!currentUserId) return;
+      const { data } = await supabase
+        .from('folders')
+        .select('id, name, color')
+        .eq('user_id', currentUserId)
+        .order('name');
+      if (data) setFolders(data);
     }
     fetchFolders();
-  }, []);
+  }, [currentUserId]);
+
+  const autoListName = spreadsheet && selectedTab
+    ? `${spreadsheet.name} / ${selectedTab}`.slice(0, 120)
+    : '';
 
   const handleOpenPicker = () => {
     setErrorMsg('');
@@ -167,13 +174,37 @@ export default function SheetsImportModal({ onClose, onImportComplete }: SheetsI
     setErrorMsg('');
 
     try {
+      let targetFolderId: string | null = null;
+
+      if (listDestination === 'auto') {
+        const listName = autoListName || `Sheet / ${selectedTab}`.slice(0, 120);
+        const { data: newFolder, error: folderError } = await supabase
+          .from('folders')
+          .insert({
+            user_id: currentUserId,
+            name: listName,
+            color: '#A3A3A3',
+            sort_order: 0,
+          })
+          .select('id')
+          .single();
+        if (folderError) throw folderError;
+        targetFolderId = newFolder.id;
+        setCreatedFolderId(newFolder.id);
+      } else if (listDestination === 'existing' && folderId) {
+        targetFolderId = folderId;
+        setCreatedFolderId(folderId);
+      } else {
+        setCreatedFolderId(null);
+      }
+
       const { data, error } = await supabase.functions.invoke('import-leads-from-sheets', {
         body: {
           spreadsheetId: spreadsheet.id,
           sheetName: selectedTab,
           mapping,
           duplicateStrategy,
-          folderId: folderId || null,
+          folderId: targetFolderId,
           defaultPriority,
           filename: `${spreadsheet.name} / ${selectedTab}`,
         },
@@ -404,13 +435,38 @@ export default function SheetsImportModal({ onClose, onImportComplete }: SheetsI
               </div>
 
               <div style={{ marginBottom: '2rem' }}>
-                <p style={{ fontWeight: 600, marginBottom: '0.75rem' }}>Add imported leads to folder:</p>
-                <select className="csv-select" style={{ width: '100%', maxWidth: '300px' }} value={folderId} onChange={e => setFolderId(e.target.value)}>
-                  <option value="">No folder</option>
-                  {folders.map(f => (
-                    <option key={f.id} value={f.id}>{f.name}</option>
-                  ))}
-                </select>
+                <p style={{ fontWeight: 600, marginBottom: '0.75rem' }}>Save imported leads to:</p>
+                <label className="csv-radio-card">
+                  <input type="radio" name="listDest" checked={listDestination === 'auto'} onChange={() => setListDestination('auto')} />
+                  <div>
+                    <div style={{ fontWeight: 500 }}>Create new list from sheet (recommended)</div>
+                    <div style={{ fontSize: '0.875rem', color: '#9ca3af' }}>
+                      {autoListName ? `"${autoListName}"` : 'Named after spreadsheet and tab'}
+                    </div>
+                  </div>
+                </label>
+                <label className="csv-radio-card">
+                  <input type="radio" name="listDest" checked={listDestination === 'existing'} onChange={() => setListDestination('existing')} />
+                  <div>
+                    <div style={{ fontWeight: 500 }}>Add to an existing list</div>
+                    <div style={{ fontSize: '0.875rem', color: '#9ca3af' }}>Pick from your saved lists</div>
+                  </div>
+                </label>
+                {listDestination === 'existing' && (
+                  <select className="csv-select" style={{ width: '100%', maxWidth: '300px', marginTop: '0.75rem' }} value={folderId} onChange={e => setFolderId(e.target.value)}>
+                    <option value="">Select a list…</option>
+                    {folders.map(f => (
+                      <option key={f.id} value={f.id}>{f.name}</option>
+                    ))}
+                  </select>
+                )}
+                <label className="csv-radio-card">
+                  <input type="radio" name="listDest" checked={listDestination === 'none'} onChange={() => setListDestination('none')} />
+                  <div>
+                    <div style={{ fontWeight: 500 }}>No list — import to unfiled leads</div>
+                    <div style={{ fontSize: '0.875rem', color: '#9ca3af' }}>Leads won&apos;t belong to a named list</div>
+                  </div>
+                </label>
               </div>
 
               <div>
@@ -508,16 +564,34 @@ export default function SheetsImportModal({ onClose, onImportComplete }: SheetsI
             <button className="csv-btn csv-btn-secondary" onClick={() => setStep(3)} style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
               <ArrowLeft size={16} /> Back
             </button>
-            <button className="csv-btn csv-btn-primary" onClick={handleExecuteImport} style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', fontWeight: 700 }}>
+            <button
+              className="csv-btn csv-btn-primary"
+              onClick={handleExecuteImport}
+              disabled={listDestination === 'existing' && !folderId}
+              style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', fontWeight: 700 }}
+            >
               Start Import <ArrowRight size={16} />
             </button>
           </div>
         )}
 
         {step === 5 && !loading && (
-          <div className="csv-modal-footer" style={{ justifyContent: 'center' }}>
-            <button className="csv-btn csv-btn-primary" onClick={onImportComplete} style={{ minWidth: '150px' }}>
-              Done
+          <div className="csv-modal-footer" style={{ justifyContent: 'center', gap: '0.75rem' }}>
+            {createdFolderId && (
+              <button
+                className="csv-btn csv-btn-primary"
+                onClick={() => onImportComplete(createdFolderId)}
+                style={{ minWidth: '150px' }}
+              >
+                Open list
+              </button>
+            )}
+            <button
+              className={`csv-btn ${createdFolderId ? 'csv-btn-secondary' : 'csv-btn-primary'}`}
+              onClick={() => onImportComplete(createdFolderId || undefined)}
+              style={{ minWidth: '150px' }}
+            >
+              {createdFolderId ? 'Back to lists' : 'Done'}
             </button>
           </div>
         )}

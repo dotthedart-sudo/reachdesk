@@ -1,7 +1,10 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { X, Calendar, User, FileText, Activity as ActivityIcon, Plus, Trash2, Pencil, Check, Receipt, Lock, Copy } from 'lucide-react';
+import { X, Calendar, User, FileText, Activity as ActivityIcon, Plus, Trash2, Pencil, Check, Receipt, Lock, Copy, Phone } from 'lucide-react';
 import { supabase } from '../../lib/supabase';
 import { useAppContext } from '../../App';
+import { fetchLeadCallTimeline } from '../../lib/callActivity';
+import LogCallModal from './callActivity/LogCallModal';
+import OutcomeBadge from './callActivity/OutcomeBadge';
 import EditableDropdown from './EditableDropdown';
 import RichTextEditor from './RichTextEditor';
 import GroupedStatusDropdown from './GroupedStatusDropdown';
@@ -25,7 +28,8 @@ export default function LeadDrawer({
   isClientView,
   onRefresh,
   statuses = [],
-  suggestionRules = []
+  suggestionRules = [],
+  initialTab = null,
 }) {
   const [activeTab, setActiveTab] = useState('contact'); // 'contact' | 'pipeline' | 'notes' | 'activity'
   const { showToast, userSnippets } = useAppContext() || {};
@@ -128,6 +132,9 @@ export default function LeadDrawer({
 
   const [activities, setActivities] = useState([]);
   const [activitiesLoading, setActivitiesLoading] = useState(false);
+  const [callAttempts, setCallAttempts] = useState([]);
+  const [callAttemptsLoading, setCallAttemptsLoading] = useState(false);
+  const [logCallOpen, setLogCallOpen] = useState(false);
 
   const titleInputRef = useRef(null);
 
@@ -139,9 +146,13 @@ export default function LeadDrawer({
       });
       fetchNotes();
       fetchActivities();
+      fetchCallAttempts();
       setShowSuggestion(true);
+      if (initialTab === 'calls') {
+        setActiveTab('activity');
+      }
     }
-  }, [lead]);
+  }, [lead, initialTab]);
 
   // Focus title input when entering edit mode
   useEffect(() => {
@@ -267,6 +278,29 @@ export default function LeadDrawer({
     } finally {
       setActivitiesLoading(false);
     }
+  };
+
+  const fetchCallAttempts = async () => {
+    if (!lead) return;
+    const targetLeadId = isClientView ? lead.lead_id : lead.id;
+    if (!targetLeadId) {
+      setCallAttempts([]);
+      return;
+    }
+    setCallAttemptsLoading(true);
+    try {
+      const data = await fetchLeadCallTimeline(targetLeadId);
+      setCallAttempts(data);
+    } catch (err) {
+      console.error('Error fetching call timeline:', err);
+      setCallAttempts([]);
+    } finally {
+      setCallAttemptsLoading(false);
+    }
+  };
+
+  const handleCallLogged = async () => {
+    await fetchCallAttempts();
   };
 
   const logActivity = async (type, detail) => {
@@ -1148,11 +1182,62 @@ export default function LeadDrawer({
         {/* Activity Tab */}
         {activeTab === 'activity' && (
           <div className="flex-col gap-3">
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: '0.75rem', flexWrap: 'wrap' }}>
+              <h4 style={{ fontSize: '0.9rem', margin: 0, fontWeight: 600 }}>Call attempts</h4>
+              <button type="button" className="btn btn-primary btn-sm" onClick={() => setLogCallOpen(true)}>
+                <Phone size={12} /> Log call
+              </button>
+            </div>
+
+            {callAttemptsLoading ? (
+              <div style={{ textAlign: 'center', padding: '1rem', color: 'var(--text-muted)', fontSize: '0.85rem' }}>Loading calls…</div>
+            ) : callAttempts.length === 0 ? (
+              <div style={{ textAlign: 'center', padding: '1rem', color: 'var(--text-muted)', fontSize: '0.85rem', border: '1px dashed var(--border-color)', borderRadius: 6 }}>
+                No calls logged for this lead yet.
+              </div>
+            ) : (
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '0.75rem', marginBottom: '1rem' }}>
+                {callAttempts.map((call) => (
+                  <div
+                    key={call.id}
+                    style={{
+                      padding: '0.75rem',
+                      borderRadius: 6,
+                      border: '1px solid var(--border-color)',
+                      background: 'var(--bg-secondary)',
+                      textAlign: 'left',
+                    }}
+                  >
+                    <div style={{ display: 'flex', justifyContent: 'space-between', gap: '0.5rem', flexWrap: 'wrap', alignItems: 'center' }}>
+                      <span style={{ fontSize: '0.75rem', color: 'var(--text-muted)' }}>
+                        {new Date(call.created_at).toLocaleString()}
+                      </span>
+                      <OutcomeBadge outcome={call.outcome} />
+                    </div>
+                    <div style={{ fontSize: '0.85rem', fontWeight: 600, marginTop: '0.25rem', color: 'var(--text-primary)' }}>
+                      {call.caller_name || call.caller_email || 'Unknown caller'}
+                    </div>
+                    <div style={{ fontSize: '0.8rem', color: 'var(--text-secondary)', marginTop: '0.25rem' }}>
+                      {!call.note_visible && !call.note ? (
+                        <span style={{ fontStyle: 'italic', color: 'var(--text-muted)' }}>(private note)</span>
+                      ) : (
+                        call.note || '—'
+                      )}
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
+
+            <h4 style={{ fontSize: '0.9rem', margin: '0.5rem 0 0', fontWeight: 600, borderTop: '1px solid var(--border-color)', paddingTop: '1rem' }}>
+              CRM activity
+            </h4>
+
             {activitiesLoading ? (
               <div style={{ textAlign: 'center', padding: '2rem', color: 'var(--text-muted)' }}>Loading activity logs...</div>
             ) : activities.length === 0 ? (
               <div style={{ textAlign: 'center', padding: '2rem', color: 'var(--text-muted)', fontSize: '0.9rem' }}>
-                No activity logged yet.
+                No CRM activity logged yet.
               </div>
             ) : (
               <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem', borderLeft: '2px solid var(--border-color)', paddingLeft: '1rem', marginLeft: '0.5rem' }}>
@@ -1356,6 +1441,16 @@ export default function LeadDrawer({
           </div>
         </div>
       )}
+
+      <LogCallModal
+        open={logCallOpen}
+        onClose={() => setLogCallOpen(false)}
+        fixedLead={lead}
+        userId={currentUser?.id}
+        teamId={currentUser?.team_id || null}
+        showNoteSharing={!!currentUser?.team_id}
+        onLogged={handleCallLogged}
+      />
       </div>
     </div>
   </>

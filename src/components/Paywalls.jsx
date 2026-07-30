@@ -390,7 +390,7 @@ export function UpgradePage({ profile, handleLogout, onRefreshProfile, bankAccou
           <p className="rd-pricing-yearly-callout">Yearly plans include 2× lead capacity on Pro.</p>
         )}
 
-        <div className="rd-pricing-grid rd-pricing-grid--two">
+        <div className="rd-pricing-grid">
           {PLANS.map((plan) => (
             <PlanCard
               key={plan.id}

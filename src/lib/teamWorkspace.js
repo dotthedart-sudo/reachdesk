@@ -145,13 +145,12 @@ export async function isActiveTeamMember(profile) {
   if (!profile?.team_id) return false;
   if ((profile.team_role || 'owner').toLowerCase() !== 'member') return false;
 
-  const owner = await getTeamOwnerProfileForMember(profile);
-  if (!owner) return false;
-
-  const ownerPlan = normalizePlan(owner.plan);
-  if (ownerPlan !== 'teams') return false;
-  if (owner.plan_status && owner.plan_status !== 'active') return false;
-  return true;
+  const { data, error } = await supabase.rpc('is_active_team_member');
+  if (error) {
+    console.warn('[teamWorkspace] is_active_team_member RPC failed:', error);
+    return false;
+  }
+  return data === true;
 }
 
 /**

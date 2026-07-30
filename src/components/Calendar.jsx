@@ -6,7 +6,8 @@ import {
   Pencil, Trash2, ClipboardList, Layers,
 } from 'lucide-react';
 import { supabase } from '../lib/supabase';
-import { PLAN_LIMITS, normalizePlan } from '../lib/utils';
+import { getTeamIds } from '../lib/utils';
+import { useAppContext } from '../App';
 import { leadDisplayName } from '../lib/outreachQueue';
 import {
   resolveTimeZone,
@@ -220,8 +221,8 @@ function PlanTaskRow({ task, onLog, onCancel, onOpenLead, defaultCountryCode }) 
 
 export default function CalendarPage({ currentUser }) {
   const navigate = useNavigate();
-  const planKey = normalizePlan(currentUser?.plan);
-  const calAllowed = !!PLAN_LIMITS[planKey]?.calendarIntegration;
+  const { calendarUnlocked } = useAppContext() || {};
+  const calAllowed = !!calendarUnlocked;
   const userTz = useMemo(() => resolveTimeZone(currentUser?.timezone), [currentUser?.timezone]);
   const todayKey = useMemo(() => todayDateKeyInZone(userTz), [userTz]);
   const timezoneHint = useMemo(() => formatTimeZoneHint(userTz), [userTz]);
@@ -316,6 +317,8 @@ export default function CalendarPage({ currentUser }) {
         ),
       ).toISOString();
 
+      const teamIds = await getTeamIds(currentUser.id);
+
       const [
         { data: attempts, error: attErr },
         { data: planned, error: planErr },
@@ -340,12 +343,12 @@ export default function CalendarPage({ currentUser }) {
         supabase
           .from('leads')
           .select('id, first_name, last_name, email, phone, company, folder_id, status, timezone, timezone_source')
-          .eq('user_id', currentUser.id)
+          .in('user_id', teamIds)
           .order('created_at', { ascending: false }),
         supabase
           .from('folders')
           .select('id, name, color')
-          .eq('user_id', currentUser.id)
+          .in('user_id', teamIds)
           .order('sort_order', { ascending: true }),
       ]);
 
@@ -617,7 +620,7 @@ export default function CalendarPage({ currentUser }) {
   };
 
   const viewSubtitle = {
-    plan: 'Plan who to call each day — log calls from here or Outreach Tracker.',
+    plan: 'Plan who to call each day — log calls from here or Call Activity.',
     activity: 'Logged cold calls only — click a day for the list.',
     meetings: 'Google Calendar meetings. Click a day to schedule; click an event to edit.',
     all: 'Plan, logged calls, and meetings in one view.',
@@ -627,9 +630,9 @@ export default function CalendarPage({ currentUser }) {
     return (
       <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', minHeight: 320, gap: '1rem', textAlign: 'center', padding: '2rem', color: 'var(--text-muted)' }}>
         <Lock size={32} />
-        <h3 style={{ margin: 0, color: 'var(--text-primary)' }}>Calendar is available on Pro</h3>
+        <h3 style={{ margin: 0, color: 'var(--text-primary)' }}>Calendar is on Pro and Teams</h3>
         <p style={{ margin: 0, maxWidth: 420 }}>
-          Plan outreach, track activity, and see Google meetings in one place.
+          Plan outreach, track activity, and see Google meetings in one place. Teams members inherit access from an active workspace.
         </p>
         <button type="button" className="btn btn-primary" onClick={() => navigate('/upgrade')}>
           Upgrade to Pro
@@ -1007,8 +1010,17 @@ export default function CalendarPage({ currentUser }) {
 
             {(isActivity || isAll) && (
               <DaySection title={`LOGGED CALLS (${selectedOutreach.length})`}>
+                <div style={{ marginBottom: '0.5rem' }}>
+                  <button
+                    type="button"
+                    className="btn btn-secondary btn-sm"
+                    onClick={() => navigate('/leads?view=outreach')}
+                  >
+                    View in Call Activity
+                  </button>
+                </div>
                 {selectedOutreach.length === 0 ? (
-                  <EmptyHint>No calls logged this day. Log from Plan or Outreach Tracker.</EmptyHint>
+                  <EmptyHint>No calls logged this day. Log from Plan or Call Activity.</EmptyHint>
                 ) : (
                   selectedOutreach.map((row) => (
                     <button

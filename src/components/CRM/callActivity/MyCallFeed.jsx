@@ -1,0 +1,225 @@
+import React, { useMemo, useState } from 'react';
+import { ChevronRight, Plus, Pencil, Trash2 } from 'lucide-react';
+import {
+  CALL_OUTCOMES,
+  TERMINAL_OUTCOMES,
+  leadDisplayName,
+  computeNextFollowUp,
+  startOfToday,
+} from '../../../lib/outreachQueue';
+import CallWindowBadge from '../CallWindowBadge';
+import OutcomeBadge from './OutcomeBadge';
+import EditCallAttemptModal from './EditCallAttemptModal';
+
+export default function MyCallFeed({
+  leads = [],
+  attempts = [],
+  loading,
+  defaultCountryCode = '+92',
+  onOpenLead,
+  onLogCall,
+  onAttemptUpdated,
+  onAttemptDeleted,
+  currentUserId,
+}) {
+  const [filter, setFilter] = useState('all');
+  const [sort, setSort] = useState('recent');
+  const [editAttempt, setEditAttempt] = useState(null);
+
+  const attemptsByLead = useMemo(() => {
+    const map = new Map();
+    for (const attempt of attempts) {
+      if (!map.has(attempt.lead_id)) map.set(attempt.lead_id, []);
+      map.get(attempt.lead_id).push(attempt);
+    }
+    for (const [, list] of map) {
+      list.sort((a, b) => new Date(b.created_at) - new Date(a.created_at));
+    }
+    return map;
+  }, [attempts]);
+
+  const leadMap = useMemo(() => {
+    const m = new Map();
+    for (const l of leads) m.set(l.id, l);
+    return m;
+  }, [leads]);
+
+  const rows = useMemo(() => {
+    const today = startOfToday();
+    const result = [];
+
+    for (const lead of leads) {
+      const leadAttempts = attemptsByLead.get(lead.id) || [];
+      if (leadAttempts.length === 0) continue;
+
+      const last = leadAttempts[0];
+      const nextFollowUp = computeNextFollowUp(last);
+      const needsFollowUpToday =
+        nextFollowUp && nextFollowUp.getTime() <= today.getTime() && !TERMINAL_OUTCOMES.has(last.outcome);
+
+      result.push({
+        lead,
+        attemptCount: leadAttempts.length,
+        lastOutcome: last.outcome,
+        lastAt: last.created_at,
+        lastAttempt: last,
+        nextFollowUp,
+        needsFollowUpToday,
+      });
+    }
+
+    let filtered = result;
+    if (filter === 'needs_followup') {
+      filtered = result.filter((r) => r.needsFollowUpToday);
+    } else if (filter.startsWith('outcome:')) {
+      const outcome = filter.slice('outcome:'.length);
+      filtered = result.filter((r) => r.lastOutcome === outcome);
+    }
+
+    const sorted = [...filtered];
+    if (sort === 'recent') {
+      sorted.sort((a, b) => new Date(b.lastAt) - new Date(a.lastAt));
+    } else if (sort === 'oldest') {
+      sorted.sort((a, b) => new Date(a.lastAt) - new Date(b.lastAt));
+    } else if (sort === 'attempts') {
+      sorted.sort((a, b) => b.attemptCount - a.attemptCount || new Date(b.lastAt) - new Date(a.lastAt));
+    } else if (sort === 'followup') {
+      sorted.sort((a, b) => {
+        const at = a.nextFollowUp ? a.nextFollowUp.getTime() : Number.POSITIVE_INFINITY;
+        const bt = b.nextFollowUp ? b.nextFollowUp.getTime() : Number.POSITIVE_INFINITY;
+        return at - bt;
+      });
+    }
+
+    return sorted;
+  }, [leads, attemptsByLead, filter, sort]);
+
+  const canEdit = (attempt) => {
+    if (!attempt || attempt.user_id !== currentUserId) return false;
+    const age = Date.now() - new Date(attempt.created_at).getTime();
+    return age <= 24 * 60 * 60 * 1000;
+  };
+
+  if (loading) {
+    return <div style={{ color: 'var(--text-muted)', padding: '1.5rem 0' }}>Loading call activity…</div>;
+  }
+
+  if (rows.length === 0) {
+    return (
+      <div className="card" style={{ padding: '2rem', textAlign: 'center', color: 'var(--text-muted)' }}>
+        <p style={{ margin: '0 0 0.75rem' }}>No call activity yet for leads in your workspace.</p>
+        <button type="button" className="btn btn-primary" onClick={onLogCall}>
+          <Plus size={14} /> Log your first call
+        </button>
+      </div>
+    );
+  }
+
+  return (
+    <>
+      <div style={{ display: 'flex', gap: '0.75rem', flexWrap: 'wrap', alignItems: 'center' }}>
+        <label style={{ fontSize: '0.8rem', color: 'var(--text-muted)', display: 'flex', alignItems: 'center', gap: '0.4rem' }}>
+          Filter
+          <select className="form-input" style={{ width: 'auto', minWidth: 160 }} value={filter} onChange={(e) => setFilter(e.target.value)}>
+            <option value="all">All</option>
+            <option value="needs_followup">Needs Follow-up Today</option>
+            {CALL_OUTCOMES.map((o) => (
+              <option key={o} value={`outcome:${o}`}>{o}</option>
+            ))}
+          </select>
+        </label>
+        <label style={{ fontSize: '0.8rem', color: 'var(--text-muted)', display: 'flex', alignItems: 'center', gap: '0.4rem' }}>
+          Sort
+          <select className="form-input" style={{ width: 'auto', minWidth: 150 }} value={sort} onChange={(e) => setSort(e.target.value)}>
+            <option value="recent">Most recent</option>
+            <option value="oldest">Oldest</option>
+            <option value="attempts">Most attempts</option>
+            <option value="followup">Follow-up date</option>
+          </select>
+        </label>
+      </div>
+
+      <div style={{ overflowX: 'auto', border: '1px solid var(--border-color)', borderRadius: 6 }}>
+        <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '0.875rem' }}>
+          <thead>
+            <tr style={{ background: 'var(--bg-tertiary)', textAlign: 'left' }}>
+              <th style={{ padding: '0.65rem 0.75rem', fontWeight: 600 }}>Lead</th>
+              <th style={{ padding: '0.65rem 0.75rem', fontWeight: 600 }}>Local time</th>
+              <th style={{ padding: '0.65rem 0.75rem', fontWeight: 600 }}>Last outcome</th>
+              <th style={{ padding: '0.65rem 0.75rem', fontWeight: 600 }}>Attempts</th>
+              <th style={{ padding: '0.65rem 0.75rem', fontWeight: 600 }}>Next follow-up</th>
+              <th style={{ padding: '0.65rem 0.75rem', fontWeight: 600 }} />
+            </tr>
+          </thead>
+          <tbody>
+            {rows.map((row) => (
+              <tr
+                key={row.lead.id}
+                style={{ borderTop: '1px solid var(--border-color)' }}
+              >
+                <td
+                  style={{ padding: '0.65rem 0.75rem', cursor: 'pointer' }}
+                  onClick={() => onOpenLead?.(row.lead, 'calls')}
+                >
+                  <div style={{ fontWeight: 600 }}>{leadDisplayName(row.lead)}</div>
+                  <div style={{ fontSize: '0.75rem', color: 'var(--text-muted)' }}>
+                    {row.lead.phone || row.lead.email || '—'}
+                  </div>
+                </td>
+                <td style={{ padding: '0.65rem 0.75rem' }}>
+                  <CallWindowBadge lead={row.lead} defaultCountryCode={defaultCountryCode} showLocalTime />
+                </td>
+                <td style={{ padding: '0.65rem 0.75rem' }}>
+                  <OutcomeBadge outcome={row.lastOutcome} />
+                </td>
+                <td style={{ padding: '0.65rem 0.75rem' }}>{row.attemptCount}</td>
+                <td style={{ padding: '0.65rem 0.75rem', color: row.needsFollowUpToday ? 'var(--status-hot)' : 'var(--text-secondary)' }}>
+                  {row.nextFollowUp ? row.nextFollowUp.toLocaleDateString() : '—'}
+                  {row.needsFollowUpToday && (
+                    <span style={{ display: 'block', fontSize: '0.7rem', fontWeight: 600 }}>Due today</span>
+                  )}
+                </td>
+                <td style={{ padding: '0.65rem 0.75rem', textAlign: 'right' }}>
+                  <div style={{ display: 'flex', gap: '0.25rem', justifyContent: 'flex-end' }}>
+                    {canEdit(row.lastAttempt) && (
+                      <>
+                        <button type="button" className="btn btn-secondary btn-sm" onClick={() => setEditAttempt(row.lastAttempt)} title="Edit">
+                          <Pencil size={12} />
+                        </button>
+                        <button
+                          type="button"
+                          className="btn btn-secondary btn-sm"
+                          title="Delete"
+                          onClick={async () => {
+                            if (!confirm('Delete this call log?')) return;
+                            await onAttemptDeleted?.(row.lastAttempt.id);
+                          }}
+                        >
+                          <Trash2 size={12} />
+                        </button>
+                      </>
+                    )}
+                    <button type="button" className="btn-icon" onClick={() => onOpenLead?.(row.lead, 'calls')}>
+                      <ChevronRight size={16} style={{ color: 'var(--text-muted)' }} />
+                    </button>
+                  </div>
+                </td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
+
+      {editAttempt && (
+        <EditCallAttemptModal
+          attempt={editAttempt}
+          onClose={() => setEditAttempt(null)}
+          onSaved={(updated) => {
+            onAttemptUpdated?.(updated);
+            setEditAttempt(null);
+          }}
+        />
+      )}
+    </>
+  );
+}

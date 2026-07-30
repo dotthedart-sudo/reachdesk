@@ -3,13 +3,7 @@ import { BrowserRouter, Routes, Route, Navigate, useNavigate, useLocation, useSe
 import { supabase } from './lib/supabase';
 import { getTeamIds, PLAN_LIMITS, normalizePlan } from './lib/utils';
 import { registerLifetimeSession, validateLifetimeSession, clearLifetimeSession } from './lib/sessionManager';
-import {
-  ensureProOwnerWorkspaceIfNeeded,
-  processTeamInvites,
-  isActiveTeamMember,
-  getStoredInviteToken,
-  refreshProfileAfterInvite,
-} from './lib/teamWorkspace';
+import { getEffectiveOutreachAccess, getEffectiveCalendarAccess } from './lib/callActivity';
 import { Lock } from 'lucide-react';
 import { subscribeToPush } from './utils/pushNotifications';
 import { isLocalDev, getAppUrl, getMarketingUrl } from './utils/domain';
@@ -342,6 +336,8 @@ function AppProvider({ children }) {
   const [adminNotifCount, setAdminNotifCount] = useState(0);
   const [remindersCount, setRemindersCount] = useState(0);
   const [toast, setToast] = useState(null);
+  const [outreachUnlocked, setOutreachUnlocked] = useState(false);
+  const [calendarUnlocked, setCalendarUnlocked] = useState(false);
 
   // Tracks the user ID whose profile is currently loaded.
   // Using a ref (not state) so the onAuthStateChange closure always reads
@@ -660,6 +656,8 @@ function AppProvider({ children }) {
           await registerLifetimeSession(userId, normalizePlan(profileToSet.plan));
 
           setProfile(profileToSet);
+          setOutreachUnlocked(await getEffectiveOutreachAccess(profileToSet));
+          setCalendarUnlocked(await getEffectiveCalendarAccess(profileToSet));
           // Mark this user's profile as loaded so future auth events are ignored
           loadedUserIdRef.current = userId;
           identifyUser(userId, {
@@ -853,6 +851,8 @@ function AppProvider({ children }) {
     setSession(null);
     setProfile(null);
     setSubStatus('active');
+    setOutreachUnlocked(false);
+    setCalendarUnlocked(false);
   };
 
   const handleRegisterUser = async (email, password, plan, fullName, avatarFile, referralSource, marketingConsent) => {
@@ -1138,6 +1138,7 @@ function AppProvider({ children }) {
 
   const value = {
     session, profile, subStatus, loading,
+    outreachUnlocked, calendarUnlocked,
     theme, toggleTheme, brandName, currencySymbol, webhookUrl,
     teamIds, teamProfilesMap, leads, templates, userSnippets, invoices, revenueLogs,
     adminNotifCount, remindersCount,

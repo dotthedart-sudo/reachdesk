@@ -4,9 +4,10 @@ import { supabase } from '../lib/supabase';
 import { useAppContext } from '../App';
 import { getTeamIds, PLAN_LIMITS } from '../lib/utils';
 import { LeadLimitModal, LeadLimitToast, getRemainingLeadQuota, shouldShowCountdownToast, prepareBulkImport, BulkImportLimitModal, getPlanLeadLimit } from '../lib/leadLimits';
+import { PLAN_LIMITS as PLAN_FEATURE_FLAGS, normalizePlan } from '../lib/planConfig';
 import {
   Search, Plus, Download, Upload, Trash2, Edit3, X,
-  Filter, CheckSquare, Square, Folder, FolderPlus,
+  Filter, CheckSquare, Square, Folder, FolderPlus, LayoutGrid, ChevronRight,
   MoreVertical, Check, ThumbsUp, ThumbsDown, SkipForward, AlertCircle, ChevronDown, FileText,
   Settings as Gear, MessageCircle, Zap, ExternalLink, Lock, Lightbulb, Copy, Sparkles, Mail,
   Database, Info, Users, Phone, Gem
@@ -20,6 +21,7 @@ import CSVImporter from './CRM/CSVImporter';
 import CSVImportModal from './CRM/CSVImportModal';
 import ExportSheetsModal from './CRM/ExportSheetsModal';
 import SheetsImportModal from './CRM/SheetsImportModal';
+import FolderBrowser from './CRM/FolderBrowser';
 import ConvertModal from './CRM/ConvertModal';
 import LeadFormFields from './CRM/LeadFormFields';
 import GroupedStatusDropdown from './CRM/GroupedStatusDropdown';
@@ -213,7 +215,9 @@ export default function CRM({
   const [searchParams, setSearchParams] = useSearchParams();
   const view = searchParams.get('view') || 'contact_details';
   const folderParam = searchParams.get('folder');
-  const selectedFolderId = folderParam === 'all' || !folderParam ? null : folderParam;
+  const isBrowseMode = !folderParam;
+  const activeFolderId = folderParam;
+  const activeManualFolderId = folders.find((f) => f.id === activeFolderId)?.id || '';
 
   const handleViewChange = (newView) => {
     setSearchParams(prev => {
@@ -231,7 +235,13 @@ export default function CRM({
     }
   });
   const [selectedLead, setSelectedLead] = useState(null);
+  const [drawerInitialTab, setDrawerInitialTab] = useState(null);
   const [pastedLink, setPastedLink] = useState('');
+
+  const handleOpenLead = (lead, tab) => {
+    setSelectedLead(lead);
+    setDrawerInitialTab(tab || null);
+  };
 
   const handleCopyPersonalizedMessage = (lead, templateId) => {
     if (!templateId) return;
@@ -886,7 +896,7 @@ export default function CRM({
   // Reset page on filter changes
   useEffect(() => {
     setCurrentPage(1);
-  }, [searchQuery, statusFilter, selectedFolderId]);
+  }, [searchQuery, statusFilter, activeFolderId]);
 
   // Auto-open lead from follow-up reminder action
   useEffect(() => {
@@ -953,8 +963,11 @@ export default function CRM({
   const totalLeadsCount = leads.length;
   const leadLimit = getPlanLeadLimit(plan, currentUser.billing_cycle) || Infinity;
   const isLeadLimitReached = leadLimit !== Infinity && totalLeadsCount >= leadLimit;
-  const canUseIntegrations = PLAN_LIMITS[(currentUser?.plan || 'trial').toLowerCase()]?.sheetsIntegration ?? false;
-  const canBulkImport = PLAN_LIMITS[(currentUser?.plan || 'trial').toLowerCase()]?.bulkImport ?? false;
+  const planKey = normalizePlan(currentUser?.plan);
+  const planFeatures = PLAN_FEATURE_FLAGS[planKey] || PLAN_FEATURE_FLAGS.trial;
+  // CSV export is never plan-gated — only bulk import and Sheets integrations use flags below.
+  const canUseIntegrations = planFeatures.sheetsIntegration ?? false;
+  const canBulkImport = planFeatures.bulkImport ?? false;
 
   const handleOpenBulkImport = (openModal) => {
     if (!canBulkImport) {
@@ -974,7 +987,7 @@ export default function CRM({
     }
     setLeadForm({
       name: '', email: '', phone: '', company: '', niche: '',
-      priority: 'Warm', status: 'Lead', notes: '', folder_id: selectedFolderId || '',
+      priority: 'Warm', status: 'Lead', notes: '', folder_id: activeManualFolderId || '',
       template_used: '',
       links: [],
       custom_fields: {},
@@ -1108,7 +1121,7 @@ export default function CRM({
           status: 'Lead',
           notes: quickAddForm.notes?.trim() || null,
           user_id: currentUser.id,
-          folder_id: selectedFolderId || null,
+          folder_id: activeManualFolderId || null,
           custom_fields,
           timezone: tzFields.timezone,
           timezone_source: tzFields.timezone_source,
@@ -1479,6 +1492,7 @@ export default function CRM({
       setFolders(prev => [...prev, data]);
       setFolderForm({ name: '', color: '#A3A3A3' });
       setShowFolderModal(false);
+      handleSelectFolder(data.id);
     } catch (err) {
       console.error('Error creating folder:', err);
     }
@@ -1512,7 +1526,7 @@ export default function CRM({
 
       await supabase.from('folders').delete().eq('id', folderId);
       setFolders(prev => prev.filter(f => f.id !== folderId));
-      if (selectedFolderId === folderId) handleSelectFolder(null);
+      if (activeFolderId === folderId) handleSelectFolder('home');
     } catch (err) {
       console.error('Error deleting folder:', err);
     }
@@ -1523,7 +1537,7 @@ export default function CRM({
     try {
       await supabase.from('user_folders').delete().eq('id', folderId);
       setUserFolders(prev => prev.filter(uf => uf.id !== folderId));
-      if (selectedFolderId === folderId) handleSelectFolder(null);
+      if (activeFolderId === folderId) handleSelectFolder('home');
     } catch (err) {
       console.error('Error deleting smart folder:', err);
     }
@@ -1582,6 +1596,58 @@ export default function CRM({
       return norm.includes('cold') || norm.includes('low');
     }
     return false;
+  };
+
+  const leadMatchesFolder = (lead, folderId) => {
+    if (!folderId || folderId === 'all') return true;
+    if (folderId === 'unfiled') return !lead.folder_id;
+    if (folderId === 'hot') return lead.priority?.toLowerCase() === 'hot';
+    if (folderId === 'warm') return lead.priority?.toLowerCase() === 'warm';
+    if (folderId === 'cold') return lead.priority?.toLowerCase() === 'cold';
+    if (folderId === 'needs-followup') {
+      return lead.next_checkpoint_at && new Date(lead.next_checkpoint_at) <= new Date();
+    }
+    if (folderId === 'recently-followed-up') {
+      const fiveDaysAgo = new Date();
+      fiveDaysAgo.setDate(fiveDaysAgo.getDate() - 5);
+      return lead.last_contacted_at && new Date(lead.last_contacted_at) >= fiveDaysAgo;
+    }
+    if (folderId === 'calendly') {
+      return lead.status?.toLowerCase() === 'calendly_sent' || lead.status === 'Calendly Sent';
+    }
+    if (folderId === 'clients') return isClientStatus(lead.status);
+
+    const smartFolder = userFolders.find((uf) => uf.id === folderId);
+    if (smartFolder) {
+      const rules = smartFolder.filter_config?.rules || [];
+      return rules.length === 0 || rules.every((rule) => matchRule(lead, rule));
+    }
+    if (folders.find((f) => f.id === folderId)) {
+      return lead.folder_id === folderId;
+    }
+    return true;
+  };
+
+  const getLeadCountForFolder = (folderId) => leads.filter((l) => leadMatchesFolder(l, folderId)).length;
+
+  const getActiveFolderLabel = () => {
+    if (!activeFolderId || activeFolderId === 'all') return systemFolderNames.all || 'All Leads';
+    if (activeFolderId === 'unfiled') return 'Unfiled leads';
+    const systemLabels = {
+      hot: systemFolderNames.hot || 'Hot',
+      warm: systemFolderNames.warm || 'Warm',
+      cold: systemFolderNames.cold || 'Cold',
+      'needs-followup': systemFolderNames['needs-followup'] || 'Needs Follow-Up',
+      'recently-followed-up': systemFolderNames['recently-followed-up'] || 'Recently Followed Up',
+      calendly: systemFolderNames.calendly || 'Calendly Sent',
+      clients: systemFolderNames.clients || 'Clients',
+    };
+    if (systemLabels[activeFolderId]) return systemLabels[activeFolderId];
+    const manual = folders.find((f) => f.id === activeFolderId);
+    if (manual) return manual.name;
+    const smart = userFolders.find((uf) => uf.id === activeFolderId);
+    if (smart) return smart.name;
+    return 'List';
   };
 
   const handleRenameFolder = async (folderId, newName) => {
@@ -1710,7 +1776,7 @@ export default function CRM({
         l.status === 'Contacted' && !l.reply_type && new Date(l.created_at) < oneDayAgo
       ).map(l => l.id));
     } else if (type === 'current_folder') {
-      setSelectedIds(leads.filter(l => l.folder_id === selectedFolderId).map(l => l.id));
+      setSelectedIds(leads.filter(l => l.folder_id === activeManualFolderId).map(l => l.id));
     }
   };
 
@@ -1774,7 +1840,7 @@ export default function CRM({
         status: statuses[0]?.label || 'Lead',
         priority: 'Warm',
         niche: roleIdx !== -1 ? cols[roleIdx] : '',
-        folder_id: selectedFolderId || null
+        folder_id: activeManualFolderId || null
       });
     }
 
@@ -1824,39 +1890,12 @@ export default function CRM({
     const fullSearch = `${l.first_name || ''} ${l.last_name || ''} ${l.company || ''} ${l.email || ''}`.toLowerCase();
     const searchMatch = fullSearch.includes(searchQuery.toLowerCase());
 
-    // Filter by Folder
-    // null / undefined selectedFolderId = "All Leads" — no folder filter applied
+    // Folder filter — browse mode shows the list picker instead of the table
     let folderMatch = true;
-    if (selectedFolderId === null || selectedFolderId === undefined) {
-      folderMatch = true; // All Leads: show everything regardless of folder_id
-    } else if (selectedFolderId === 'hot') {
-      folderMatch = l.priority?.toLowerCase() === 'hot';
-    } else if (selectedFolderId === 'warm') {
-      folderMatch = l.priority?.toLowerCase() === 'warm';
-    } else if (selectedFolderId === 'cold') {
-      folderMatch = l.priority?.toLowerCase() === 'cold';
-    } else if (selectedFolderId === 'needs-followup') {
-      folderMatch = l.next_checkpoint_at && new Date(l.next_checkpoint_at) <= new Date();
-    } else if (selectedFolderId === 'recently-followed-up') {
-      const fiveDaysAgo = new Date();
-      fiveDaysAgo.setDate(fiveDaysAgo.getDate() - 5);
-      folderMatch = l.last_contacted_at && new Date(l.last_contacted_at) >= fiveDaysAgo;
-    } else if (selectedFolderId === 'calendly') {
-      folderMatch = l.status?.toLowerCase() === 'calendly_sent' || l.status === 'Calendly Sent';
-    } else if (selectedFolderId === 'clients') {
-      folderMatch = isClientStatus(l.status);
-    } else {
-      // Smart folder check
-      const smartFolder = userFolders.find(uf => uf.id === selectedFolderId);
-      if (smartFolder) {
-        const config = smartFolder.filter_config || {};
-        const rules = config.rules || [];
-        folderMatch = rules.length === 0 || rules.every(rule => matchRule(l, rule));
-      } else if (folders.find(f => f.id === selectedFolderId)) {
-        folderMatch = l.folder_id === selectedFolderId;
-      } else {
-        folderMatch = true; // Unknown folder ID — show all rather than hide all
-      }
+    if (!isBrowseMode && activeFolderId) {
+      folderMatch = leadMatchesFolder(l, activeFolderId);
+    } else if (!isBrowseMode) {
+      folderMatch = true;
     }
 
     // Status filter matches case-insensitively (supports code and labels)
@@ -1976,14 +2015,14 @@ export default function CRM({
   const handleSelectFolder = (id) => {
     setSearchParams(prev => {
       const next = new URLSearchParams(prev);
-      if (id === null || id === 'all') {
+      if (id === null || id === 'home') {
         next.delete('folder');
       } else {
         next.set('folder', id);
       }
       return next;
     });
-    if (view === 'clients') {
+    if (view === 'clients' && id !== 'home' && id !== null) {
       handleViewChange('contact_details');
     }
   };
@@ -1992,7 +2031,7 @@ export default function CRM({
   const totalFiltered = activeList.length;
   const paginatedList = activeList.slice((currentPage - 1) * pageSize, currentPage * pageSize);
 
-  const currentExportFolder = folders.find((f) => f.id === selectedFolderId);
+  const currentExportFolder = folders.find((f) => f.id === activeFolderId);
   const canExportCurrentFolder = !!currentExportFolder && view !== 'clients';
 
   const slugifyExportLabel = (label) => String(label || 'export').toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '') || 'export';
@@ -2037,16 +2076,26 @@ export default function CRM({
       <div className={`folder-sidebar sidebar-folders${blockClass}`}>
         {limits.folders ? (
           <>
+            <button
+              type="button"
+              onClick={() => handleSelectFolder('home')}
+              className={`folder-item ${isBrowseMode ? 'active' : ''}`}
+              style={{ marginBottom: 'var(--space-2)' }}
+            >
+              <LayoutGrid size={16} style={{ color: 'var(--accent-blue)' }} />
+              <span>Lead lists</span>
+            </button>
+
             <h4 style={{ fontSize: 'var(--text-3xs)', letterSpacing: 'var(--tracking-label)', textTransform: 'uppercase', color: 'var(--text-muted)', fontWeight: 600, marginTop: 'var(--space-2)', marginBottom: 'var(--space-2)', paddingLeft: 'var(--space-2)', display: 'flex', alignItems: 'center', gap: 'var(--space-1)' }}>
-              System Folders
-              <HelpPopover title="System Folders">
-                System folders (Hot, Warm, Cold, Clients, Calendly Sent) are auto-populated by lead Priority and Status. They can't be deleted but their names can be changed in Configuration.
+              System Views
+              <HelpPopover title="System Views">
+                System views (Hot, Warm, Cold, Clients, Calendly Sent) are auto-populated by lead Priority and Status. Names can be changed in Configuration.
               </HelpPopover>
             </h4>
             
             {/* System Folders */}
             {[
-              { id: 'all', dbId: null, defaultLabel: 'All Leads', iconColor: 'var(--text-muted)' },
+              { id: 'all', dbId: 'all', defaultLabel: 'All Leads', iconColor: 'var(--text-muted)' },
               { id: 'hot', dbId: 'hot', defaultLabel: 'Hot', iconColor: 'var(--status-hot)' },
               { id: 'warm', dbId: 'warm', defaultLabel: 'Warm', iconColor: 'var(--status-warm)' },
               { id: 'cold', dbId: 'cold', defaultLabel: 'Cold', iconColor: 'var(--status-cold)' },
@@ -2056,7 +2105,7 @@ export default function CRM({
               { id: 'clients', dbId: 'clients', defaultLabel: 'Clients', iconColor: 'var(--accent-blue)' }
             ].map(sysFolder => {
               const label = systemFolderNames[sysFolder.id] || sysFolder.defaultLabel;
-              const isSelected = selectedFolderId === sysFolder.dbId;
+              const isSelected = activeFolderId === sysFolder.dbId;
               return (
                 <div key={sysFolder.id} className="group-hover flex justify-between align-center" style={{ width: '100%' }}>
                   <button 
@@ -2081,24 +2130,19 @@ export default function CRM({
             <div style={{ borderTop: '1px solid var(--border)', margin: 'var(--space-2) 0' }}></div>
 
             <h4 style={{ fontSize: 'var(--text-3xs)', letterSpacing: 'var(--tracking-label)', textTransform: 'uppercase', color: 'var(--text-muted)', fontWeight: 600, marginTop: 'var(--space-5)', marginBottom: 'var(--space-2)', paddingLeft: 'var(--space-2)', display: 'flex', alignItems: 'center', gap: 'var(--space-1)' }}>
-              Smart Folders
-              <HelpPopover title="Smart Folders">
-                Smart folders auto-filter leads using rules you define (e.g. Status = Contacted). They update live as your leads change. Create them with the + Smart Folder button.
+              Smart Lists
+              <HelpPopover title="Smart Lists">
+                Smart lists auto-filter leads using rules you define (e.g. Status = Contacted). They update live as your leads change.
               </HelpPopover>
             </h4>
             {userFolders.map(uf => {
-              const count = leads.filter(l => {
-                const config = uf.filter_config || {};
-                const rules = config.rules || [];
-                if (rules.length === 0) return true;
-                return rules.every(rule => matchRule(l, rule));
-              }).length;
+              const count = getLeadCountForFolder(uf.id);
 
               return (
                 <div key={uf.id} className="group-hover flex justify-between align-center" style={{ width: '100%' }}>
                   <button
                     onClick={() => handleSelectFolder(uf.id)}
-                    className={`folder-item ${selectedFolderId === uf.id ? 'active' : ''}`}
+                    className={`folder-item ${activeFolderId === uf.id ? 'active' : ''}`}
                   >
                     <Folder size={16} style={{ color: 'var(--accent-blue)' }} />
                     <span style={{ textOverflow: 'ellipsis', overflow: 'hidden', whiteSpace: 'nowrap', maxWidth: '100px' }}>{uf.name}</span>
@@ -2125,19 +2169,19 @@ export default function CRM({
               className="btn btn-secondary btn-sm"
               style={{ marginTop: '0.25rem', fontSize: '0.75rem', justifyContent: 'center' }}
             >
-              <FolderPlus size={14} /> + Smart Folder
+              <FolderPlus size={14} /> + Smart List
             </button>
 
             <div style={{ borderTop: '1px solid var(--border)', margin: 'var(--space-2) 0' }}></div>
 
-            <h4 style={{ fontSize: 'var(--text-3xs)', letterSpacing: 'var(--tracking-label)', textTransform: 'uppercase', color: 'var(--text-muted)', fontWeight: 600, marginTop: 'var(--space-5)', marginBottom: 'var(--space-2)', paddingLeft: 'var(--space-2)' }}>Manual Folders</h4>
+            <h4 style={{ fontSize: 'var(--text-3xs)', letterSpacing: 'var(--tracking-label)', textTransform: 'uppercase', color: 'var(--text-muted)', fontWeight: 600, marginTop: 'var(--space-5)', marginBottom: 'var(--space-2)', paddingLeft: 'var(--space-2)' }}>Your Lists</h4>
             {folders.map(f => {
-              const count = leads.filter(l => l.folder_id === f.id).length;
+              const count = getLeadCountForFolder(f.id);
               return (
                 <div key={f.id} className="group-hover flex justify-between align-center" style={{ width: '100%' }}>
                   <button
                     onClick={() => handleSelectFolder(f.id)}
-                    className={`folder-item ${selectedFolderId === f.id ? 'active' : ''}`}
+                    className={`folder-item ${activeFolderId === f.id ? 'active' : ''}`}
                   >
                     <Folder size={16} style={{ color: f.color }} />
                     <span style={{ textOverflow: 'ellipsis', overflow: 'hidden', whiteSpace: 'nowrap', maxWidth: '100px' }}>{f.name}</span>
@@ -2169,7 +2213,7 @@ export default function CRM({
               className="btn btn-secondary btn-sm"
               style={{ marginTop: '0.25rem', fontSize: '0.75rem', justifyContent: 'center' }}
             >
-              <FolderPlus size={14} /> + Manual Folder
+              <FolderPlus size={14} /> + New List
             </button>
           </>
         ) : (
@@ -2182,6 +2226,35 @@ export default function CRM({
 
       {/* Leads Table Content Section */}
       <div className={`flex-col gap-4${blockClass}`} style={{ flex: 1, textAlign: 'left' }}>
+        {isBrowseMode ? (
+          <FolderBrowser
+            folders={folders}
+            userFolders={userFolders}
+            systemFolderNames={systemFolderNames}
+            getLeadCount={getLeadCountForFolder}
+            totalLeads={leads.length}
+            onSelectFolder={handleSelectFolder}
+            onCreateList={() => setShowFolderModal(true)}
+            onCreateSmartList={() => {
+              setSmartFolderForm({ name: '', rules: [{ field: 'Status', operator: 'is', value: '' }] });
+              setShowSmartFolderModal(true);
+            }}
+            onImportCsv={() => handleOpenBulkImport(() => setShowCSVImporter(true))}
+            onImportSheets={() => setShowSheetsImportModal(true)}
+            canBulkImport={canBulkImport}
+            canUseIntegrations={canUseIntegrations}
+            hasLeads={leads.length > 0}
+          />
+        ) : (
+        <>
+        <nav className="crm-list-breadcrumb" aria-label="List location">
+          <button type="button" className="crm-list-breadcrumb-link" onClick={() => handleSelectFolder('home')}>
+            Lead lists
+          </button>
+          <ChevronRight size={14} className="crm-list-breadcrumb-sep" aria-hidden />
+          <span className="crm-list-breadcrumb-current">{getActiveFolderLabel()}</span>
+        </nav>
+
         {/* View Switcher Tabs */}
         <div className="flex gap-2" style={{ borderBottom: '1px solid var(--border-color)', paddingBottom: '1px', marginBottom: '1rem' }}>
           <button 
@@ -2206,7 +2279,7 @@ export default function CRM({
             className={`btn btn-sm ${view === 'outreach' ? 'btn-primary' : 'btn-secondary'}`}
             style={{ borderBottomLeftRadius: 0, borderBottomRightRadius: 0, display: 'inline-flex', alignItems: 'center', gap: '0.35rem' }}
           >
-            <Phone size={13} /> Outreach
+            <Phone size={13} /> Call Activity
           </button>
         </div>
 
@@ -2214,7 +2287,7 @@ export default function CRM({
           <OutreachTracker
             currentUser={currentUser}
             leads={leads}
-            onOpenLead={setSelectedLead}
+            onOpenLead={handleOpenLead}
           />
         ) : (
         <>
@@ -2650,7 +2723,7 @@ export default function CRM({
               <button onClick={() => handleOpenBulkImport(() => setShowCSVImporter(true))} className="btn btn-secondary">
                 <Upload size={14} /> Import CSV
               </button>
-              {PLAN_LIMITS[(currentUser?.plan || 'trial').toLowerCase()]?.sheetsIntegration && (
+              {canUseIntegrations && (
                 <button onClick={() => setShowSheetsImportModal(true)} className="btn btn-secondary">
                   <Database size={14} /> Import from Sheets
                 </button>
@@ -3113,6 +3186,8 @@ export default function CRM({
         </div>
         </>
         )}
+        </>
+        )}
       </div>
 
       {/* Add Lead Modal */}
@@ -3340,8 +3415,8 @@ export default function CRM({
           <div className="modal-content rd-modal rd-modal-sm">
             <div className="rd-modal-header">
               <div>
-                <h3>Create folder</h3>
-                <p className="rd-modal-sub">Group leads however you work.</p>
+                <h3>Create list</h3>
+                <p className="rd-modal-sub">A named group of leads — like a file in Google Drive.</p>
               </div>
               <button type="button" onClick={() => setShowFolderModal(false)} className="rd-modal-close" aria-label="Close">
                 <X size={18} />
@@ -3351,7 +3426,7 @@ export default function CRM({
               <div className="rd-modal-body">
                 <div className="rd-form">
                   <div className="rd-form-group">
-                    <label className="form-label" htmlFor="folder-name">Folder name *</label>
+                    <label className="form-label" htmlFor="folder-name">List name *</label>
                     <input
                       id="folder-name"
                       type="text"
@@ -3382,7 +3457,7 @@ export default function CRM({
               </div>
               <div className="rd-modal-footer">
                 <button type="button" onClick={() => setShowFolderModal(false)} className="btn btn-secondary">Cancel</button>
-                <button type="submit" className="btn btn-primary">Create folder</button>
+                <button type="submit" className="btn btn-primary">Create list</button>
               </div>
             </form>
           </div>
@@ -3775,8 +3850,12 @@ export default function CRM({
       {selectedLead && (
         <LeadDrawer
           lead={selectedLead}
+          initialTab={drawerInitialTab}
           isClientView={view === 'clients'}
-          onClose={() => setSelectedLead(null)}
+          onClose={() => {
+            setSelectedLead(null);
+            setDrawerInitialTab(null);
+          }}
           onUpdateLead={(updated) => {
             if (view === 'clients') {
               setClients(prev => prev.map(c => c.id === updated.id ? updated : c));
@@ -3805,7 +3884,7 @@ export default function CRM({
         }}
         columnDefs={columnDefs}
         currentUser={currentUser}
-        folderId={selectedFolderId}
+        folderId={activeManualFolderId || null}
       />
 
       {/* NEW CSV Import Modal */}
@@ -3834,10 +3913,12 @@ export default function CRM({
       {/* Google Sheets Import Modal */}
       {showSheetsImportModal && (
         <SheetsImportModal
+          currentUserId={currentUser.id}
           onClose={() => setShowSheetsImportModal(false)}
-          onImportComplete={() => {
+          onImportComplete={(folderId) => {
             setShowSheetsImportModal(false);
             fetchData();
+            if (folderId) handleSelectFolder(folderId);
           }}
         />
       )}
@@ -3847,7 +3928,7 @@ export default function CRM({
         <div className="modal-backdrop">
           <div className="modal-content" style={{ maxWidth: '600px', width: '90%' }}>
             <div className="modal-header">
-              <h3>Create Smart Folder</h3>
+              <h3>Create smart list</h3>
               <button onClick={() => setShowSmartFolderModal(false)} className="theme-toggle"><X size={18} /></button>
             </div>
             <form onSubmit={async (e) => {
@@ -4018,7 +4099,7 @@ export default function CRM({
                 >
                   Cancel
                 </button>
-                <button type="submit" className="btn btn-primary">Create Smart Folder</button>
+                <button type="submit" className="btn btn-primary">Create smart list</button>
               </div>
             </form>
           </div>

@@ -14,6 +14,11 @@ import {
   isTeamsFeatureLocked,
   updateTeamSettings,
 } from '../lib/teamWorkspace';
+import {
+  fetchTeamCallPermissions,
+  updateTeamCallSettings,
+  upsertMemberCallPermission,
+} from '../lib/callActivity';
 
 export default function Teams({ currentUser, onRefreshProfile }) {
   const navigate = useNavigate();
@@ -28,7 +33,13 @@ export default function Teams({ currentUser, onRefreshProfile }) {
     members_can_view_revenue: false,
     members_see_own_leads_only: false,
   });
+  const [callSettings, setCallSettings] = useState({
+    call_activity_sharing: 'off',
+    call_notes_visible_to_team: false,
+    memberPermissions: {},
+  });
   const [settingsSaving, setSettingsSaving] = useState(false);
+  const [callSettingsSaving, setCallSettingsSaving] = useState(false);
 
   const locked = isTeamsFeatureLocked(currentUser);
   const canManage = isProTeamOwner(currentUser);
@@ -60,10 +71,15 @@ export default function Teams({ currentUser, onRefreshProfile }) {
           members_can_view_revenue: false,
           members_see_own_leads_only: false,
         });
+        setCallSettings({
+          call_activity_sharing: 'off',
+          call_notes_visible_to_team: false,
+          memberPermissions: {},
+        });
         return;
       }
 
-      const [{ data: members, error: mErr }, { data: invites, error: iErr }, teamSettings] = await Promise.all([
+      const [{ data: members, error: mErr }, { data: invites, error: iErr }, teamSettings, callPerms] = await Promise.all([
         supabase
           .from('user_profiles')
           .select('id, email, full_name, team_role, plan')
@@ -76,6 +92,7 @@ export default function Teams({ currentUser, onRefreshProfile }) {
           .eq('status', 'pending')
           .order('created_at', { ascending: false }),
         getTeamSettings(teamId),
+        fetchTeamCallPermissions(teamId),
       ]);
 
       if (mErr) throw mErr;
@@ -84,6 +101,7 @@ export default function Teams({ currentUser, onRefreshProfile }) {
       setTeamMembers(members || []);
       setTeamInvitations(invites || []);
       setSettings(teamSettings);
+      setCallSettings(callPerms);
     } catch (err) {
       console.error('Error loading team details:', err);
       setTeamError(err.message || 'Failed to load team workspace.');
@@ -197,6 +215,73 @@ export default function Teams({ currentUser, onRefreshProfile }) {
       setTeamError(err.message || 'Failed to update permissions.');
     } finally {
       setSettingsSaving(false);
+    }
+  };
+
+  const handleCallSharingChange = async (value) => {
+    if (!canManage || !currentUser?.team_id) return;
+    const next = { ...callSettings, call_activity_sharing: value };
+    setCallSettings(next);
+    setCallSettingsSaving(true);
+    setTeamError('');
+    try {
+      await updateTeamCallSettings(currentUser.team_id, next);
+      setTeamSuccess('Call activity permissions updated.');
+    } catch (err) {
+      console.error('Error updating call sharing:', err);
+      setCallSettings((prev) => ({ ...prev, call_activity_sharing: callSettings.call_activity_sharing }));
+      setTeamError(err.message || 'Failed to update call activity settings.');
+    } finally {
+      setCallSettingsSaving(false);
+    }
+  };
+
+  const handleCallNotesToggle = async () => {
+    if (!canManage || !currentUser?.team_id) return;
+    const next = {
+      ...callSettings,
+      call_notes_visible_to_team: !callSettings.call_notes_visible_to_team,
+    };
+    setCallSettings(next);
+    setCallSettingsSaving(true);
+    setTeamError('');
+    try {
+      await updateTeamCallSettings(currentUser.team_id, next);
+      setTeamSuccess('Call activity permissions updated.');
+    } catch (err) {
+      console.error('Error updating call notes setting:', err);
+      setCallSettings((prev) => ({
+        ...prev,
+        call_notes_visible_to_team: callSettings.call_notes_visible_to_team,
+      }));
+      setTeamError(err.message || 'Failed to update call activity settings.');
+    } finally {
+      setCallSettingsSaving(false);
+    }
+  };
+
+  const handleMemberCallPermission = async (userId, key, value) => {
+    if (!canManage || !currentUser?.team_id) return;
+    const existing = callSettings.memberPermissions[userId] || {
+      can_view_team_call_activity: false,
+      can_view_call_notes: false,
+    };
+    const nextPerm = { ...existing, [key]: value };
+    setCallSettings((prev) => ({
+      ...prev,
+      memberPermissions: { ...prev.memberPermissions, [userId]: nextPerm },
+    }));
+    setCallSettingsSaving(true);
+    setTeamError('');
+    try {
+      await upsertMemberCallPermission(currentUser.team_id, userId, nextPerm);
+      setTeamSuccess('Member call permissions updated.');
+    } catch (err) {
+      console.error('Error updating member call permission:', err);
+      setTeamError(err.message || 'Failed to update member permissions.');
+      await loadTeam();
+    } finally {
+      setCallSettingsSaving(false);
     }
   };
 
@@ -448,6 +533,139 @@ export default function Teams({ currentUser, onRefreshProfile }) {
                   style={{ width: 18, height: 18, marginTop: 2, flexShrink: 0 }}
                 />
               </label>
+
+              <div
+                style={{
+                  padding: '0.75rem',
+                  background: 'var(--bg-tertiary)',
+                  border: '1px solid var(--border-color)',
+                  borderRadius: '6px',
+                }}
+              >
+                <div style={{ fontWeight: 600, fontSize: '0.9rem', marginBottom: '0.35rem' }}>Call activity sharing</div>
+                <div style={{ fontSize: '0.8rem', color: 'var(--text-muted)', marginBottom: '0.75rem' }}>
+                  Control who can see team-wide call logs. Owners always see full activity and notes.
+                </div>
+                <div className="flex-col gap-2" style={{ marginBottom: '0.75rem' }}>
+                  {[
+                    { value: 'off', label: 'Off — members see only their own calls' },
+                    { value: 'all_members', label: 'All members — everyone sees team call activity' },
+                    { value: 'selected_members', label: 'Selected members — pick who can view team activity' },
+                  ].map((opt) => (
+                    <label
+                      key={opt.value}
+                      style={{
+                        display: 'flex',
+                        alignItems: 'center',
+                        gap: '0.5rem',
+                        fontSize: '0.85rem',
+                        cursor: callSettingsSaving ? 'wait' : 'pointer',
+                      }}
+                    >
+                      <input
+                        type="radio"
+                        name="call_activity_sharing"
+                        checked={callSettings.call_activity_sharing === opt.value}
+                        onChange={() => handleCallSharingChange(opt.value)}
+                        disabled={callSettingsSaving}
+                      />
+                      {opt.label}
+                    </label>
+                  ))}
+                </div>
+
+                <label
+                  style={{
+                    display: 'flex',
+                    alignItems: 'flex-start',
+                    justifyContent: 'space-between',
+                    gap: '1rem',
+                    paddingTop: '0.75rem',
+                    borderTop: '1px solid var(--border-color)',
+                    cursor: callSettingsSaving ? 'wait' : 'pointer',
+                  }}
+                >
+                  <div>
+                    <div style={{ fontWeight: 600, fontSize: '0.9rem' }}>Show call notes to viewers</div>
+                    <div style={{ fontSize: '0.8rem', color: 'var(--text-muted)', marginTop: '0.2rem' }}>
+                      When off, teammates see outcome and timing only unless they logged the call or have note permission.
+                    </div>
+                  </div>
+                  <input
+                    type="checkbox"
+                    checked={!!callSettings.call_notes_visible_to_team}
+                    onChange={handleCallNotesToggle}
+                    disabled={callSettingsSaving || callSettings.call_activity_sharing === 'off'}
+                    style={{ width: 18, height: 18, marginTop: 2, flexShrink: 0 }}
+                  />
+                </label>
+
+                {callSettings.call_activity_sharing === 'selected_members' && (
+                  <div style={{ marginTop: '0.75rem', paddingTop: '0.75rem', borderTop: '1px solid var(--border-color)' }}>
+                    <div style={{ fontWeight: 600, fontSize: '0.85rem', marginBottom: '0.5rem' }}>Per-member access</div>
+                    {teamMembers.filter((m) => (m.team_role || '').toLowerCase() !== 'owner').length === 0 ? (
+                      <p style={{ margin: 0, fontSize: '0.8rem', color: 'var(--text-muted)' }}>No members yet.</p>
+                    ) : (
+                      <div className="flex-col gap-2">
+                        {teamMembers
+                          .filter((m) => (m.team_role || '').toLowerCase() !== 'owner')
+                          .map((member) => {
+                            const perm = callSettings.memberPermissions[member.id] || {
+                              can_view_team_call_activity: false,
+                              can_view_call_notes: false,
+                            };
+                            const label = member.full_name || member.email;
+                            return (
+                              <div
+                                key={member.id}
+                                style={{
+                                  display: 'flex',
+                                  flexWrap: 'wrap',
+                                  alignItems: 'center',
+                                  justifyContent: 'space-between',
+                                  gap: '0.75rem',
+                                  padding: '0.5rem 0',
+                                  borderBottom: '1px solid var(--border-color)',
+                                  fontSize: '0.85rem',
+                                }}
+                              >
+                                <span style={{ fontWeight: 500 }}>{label}</span>
+                                <div style={{ display: 'flex', gap: '1rem', flexWrap: 'wrap' }}>
+                                  <label style={{ display: 'flex', alignItems: 'center', gap: '0.35rem', cursor: 'pointer' }}>
+                                    <input
+                                      type="checkbox"
+                                      checked={!!perm.can_view_team_call_activity}
+                                      disabled={callSettingsSaving}
+                                      onChange={(e) => handleMemberCallPermission(
+                                        member.id,
+                                        'can_view_team_call_activity',
+                                        e.target.checked,
+                                      )}
+                                    />
+                                    View activity
+                                  </label>
+                                  <label style={{ display: 'flex', alignItems: 'center', gap: '0.35rem', cursor: 'pointer' }}>
+                                    <input
+                                      type="checkbox"
+                                      checked={!!perm.can_view_call_notes}
+                                      disabled={callSettingsSaving || !perm.can_view_team_call_activity}
+                                      onChange={(e) => handleMemberCallPermission(
+                                        member.id,
+                                        'can_view_call_notes',
+                                        e.target.checked,
+                                      )}
+                                    />
+                                    View notes
+                                  </label>
+                                </div>
+                              </div>
+                            );
+                          })}
+                      </div>
+                    )}
+                  </div>
+                )}
+              </div>
             </div>
           )}
         </div>
