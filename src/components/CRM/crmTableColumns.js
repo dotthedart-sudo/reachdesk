@@ -1,5 +1,7 @@
 /** Shared column order logic for CRM data tables (contact_details / pipeline / clients / call_queue). */
 
+import { getLeadLocalTime } from '../../lib/leadTimezone';
+
 export const CALL_ACTION_DEFAULT_OPTIONS = [
   { label: 'Call now', color: '#3b82f6' },
   { label: 'Leave voicemail', color: '#6366f1' },
@@ -47,6 +49,10 @@ export function getLeadCellCopyValue(lead, col) {
 
   if (col.column_key === 'phone') {
     return lead.phone || '';
+  }
+
+  if (col.column_key === 'local_time') {
+    return getLeadLocalTime(lead) || '';
   }
 
   if (col.column_type === 'date' && raw) {

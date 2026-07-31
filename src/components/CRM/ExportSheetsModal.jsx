@@ -1,26 +1,11 @@
 import React, { useState } from 'react';
 import { supabase } from '../../lib/supabase';
 import { openSheetsPicker } from '../../utils/googlePicker';
+import { prepareLeadExportRows } from '../../lib/leadExportFields';
 import { X, ArrowRight, ArrowLeft, Check, AlertTriangle, Loader, FileSpreadsheet } from 'lucide-react';
 import './ExportSheetsModal.css';
 
-const EXPORT_FIELDS = [
-  { key: 'name', label: 'Name', getValue: l => l.full_name || [l.first_name, l.last_name].filter(Boolean).join(' ') },
-  { key: 'email', label: 'Email', getValue: l => l.email || '' },
-  { key: 'phone', label: 'Phone', getValue: l => l.phone || '' },
-  { key: 'company', label: 'Company', getValue: l => l.company || '' },
-  { key: 'niche', label: 'Niche', getValue: l => l.niche || '' },
-  { key: 'status', label: 'Status', getValue: l => l.status || '' },
-  { key: 'priority', label: 'Priority', getValue: l => l.priority || '' },
-  { key: 'project', label: 'Project', getValue: l => l.project || '' },
-  { key: 'notes', label: 'Notes', getValue: l => l.notes || '' },
-  { key: 'linkedin_url', label: 'LinkedIn', getValue: l => l.linkedin_url || '' },
-  { key: 'instagram_url', label: 'Instagram', getValue: l => l.instagram_url || '' },
-  { key: 'twitter_url', label: 'Twitter', getValue: l => l.twitter_url || '' },
-  { key: 'website', label: 'Website', getValue: l => l.website || '' }
-];
-
-export default function ExportSheetsModal({ onClose, leads, currentUser }) {
+export default function ExportSheetsModal({ onClose, leads, currentUser, includeLocalTime = false }) {
   const [step, setStep] = useState(1);
   const [loading, setLoading] = useState(false);
   const [errorMsg, setErrorMsg] = useState('');
@@ -33,21 +18,11 @@ export default function ExportSheetsModal({ onClose, leads, currentUser }) {
   const [writeMode, setWriteMode] = useState('overwrite'); // 'overwrite' | 'append'
 
   const prepareExportData = () => {
-    // Filter valid leads (at least one field has data)
-    const validLeads = leads.filter(l => {
-      return EXPORT_FIELDS.some(field => {
-        const val = field.getValue(l);
-        return val !== null && val !== undefined && String(val).trim() !== '';
-      });
+    const defaultCountryCode = currentUser?.default_country_code || '+92';
+    const { headers, rows } = prepareLeadExportRows(leads, {
+      includeLocalTime,
+      defaultCountryCode,
     });
-
-    if (validLeads.length === 0) {
-      throw new Error('No leads found with exportable data.');
-    }
-
-    // Always export all fields to keep structure consistent and prevent omitting empty columns
-    const headers = EXPORT_FIELDS.map(f => f.label);
-    const rows = validLeads.map(l => EXPORT_FIELDS.map(field => field.getValue(l)));
     return [headers, ...rows];
   };
 

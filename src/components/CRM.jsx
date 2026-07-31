@@ -23,6 +23,7 @@ import CSVImportModal from './CRM/CSVImportModal';
 import ExportSheetsModal from './CRM/ExportSheetsModal';
 import SheetsImportModal from './CRM/SheetsImportModal';
 import FolderBrowser from './CRM/FolderBrowser';
+import CallWindowBadge from './CRM/CallWindowBadge';
 import ListSwitcher from './CRM/ListSwitcher';
 import CopyableCell from './CRM/CopyableCell';
 import ResizableTh from './CRM/ResizableTh';
@@ -40,6 +41,7 @@ import { updateLeadStatusAndCheckpoint, getSuggestionForStatus, REPLY_CHECK_STAT
 import PriorityDropdown from './CRM/PriorityDropdown';
 import { exportLeads, exportNotes } from '../utils/exportUtils';
 import { resolveLeadTimezoneForSave } from '../lib/leadTimezone';
+import { getListFolderSettings, setListFolderSettings, listFolderShowsLocalTime } from '../lib/listFolderSettings';
 import { mergeTemplateFields, normalizePhoneNumber, generatePrefilledUrl } from '../utils/templateMerge';
 import { celebrateClosedWon } from '../utils/celebrateWin';
 import { generateAIDraft } from '../utils/aiDraft';
@@ -304,7 +306,31 @@ export default function CRM({
   });
 
   const { getWidth, setWidth } = useCrmColumnWidths(outreachMode === 'calls' ? 'call_queue' : view);
-  const tableCols = useMemo(() => getTableColumns(columnDefs, view), [columnDefs, view]);
+
+  const activeListShowsLocalTime = useMemo(() => {
+    if (!activeManualFolderId || outreachMode !== 'messages' || view === 'clients') return false;
+    return listFolderShowsLocalTime(activeManualFolderId);
+  // eslint-disable-next-line react-hooks/exhaustive-deps -- listSettingsTick refreshes localStorage-backed settings
+  }, [activeManualFolderId, outreachMode, view, listSettingsTick]);
+
+  const tableCols = useMemo(() => {
+    const cols = getTableColumns(columnDefs, view);
+    if (!activeListShowsLocalTime || view !== 'contact_details') return cols;
+    if (cols.some((c) => c.column_key === 'local_time')) return cols;
+    const phoneIdx = cols.findIndex((c) => c.column_key === 'phone');
+    const localTimeCol = {
+      id: 'list-local-time',
+      column_key: 'local_time',
+      column_label: 'Lead local time',
+      column_type: 'computed',
+      is_visible: true,
+      is_default: false,
+      sort_order: phoneIdx >= 0 ? phoneIdx + 1 : cols.length,
+    };
+    const next = [...cols];
+    next.splice(phoneIdx >= 0 ? phoneIdx + 1 : next.length, 0, localTimeCol);
+    return next;
+  }, [columnDefs, view, activeListShowsLocalTime]);
 
   const cellWidth = (key) => ({
     width: getWidth(key),
@@ -591,6 +617,8 @@ export default function CRM({
   const [showNewImportModal, setShowNewImportModal] = useState(false);
   const [showExportSheetsModal, setShowExportSheetsModal] = useState(false);
   const [exportSheetsLeads, setExportSheetsLeads] = useState(null);
+  const [exportSheetsOptions, setExportSheetsOptions] = useState({});
+  const [listSettingsTick, setListSettingsTick] = useState(0);
   const [showSheetsImportModal, setShowSheetsImportModal] = useState(false);
   const [sheetsConnected, setSheetsConnected] = useState(false);
   const [sheetsConnectedChecked, setSheetsConnectedChecked] = useState(false);
@@ -2215,7 +2243,12 @@ export default function CRM({
 
   const slugifyExportLabel = (label) => String(label || 'export').toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '') || 'export';
 
-  const handleExportLeadsSubset = async (subset, label = 'all') => {
+  const getFolderExportOptions = (folderId) => ({
+    includeLocalTime: !!getListFolderSettings(folderId).showLocalTime,
+    defaultCountryCode: currentUser?.default_country_code || '+92',
+  });
+
+  const handleExportLeadsSubset = async (subset, label = 'all', options = {}) => {
     if (exporting) return;
     setExporting('leads');
     setShowExportDropdown(false);
@@ -2223,7 +2256,7 @@ export default function CRM({
       const filename = label === 'all'
         ? 'reachdesk-leads.csv'
         : `reachdesk-leads-${slugifyExportLabel(label)}.csv`;
-      await exportLeads(currentUser.id, subset, filename);
+      await exportLeads(currentUser.id, subset, filename, options);
     } catch (err) {
       console.error('Export leads error:', err);
       alert('Failed to export leads: ' + err.message);
@@ -2236,10 +2269,22 @@ export default function CRM({
     const folder = folders.find((f) => f.id === folderId);
     if (!folder) return;
     const subset = leads.filter((l) => l.folder_id === folderId);
-    handleExportLeadsSubset(subset, folder.name);
+    handleExportLeadsSubset(subset, folder.name, getFolderExportOptions(folderId));
   };
 
-  const openExportSheetsForLeads = (subset) => {
+  const handleExportFolderSheets = (folderId) => {
+    const folder = folders.find((f) => f.id === folderId);
+    if (!folder) return;
+    const subset = leads.filter((l) => l.folder_id === folderId);
+    openExportSheetsForLeads(subset, getFolderExportOptions(folderId));
+  };
+
+  const handleToggleFolderLocalTime = (folderId, showLocalTime) => {
+    setListFolderSettings(folderId, { showLocalTime });
+    setListSettingsTick((t) => t + 1);
+  };
+
+  const openExportSheetsForLeads = (subset, options = {}) => {
     setShowExportDropdown(false);
     if (!sheetsConnected) {
       sessionStorage.setItem('sheets_oauth_return', window.location.pathname + window.location.search);
@@ -2250,6 +2295,7 @@ export default function CRM({
       window.location.href = authUrl;
       return;
     }
+    setExportSheetsOptions(options);
     setExportSheetsLeads(subset);
     setShowExportSheetsModal(true);
   };
@@ -2282,6 +2328,10 @@ export default function CRM({
             onDeleteFolder={handleDeleteFolder}
             onDeleteSmartFolder={handleDeleteSmartFolder}
             onExportFolder={handleExportFolder}
+            onExportFolderSheets={handleExportFolderSheets}
+            canExportSheets={canUseIntegrations}
+            getFolderSettings={getListFolderSettings}
+            onToggleFolderLocalTime={handleToggleFolderLocalTime}
             canBulkImport={canBulkImport}
             canUseIntegrations={canUseIntegrations}
             hasLeads={leads.length > 0}
@@ -2570,7 +2620,7 @@ export default function CRM({
                       </button>
                       {canExportCurrentFolder && sheetsConnected && (
                         <button
-                          onClick={() => openExportSheetsForLeads(activeList)}
+                          onClick={() => openExportSheetsForLeads(activeList, getFolderExportOptions(activeFolderId))}
                           className="dropdown-item"
                           style={{ display: 'flex', alignItems: 'center', gap: '8px', background: 'transparent', border: 'none', padding: '0.5rem 0.75rem', textAlign: 'left', cursor: 'pointer', color: '#10b981', width: '100%', fontSize: '0.875rem' }}
                         >
@@ -3258,6 +3308,20 @@ export default function CRM({
                                   {cellValue}
                                 </a>
                               </CopyableCell>
+                            </td>
+                          );
+                        }
+
+                        // ── Lead local time (list setting) ───────────────────
+                        if (col.column_key === 'local_time') {
+                          const defaultCountryCode = currentUser?.default_country_code || '+92';
+                          return (
+                            <td {...tdProps} onClick={(e) => e.stopPropagation()}>
+                              <CallWindowBadge
+                                lead={lead}
+                                defaultCountryCode={defaultCountryCode}
+                                showLocalTime
+                              />
                             </td>
                           );
                         }
@@ -4082,9 +4146,11 @@ export default function CRM({
         <ExportSheetsModal
           leads={exportSheetsLeads ?? leads}
           currentUser={currentUser}
+          includeLocalTime={!!exportSheetsOptions.includeLocalTime}
           onClose={() => {
             setShowExportSheetsModal(false);
             setExportSheetsLeads(null);
+            setExportSheetsOptions({});
           }}
         />
       )}

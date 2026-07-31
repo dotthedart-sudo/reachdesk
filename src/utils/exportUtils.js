@@ -1,4 +1,5 @@
 import { supabase } from '../lib/supabase';
+import { prepareLeadExportRows } from '../lib/leadExportFields';
 
 export function triggerDownload(content, filename, mime = 'text/plain') {
   const blob = new Blob([content], { type: mime });
@@ -22,7 +23,7 @@ export function stripHTML(html = '') {
   return html.replace(/<[^>]*>/g, '').replace(/&nbsp;/g, ' ').replace(/&amp;/g, '&').replace(/&lt;/g, '<').replace(/&gt;/g, '>').replace(/&quot;/g, '"').trim();
 }
 
-export async function exportLeads(userId, leadsData = null, filename = 'reachdesk-leads.csv') {
+export async function exportLeads(userId, leadsData = null, filename = 'reachdesk-leads.csv', options = {}) {
   let leads = leadsData;
   if (!leads) {
     const { data, error } = await supabase
@@ -38,42 +39,9 @@ export async function exportLeads(userId, leadsData = null, filename = 'reachdes
     throw new Error('No leads found.');
   }
 
-  const EXPORT_FIELDS = [
-    { key: 'name', label: 'Name', getValue: l => l.full_name || [l.first_name, l.last_name].filter(Boolean).join(' ') },
-    { key: 'email', label: 'Email', getValue: l => l.email || '' },
-    { key: 'phone', label: 'Phone', getValue: l => l.phone || '' },
-    { key: 'company', label: 'Company', getValue: l => l.company || '' },
-    { key: 'niche', label: 'Niche', getValue: l => l.niche || '' },
-    { key: 'status', label: 'Status', getValue: l => l.status || '' },
-    { key: 'priority', label: 'Priority', getValue: l => l.priority || '' },
-    { key: 'project', label: 'Project', getValue: l => l.project || '' },
-    { key: 'notes', label: 'Notes', getValue: l => l.notes || '' },
-    { key: 'linkedin_url', label: 'LinkedIn', getValue: l => l.linkedin_url || '' },
-    { key: 'instagram_url', label: 'Instagram', getValue: l => l.instagram_url || '' },
-    { key: 'twitter_url', label: 'Twitter', getValue: l => l.twitter_url || '' },
-    { key: 'website', label: 'Website', getValue: l => l.website || '' }
-  ];
+  const { headers, rows } = prepareLeadExportRows(leads, options);
 
-  // Filter valid leads (at least one field has data)
-  const validLeads = leads.filter(l => {
-    return EXPORT_FIELDS.some(field => {
-      const val = field.getValue(l);
-      return val !== null && val !== undefined && String(val).trim() !== '';
-    });
-  });
-
-  if (validLeads.length === 0) {
-    throw new Error('No leads found with exportable data.');
-  }
-
-  // Always export all fields to keep structure consistent and prevent omitting empty columns
-  const headers = EXPORT_FIELDS.map(f => f.label);
-  const rows = validLeads.map(l => {
-    const rowValues = EXPORT_FIELDS.map(field => field.getValue(l));
-    return toCSVRow(rowValues);
-  });
-
-  const csv = [toCSVRow(headers), ...rows].join('\r\n');
+  const csv = [toCSVRow(headers), ...rows.map((row) => toCSVRow(row))].join('\r\n');
   triggerDownload(csv, filename, 'text/csv;charset=utf-8;');
 }
 

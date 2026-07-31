@@ -1,12 +1,16 @@
 import React, { useState, useRef, useEffect } from 'react';
-import { MoreHorizontal, FolderOpen, Pencil, Download, Trash2 } from 'lucide-react';
+import { MoreHorizontal, FolderOpen, Pencil, Download, Trash2, FileSpreadsheet, Clock } from 'lucide-react';
 
 export default function ListRowMenu({
   onOpen,
   onRename,
   onDelete,
   onExport,
+  onExportSheets,
   canExport = true,
+  canExportSheets = false,
+  showLocalTime = false,
+  onToggleLocalTime,
 }) {
   const [open, setOpen] = useState(false);
   const rootRef = useRef(null);
@@ -62,6 +66,30 @@ export default function ListRowMenu({
               Export CSV
             </button>
           )}
+          {canExport && canExportSheets && onExportSheets && (
+            <button type="button" className="crm-list-row-menu-item" role="menuitem" onClick={run(onExportSheets)}>
+              <FileSpreadsheet size={14} />
+              Export to Google Sheets
+            </button>
+          )}
+          {onToggleLocalTime && (
+            <>
+              <div className="crm-list-row-menu-divider" role="separator" />
+              <label
+                className="crm-list-row-menu-item crm-list-row-menu-toggle"
+                onClick={(e) => e.stopPropagation()}
+              >
+                <Clock size={14} />
+                <span className="crm-list-row-menu-toggle-label">Show lead local time</span>
+                <input
+                  type="checkbox"
+                  checked={!!showLocalTime}
+                  onChange={(e) => onToggleLocalTime(e.target.checked)}
+                />
+              </label>
+            </>
+          )}
+          <div className="crm-list-row-menu-divider" role="separator" />
           <button
             type="button"
             className="crm-list-row-menu-item crm-list-row-menu-item--danger"

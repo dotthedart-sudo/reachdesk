@@ -31,6 +31,10 @@ export default function FolderBrowser({
   onDeleteFolder,
   onDeleteSmartFolder,
   onExportFolder,
+  onExportFolderSheets,
+  canExportSheets = false,
+  getFolderSettings,
+  onToggleFolderLocalTime,
   canBulkImport = false,
   canUseIntegrations = false,
   hasLeads = true,
@@ -93,6 +97,10 @@ export default function FolderBrowser({
         onDeleteFolder={onDeleteFolder}
         onDeleteSmartFolder={onDeleteSmartFolder}
         onExportFolder={onExportFolder}
+        onExportFolderSheets={onExportFolderSheets}
+        canExportSheets={canExportSheets}
+        getFolderSettings={getFolderSettings}
+        onToggleFolderLocalTime={onToggleFolderLocalTime}
       />
     </div>
   );

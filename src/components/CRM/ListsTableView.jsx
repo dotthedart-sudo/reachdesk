@@ -35,7 +35,11 @@ function ListRow({
   onRename,
   onDelete,
   onExport,
+  onExportSheets,
   canExport = true,
+  canExportSheets = false,
+  showLocalTime = false,
+  onToggleLocalTime,
 }) {
   const dateLine = formatListDate(createdAt);
 
@@ -70,7 +74,11 @@ function ListRow({
           onRename={onRename}
           onDelete={onDelete}
           onExport={onExport}
+          onExportSheets={onExportSheets}
           canExport={canExport}
+          canExportSheets={canExportSheets}
+          showLocalTime={showLocalTime}
+          onToggleLocalTime={onToggleLocalTime}
         />
         <ChevronRight size={16} className="crm-lists-table-chevron" aria-hidden />
       </td>
@@ -87,6 +95,10 @@ export default function ListsTableView({
   onDeleteFolder,
   onDeleteSmartFolder,
   onExportFolder,
+  onExportFolderSheets,
+  canExportSheets = false,
+  getFolderSettings,
+  onToggleFolderLocalTime,
 }) {
   const hasOwnedLists = folders.length > 0 || userFolders.length > 0;
 
@@ -127,7 +139,11 @@ export default function ListsTableView({
                   onRename={() => onRenameFolder?.(f.id, f.name)}
                   onDelete={() => onDeleteFolder?.(f.id)}
                   onExport={() => onExportFolder?.(f.id)}
+                  onExportSheets={() => onExportFolderSheets?.(f.id)}
                   canExport
+                  canExportSheets={canExportSheets}
+                  showLocalTime={!!getFolderSettings?.(f.id)?.showLocalTime}
+                  onToggleLocalTime={(val) => onToggleFolderLocalTime?.(f.id, val)}
                 />
               ))}
             </>

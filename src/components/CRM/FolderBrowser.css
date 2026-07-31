@@ -510,6 +510,30 @@
   color: var(--status-hot, #ef4444);
 }
 
+.crm-list-row-menu-divider {
+  height: 1px;
+  margin: var(--space-1) 0;
+  background: var(--border);
+}
+
+.crm-list-row-menu-toggle {
+  cursor: pointer;
+  user-select: none;
+}
+
+.crm-list-row-menu-toggle-label {
+  flex: 1;
+  font-size: 0.8125rem;
+}
+
+.crm-list-row-menu-toggle input[type="checkbox"] {
+  width: 14px;
+  height: 14px;
+  margin: 0;
+  accent-color: var(--accent-blue);
+  cursor: pointer;
+}
+
 .crm-lists-table-empty {
   padding: 2rem 1rem;
   text-align: center;
