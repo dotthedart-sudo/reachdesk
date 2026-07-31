@@ -730,7 +730,7 @@ export default function CRM({
         supabase.from('folders').select('*').in('user_id', teamIds).order('sort_order', { ascending: true }),
         supabase.from('user_folders').select('*').in('user_id', teamIds).order('created_at', { ascending: true }),
         supabase.from('custom_statuses').select('*').in('user_id', teamIds).order('sort_order', { ascending: true }),
-        supabase.from('templates').select('id, title, platform, is_starter, content').or(`user_id.in.(${teamIds.join(',')}),user_id.is.null`),
+        supabase.from('templates').select('id, title, platform, is_starter, content, kind').or(`user_id.in.(${teamIds.join(',')}),user_id.is.null`),
         supabase.from('column_definitions').select('*').in('user_id', teamIds).order('sort_order', { ascending: true }),
         supabase.from('leads').select('*').in('user_id', teamIds).order('created_at', { ascending: false }).order('id', { ascending: true }),
         supabase.from('action_suggestion_rules').select('*')
@@ -2578,6 +2578,7 @@ export default function CRM({
               onOpenColumnManager={() => setShowColumnManager(true)}
               showNoteSharing={!!currentUser?.team_id}
               suggestionRules={suggestionRules}
+              templates={templates}
               onUpdateColumnDef={(id, newOpts) => {
                 setColumnDefs((prev) => prev.map((c) => (c.id === id ? { ...c, dropdown_options: newOpts } : c)));
               }}

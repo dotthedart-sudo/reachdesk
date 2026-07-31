@@ -12,6 +12,8 @@ import QuickLogChips from './QuickLogChips';
 import OutcomeBadge from './OutcomeBadge';
 import ResizableTh from '../ResizableTh';
 import ResizableTr from '../ResizableTr';
+import GroupedTemplateDropdown from '../GroupedTemplateDropdown';
+import { TEMPLATE_KINDS } from '../../../lib/templateKinds';
 import { getTableColumns, CALL_QUEUE_DEFAULT_DEFS } from '../crmTableColumns';
 import { logCallWithUpdates, fetchMyCallAttempts } from '../../../lib/callActivity';
 import { getCallActionForStatus, displayCallStatus } from '../../../lib/callOutcomeRules';
@@ -39,6 +41,7 @@ export default function CallQueueTable({
   showNoteSharing = false,
   suggestionRules = [],
   onUpdateColumnDef,
+  templates = [],
 }) {
   const [attempts, setAttempts] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -199,6 +202,18 @@ export default function CallQueueTable({
           </div>
         );
       }
+      case 'script_used':
+        return (
+          <CopyableCell value={lead.script_used || ''} onCopied={onCopied} variant="inline">
+            <GroupedTemplateDropdown
+              value={lead.script_used || ''}
+              onChange={(val) => onFieldChange?.(lead.id, 'script_used', val)}
+              templates={templates}
+              kind={TEMPLATE_KINDS.CALLS}
+              placeholder="None"
+            />
+          </CopyableCell>
+        );
       case 'last_called':
         return (
           <DateTimePickerCell
@@ -321,7 +336,7 @@ export default function CallQueueTable({
             ) : leads.map((lead) => {
               const last = byLead.get(lead.id);
               const attemptList = scopedAttempts.filter((a) => a.lead_id === lead.id);
-              const interactiveKeys = new Set(['status', 'call_action', 'priority', 'phone', '_actions']);
+              const interactiveKeys = new Set(['status', 'call_action', 'script_used', 'priority', 'phone', '_actions']);
 
               return (
                 <ResizableTr

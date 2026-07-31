@@ -21,14 +21,13 @@ import { generateAIDraft } from '../utils/aiDraft';
 import { PLAN_LIMITS, getEffectivePlan } from '../lib/utils';
 import { NEXT_PLAN, PLAN_LIMITS as LIMITS_NEW } from '../lib/leadLimits';
 import { ShinyButton } from '@/registry/magicui/shiny-button';
-
-const SECTIONS = [
-  'INITIAL TEMPLATES',
-  'FOLLOW UPS',
-  'BOOKING MESSAGES',
-  'AFTER BOOKED',
-  'AFTER CLIENT BOOKED'
-];
+import {
+  TEMPLATE_KINDS,
+  templateKind,
+  sectionsForKind,
+  myLibrarySectionName,
+  filterTemplatesByKind,
+} from '../lib/templateKinds';
 
 export default function Templates({ 
   currentUser, 
@@ -37,13 +36,15 @@ export default function Templates({
   onDeleteTemplate, 
   onUpdateTemplate,
   teamProfilesMap = {},
-  isTeamView = false
+  isTeamView = false,
+  outreachUnlocked = false,
 }) {
   const navigate = useNavigate();
   const [showToast, setShowToast] = useState(false);
   const [toastMessage, setToastMessage] = useState('');
   const [showTemplateLimitBlockModal, setShowTemplateLimitBlockModal] = useState(false);
   const [expandedSections, setExpandedSections] = useState({ 'MY TEMPLATES': true });
+  const [libraryTab, setLibraryTab] = useState('messages');
   const [selectedTag, setSelectedTag] = useState('All');
   const [showEditor, setShowEditor] = useState(false);
   const [editingTemplate, setEditingTemplate] = useState(null);
@@ -105,16 +106,36 @@ export default function Templates({
 
   // Null guard - profile not yet loaded
   if (!currentUser) {
-    return <div className="loading-container" style={{ fontFamily: 'Mattone, sans-serif' }}>Loading profile...</div>;
+    return <div className="loading-container" style={{ fontFamily: 'var(--font-body)' }}>Loading profile...</div>;
   }
 
-  // Allowed templates (starters + user's own)
-  const allowedTemplates = templates.filter(t => t.is_starter || t.user_id === currentUser.id);
+  const activeKind = libraryTab === 'scripts' ? TEMPLATE_KINDS.CALLS : TEMPLATE_KINDS.MESSAGING;
+  const activeSections = sectionsForKind(activeKind);
+  const mySectionName = myLibrarySectionName(activeKind);
+  const isScriptsTab = libraryTab === 'scripts';
+  const addItemLabel = isScriptsTab ? 'Script' : 'Template';
+  const defaultSection = activeSections[0];
+
+  const allowedTemplates = filterTemplatesByKind(
+    templates.filter((t) => t.is_starter || t.user_id === currentUser.id),
+    activeKind,
+  );
 
   const planKey = getEffectivePlan(currentUser);
   const templateLimit = (LIMITS_NEW[planKey] || LIMITS_NEW.trial).templates ?? Infinity;
-  const userTemplates = allowedTemplates.filter(t => t.user_id && !t.is_starter);
+  const userTemplates = templates.filter((t) => t.user_id === currentUser.id && !t.is_starter);
   const isTemplateLimitReached = templateLimit !== Infinity && userTemplates.length >= templateLimit;
+
+  const switchLibraryTab = (tab) => {
+    if (tab === 'scripts' && !outreachUnlocked) {
+      navigate('/upgrade');
+      return;
+    }
+    setLibraryTab(tab);
+    setExpandedSections({
+      [myLibrarySectionName(tab === 'scripts' ? TEMPLATE_KINDS.CALLS : TEMPLATE_KINDS.MESSAGING)]: true,
+    });
+  };
 
   // Collapsible toggle handler
   const toggleSection = (sectionName) => {
@@ -137,7 +158,7 @@ export default function Templates({
       setShowToast(true);
       return;
     }
-    const defaultPlatform = SECTIONS.includes(sectionName) ? sectionName : 'INITIAL TEMPLATES';
+    const defaultPlatform = activeSections.includes(sectionName) ? sectionName : defaultSection;
     setFormState({ title: '', subject: '', body: '', platform: defaultPlatform, tagsInput: '' });
     setEditingTemplate(null);
     setTemplateAiError('');
@@ -152,7 +173,7 @@ export default function Templates({
       title: template.title || '',
       subject: template.subject || '',
       body: template.body || '',
-      platform: template.platform || 'INITIAL TEMPLATES',
+      platform: template.platform || defaultSection,
       tagsInput: (template.tags || []).join(', ')
     });
     setTemplateAiError('');
@@ -242,6 +263,7 @@ export default function Templates({
         await onAddTemplate({
           ...formState,
           tags,
+          kind: activeKind,
           is_starter: false
         });
       } catch (err) {
@@ -275,12 +297,13 @@ export default function Templates({
         title: `${template.title} (Copy)`,
         subject: template.subject || '',
         body: template.body || '',
-        platform: template.platform || 'INITIAL TEMPLATES',
+        platform: template.platform || defaultSection,
         tags: template.tags || [],
+        kind: templateKind(template),
         is_starter: false
       });
       
-      alert(`Template duplicated! You can now find it in My Templates.`);
+      alert(`${addItemLabel} duplicated! You can now find it in ${mySectionName}.`);
       if (newTemplate) {
         handleOpenEdit(newTemplate);
       }
@@ -413,7 +436,7 @@ export default function Templates({
 
   // Group templates by section
   const groupedTemplates = {};
-  SECTIONS.forEach(sec => {
+  activeSections.forEach(sec => {
     groupedTemplates[sec] = [];
   });
   const otherTemplates = [];
@@ -422,7 +445,7 @@ export default function Templates({
   allowedTemplates.forEach(t => {
     if (!t.is_starter) {
       myTemplates.push(t);
-    } else if (SECTIONS.includes(t.platform)) {
+    } else if (activeSections.includes(t.platform)) {
       groupedTemplates[t.platform].push(t);
     } else {
       otherTemplates.push(t);
@@ -464,9 +487,7 @@ export default function Templates({
             {isExpanded ? <ChevronDown size={18} style={{ color: 'var(--accent-blue)' }} /> : <ChevronRight size={18} style={{ color: 'var(--text-muted)' }} />}
             <span 
               style={{ 
-                fontFamily: 'Mattone, sans-serif', 
-                textTransform: 'uppercase', 
-                letterSpacing: '0.05em', 
+                fontFamily: 'var(--font-heading)', 
                 fontSize: '0.95rem',
                 fontWeight: 600,
                 color: 'var(--text-primary)' 
@@ -505,7 +526,7 @@ export default function Templates({
               fontSize: '0.75rem'
             }}
           >
-            <Plus size={12} /> Add Template
+            <Plus size={12} /> Add {addItemLabel}
           </button>
         </div>
 
@@ -514,7 +535,7 @@ export default function Templates({
           <div style={{ padding: '1rem', backgroundColor: 'var(--bg-page)' }}>
             {list.length === 0 ? (
               <div style={{ padding: '2rem', textAlign: 'center', color: 'var(--text-muted)', fontSize: '0.9rem' }}>
-                No templates in this section. Click "Add Template" to create one.
+                No {addItemLabel.toLowerCase()}s in this section. Click "Add {addItemLabel}" to create one.
               </div>
             ) : (
               <div 
@@ -545,7 +566,7 @@ export default function Templates({
                             fontWeight: 600, 
                             color: 'var(--text-primary)',
                             margin: 0,
-                            fontFamily: 'Plus Jakarta Sans, sans-serif'
+                            fontFamily: 'var(--font-body)'
                           }}
                         >
                           {template.title}
@@ -665,7 +686,7 @@ export default function Templates({
   };
 
   const renderMyTemplatesSection = () => {
-    const sectionName = 'MY TEMPLATES';
+    const sectionName = mySectionName;
     const isExpanded = !!expandedSections[sectionName];
     const filteredMyTemplates = selectedTag === 'All'
       ? myTemplates
@@ -698,9 +719,7 @@ export default function Templates({
             {isExpanded ? <ChevronDown size={18} style={{ color: 'var(--accent-blue)' }} /> : <ChevronRight size={18} style={{ color: 'var(--text-muted)' }} />}
             <span 
               style={{ 
-                fontFamily: 'Mattone, sans-serif', 
-                textTransform: 'uppercase', 
-                letterSpacing: '0.05em', 
+                fontFamily: 'var(--font-heading)', 
                 fontSize: '0.95rem',
                 fontWeight: 600,
                 color: 'var(--text-primary)' 
@@ -798,7 +817,7 @@ export default function Templates({
                               fontWeight: 600, 
                               color: 'var(--text-primary)',
                               margin: 0,
-                              fontFamily: 'Plus Jakarta Sans, sans-serif'
+                              fontFamily: 'var(--font-body)'
                             }}
                           >
                             {template.title}
@@ -928,34 +947,89 @@ export default function Templates({
       {/* Header section */}
       <div className="flex justify-between align-center mb-4" style={{ borderBottom: '1px solid var(--border)', paddingBottom: '1rem' }}>
         <div>
-          <h2 style={{ fontFamily: 'Mattone, sans-serif', fontSize: '1.5rem', fontWeight: 400, color: 'var(--text-primary)', textTransform: 'uppercase', letterSpacing: '0.05em' }}>
+          <h2 style={{ margin: 0, fontFamily: 'var(--font-heading)', fontSize: 'var(--text-xl, 1.5rem)', fontWeight: 700, color: 'var(--text-primary)' }}>
             Template Library
           </h2>
           <p style={{ fontSize: '0.9rem', color: 'var(--text-muted)', marginTop: '0.25rem' }}>
-            Build highly personal outreach messages using automated smart tags
+            {isScriptsTab
+              ? 'Save call scripts for openers, voicemails, objections, and more'
+              : 'Build highly personal outreach messages using automated smart tags'}
           </p>
         </div>
         <div>
           <button 
             className="btn btn-primary" 
-            onClick={() => handleOpenAdd('INITIAL TEMPLATES')}
-            disabled={isTemplateLimitReached}
+            onClick={() => handleOpenAdd(defaultSection)}
+            disabled={isTemplateLimitReached || (isScriptsTab && !outreachUnlocked)}
             style={{ borderRadius: '3px', display: 'flex', alignItems: 'center', gap: '6px' }}
           >
             <Plus size={16} />
-            Create Template
+            Create {addItemLabel}
           </button>
         </div>
       </div>
 
+      <div style={{ display: 'flex', gap: '0.5rem', marginBottom: '1rem' }}>
+        <button
+          type="button"
+          className={libraryTab === 'messages' ? 'btn btn-primary btn-sm' : 'btn btn-secondary btn-sm'}
+          onClick={() => switchLibraryTab('messages')}
+        >
+          Messages
+        </button>
+        <button
+          type="button"
+          className={libraryTab === 'scripts' ? 'btn btn-primary btn-sm' : 'btn btn-secondary btn-sm'}
+          onClick={() => switchLibraryTab('scripts')}
+          style={{ display: 'inline-flex', alignItems: 'center', gap: '0.35rem' }}
+        >
+          Scripts
+          {!outreachUnlocked && <Lock size={12} />}
+        </button>
+      </div>
+
+      {isScriptsTab && !outreachUnlocked ? (
+        <div
+          style={{
+            display: 'flex',
+            flexDirection: 'column',
+            alignItems: 'center',
+            justifyContent: 'center',
+            gap: '1rem',
+            minHeight: '280px',
+            padding: '2rem',
+            border: '1px solid var(--border)',
+            borderRadius: '3px',
+            background: 'var(--bg-page)',
+            color: 'var(--text-muted)',
+            textAlign: 'center',
+          }}
+        >
+          <Lock size={36} />
+          <div>
+            <h3 style={{ margin: '0 0 0.5rem', fontFamily: 'var(--font-heading)', color: 'var(--text-primary)' }}>
+              Call scripts are a Cold Calls feature
+            </h3>
+            <p style={{ margin: 0, maxWidth: '420px', fontSize: '0.9rem' }}>
+              Upgrade to Trial, Pro, or Teams to build a script library for your call queue.
+            </p>
+          </div>
+          <ShinyButton onClick={() => navigate('/upgrade')} className="btn-sm">
+            Upgrade
+          </ShinyButton>
+        </div>
+      ) : (
+      <>
       {/* Accordion list of sections */}
       <div className="flex-col">
         {renderMyTemplatesSection()}
-        {SECTIONS.map(sec => renderSection(sec, groupedTemplates[sec]))}
+        {activeSections.map(sec => renderSection(sec, groupedTemplates[sec]))}
         
         {/* Render fallback uncategorized templates if they exist */}
         {otherTemplates.length > 0 && renderSection('OTHER TEMPLATES', otherTemplates)}
       </div>
+      </>
+      )}
 
       {/* Editor Modal */}
       {showEditor && (
@@ -964,9 +1038,13 @@ export default function Templates({
             <div className="rd-modal-header">
               <div>
                 <h3>
-                  {editingTemplate ? (editingTemplate.is_starter ? 'View starter template' : 'Edit template') : 'Create template'}
+                  {editingTemplate
+                    ? (editingTemplate.is_starter ? `View starter ${addItemLabel.toLowerCase()}` : `Edit ${addItemLabel.toLowerCase()}`)
+                    : `Create ${addItemLabel.toLowerCase()}`}
                 </h3>
-                <p className="rd-modal-sub">Save outreach you’ll reuse across leads.</p>
+                <p className="rd-modal-sub">
+                  {isScriptsTab ? 'Save scripts you’ll reuse on call queue leads.' : 'Save outreach you’ll reuse across leads.'}
+                </p>
               </div>
               <div style={{ display: 'flex', gap: '0.5rem', alignItems: 'center' }}>
                 <button 
@@ -1020,10 +1098,10 @@ export default function Templates({
                     handleFieldBlur('platform', val);
                   }}
                 >
-                  {SECTIONS.map(sec => (
+                  {activeSections.map(sec => (
                     <option key={sec} value={sec}>{sec}</option>
                   ))}
-                  {!SECTIONS.includes(formState.platform) && (
+                  {!activeSections.includes(formState.platform) && (
                     <option value={formState.platform}>{formState.platform}</option>
                   )}
                 </select>
@@ -1428,7 +1506,7 @@ export default function Templates({
               padding: 32,
               maxWidth: 420,
               width: '90%',
-              fontFamily: 'Inter, sans-serif',
+              fontFamily: 'var(--font-body)',
               textAlign: 'center',
             }}
           >

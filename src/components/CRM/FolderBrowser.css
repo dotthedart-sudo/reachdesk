@@ -468,6 +468,12 @@
   box-shadow: var(--shadow-md, 0 8px 24px rgba(0, 0, 0, 0.12));
 }
 
+.crm-list-row-menu-panel--portal {
+  position: fixed;
+  top: auto;
+  right: auto;
+}
+
 .crm-list-row-menu-item {
   display: flex;
   align-items: center;

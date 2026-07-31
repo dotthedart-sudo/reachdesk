@@ -18,6 +18,7 @@ import { fetchLeadTimeline, logLeadTimelineEvent } from '../../lib/leadTimeline'
 import { getEffectiveUserTimeZone } from '../../lib/dateTime';
 import { mergeTemplateFields } from '../../utils/templateMerge';
 import { celebrateClosedWon } from '../../utils/celebrateWin';
+import { TEMPLATE_KINDS } from '../../lib/templateKinds';
 
 
 
@@ -1101,6 +1102,19 @@ export default function LeadDrawer({
                 </div>
               );
             })}
+
+            {!isClientView && initialTab === 'calls' && (
+              <div className="form-group">
+                <label className="form-label">Script</label>
+                <GroupedTemplateDropdown
+                  value={formData.script_used || ''}
+                  onChange={(newVal) => handleDropdownChange('script_used', newVal)}
+                  templates={templates}
+                  kind={TEMPLATE_KINDS.CALLS}
+                  placeholder="None"
+                />
+              </div>
+            )}
 
             {!isClientView && (
               <div className="form-group">

@@ -14,6 +14,7 @@ const DEFAULT_WIDTHS = {
   action_to_take: 160,
   last_contacted_at: 130,
   template_used: 160,
+  script_used: 160,
   niche: 140,
   created_at: 130,
   linkedin_url: 160,

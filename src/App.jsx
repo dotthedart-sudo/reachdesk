@@ -18,6 +18,7 @@ import { isLocalDev, getAppUrl, getMarketingUrl } from './utils/domain';
 import { identifyUser, resetPostHog } from './utils/posthog';
 import { forceAppRefresh, clearAppRefreshFlags, clearServiceWorkersAndCaches } from './utils/forceAppRefresh';
 import { BRAND_NAME } from './config/brand';
+import { CALL_SCRIPT_SECTIONS, TEMPLATE_KINDS } from './lib/templateKinds';
 
 // Helper for lazy loading components with automatic retry on dynamic import / chunk load failures (e.g. after new deployments)
 const LAZY_IMPORT_RETRIES = 3;
@@ -409,6 +410,17 @@ const STARTER_TEMPLATES = [
     user_id: null
   }
 ];
+
+const STARTER_CALL_SCRIPTS = CALL_SCRIPT_SECTIONS.map((platform) => ({
+  id: `starter-call-${platform.toLowerCase()}`,
+  title: `${platform.charAt(0) + platform.slice(1).toLowerCase()} (add your script)`,
+  platform,
+  kind: TEMPLATE_KINDS.CALLS,
+  subject: '',
+  body: '',
+  is_starter: true,
+  user_id: null,
+}));
 
 function AppProvider({ children }) {
   const [session, setSession] = useState(null);
@@ -920,7 +932,11 @@ function AppProvider({ children }) {
         };
       });
 
-      setTemplates([...STARTER_TEMPLATES, ...customMapped]);
+      setTemplates([
+        ...STARTER_TEMPLATES.map((t) => ({ ...t, kind: TEMPLATE_KINDS.MESSAGING })),
+        ...STARTER_CALL_SCRIPTS,
+        ...customMapped.map((t) => ({ ...t, kind: t.kind || TEMPLATE_KINDS.MESSAGING })),
+      ]);
       setUserSnippets(snip.data || []);
 
       // Reminders count (Count active due reminders from follow_up_reminders if enabled)
@@ -1166,6 +1182,7 @@ function AppProvider({ children }) {
       title: template.title,
       content: JSON.stringify({ subject: template.subject || '', body: template.body || '' }),
       platform: template.platform,
+      kind: template.kind || TEMPLATE_KINDS.MESSAGING,
       is_starter: false,
       tags: template.tags || []
     };
@@ -1189,6 +1206,7 @@ function AppProvider({ children }) {
     const serializedFields = {};
     if (fields.title !== undefined) serializedFields.title = fields.title;
     if (fields.platform !== undefined) serializedFields.platform = fields.platform;
+    if (fields.kind !== undefined) serializedFields.kind = fields.kind;
     if (fields.is_starter !== undefined) serializedFields.is_starter = fields.is_starter;
     if (fields.tags !== undefined) serializedFields.tags = fields.tags;
     if (fields.subject !== undefined || fields.body !== undefined) {
@@ -1387,7 +1405,7 @@ function CRMPage() {
 }
 
 function TemplatesPage() {
-  const { profile, templates, teamProfilesMap, teamIds, handleAddTemplate, handleDeleteTemplate, handleUpdateTemplate } = useAppContext();
+  const { profile, templates, teamProfilesMap, teamIds, outreachUnlocked, handleAddTemplate, handleDeleteTemplate, handleUpdateTemplate } = useAppContext();
   return (
     <Templates
       currentUser={profile}
@@ -1397,6 +1415,7 @@ function TemplatesPage() {
       onUpdateTemplate={handleUpdateTemplate}
       teamProfilesMap={teamProfilesMap}
       isTeamView={teamIds.length > 1}
+      outreachUnlocked={outreachUnlocked}
     />
   );
 }
