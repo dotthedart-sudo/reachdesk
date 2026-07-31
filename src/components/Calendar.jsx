@@ -10,7 +10,7 @@ import { getTeamIds } from '../lib/utils';
 import { useAppContext } from '../App';
 import { leadDisplayName } from '../lib/outreachQueue';
 import {
-  resolveTimeZone,
+  getEffectiveUserTimeZone,
   todayDateKeyInZone,
   toDateKeyInZone,
   parseEventDayKeyInZone,
@@ -20,11 +20,14 @@ import {
   isoToLocalTimeInZone,
   addMinutesToTimeStr,
   pad2,
+  getActivityDayKey,
 } from '../lib/dateTime';
 import { LogCallModal } from './CRM/OutreachTracker';
 import PlanColdCallsModal from './Calendar/PlanColdCallsModal';
 import CallWindowBadge from './CRM/CallWindowBadge';
+import ActivityTimelineRow from './CRM/ActivityTimelineRow';
 import { getLeadLocalTime } from '../lib/leadTimezone';
+import { fetchTeamTimelineForDay, logLeadTimelineEvent } from '../lib/leadTimeline';
 
 const WEEKDAYS = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
 const VIEWS = [
@@ -223,7 +226,7 @@ export default function CalendarPage({ currentUser }) {
   const navigate = useNavigate();
   const { calendarUnlocked } = useAppContext() || {};
   const calAllowed = !!calendarUnlocked;
-  const userTz = useMemo(() => resolveTimeZone(currentUser?.timezone), [currentUser?.timezone]);
+  const userTz = useMemo(() => getEffectiveUserTimeZone(currentUser), [currentUser?.timezone]);
   const todayKey = useMemo(() => todayDateKeyInZone(userTz), [userTz]);
   const timezoneHint = useMemo(() => formatTimeZoneHint(userTz), [userTz]);
 
@@ -239,6 +242,7 @@ export default function CalendarPage({ currentUser }) {
   const [selectedDay, setSelectedDay] = useState(() => todayDateKeyInZone());
   const [events, setEvents] = useState([]);
   const [outreachByDay, setOutreachByDay] = useState({});
+  const [timelineByDay, setTimelineByDay] = useState({});
   const [planByDay, setPlanByDay] = useState({});
   const [allLeads, setAllLeads] = useState([]);
   const [allAttempts, setAllAttempts] = useState([]);
@@ -386,6 +390,28 @@ export default function CalendarPage({ currentUser }) {
       }
       setOutreachByDay(outreachMap);
 
+      try {
+        const timelineRows = await fetchTeamTimelineForDay({
+          fromDate: planStartKey,
+          toDate: planEndKey,
+          limit: 1000,
+        });
+        const tMap = {};
+        for (const row of timelineRows || []) {
+          const key = getActivityDayKey(row, userTz);
+          if (!key) continue;
+          if (!tMap[key]) tMap[key] = [];
+          tMap[key].push(row);
+        }
+        for (const key of Object.keys(tMap)) {
+          tMap[key].sort((a, b) => new Date(b.occurred_at) - new Date(a.occurred_at));
+        }
+        setTimelineByDay(tMap);
+      } catch (tlErr) {
+        console.warn('[Calendar] timeline load failed:', tlErr);
+        setTimelineByDay({});
+      }
+
       const planMap = {};
       for (const task of planned || []) {
         const key = task.planned_date || parseEventDayKeyInZone(task.planned_at, userTz);
@@ -446,6 +472,7 @@ export default function CalendarPage({ currentUser }) {
 
   const selectedEvents = eventsByDay[selectedDay] || [];
   const selectedOutreach = outreachByDay[selectedDay] || [];
+  const selectedTimeline = timelineByDay[selectedDay] || [];
   const selectedPlan = planByDay[selectedDay] || [];
   const planPending = selectedPlan.filter((t) => t.status === 'pending');
   const planDone = selectedPlan.filter((t) => t.status === 'done');
@@ -598,6 +625,17 @@ export default function CalendarPage({ currentUser }) {
         .eq('id', task.id)
         .eq('user_id', currentUser.id);
       if (updErr) throw updErr;
+      if (task.lead_id && currentUser?.id) {
+        logLeadTimelineEvent({
+          leadId: task.lead_id,
+          userId: currentUser.id,
+          teamId: currentUser.team_id || null,
+          eventType: 'plan_cancelled',
+          summary: 'Planned call cancelled',
+          detail: { task_id: task.id },
+          timeZone: userTz,
+        }).catch(() => {});
+      }
       await loadData();
     } catch (err) {
       setError(err.message || 'Failed to remove planned call');
@@ -612,6 +650,17 @@ export default function CalendarPage({ currentUser }) {
         .update({ status: 'done', completed_at: new Date().toISOString() })
         .eq('id', logCallTask.id)
         .eq('user_id', currentUser.id);
+      if (logCallTask.lead_id && currentUser?.id) {
+        logLeadTimelineEvent({
+          leadId: logCallTask.lead_id,
+          userId: currentUser.id,
+          teamId: currentUser.team_id || null,
+          eventType: 'plan_completed',
+          summary: 'Planned call completed',
+          detail: { task_id: logCallTask.id },
+          timeZone: userTz,
+        }).catch(() => {});
+      }
       setLogCallTask(null);
       await loadData();
     } catch (err) {
@@ -621,9 +670,9 @@ export default function CalendarPage({ currentUser }) {
 
   const viewSubtitle = {
     plan: 'Plan who to call each day — log calls from here or Call Activity.',
-    activity: 'Logged cold calls only — click a day for the list.',
+    activity: 'All lead activity for the day — calls, status changes, and more.',
     meetings: 'Google Calendar meetings. Click a day to schedule; click an event to edit.',
-    all: 'Plan, logged calls, and meetings in one view.',
+    all: 'Plan, activity timeline, and meetings in one view.',
   }[view];
 
   if (!calAllowed) {
@@ -821,6 +870,7 @@ export default function CalendarPage({ currentUser }) {
                 const isSelected = key === selectedDay;
                 const dayEvents = eventsByDay[key] || [];
                 const outreachCount = (outreachByDay[key] || []).length;
+                const activityCount = (timelineByDay[key] || []).length || outreachCount;
                 const planCount = (planByDay[key] || []).filter((t) => t.status === 'pending').length;
 
                 return (
@@ -876,7 +926,7 @@ export default function CalendarPage({ currentUser }) {
                         </span>
                       )}
 
-                      {showActivityBadges && outreachCount > 0 && (
+                      {showActivityBadges && activityCount > 0 && (
                         <span
                           style={{
                             fontSize: '0.65rem',
@@ -891,7 +941,7 @@ export default function CalendarPage({ currentUser }) {
                             gap: 4,
                           }}
                         >
-                          <Phone size={9} /> {outreachCount} logged
+                          <Activity size={9} /> {activityCount} activity
                         </span>
                       )}
 
@@ -945,7 +995,7 @@ export default function CalendarPage({ currentUser }) {
                 </h3>
                 <p style={{ margin: '0.25rem 0 0', fontSize: '0.75rem', color: 'var(--text-muted)' }}>
                   {isPlan && 'Planned outreach'}
-                  {isActivity && 'Logged activity'}
+                  {isActivity && 'Lead activity'}
                   {isMeetings && 'Meetings'}
                   {isAll && 'Everything for this day'}
                 </p>
@@ -1009,7 +1059,7 @@ export default function CalendarPage({ currentUser }) {
             )}
 
             {(isActivity || isAll) && (
-              <DaySection title={`LOGGED CALLS (${selectedOutreach.length})`}>
+              <DaySection title={`ACTIVITY (${selectedTimeline.length || selectedOutreach.length})`}>
                 <div style={{ marginBottom: '0.5rem' }}>
                   <button
                     type="button"
@@ -1019,8 +1069,20 @@ export default function CalendarPage({ currentUser }) {
                     View in Call Activity
                   </button>
                 </div>
-                {selectedOutreach.length === 0 ? (
-                  <EmptyHint>No calls logged this day. Log from Plan or Call Activity.</EmptyHint>
+                {selectedTimeline.length > 0 ? (
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
+                    {selectedTimeline.map((ev) => (
+                      <ActivityTimelineRow
+                        key={ev.id}
+                        event={ev}
+                        showLead
+                        compact
+                        onOpenLead={openLead}
+                      />
+                    ))}
+                  </div>
+                ) : selectedOutreach.length === 0 ? (
+                  <EmptyHint>No activity this day. Change a status, log a call, or complete a plan item.</EmptyHint>
                 ) : (
                   selectedOutreach.map((row) => (
                     <button
@@ -1106,6 +1168,7 @@ export default function CalendarPage({ currentUser }) {
           folders={folders}
           existingLeadIds={existingPlanLeadIds}
           defaultCountryCode={defaultCountryCode}
+          userTimeZone={userTz}
           onPlanned={loadData}
         />
       )}
@@ -1116,8 +1179,10 @@ export default function CalendarPage({ currentUser }) {
           onClose={() => setLogCallTask(null)}
           leads={allLeads}
           userId={currentUser.id}
+          teamId={currentUser.team_id || null}
           fixedLead={logCallTask.leads}
           onLogged={handleCallLogged}
+          timeZone={userTz}
         />
       )}
     </div>

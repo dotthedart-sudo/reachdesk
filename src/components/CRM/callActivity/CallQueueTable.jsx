@@ -5,6 +5,7 @@ import GroupedStatusDropdown from '../GroupedStatusDropdown';
 import PriorityDropdown from '../PriorityDropdown';
 import EditableDropdown from '../EditableDropdown';
 import CallWindowBadge from '../CallWindowBadge';
+import DateTimePickerCell from '../DateTimePickerCell';
 import CallButton from './CallButton';
 import LogCallModal from './LogCallModal';
 import QuickLogChips from './QuickLogChips';
@@ -14,8 +15,8 @@ import { getTableColumns, CALL_QUEUE_DEFAULT_DEFS } from '../crmTableColumns';
 import { logCallWithUpdates, fetchMyCallAttempts } from '../../../lib/callActivity';
 import { getCallActionForStatus } from '../../../lib/callOutcomeRules';
 import { attemptsByLeadMap, buildOutreachSessionQueue } from '../../../lib/outreachQueue';
+import { formatLocalTime, getEffectiveUserTimeZone } from '../../../lib/dateTime';
 import CallingSession from './CallingSession';
-
 export default function CallQueueTable({
   leads = [],
   columnDefs = [],
@@ -39,6 +40,7 @@ export default function CallQueueTable({
   const [sessionOpen, setSessionOpen] = useState(false);
 
   const userId = currentUser?.id;
+  const userTimeZone = useMemo(() => getEffectiveUserTimeZone(currentUser), [currentUser?.timezone]);
   const defaultCountryCode = currentUser?.default_country_code || '+92';
   const suggestionsEnabled = currentUser?.suggestions_enabled !== false;
 
@@ -88,8 +90,8 @@ export default function CallQueueTable({
   const byLead = useMemo(() => attemptsByLeadMap(scopedAttempts), [scopedAttempts]);
 
   const sessionQueue = useMemo(
-    () => buildOutreachSessionQueue(leads, scopedAttempts),
-    [leads, scopedAttempts],
+    () => buildOutreachSessionQueue(leads, scopedAttempts, userTimeZone),
+    [leads, scopedAttempts, userTimeZone],
   );
 
   const handleLogged = ({ attempt, leadUpdates } = {}) => {
@@ -110,8 +112,13 @@ export default function CallQueueTable({
       outcome,
       teamId,
       updateLeadFields: true,
+      timeZone: userTimeZone,
     });
     handleLogged(result);
+  };
+
+  const handleLastCalledChange = (lead, iso) => {
+    onFieldChange?.(lead.id, 'last_called_at', iso);
   };
 
   const renderCell = (col, lead, last, attemptList) => {
@@ -129,7 +136,15 @@ export default function CallQueueTable({
           </CopyableCell>
         );
       case 'local_time':
-        return <CallWindowBadge lead={lead} defaultCountryCode={defaultCountryCode} />;
+        return (
+          <CallWindowBadge
+            lead={lead}
+            defaultCountryCode={defaultCountryCode}
+            showLocalTime
+            editable
+            onTimezoneChange={(tz) => onFieldChange?.(lead.id, 'timezone', tz || '')}
+          />
+        );
       case 'status':
         return (
           <GroupedStatusDropdown
@@ -172,9 +187,23 @@ export default function CallQueueTable({
       }
       case 'last_called':
         return (
-          <span style={{ fontSize: '0.85rem', color: 'var(--text-secondary)' }}>
-            {last ? new Date(last.created_at).toLocaleDateString() : '—'}
-          </span>
+          <DateTimePickerCell
+            compact
+            value={lead.last_called_at || last?.created_at || null}
+            timeZone={userTimeZone}
+            onChange={(iso) => handleLastCalledChange(lead, iso)}
+            placeholder="—"
+          />
+        );
+      case 'last_contacted_at':
+        return (
+          <DateTimePickerCell
+            compact
+            value={lead.last_contacted_at || null}
+            timeZone={userTimeZone}
+            onChange={(iso) => onFieldChange?.(lead.id, 'last_contacted_at', iso)}
+            placeholder="—"
+          />
         );
       case 'outcome':
         return last ? <OutcomeBadge outcome={last.outcome} /> : '—';
@@ -216,6 +245,7 @@ export default function CallQueueTable({
         defaultCountryCode={defaultCountryCode}
         showNoteSharing={showNoteSharing}
         onLogged={handleLogged}
+        timeZone={userTimeZone}
       />
     );
   }
@@ -227,6 +257,11 @@ export default function CallQueueTable({
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '0.75rem' }}>
         <p style={{ margin: 0, fontSize: '0.85rem', color: 'var(--text-muted)' }}>
           {loading ? 'Loading call data…' : `${leads.length} lead${leads.length === 1 ? '' : 's'} in this list · ${sessionQueue.length} in calling queue`}
+          {!loading && (
+            <span style={{ marginLeft: '0.75rem', color: 'var(--text-secondary)' }}>
+              Your time: {formatLocalTime(new Date(), { timeZone: userTimeZone, showZone: true })}
+            </span>
+          )}
         </p>
         <div style={{ display: 'flex', gap: '0.5rem', flexWrap: 'wrap' }}>
           {onOpenColumnManager && (
@@ -304,6 +339,7 @@ export default function CallQueueTable({
         fixedLead={logLead}
         showNoteSharing={showNoteSharing}
         onLogged={handleLogged}
+        timeZone={userTimeZone}
       />
     </div>
   );

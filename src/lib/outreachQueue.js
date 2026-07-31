@@ -1,5 +1,7 @@
 /** Shared cold-outreach queue logic (Outreach Tracker + Calendar Plan picker). */
 
+import { todayDateKeyInZone } from './dateTime';
+
 export const CALL_OUTCOMES = [
   'Answered',
   'No Answer',
@@ -22,7 +24,15 @@ export const FOLLOW_UP_DAYS = {
   'Not Interested': null,
 };
 
-export function startOfToday() {
+export function startOfToday(timeZone) {
+  // Device/browser midnight by default; optional IANA zone via date key
+  if (timeZone) {
+    const key = todayDateKeyInZone(timeZone);
+    if (key) {
+      const d = new Date(`${key}T00:00:00`);
+      if (!Number.isNaN(d.getTime())) return d;
+    }
+  }
   const d = new Date();
   d.setHours(0, 0, 0, 0);
   return d;
@@ -58,9 +68,9 @@ export function attemptsByLeadMap(attempts) {
 }
 
 /** Same queue as Outreach Tracker "Start Calling Session". Respects call_action on each lead. */
-export function buildOutreachSessionQueue(leads, attempts) {
+export function buildOutreachSessionQueue(leads, attempts, timeZone = null) {
   const byLead = attemptsByLeadMap(attempts);
-  const today = startOfToday();
+  const today = startOfToday(timeZone);
   const callNow = [];
   const needs = [];
   const neverCalled = [];

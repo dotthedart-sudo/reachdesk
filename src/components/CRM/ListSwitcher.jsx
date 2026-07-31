@@ -1,6 +1,6 @@
 import React, { useState, useRef, useEffect } from 'react';
 import {
-  ChevronDown, Folder, FileSpreadsheet, Sparkles, LayoutGrid,
+  ChevronDown, Folder, FileSpreadsheet, Sparkles, LayoutGrid, Users,
 } from 'lucide-react';
 import { SYSTEM_VIEWS } from './FolderBrowser';
 import './FolderBrowser.css';
@@ -58,6 +58,8 @@ export default function ListSwitcher({
     setOpen(false);
     onSelectFolder(id);
   };
+
+  const unfiledCount = getLeadCount?.('unfiled') ?? 0;
 
   return (
     <div className="crm-list-switcher" ref={rootRef}>
@@ -126,6 +128,16 @@ export default function ListSwitcher({
               active={activeFolderId === 'all'}
               onClick={() => pick('all')}
             />
+            {unfiledCount > 0 && (
+              <SwitcherItem
+                icon={Users}
+                iconColor="var(--text-muted)"
+                label="Unfiled leads"
+                count={unfiledCount}
+                active={activeFolderId === 'unfiled'}
+                onClick={() => pick('unfiled')}
+              />
+            )}
           </SwitcherSection>
         </div>
       )}

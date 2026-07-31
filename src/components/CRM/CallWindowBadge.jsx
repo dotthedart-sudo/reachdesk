@@ -1,34 +1,100 @@
-import React from 'react';
-import { getCallWindowBadgeStyle, getCallWindowStatus, getLeadLocalTime } from '../../lib/leadTimezone';
+import React, { useEffect, useRef, useState } from 'react';
+import {
+  getCallWindowBadgeStyle,
+  getCallWindowStatus,
+  getLeadLocalTime,
+  getSupportedTimeZones,
+} from '../../lib/leadTimezone';
 
 export default function CallWindowBadge({
   lead,
   defaultCountryCode = '+92',
   showLocalTime = false,
   at = new Date(),
+  editable = false,
+  onTimezoneChange,
 }) {
+  const [open, setOpen] = useState(false);
+  const wrapRef = useRef(null);
   const { status, label } = getCallWindowStatus(lead, at, { defaultCountryCode });
   const style = getCallWindowBadgeStyle(status);
   const localTime = showLocalTime ? getLeadLocalTime(lead, at, defaultCountryCode) : null;
+  const zones = getSupportedTimeZones();
+
+  useEffect(() => {
+    if (!open) return undefined;
+    const onDoc = (e) => {
+      if (wrapRef.current && !wrapRef.current.contains(e.target)) setOpen(false);
+    };
+    document.addEventListener('mousedown', onDoc);
+    return () => document.removeEventListener('mousedown', onDoc);
+  }, [open]);
 
   return (
-    <span style={{ display: 'inline-flex', flexDirection: 'column', alignItems: 'flex-start', gap: 2 }}>
-      <span
+    <span ref={wrapRef} style={{ display: 'inline-flex', flexDirection: 'column', alignItems: 'flex-start', gap: 2, position: 'relative' }}>
+      <button
+        type="button"
         className="badge"
+        disabled={!editable}
+        onClick={(e) => {
+          e.stopPropagation();
+          if (editable) setOpen((v) => !v);
+        }}
+        title={editable ? 'Set lead timezone' : undefined}
         style={{
           background: style.bg,
           color: style.color,
           border: 'none',
           fontSize: '0.65rem',
           fontWeight: 600,
+          cursor: editable ? 'pointer' : 'default',
+          padding: '2px 8px',
+          borderRadius: 999,
         }}
       >
         {label}
-      </span>
+      </button>
       {localTime && (
         <span style={{ fontSize: '0.7rem', color: 'var(--text-muted)' }}>
           Their time: {localTime}
         </span>
+      )}
+      {open && (
+        <div
+          onClick={(e) => e.stopPropagation()}
+          style={{
+            position: 'absolute',
+            zIndex: 40,
+            top: '100%',
+            left: 0,
+            marginTop: 4,
+            padding: '0.5rem',
+            background: 'var(--bg-primary)',
+            border: '1px solid var(--border-color)',
+            borderRadius: 8,
+            boxShadow: '0 8px 24px rgba(0,0,0,0.18)',
+            minWidth: 220,
+          }}
+        >
+          <label style={{ display: 'block', fontSize: '0.7rem', color: 'var(--text-muted)', marginBottom: 4 }}>
+            Lead timezone
+          </label>
+          <select
+            className="form-input"
+            style={{ width: '100%', fontSize: '0.8rem' }}
+            value={lead?.timezone || ''}
+            onChange={(e) => {
+              onTimezoneChange?.(e.target.value || null);
+              setOpen(false);
+            }}
+            autoFocus
+          >
+            <option value="">Auto from phone</option>
+            {zones.map((tz) => (
+              <option key={tz} value={tz}>{tz}</option>
+            ))}
+          </select>
+        </div>
       )}
     </span>
   );

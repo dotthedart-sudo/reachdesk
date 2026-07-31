@@ -6,6 +6,20 @@ const corsHeaders = {
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
 };
 
+function countNonEmptyColumns(rows: unknown[][]): number {
+  let max = 0;
+  for (const row of rows.slice(0, 25)) {
+    if (!Array.isArray(row)) continue;
+    for (let i = row.length - 1; i >= 0; i -= 1) {
+      if (String(row[i] ?? '').trim() !== '') {
+        max = Math.max(max, i + 1);
+        break;
+      }
+    }
+  }
+  return max;
+}
+
 serve(async (req) => {
   if (req.method === 'OPTIONS') {
     return new Response('ok', { headers: corsHeaders });
@@ -94,8 +108,8 @@ serve(async (req) => {
         .eq('user_id', user.id);
     }
 
-    // Fetch first 11 rows (1 header + 10 data rows)
-    const range = encodeURIComponent(`'${sheetName}'!A1:Z11`);
+    // Same range as import — accurate row/column counts from populated cells only
+    const range = encodeURIComponent(`'${sheetName}'!A:Z`);
     const sheetsUrl = `https://sheets.googleapis.com/v4/spreadsheets/${spreadsheetId}/values/${range}?majorDimension=ROWS`;
 
     const sheetsResp = await fetch(sheetsUrl, {
@@ -115,34 +129,15 @@ serve(async (req) => {
     }
 
     const sheetsData = await sheetsResp.json();
-    const values = sheetsData.values || [];
+    const values = (sheetsData.values || []) as string[][];
 
     const headers = values[0] || [];
-    const rows = values.slice(1) || [];
-
-    // Fetch total row count for this tab (header + data rows in sheet grid)
-    let totalRowsInSheet = rows.length;
-    try {
-      const metaUrl = `https://sheets.googleapis.com/v4/spreadsheets/${spreadsheetId}?fields=sheets(properties(title,gridProperties(rowCount)))`;
-      const metaResp = await fetch(metaUrl, {
-        headers: { Authorization: `Bearer ${accessToken}` },
-      });
-      if (metaResp.ok) {
-        const meta = await metaResp.json();
-        const sheet = (meta.sheets || []).find(
-          (s: { properties?: { title?: string } }) => s.properties?.title === sheetName
-        );
-        const rowCount = sheet?.properties?.gridProperties?.rowCount;
-        if (typeof rowCount === 'number' && rowCount > 1) {
-          totalRowsInSheet = rowCount - 1;
-        }
-      }
-    } catch (metaErr) {
-      console.warn('[get-sheet-preview] Could not fetch sheet row count:', metaErr);
-    }
+    const totalRows = Math.max(0, values.length - 1);
+    const columnCount = countNonEmptyColumns(values);
+    const rows = values.slice(1, 11);
 
     return new Response(
-      JSON.stringify({ headers, rows, totalRows: totalRowsInSheet }),
+      JSON.stringify({ headers, rows, totalRows, columnCount }),
       { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
     );
   } catch (err) {

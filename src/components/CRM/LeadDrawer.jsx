@@ -4,7 +4,6 @@ import { supabase } from '../../lib/supabase';
 import { useAppContext } from '../../App';
 import { fetchLeadCallTimeline } from '../../lib/callActivity';
 import LogCallModal from './callActivity/LogCallModal';
-import OutcomeBadge from './callActivity/OutcomeBadge';
 import EditableDropdown from './EditableDropdown';
 import RichTextEditor from './RichTextEditor';
 import GroupedStatusDropdown from './GroupedStatusDropdown';
@@ -13,6 +12,10 @@ import { updateLeadStatusAndCheckpoint, getSuggestionForStatus, isClientStatus }
 import { getCallActionForStatus } from '../../lib/callOutcomeRules';
 import { CALL_ACTION_DEFAULT_OPTIONS } from './crmTableColumns';
 import PriorityDropdown from './PriorityDropdown';
+import DateTimePickerCell from './DateTimePickerCell';
+import ActivityTimelineRow from './ActivityTimelineRow';
+import { fetchLeadTimeline, logLeadTimelineEvent } from '../../lib/leadTimeline';
+import { getEffectiveUserTimeZone } from '../../lib/dateTime';
 import { mergeTemplateFields } from '../../utils/templateMerge';
 import { celebrateClosedWon } from '../../utils/celebrateWin';
 
@@ -134,6 +137,8 @@ export default function LeadDrawer({
 
   const [activities, setActivities] = useState([]);
   const [activitiesLoading, setActivitiesLoading] = useState(false);
+  const [timeline, setTimeline] = useState([]);
+  const [timelineLoading, setTimelineLoading] = useState(false);
   const [callAttempts, setCallAttempts] = useState([]);
   const [callAttemptsLoading, setCallAttemptsLoading] = useState(false);
   const [logCallOpen, setLogCallOpen] = useState(false);
@@ -149,6 +154,7 @@ export default function LeadDrawer({
       fetchNotes();
       fetchActivities();
       fetchCallAttempts();
+      fetchTimeline();
       setShowSuggestion(true);
       if (initialTab === 'calls') {
         setActiveTab('activity');
@@ -301,8 +307,27 @@ export default function LeadDrawer({
     }
   };
 
+  const fetchTimeline = async () => {
+    if (!lead) return;
+    const targetLeadId = isClientView ? lead.lead_id : lead.id;
+    if (!targetLeadId) {
+      setTimeline([]);
+      return;
+    }
+    setTimelineLoading(true);
+    try {
+      const data = await fetchLeadTimeline(targetLeadId);
+      setTimeline(data || []);
+    } catch (err) {
+      console.error('Error fetching lead timeline:', err);
+      setTimeline([]);
+    } finally {
+      setTimelineLoading(false);
+    }
+  };
+
   const handleCallLogged = async () => {
-    await fetchCallAttempts();
+    await Promise.all([fetchCallAttempts(), fetchTimeline()]);
   };
 
   const logActivity = async (type, detail) => {
@@ -323,6 +348,26 @@ export default function LeadDrawer({
 
       if (error) throw error;
       setActivities(prev => [data, ...prev]);
+
+      const eventType = type === 'Note Added' || type === 'Note Updated'
+        ? 'note_added'
+        : type === 'Status Updated'
+          ? 'status_changed'
+          : 'field_changed';
+      const summary = type === 'Status Updated' && detail?.to
+        ? `Status → ${detail.to}`
+        : type;
+      logLeadTimelineEvent({
+        leadId: targetLeadId,
+        userId: currentUser.id,
+        teamId: currentUser.team_id || null,
+        eventType,
+        summary,
+        detail: detail || {},
+        timeZone: getEffectiveUserTimeZone(currentUser),
+      }).then((row) => {
+        if (row) setTimeline((prev) => [row, ...prev]);
+      }).catch(() => {});
     } catch (err) {
       console.error('Error logging activity:', err);
     }
@@ -736,13 +781,14 @@ export default function LeadDrawer({
                       onChange={(newVal) => handleDropdownChange(col.column_key, newVal)}
                       onUpdateColumnDef={fetchNotes}
                     />
-                  ) : col.column_type === 'date' ? (
-                    <input
-                      type="date"
-                      value={val ? val.split('T')[0] : ''}
-                      onChange={e => handleFieldChange(col.column_key, e.target.value)}
-                      onBlur={() => handleFieldBlur(col.column_key, false, '')}
-                      className="form-input"
+                  ) : col.column_type === 'date' || col.column_key === 'last_contacted_at' || col.column_key === 'last_called_at' ? (
+                    <DateTimePickerCell
+                      value={val || null}
+                      timeZone={getEffectiveUserTimeZone(currentUser)}
+                      onChange={(iso) => {
+                        handleFieldChange(col.column_key, iso || '');
+                        handleFieldBlur(col.column_key, false, '');
+                      }}
                     />
                   ) : (
                     <input
@@ -857,12 +903,13 @@ export default function LeadDrawer({
                       onUpdateColumnDef={fetchNotes}
                     />
                   ) : col.column_type === 'date' ? (
-                    <input
-                      type="date"
-                      value={val ? val.split('T')[0] : ''}
-                      onChange={e => handleCustomFieldChange(col.column_key, e.target.value)}
-                      onBlur={() => handleFieldBlur(col.column_key, true, col.column_key)}
-                      className="form-input"
+                    <DateTimePickerCell
+                      value={val || null}
+                      timeZone={getEffectiveUserTimeZone(currentUser)}
+                      onChange={(iso) => {
+                        handleCustomFieldChange(col.column_key, iso || '');
+                        handleFieldBlur(col.column_key, true, col.column_key);
+                      }}
                     />
                   ) : (
                     <input
@@ -1029,13 +1076,18 @@ export default function LeadDrawer({
                       }}
                       onUpdateColumnDef={fetchNotes}
                     />
-                  ) : col.column_type === 'date' ? (
-                    <input
-                      type="date"
-                      value={val ? val.split('T')[0] : ''}
-                      onChange={e => isCustom ? handleCustomFieldChange(col.column_key, e.target.value) : handleFieldChange(col.column_key, e.target.value)}
-                      onBlur={() => handleFieldBlur(col.column_key, isCustom, col.column_key)}
-                      className="form-input"
+                  ) : col.column_type === 'date' || col.column_key === 'last_contacted_at' || col.column_key === 'last_called_at' ? (
+                    <DateTimePickerCell
+                      value={val || null}
+                      timeZone={getEffectiveUserTimeZone(currentUser)}
+                      onChange={(iso) => {
+                        if (isCustom) {
+                          handleCustomFieldChange(col.column_key, iso || '');
+                        } else {
+                          handleFieldChange(col.column_key, iso || '');
+                        }
+                        handleFieldBlur(col.column_key, isCustom, col.column_key);
+                      }}
                     />
                   ) : (
                     <input
@@ -1218,122 +1270,55 @@ export default function LeadDrawer({
           </div>
         )}
 
-        {/* Activity Tab */}
+        {/* Activity Tab — unified timeline */}
         {activeTab === 'activity' && (
           <div className="flex-col gap-3">
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: '0.75rem', flexWrap: 'wrap' }}>
-              <h4 style={{ fontSize: '0.9rem', margin: 0, fontWeight: 600 }}>Call attempts</h4>
+              <h4 style={{ fontSize: '0.9rem', margin: 0, fontWeight: 600 }}>Activity</h4>
               <button type="button" className="btn btn-primary btn-sm" onClick={() => setLogCallOpen(true)}>
                 <Phone size={12} /> Log call
               </button>
             </div>
 
-            {callAttemptsLoading ? (
-              <div style={{ textAlign: 'center', padding: '1rem', color: 'var(--text-muted)', fontSize: '0.85rem' }}>Loading calls…</div>
-            ) : callAttempts.length === 0 ? (
-              <div style={{ textAlign: 'center', padding: '1rem', color: 'var(--text-muted)', fontSize: '0.85rem', border: '1px dashed var(--border-color)', borderRadius: 6 }}>
-                No calls logged for this lead yet.
+            {timelineLoading || callAttemptsLoading || activitiesLoading ? (
+              <div style={{ textAlign: 'center', padding: '2rem', color: 'var(--text-muted)' }}>Loading activity…</div>
+            ) : timeline.length === 0 && callAttempts.length === 0 && activities.length === 0 ? (
+              <div style={{ textAlign: 'center', padding: '2rem', color: 'var(--text-muted)', fontSize: '0.9rem', border: '1px dashed var(--border-color)', borderRadius: 6 }}>
+                No activity yet. Log a call or change status to start the timeline.
               </div>
-            ) : (
-              <div style={{ display: 'flex', flexDirection: 'column', gap: '0.75rem', marginBottom: '1rem' }}>
-                {callAttempts.map((call) => (
-                  <div
-                    key={call.id}
-                    style={{
-                      padding: '0.75rem',
-                      borderRadius: 6,
-                      border: '1px solid var(--border-color)',
-                      background: 'var(--bg-secondary)',
-                      textAlign: 'left',
-                    }}
-                  >
-                    <div style={{ display: 'flex', justifyContent: 'space-between', gap: '0.5rem', flexWrap: 'wrap', alignItems: 'center' }}>
-                      <span style={{ fontSize: '0.75rem', color: 'var(--text-muted)' }}>
-                        {new Date(call.created_at).toLocaleString()}
-                      </span>
-                      <OutcomeBadge outcome={call.outcome} />
-                    </div>
-                    <div style={{ fontSize: '0.85rem', fontWeight: 600, marginTop: '0.25rem', color: 'var(--text-primary)' }}>
-                      {call.caller_name || call.caller_email || 'Unknown caller'}
-                    </div>
-                    <div style={{ fontSize: '0.8rem', color: 'var(--text-secondary)', marginTop: '0.25rem' }}>
-                      {!call.note_visible && !call.note ? (
-                        <span style={{ fontStyle: 'italic', color: 'var(--text-muted)' }}>(private note)</span>
-                      ) : (
-                        call.note || '—'
-                      )}
-                    </div>
-                  </div>
+            ) : timeline.length > 0 ? (
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
+                {timeline.map((ev) => (
+                  <ActivityTimelineRow key={ev.id} event={ev} showLead={false} />
                 ))}
               </div>
-            )}
-
-            <h4 style={{ fontSize: '0.9rem', margin: '0.5rem 0 0', fontWeight: 600, borderTop: '1px solid var(--border-color)', paddingTop: '1rem' }}>
-              CRM activity
-            </h4>
-
-            {activitiesLoading ? (
-              <div style={{ textAlign: 'center', padding: '2rem', color: 'var(--text-muted)' }}>Loading activity logs...</div>
-            ) : activities.length === 0 ? (
-              <div style={{ textAlign: 'center', padding: '2rem', color: 'var(--text-muted)', fontSize: '0.9rem' }}>
-                No CRM activity logged yet.
-              </div>
             ) : (
-              <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem', borderLeft: '2px solid var(--border-color)', paddingLeft: '1rem', marginLeft: '0.5rem' }}>
-                {activities.map(act => (
-                  <div key={act.id} style={{ position: 'relative', textAlign: 'left' }}>
-                    {/* Timestamp bullet circle */}
-                    <div 
-                      style={{
-                        position: 'absolute',
-                        left: '-1.45rem',
-                        top: '4px',
-                        width: '10px',
-                        height: '10px',
-                        borderRadius: '50%',
-                        backgroundColor: 'var(--primary-purple)',
-                        border: '2px solid var(--bg-card)'
-                      }}
-                    />
-                    
-                    <span style={{ fontSize: '0.75rem', color: 'var(--text-muted)', display: 'block' }}>
-                      {new Date(act.created_at).toLocaleString()}
-                    </span>
-                    <strong style={{ fontSize: '0.85rem', color: 'var(--text-primary)' }}>
-                      {act.action_type}
-                    </strong>
-                    
-                    {act.action_detail && (
-                      <div style={{ fontSize: '0.8rem', color: 'var(--text-secondary)', marginTop: '0.1rem' }} data-ph-mask>
-                        {act.action_type === 'Field Updated' && (
-                          <span>
-                            Changed <em>{act.action_detail.field}</em> from <strong>"{act.action_detail.from}"</strong> to <strong>"{act.action_detail.to}"</strong>
-                          </span>
-                        )}
-                        {act.action_type === 'Status Updated' && (
-                          <span>
-                            Moved from <strong>"{act.action_detail.from}"</strong> to <strong>"{act.action_detail.to}"</strong>
-                          </span>
-                        )}
-                        {act.action_type === 'Priority Updated' && (
-                          <span>
-                            Priority set from <strong>"{act.action_detail.from}"</strong> to <strong>"{act.action_detail.to}"</strong>
-                          </span>
-                        )}
-                        {act.action_type === 'ActionToTake Updated' && (
-                          <span>
-                            Action changed from <strong>"{act.action_detail.from}"</strong> to <strong>"{act.action_detail.to}"</strong>
-                          </span>
-                        )}
-                        {act.action_type === 'Note Updated' && (
-                          <span>Edited rich text notepad</span>
-                        )}
-                        {act.action_type === 'Note Added' && (
-                          <span>Created notepad doc</span>
-                        )}
-                      </div>
-                    )}
-                  </div>
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
+                {callAttempts.map((call) => (
+                  <ActivityTimelineRow
+                    key={call.id}
+                    showLead={false}
+                    event={{
+                      event_type: 'call_logged',
+                      summary: `Call: ${call.outcome}`,
+                      occurred_at: call.created_at,
+                      actor_full_name: call.caller_name,
+                      actor_email: call.caller_email,
+                      detail: { note: call.note, outcome: call.outcome },
+                    }}
+                  />
+                ))}
+                {activities.map((act) => (
+                  <ActivityTimelineRow
+                    key={act.id}
+                    showLead={false}
+                    event={{
+                      event_type: act.action_type === 'Status Updated' ? 'status_changed' : 'field_changed',
+                      summary: act.action_type,
+                      occurred_at: act.created_at,
+                      detail: act.action_detail || {},
+                    }}
+                  />
                 ))}
               </div>
             )}
@@ -1489,6 +1474,7 @@ export default function LeadDrawer({
         teamId={currentUser?.team_id || null}
         showNoteSharing={!!currentUser?.team_id}
         onLogged={handleCallLogged}
+        timeZone={getEffectiveUserTimeZone(currentUser)}
       />
       </div>
     </div>

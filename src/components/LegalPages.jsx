@@ -202,7 +202,7 @@ export function PrivacyPolicy() {
         </ul>
         <p><strong>Revoking access:</strong></p>
         <ul style={{ paddingLeft: '1.5rem', display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
-          <li>You can disconnect Google Calendar or Google Sheets at any time from Configuration → Integrations. This revokes our access to your Google account immediately.</li>
+          <li>You can disconnect Google Calendar or Google Sheets at any time from <Link to="/settings?tab=integrations">Configuration → Integrations</Link>. This revokes our access to your Google account immediately.</li>
           <li>You can also revoke access directly at <a href="https://myaccount.google.com/permissions" target="_blank" rel="noopener noreferrer" style={{ color: 'var(--primary-purple)', textDecoration: 'none' }}>myaccount.google.com/permissions</a>.</li>
         </ul>
         <p>

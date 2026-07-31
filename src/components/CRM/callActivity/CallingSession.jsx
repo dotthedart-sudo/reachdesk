@@ -16,6 +16,7 @@ export default function CallingSession({
   onOpenLead,
   defaultCountryCode = '+92',
   showNoteSharing = false,
+  timeZone = null,
 }) {
   const [index, setIndex] = useState(0);
   const [logOpen, setLogOpen] = useState(false);
@@ -65,6 +66,7 @@ export default function CallingSession({
         outcome,
         teamId,
         updateLeadFields: true,
+        timeZone,
       });
       onLogged?.(result);
       setUndo({ outcome, leadName: leadDisplayName(lead) });
@@ -179,6 +181,7 @@ export default function CallingSession({
           setLogOpen(false);
           advance();
         }}
+        timeZone={timeZone}
       />
     </div>
   );

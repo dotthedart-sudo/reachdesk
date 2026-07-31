@@ -28,6 +28,7 @@ export default function PlanColdCallsModal({
   folders = [],
   existingLeadIds = [],
   defaultCountryCode = '+92',
+  userTimeZone = null,
   onPlanned,
 }) {
   const navigate = useNavigate();
@@ -42,7 +43,7 @@ export default function PlanColdCallsModal({
   const existingSet = useMemo(() => new Set(existingLeadIds), [existingLeadIds]);
 
   const pool = useMemo(() => {
-    if (source === 'queue') return buildOutreachSessionQueue(leads, attempts);
+    if (source === 'queue') return buildOutreachSessionQueue(leads, attempts, userTimeZone);
     if (source === 'never') return leadsNeverCalled(leads, attempts);
     if (source === 'folder' && folderId) {
       return leads.filter((l) => l.folder_id === folderId);
@@ -55,7 +56,7 @@ export default function PlanColdCallsModal({
       ].filter(Boolean).join(' ').toLowerCase();
       return hay.includes(q);
     }).slice(0, 100);
-  }, [source, search, folderId, leads, attempts]);
+  }, [source, search, folderId, leads, attempts, userTimeZone]);
 
   const available = useMemo(() => {
     let list = pool.filter((l) => !existingSet.has(l.id));

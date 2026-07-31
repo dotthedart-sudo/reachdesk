@@ -213,12 +213,15 @@ export default function CSVImportModal({ onClose, onImportComplete }: CSVImportM
               </div>
               
               {file && !errorMsg && (
-                <div style={{ marginTop: '1.5rem', display: 'inline-flex', alignItems: 'center', gap: '0.75rem', background: 'var(--bg-hover)', padding: '0.5rem 1rem', borderRadius: '999px', border: '1px solid var(--border)', fontSize: '0.875rem' }}>
-                  <span style={{ color: 'var(--text-primary)' }}>{file.name}</span>
-                  <span style={{ color: '#6b7280' }}>•</span>
-                  <span>{csvData.length} rows detected</span>
-                  <span style={{ color: '#6b7280' }}>•</span>
-                  <Check size={16} color="#10b981" />
+                <div style={{ marginTop: '1.5rem', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '0.75rem' }}>
+                  <div style={{ display: 'inline-flex', alignItems: 'center', gap: '0.75rem', background: 'var(--bg-hover)', padding: '0.5rem 1rem', borderRadius: '999px', border: '1px solid var(--border)', fontSize: '0.875rem' }}>
+                    <span style={{ color: 'var(--text-primary)' }}>{file.name}</span>
+                    <Check size={16} color="#10b981" />
+                  </div>
+                  <div style={{ display: 'flex', gap: '0.75rem', flexWrap: 'wrap', justifyContent: 'center' }}>
+                    <span className="csv-pill">{csvData.length.toLocaleString()} data row{csvData.length === 1 ? '' : 's'} detected</span>
+                    <span className="csv-pill">{headers.length.toLocaleString()} column{headers.length === 1 ? '' : 's'} detected</span>
+                  </div>
                 </div>
               )}
             </div>

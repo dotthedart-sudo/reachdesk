@@ -2,7 +2,7 @@ import React, { useState, useEffect, useRef, useMemo } from 'react';
 import { useSearchParams, useNavigate, Link } from 'react-router-dom';
 import { supabase } from '../lib/supabase';
 import { useAppContext } from '../App';
-import { getTeamIds, PLAN_LIMITS, getEffectivePlan, getEffectiveBillingCycle } from '../lib/utils';
+import { getTeamIds, PLAN_LIMITS, getEffectivePlan, getEffectiveBillingCycle, getEffectiveUserTimeZone } from '../lib/utils';
 import { LeadLimitModal, LeadLimitToast, getRemainingLeadQuota, shouldShowCountdownToast, prepareBulkImport, BulkImportLimitModal, getPlanLeadLimit } from '../lib/leadLimits';
 import { PLAN_LIMITS as PLAN_FEATURE_FLAGS, normalizePlan } from '../lib/planConfig';
 import {
@@ -948,8 +948,14 @@ export default function CRM({
     const originalVal = item ? item[field] : null;
 
     try {
+      const updates = { [field]: newVal };
+      // Pair timezone_source when timezone is set from Call Queue picker
+      if (field === 'timezone') {
+        updates.timezone_source = newVal ? 'manual' : null;
+      }
+
       const { data, error } = await supabase.from(targetTable)
-        .update({ [field]: newVal })
+        .update(updates)
         .eq('id', leadId)
         .select()
         .single();
@@ -958,13 +964,27 @@ export default function CRM({
       targetSetData(prev => prev.map(l => l.id === leadId ? data : l));
 
       if (targetTable === 'leads') {
-        // log activity
         await supabase.from('lead_activity').insert({
           user_id: currentUser.id,
           lead_id: leadId,
           action_type: `${field.charAt(0).toUpperCase() + field.slice(1)} Updated`,
           action_detail: { from: originalVal || 'None', to: newVal }
         });
+
+        const { logLeadTimelineEvent } = await import('../lib/leadTimeline');
+        const isTimestamp = field === 'last_contacted_at' || field === 'last_called_at';
+        logLeadTimelineEvent({
+          leadId,
+          userId: currentUser.id,
+          teamId: currentUser.team_id || null,
+          eventType: isTimestamp ? 'timestamp_corrected' : 'field_changed',
+          summary: isTimestamp
+            ? `${field === 'last_called_at' ? 'Last called' : 'Last contacted'} updated`
+            : `${field.replace(/_/g, ' ')} → ${newVal || 'cleared'}`,
+          detail: { field, from: originalVal || null, to: newVal },
+          timeZone: getEffectiveUserTimeZone(currentUser),
+          occurredAt: isTimestamp && newVal ? newVal : undefined,
+        }).catch(() => {});
       }
     } catch (err) {
       console.error(`Error updating field ${field}:`, err);
@@ -1775,6 +1795,19 @@ export default function CRM({
       });
       return;
     }
+    const smartFolder = userFolders.find((uf) => uf.id === folderId);
+    if (smartFolder) {
+      try {
+        const { error } = await supabase.from('user_folders')
+          .update({ name: newName })
+          .eq('id', folderId);
+        if (error) throw error;
+        setUserFolders((prev) => prev.map((uf) => (uf.id === folderId ? { ...uf, name: newName } : uf)));
+      } catch (err) {
+        console.error('Error renaming smart folder:', err);
+      }
+      return;
+    }
     try {
       const { error } = await supabase.from('folders')
         .update({ name: newName })
@@ -2199,6 +2232,13 @@ export default function CRM({
     }
   };
 
+  const handleExportFolder = (folderId) => {
+    const folder = folders.find((f) => f.id === folderId);
+    if (!folder) return;
+    const subset = leads.filter((l) => l.folder_id === folderId);
+    handleExportLeadsSubset(subset, folder.name);
+  };
+
   const openExportSheetsForLeads = (subset) => {
     setShowExportDropdown(false);
     if (!sheetsConnected) {
@@ -2238,6 +2278,10 @@ export default function CRM({
             }}
             onImportCsv={() => handleOpenBulkImport(() => setShowCSVImporter(true))}
             onImportSheets={() => setShowSheetsImportModal(true)}
+            onRenameFolder={triggerRename}
+            onDeleteFolder={handleDeleteFolder}
+            onDeleteSmartFolder={handleDeleteSmartFolder}
+            onExportFolder={handleExportFolder}
             canBulkImport={canBulkImport}
             canUseIntegrations={canUseIntegrations}
             hasLeads={leads.length > 0}

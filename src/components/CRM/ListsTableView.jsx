@@ -1,7 +1,8 @@
 import React from 'react';
 import {
-  Folder, FileSpreadsheet, Sparkles, Users, ChevronRight,
+  FileSpreadsheet, Sparkles, ChevronRight,
 } from 'lucide-react';
+import ListRowMenu from './ListRowMenu';
 
 function SectionHeader({ title }) {
   return (
@@ -11,19 +12,67 @@ function SectionHeader({ title }) {
   );
 }
 
-function ListRow({ icon: Icon, iconColor, name, typeLabel, count, onClick }) {
+function formatListDate(iso) {
+  if (!iso) return null;
+  try {
+    return new Date(iso).toLocaleDateString(undefined, {
+      month: 'short', day: 'numeric', year: 'numeric',
+    });
+  } catch {
+    return null;
+  }
+}
+
+function ListRow({
+  icon: Icon,
+  iconColor,
+  name,
+  typeLabel,
+  typeVariant,
+  count,
+  createdAt,
+  onClick,
+  onRename,
+  onDelete,
+  onExport,
+  canExport = true,
+}) {
+  const dateLine = formatListDate(createdAt);
+
   return (
-    <tr className="crm-lists-table-row" onClick={onClick} role="button" tabIndex={0} onKeyDown={(e) => e.key === 'Enter' && onClick()}>
+    <tr
+      className="crm-lists-table-row"
+      onClick={onClick}
+      role="button"
+      tabIndex={0}
+      onKeyDown={(e) => e.key === 'Enter' && onClick()}
+    >
       <td className="crm-lists-table-name">
         <span className="crm-lists-table-icon" style={{ color: iconColor || 'var(--accent-blue)' }}>
           <Icon size={18} />
         </span>
-        <span className="crm-lists-table-name-text">{name}</span>
+        <span className="crm-lists-table-name-col">
+          <span className="crm-lists-table-name-text">{name}</span>
+          {dateLine && (
+            <span className="crm-lists-table-name-sub">{dateLine}</span>
+          )}
+        </span>
       </td>
-      <td className="crm-lists-table-type">{typeLabel}</td>
+      <td className="crm-lists-table-type">
+        <span className={`crm-lists-table-type-pill crm-lists-table-type-pill--${typeVariant}`}>
+          {typeLabel}
+        </span>
+      </td>
       <td className="crm-lists-table-count">{count}</td>
-      <td className="crm-lists-table-open">
-        <ChevronRight size={16} aria-hidden />
+      <td className="crm-lists-table-actions">
+        <ListRowMenu
+          onOpen={onClick}
+          onRename={onRename}
+          onDelete={onDelete}
+          onExport={onExport}
+          canExport={canExport}
+        />
+        <ChevronRight size={16} className="crm-lists-table-chevron" aria-hidden />
       </td>
     </tr>
   );
@@ -32,25 +81,19 @@ function ListRow({ icon: Icon, iconColor, name, typeLabel, count, onClick }) {
 export default function ListsTableView({
   folders = [],
   userFolders = [],
-  systemFolderNames = {},
-  systemViews = [],
   getLeadCount,
-  totalLeads = 0,
   onSelectFolder,
+  onRenameFolder,
+  onDeleteFolder,
+  onDeleteSmartFolder,
+  onExportFolder,
 }) {
-  const unfiledCount = getLeadCount?.('unfiled') ?? 0;
+  const hasOwnedLists = folders.length > 0 || userFolders.length > 0;
 
-  const hasAnyRows =
-    folders.length > 0 ||
-    userFolders.length > 0 ||
-    systemViews.length > 0 ||
-    totalLeads > 0 ||
-    unfiledCount > 0;
-
-  if (!hasAnyRows) {
+  if (!hasOwnedLists) {
     return (
       <div className="crm-lists-table-empty">
-        <p>No lists yet. Create a manual list or auto list above, or import leads to get started.</p>
+        <p>Create a manual list or auto list above, or import leads to get started.</p>
       </div>
     );
   }
@@ -63,7 +106,7 @@ export default function ListsTableView({
             <th>Name</th>
             <th>Type</th>
             <th>Leads</th>
-            <th aria-label="Open" />
+            <th aria-label="Actions" />
           </tr>
         </thead>
         <tbody>
@@ -76,9 +119,15 @@ export default function ListsTableView({
                   icon={FileSpreadsheet}
                   iconColor={f.color}
                   name={f.name}
-                  typeLabel="Manual list"
+                  typeLabel="Manual"
+                  typeVariant="manual"
                   count={getLeadCount?.(f.id) ?? 0}
+                  createdAt={f.created_at}
                   onClick={() => onSelectFolder(f.id)}
+                  onRename={() => onRenameFolder?.(f.id, f.name)}
+                  onDelete={() => onDeleteFolder?.(f.id)}
+                  onExport={() => onExportFolder?.(f.id)}
+                  canExport
                 />
               ))}
             </>
@@ -93,43 +142,17 @@ export default function ListsTableView({
                   icon={Sparkles}
                   iconColor="var(--accent-blue)"
                   name={uf.name}
-                  typeLabel="Auto list"
+                  typeLabel="Auto"
+                  typeVariant="auto"
                   count={getLeadCount?.(uf.id) ?? 0}
+                  createdAt={uf.created_at}
                   onClick={() => onSelectFolder(uf.id)}
+                  onRename={() => onRenameFolder?.(uf.id, uf.name)}
+                  onDelete={() => onDeleteSmartFolder?.(uf.id)}
+                  canExport={false}
                 />
               ))}
             </>
-          )}
-
-          <SectionHeader title="Quick views" />
-          {systemViews.map((sys) => (
-            <ListRow
-              key={sys.id}
-              icon={Folder}
-              iconColor={sys.iconColor}
-              name={systemFolderNames[sys.id] || sys.label}
-              typeLabel="System view"
-              count={getLeadCount?.(sys.id) ?? 0}
-              onClick={() => onSelectFolder(sys.id)}
-            />
-          ))}
-          <ListRow
-            icon={Users}
-            iconColor="var(--text-muted)"
-            name={systemFolderNames.all || 'All leads'}
-            typeLabel="System view"
-            count={totalLeads}
-            onClick={() => onSelectFolder('all')}
-          />
-          {unfiledCount > 0 && (
-            <ListRow
-              icon={Folder}
-              iconColor="var(--text-muted)"
-              name="Unfiled leads"
-              typeLabel="System view"
-              count={unfiledCount}
-              onClick={() => onSelectFolder('unfiled')}
-            />
           )}
         </tbody>
       </table>

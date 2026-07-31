@@ -1,27 +1,19 @@
-import React, { useState, useEffect, useMemo } from 'react';
+﻿import React, { useState, useEffect, useMemo } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
 import { supabase } from '../lib/supabase';
 import { useAppContext } from '../App';
-import { PLAN_LIMITS, normalizePlan, getEffectivePlan, getEffectiveBillingCycle } from '../lib/utils';
-import { getPlanLeadLimit } from '../lib/leadLimits';
 import { getAiCreditLimit } from '../lib/aiCredits';
 import {
   ensureProTeamWorkspace,
-  getSeatsRemaining,
   getSeatsUsed,
   getTeamSeatLimit,
   hasTeamsPageAccess,
   isProTeamOwner,
 } from '../lib/teamWorkspace';
 import { getAppUrl } from '../utils/domain';
-import { 
-  Settings, Save, CreditCard, 
-  AlertCircle, Users, Mail, UserMinus, User, Upload,
-  Download, FileText, Sparkles, Plus, Trash2, Edit3,
-  Calendar, CheckCircle, Unlink, Lock, Check, Plug
-} from 'lucide-react';
+import { exportLeads, exportNotes } from '../utils/exportUtils';
 import { BRAND_NAME } from '../config/brand';
-import { DIALER_OPTIONS, getDialerPrefs, setDialerPrefs } from '../lib/callDialer';
+import { getDialerPrefs, setDialerPrefs } from '../lib/callDialer';
 import {
   DEFAULT_CALL_OUTCOME_RULES,
   DEFAULT_CALL_STATUS_RULES,
@@ -30,17 +22,18 @@ import {
   loadCallStatusRules,
   saveCallStatusRules,
 } from '../lib/callOutcomeRules';
-import { CALL_OUTCOMES } from '../lib/outreachQueue';
-import CurrencySelector, { CURRENCY_MAP } from './CurrencySelector';
-import { getBrowserTimeZone, getSupportedTimeZones, formatTimeZoneLabel } from '../lib/dateTime';
-
-const PRESET_COLORS = [
-  '#6b7280', '#3b82f6', '#f59e0b', '#10b981', '#8b5cf6',
-  '#ef4444', '#ec4899', '#06b6d4', '#84cc16', '#f97316'
-];
-
-// Use CURRENCY_MAP for symbol lookups (covers all 34+ currencies)
-const CURRENCY_SYMBOLS = CURRENCY_MAP;
+import { getBrowserTimeZone, getSupportedTimeZones } from '../lib/dateTime';
+import SettingsNav from './Configuration/SettingsNav';
+import ProfilePanel from './Configuration/ProfilePanel';
+import AutomationsPanel from './Configuration/AutomationsPanel';
+import SnippetsPanel from './Configuration/SnippetsPanel';
+import TeamPanel from './Configuration/TeamPanel';
+import BillingPanel from './Configuration/BillingPanel';
+import IntegrationsPanel from './Configuration/IntegrationsPanel';
+import DataExportPanel from './Configuration/DataExportPanel';
+import CancelSubscriptionModal from './Configuration/CancelSubscriptionModal';
+import { resolveSettingsTab } from './Configuration/settingsTabs';
+import './Configuration.css';
 
 export default function Configuration({
   brandName,
@@ -57,7 +50,8 @@ export default function Configuration({
 }) {
   const navigate = useNavigate();
   const location = useLocation();
-  const { userSnippets = [], handleAddSnippet, handleDeleteSnippet, handleUpdateSnippet, theme } = useAppContext();
+  const { userSnippets = [], handleAddSnippet, handleDeleteSnippet, handleUpdateSnippet } = useAppContext();
+  const [activeTab, setActiveTab] = useState('profile');
   const [newKey, setNewKey] = useState('');
   const [newValue, setNewValue] = useState('');
   const [snippetError, setSnippetError] = useState('');
@@ -166,6 +160,9 @@ export default function Configuration({
   const [profileSuccess, setProfileSuccess] = useState('');
   const [profileError, setProfileError] = useState('');
   const [profileSaving, setProfileSaving] = useState(false);
+  const [automationSaving, setAutomationSaving] = useState(false);
+  const [automationSuccess, setAutomationSuccess] = useState('');
+  const [automationError, setAutomationError] = useState('');
   const [remindersEnabled, setRemindersEnabled] = useState(currentUser?.reminders_enabled !== false);
   const [suggestionsEnabled, setSuggestionsEnabled] = useState(currentUser?.suggestions_enabled !== false);
   const [suggestionsAutoApply, setSuggestionsAutoApply] = useState(currentUser?.suggestions_auto_apply !== false);
@@ -184,13 +181,13 @@ export default function Configuration({
 
   const [exporting, setExporting] = useState(null); // 'leads' | 'notes' | null
 
-  // ── Google Calendar Integration State ────────────────────────────────────
+  // â”€â”€ Google Calendar Integration State â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
   const [calIntegration, setCalIntegration] = useState(null); // row from calendar_integrations
   const [calLoading, setCalLoading] = useState(true);
   const [calDisconnecting, setCalDisconnecting] = useState(false);
   const [calSuccessMsg, setCalSuccessMsg] = useState('');
 
-  // ── Google Sheets Integration State ──────────────────────────────────────
+  // â”€â”€ Google Sheets Integration State â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
   const [sheetsIntegration, setSheetsIntegration] = useState(null); // row from sheets_integrations
   const [sheetsLoading, setSheetsLoading] = useState(true);
   const [sheetsDisconnecting, setSheetsDisconnecting] = useState(false);
@@ -295,8 +292,13 @@ export default function Configuration({
       setSuggestionsEnabled(currentUser.suggestions_enabled !== false);
       setSuggestionsAutoApply(currentUser.suggestions_auto_apply !== false);
       setMonthlyRevenueTarget(currentUser.monthly_revenue_target || '');
+      setAlwaysDraft(currentUser.always_draft_before_sending !== false);
+      setDefaultCountryCode(currentUser.default_country_code || '+92');
+      setLocalBrand(brandName);
+      setLocalCurrency(currencySymbol);
+      setLocalWebhook(webhookUrl);
     }
-  }, [currentUser]);
+  }, [currentUser, brandName, currencySymbol, webhookUrl]);
 
   useEffect(() => {
     async function fetchAiUsage() {
@@ -325,7 +327,20 @@ export default function Configuration({
     fetchAiUsage();
   }, [currentUser?.id, currentUser?.plan]);
 
-  // ── Fetch calendar integration status ────────────────────────────────────
+  const canAccessTeam = currentUser
+    ? isProTeamOwner(currentUser) || hasTeamsPageAccess(currentUser)
+    : false;
+
+  useEffect(() => {
+    if (!currentUser) return;
+    setActiveTab(resolveSettingsTab(location.search, canAccessTeam));
+  }, [location.search, canAccessTeam, currentUser]);
+
+  const handleTabChange = (tabId) => {
+    navigate(`/settings?tab=${tabId}`, { replace: true });
+  };
+
+  // â”€â”€ Fetch calendar integration status â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
   useEffect(() => {
     async function fetchCalIntegration() {
       if (!currentUser?.id) { setCalLoading(false); return; }
@@ -341,18 +356,18 @@ export default function Configuration({
     fetchCalIntegration();
   }, [currentUser?.id]);
 
-  // ── Show success banner if redirected back after OAuth ────────────────────
+  // â”€â”€ Show success banner if redirected back after OAuth â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
   useEffect(() => {
     const params = new URLSearchParams(location.search);
     if (params.get('connected') === 'google') {
+      setActiveTab('integrations');
       setCalSuccessMsg('Google Calendar connected successfully! Leads will now be auto-marked as Booked when they appear in your calendar.');
-      // Clean up URL without triggering a navigation
       window.history.replaceState({}, '', '/settings?tab=integrations');
       setTimeout(() => setCalSuccessMsg(''), 8000);
     }
   }, [location.search]);
 
-  // ── Connect Google Calendar (initiates OAuth with CSRF state) ────────────
+  // â”€â”€ Connect Google Calendar (initiates OAuth with CSRF state) â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
   const handleConnectCalendar = () => {
     const state = crypto.randomUUID();
     sessionStorage.setItem('google_oauth_state', state);
@@ -374,7 +389,7 @@ export default function Configuration({
     ].join('');
   };
 
-  // ── Disconnect Google Calendar ────────────────────────────────────────────
+  // â”€â”€ Disconnect Google Calendar â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
   const handleDisconnectCalendar = async () => {
     if (!confirm(`Disconnect Google Calendar? ${BRAND_NAME} will no longer auto-detect bookings from your calendar.`)) return;
     setCalDisconnecting(true);
@@ -425,7 +440,7 @@ export default function Configuration({
     }
   };
 
-  // ── Fetch Sheets integration status ──────────────────────────────────────
+  // â”€â”€ Fetch Sheets integration status â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
   useEffect(() => {
     async function fetchSheetsIntegration() {
       if (!currentUser?.id) { setSheetsLoading(false); return; }
@@ -440,17 +455,18 @@ export default function Configuration({
     fetchSheetsIntegration();
   }, [currentUser?.id]);
 
-  // ── Show sheets success banner if redirected back after OAuth ─────────────
+  // â”€â”€ Show sheets success banner if redirected back after OAuth â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
   useEffect(() => {
     const params = new URLSearchParams(location.search);
     if (params.get('connected') === 'sheets') {
+      setActiveTab('integrations');
       setSheetsSuccessMsg('Google Sheets connected successfully! You can now import and export leads directly.');
       window.history.replaceState({}, '', '/settings?tab=integrations');
       setTimeout(() => setSheetsSuccessMsg(''), 8000);
     }
   }, [location.search]);
 
-  // ── Connect Google Sheets (initiates OAuth with CSRF state) ──────────────
+  // â”€â”€ Connect Google Sheets (initiates OAuth with CSRF state) â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
   const handleConnectSheets = () => {
     const state = crypto.randomUUID();
     sessionStorage.setItem('google_sheets_oauth_state', state);
@@ -470,7 +486,7 @@ export default function Configuration({
     ].join('');
   };
 
-  // ── Disconnect Google Sheets ──────────────────────────────────────────────
+  // â”€â”€ Disconnect Google Sheets â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
   const handleDisconnectSheets = async () => {
     if (!confirm(`Disconnect Google Sheets? ${BRAND_NAME} will no longer be able to export or import leads from your sheets.`)) return;
     setSheetsDisconnecting(true);
@@ -556,7 +572,7 @@ export default function Configuration({
           .from('avatars')
           .upload(fileName, profileAvatarFile, {
             cacheControl: '3600',
-            upsert: true
+            upsert: true,
           });
 
         if (uploadErr) {
@@ -575,61 +591,18 @@ export default function Configuration({
           full_name: trimmedName,
           avatar_url: finalAvatarUrl,
           default_currency: profileDefaultCurrency || 'PKR',
-          reminders_enabled: remindersEnabled,
-          suggestions_enabled: suggestionsEnabled,
-          suggestions_auto_apply: suggestionsAutoApply,
           monthly_revenue_target: monthlyRevenueTarget ? Number(monthlyRevenueTarget) : null,
-          always_draft_before_sending: alwaysDraft,
-          default_country_code: defaultCountryCode.trim() || '+92',
           timezone: profileTimezone.trim() || null,
         })
         .eq('id', currentUser.id);
 
       if (updateErr) throw updateErr;
 
-      if (onRefreshProfile) onRefreshProfile();
+      onSaveSettings(localBrand, localCurrency, localWebhook, '', '');
 
-      setDialerPrefs(currentUser.id, {
-        dialer: defaultDialer,
-        ghlUrl: ghlDialerUrl,
-        customUrl: customDialerUrl,
-      });
-
-      saveCallOutcomeRules(currentUser.id, callOutcomeRules);
-      saveCallStatusRules(currentUser.id, callStatusRules);
-
-      // Automatically sync suggestions in database if enabled
-      if (suggestionsEnabled && suggestionsAutoApply) {
-        try {
-          const [rulesRes, leadsRes] = await Promise.all([
-            supabase.from('action_suggestion_rules').select('*'),
-            supabase.from('leads').select('id, status, action_to_take').eq('user_id', currentUser.id)
-          ]);
-          const rules = rulesRes.data || [];
-          const leadsData = leadsRes.data || [];
-
-          if (leadsData.length > 0 && rules.length > 0) {
-            const updates = [];
-            for (const lead of leadsData) {
-              const matchedRule = rules.find(r => r.status.toLowerCase() === (lead.status || '').toLowerCase());
-              const suggestedAction = matchedRule ? matchedRule.suggested_action : null;
-              if (suggestedAction && lead.action_to_take !== suggestedAction) {
-                updates.push(
-                  supabase.from('leads').update({ action_to_take: suggestedAction }).eq('id', lead.id)
-                );
-              }
-            }
-            if (updates.length > 0) {
-              await Promise.all(updates);
-            }
-          }
-        } catch (syncErr) {
-          console.error('Error auto-syncing suggestion mismatches on save:', syncErr);
-        }
+      if (profileDefaultCurrency) {
+        localStorage.setItem('reachdesk_currency_symbol', profileDefaultCurrency);
       }
-
-      // Also sync to localStorage so Invoice Generator picks it up immediately
-      if (profileDefaultCurrency) localStorage.setItem('reachdesk_currency_symbol', profileDefaultCurrency);
 
       setProfileSuccess('Profile updated successfully!');
       setProfileAvatarFile(null);
@@ -645,13 +618,78 @@ export default function Configuration({
     }
   };
 
-  const handleSubmitSettings = (e) => {
+  const handleSaveAutomations = async (e) => {
     e.preventDefault();
-    onSaveSettings(localBrand, localCurrency, localWebhook, '', '');
+    setAutomationError('');
+    setAutomationSuccess('');
+    setAutomationSaving(true);
+
+    try {
+      const { error: updateErr } = await supabase
+        .from('user_profiles')
+        .update({
+          reminders_enabled: remindersEnabled,
+          suggestions_enabled: suggestionsEnabled,
+          suggestions_auto_apply: suggestionsAutoApply,
+          always_draft_before_sending: alwaysDraft,
+          default_country_code: defaultCountryCode.trim() || '+92',
+        })
+        .eq('id', currentUser.id);
+
+      if (updateErr) throw updateErr;
+
+      setDialerPrefs(currentUser.id, {
+        dialer: defaultDialer,
+        ghlUrl: ghlDialerUrl,
+        customUrl: customDialerUrl,
+      });
+
+      saveCallOutcomeRules(currentUser.id, callOutcomeRules);
+      saveCallStatusRules(currentUser.id, callStatusRules);
+
+      if (suggestionsEnabled && suggestionsAutoApply) {
+        try {
+          const [rulesRes, leadsRes] = await Promise.all([
+            supabase.from('action_suggestion_rules').select('*'),
+            supabase.from('leads').select('id, status, action_to_take').eq('user_id', currentUser.id),
+          ]);
+          const rules = rulesRes.data || [];
+          const leadsData = leadsRes.data || [];
+
+          if (leadsData.length > 0 && rules.length > 0) {
+            const updates = [];
+            for (const lead of leadsData) {
+              const matchedRule = rules.find((r) => r.status.toLowerCase() === (lead.status || '').toLowerCase());
+              const suggestedAction = matchedRule ? matchedRule.suggested_action : null;
+              if (suggestedAction && lead.action_to_take !== suggestedAction) {
+                updates.push(
+                  supabase.from('leads').update({ action_to_take: suggestedAction }).eq('id', lead.id),
+                );
+              }
+            }
+            if (updates.length > 0) {
+              await Promise.all(updates);
+            }
+          }
+        } catch (syncErr) {
+          console.error('Error auto-syncing suggestion mismatches on save:', syncErr);
+        }
+      }
+
+      setAutomationSuccess('Automations updated successfully!');
+      if (onRefreshProfile) {
+        await onRefreshProfile();
+      }
+    } catch (err) {
+      console.error('Error updating automations:', err);
+      setAutomationError(err.message || 'Failed to update automations.');
+    } finally {
+      setAutomationSaving(false);
+    }
   };
 
 
-  // ── Team Invitation Helpers ────────────────────────────────────────────────
+  // â”€â”€ Team Invitation Helpers â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
   const handleSendInvite = async (e) => {
     e.preventDefault();
@@ -757,12 +795,6 @@ export default function Configuration({
     }
   };
 
-  const getIdentityRole = () => {
-    if (!currentUser) return 'Unknown';
-    if (currentUser.role === 'admin') return 'System Administrator';
-    return `${currentUser.plan.charAt(0).toUpperCase() + currentUser.plan.slice(1)} Plan User`;
-  };
-
   if (!currentUser) {
     return <div className="loading-container">Loading profile...</div>;
   }
@@ -770,1047 +802,170 @@ export default function Configuration({
   const isProOwner = isProTeamOwner(currentUser);
   const seatLimit = getTeamSeatLimit(currentUser?.plan);
   const seatsUsed = getSeatsUsed(teamMembers.length, teamInvitations.length);
-  const seatsRemaining = getSeatsRemaining(currentUser?.plan, teamMembers.length, teamInvitations.length);
   const seatsAtCap = seatsUsed >= seatLimit;
 
+  const renderActivePanel = () => {
+    switch (activeTab) {
+      case 'profile':
+        return (
+          <ProfilePanel
+            profileName={profileName}
+            setProfileName={setProfileName}
+            profileAvatarUrl={profileAvatarUrl}
+            profileAvatarPreview={profileAvatarPreview}
+            profileAvatarFile={profileAvatarFile}
+            profileDefaultCurrency={profileDefaultCurrency}
+            setProfileDefaultCurrency={setProfileDefaultCurrency}
+            monthlyRevenueTarget={monthlyRevenueTarget}
+            setMonthlyRevenueTarget={setMonthlyRevenueTarget}
+            profileTimezone={profileTimezone}
+            setProfileTimezone={setProfileTimezone}
+            browserTimezone={browserTimezone}
+            timezoneOptions={timezoneOptions}
+            profileError={profileError}
+            profileSuccess={profileSuccess}
+            profileSaving={profileSaving}
+            onAvatarChange={handleProfileAvatarChange}
+            onSubmit={handleSaveProfile}
+            localBrand={localBrand}
+            setLocalBrand={setLocalBrand}
+            localCurrency={localCurrency}
+            setLocalCurrency={setLocalCurrency}
+            localWebhook={localWebhook}
+            setLocalWebhook={setLocalWebhook}
+            currentUser={currentUser}
+          />
+        );
+      case 'automations':
+        return (
+          <AutomationsPanel
+            remindersEnabled={remindersEnabled}
+            setRemindersEnabled={setRemindersEnabled}
+            suggestionsEnabled={suggestionsEnabled}
+            setSuggestionsEnabled={setSuggestionsEnabled}
+            suggestionsAutoApply={suggestionsAutoApply}
+            setSuggestionsAutoApply={setSuggestionsAutoApply}
+            alwaysDraft={alwaysDraft}
+            setAlwaysDraft={setAlwaysDraft}
+            defaultCountryCode={defaultCountryCode}
+            setDefaultCountryCode={setDefaultCountryCode}
+            callOutcomeRules={callOutcomeRules}
+            setCallOutcomeRules={setCallOutcomeRules}
+            callStatusRules={callStatusRules}
+            setCallStatusRules={setCallStatusRules}
+            defaultDialer={defaultDialer}
+            setDefaultDialer={setDefaultDialer}
+            ghlDialerUrl={ghlDialerUrl}
+            setGhlDialerUrl={setGhlDialerUrl}
+            customDialerUrl={customDialerUrl}
+            setCustomDialerUrl={setCustomDialerUrl}
+            automationError={automationError}
+            automationSuccess={automationSuccess}
+            automationSaving={automationSaving}
+            onSubmit={handleSaveAutomations}
+          />
+        );
+      case 'snippets':
+        return (
+          <SnippetsPanel
+            userSnippets={userSnippets}
+            newKey={newKey}
+            setNewKey={setNewKey}
+            newValue={newValue}
+            setNewValue={setNewValue}
+            snippetError={snippetError}
+            snippetSuccess={snippetSuccess}
+            editingSnippetId={editingSnippetId}
+            editingKey={editingKey}
+            setEditingKey={setEditingKey}
+            editingValue={editingValue}
+            setEditingValue={setEditingValue}
+            editError={editError}
+            onCreateSnippet={onCreateSnippet}
+            onStartEdit={onStartEdit}
+            onSaveEdit={onSaveEdit}
+            onDeleteSnippetClick={onDeleteSnippetClick}
+            setEditingSnippetId={setEditingSnippetId}
+          />
+        );
+      case 'team':
+        return <TeamPanel onOpenTeams={() => navigate('/teams')} />;
+      case 'billing':
+        return (
+          <BillingPanel
+            currentUser={currentUser}
+            cancelSuccessMsg={cancelSuccessMsg}
+            cancelErrorMsg={cancelErrorMsg}
+            leadsCount={leadsCount}
+            templatesCount={templatesCount}
+            aiUsage={aiUsage}
+            isProOwner={isProOwner}
+            teamLoading={teamLoading}
+            seatsUsed={seatsUsed}
+            seatLimit={seatLimit}
+            seatsAtCap={seatsAtCap}
+            onManagePlan={() => navigate('/upgrade')}
+            onCancelSubscription={() => setCancelModalOpen(true)}
+          />
+        );
+      case 'integrations':
+        return (
+          <IntegrationsPanel
+            currentUser={currentUser}
+            calIntegration={calIntegration}
+            calLoading={calLoading}
+            calDisconnecting={calDisconnecting}
+            calSuccessMsg={calSuccessMsg}
+            sheetsIntegration={sheetsIntegration}
+            sheetsLoading={sheetsLoading}
+            sheetsDisconnecting={sheetsDisconnecting}
+            sheetsSuccessMsg={sheetsSuccessMsg}
+            onConnectCalendar={handleConnectCalendar}
+            onDisconnectCalendar={handleDisconnectCalendar}
+            onConnectSheets={handleConnectSheets}
+            onDisconnectSheets={handleDisconnectSheets}
+            onUpgrade={() => navigate('/upgrade')}
+          />
+        );
+      case 'data':
+        return (
+          <DataExportPanel
+            exporting={exporting}
+            onExportLeads={handleExportLeadsClick}
+            onExportNotes={handleExportNotesClick}
+          />
+        );
+      default:
+        return null;
+    }
+  };
+
   return (
-    <div className="flex-col gap-4" style={{ textAlign: 'left', maxWidth: '800px' }}>
-      <div style={{ marginBottom: '1rem' }}>
+    <div className="config-page flex-col gap-4">
+      <div className="config-page-header">
         <h2>Configuration</h2>
-        <p className="color-muted" style={{ fontSize: '0.9rem' }}>
-          Profile, pipeline, and workspace settings.
+        <p className="color-muted" style={{ fontSize: '0.9rem', margin: 0 }}>
+          Choose a section to update profile, automations, billing, and more.
         </p>
       </div>
 
-      {/* SECTION 0: Profile Settings */}
-      <form onSubmit={handleSaveProfile} className="flex-col gap-4" style={{ marginBottom: '1.5rem' }}>
-        <div className="card rd-page-form">
-          <div className="rd-page-form-header">
-            <h3>Profile</h3>
-            <p className="rd-modal-sub">How you appear on invoices and in the app.</p>
-          </div>
-
-          {profileError && (
-            <div className="auth-error-banner" role="alert">
-              <AlertCircle size={16} />
-              <span>{profileError}</span>
-            </div>
-          )}
-
-          {profileSuccess && (
-            <div className="auth-success-banner" role="status">
-              <Check size={15} />
-              <span>{profileSuccess}</span>
-            </div>
-          )}
-
-          <div className="rd-form">
-          <div className="rd-form-row">
-            <div className="rd-form-group">
-              <label className="form-label">Full name</label>
-              <input
-                type="text"
-                className="form-input"
-                value={profileName}
-                onChange={(e) => setProfileName(e.target.value)}
-                placeholder="e.g. Jane Doe"
-                required
-                disabled={profileSaving}
-              />
-            </div>
-
-            <div className="rd-form-group">
-              <label className="form-label">Profile photo</label>
-              <div style={{ display: 'flex', alignItems: 'center', gap: '1rem' }}>
-                {profileAvatarPreview ? (
-                  <img
-                    src={profileAvatarPreview}
-                    alt="Avatar Preview"
-                    style={{ width: '48px', height: '48px', borderRadius: '50%', objectFit: 'cover', border: '1px solid var(--border)' }}
-                  />
-                ) : profileAvatarUrl ? (
-                  <img
-                    src={profileAvatarUrl}
-                    alt="Current Avatar"
-                    style={{ width: '48px', height: '48px', borderRadius: '50%', objectFit: 'cover', border: '1px solid var(--border)' }}
-                  />
-                ) : (
-                  <div style={{ width: '48px', height: '48px', borderRadius: '50%', background: 'var(--bg-secondary)', border: '1px dashed var(--border)', display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'var(--text-muted)' }}>
-                    <Upload size={16} />
-                  </div>
-                )}
-                <label 
-                  htmlFor="avatar-upload" 
-                  className="btn btn-secondary btn-sm"
-                  style={{ cursor: 'pointer', display: 'inline-flex', alignItems: 'center', gap: '0.25rem' }}
-                >
-                  <Upload size={14} /> Choose photo
-                </label>
-                <input
-                  id="avatar-upload"
-                  type="file"
-                  accept="image/*"
-                  onChange={handleProfileAvatarChange}
-                  style={{ display: 'none' }}
-                  disabled={profileSaving}
-                />
-                {profileAvatarFile && (
-                  <span style={{ fontSize: '0.8rem', color: 'var(--text-muted)' }}>
-                    {profileAvatarFile.name.slice(0, 20)}{profileAvatarFile.name.length > 20 ? '...' : ''}
-                  </span>
-                )}
-              </div>
-            </div>
-          </div>
-
-          <div className="rd-form-row">
-            <div className="rd-form-group">
-              <label className="form-label">Default currency</label>
-              <CurrencySelector
-                value={profileDefaultCurrency}
-                onChange={(val) => setProfileDefaultCurrency(val)}
-                placeholder="Select currency..."
-              />
-              <span style={{ fontSize: '0.75rem', color: 'var(--text-muted)', marginTop: '0.25rem', display: 'block' }}>Used on invoices and targets</span>
-            </div>
-
-            <div className="rd-form-group">
-              <label className="form-label">Monthly revenue target</label>
-              <div style={{ position: 'relative', display: 'flex', alignItems: 'center' }}>
-                <span style={{ position: 'absolute', left: '12px', color: 'var(--text-muted)', pointerEvents: 'none', fontSize: '0.9rem' }}>
-                  {CURRENCY_SYMBOLS[profileDefaultCurrency] || '$'}
-                </span>
-                <input
-                  type="number"
-                  className="form-input"
-                  style={{ paddingLeft: (CURRENCY_SYMBOLS[profileDefaultCurrency] || '$').length > 1 ? '2.75rem' : '1.75rem' }}
-                  value={monthlyRevenueTarget}
-                  onChange={(e) => setMonthlyRevenueTarget(e.target.value)}
-                  placeholder="e.g. 5000"
-                  disabled={profileSaving}
-                />
-              </div>
-              <span style={{ fontSize: '0.75rem', color: 'var(--text-muted)', marginTop: '0.25rem', display: 'block' }}>Monthly earnings goal</span>
-            </div>
-
-            <div className="rd-form-group">
-              <label className="form-label">Timezone</label>
-              <select
-                className="form-input"
-                value={profileTimezone}
-                onChange={(e) => setProfileTimezone(e.target.value)}
-                disabled={profileSaving}
-              >
-                <option value="">Auto — use browser ({formatTimeZoneLabel(browserTimezone)})</option>
-                {timezoneOptions.map((tz) => (
-                  <option key={tz} value={tz}>{tz.replace(/_/g, ' ')}</option>
-                ))}
-              </select>
-              <span style={{ fontSize: '0.75rem', color: 'var(--text-muted)', marginTop: '0.25rem', display: 'block' }}>
-                Calendar times and planned call dates use this timezone when set.
-              </span>
-            </div>
-          </div>
-          </div>
-
-            {/* Automation & Checkpoint Settings */}
-            <div style={{ marginTop: '1rem', borderTop: '1px solid var(--border)', paddingTop: '1.25rem' }}>
-              <h4 className="rd-form-section-title" style={{ marginBottom: '1rem' }}>
-                Automation & checkpoints
-              </h4>
-              <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
-                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-                  <div>
-                    <span style={{ fontWeight: 600, fontSize: '0.9rem', display: 'block' }}>Follow-up Reminders</span>
-                    <span style={{ fontSize: '0.8rem', color: 'var(--text-muted)' }}>Generate reminders automatically based on checkpoint timeline.</span>
-                  </div>
-                  <input
-                    type="checkbox"
-                    checked={remindersEnabled}
-                    onChange={(e) => setRemindersEnabled(e.target.checked)}
-                    style={{ width: '18px', height: '18px', cursor: 'pointer' }}
-                    disabled={profileSaving}
-                  />
-                </div>
-
-                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-                  <div>
-                    <span style={{ fontWeight: 600, fontSize: '0.9rem', display: 'block' }}>Action Suggestions</span>
-                    <span style={{ fontSize: '0.8rem', color: 'var(--text-muted)' }}>Enable status-based action suggestions and warning bulbs.</span>
-                  </div>
-                  <input
-                    type="checkbox"
-                    checked={suggestionsEnabled}
-                    onChange={(e) => setSuggestionsEnabled(e.target.checked)}
-                    style={{ width: '18px', height: '18px', cursor: 'pointer' }}
-                    disabled={profileSaving}
-                  />
-                </div>
-
-                {suggestionsEnabled && (
-                  <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-                    <div>
-                      <span style={{ fontWeight: 600, fontSize: '0.9rem', display: 'block' }}>Auto-apply Suggestions</span>
-                      <span style={{ fontSize: '0.8rem', color: 'var(--text-muted)' }}>Automatically sync action_to_take when a lead's status changes.</span>
-                    </div>
-                    <input
-                      type="checkbox"
-                      checked={suggestionsAutoApply}
-                      onChange={(e) => setSuggestionsAutoApply(e.target.checked)}
-                      style={{ width: '18px', height: '18px', cursor: 'pointer' }}
-                      disabled={profileSaving}
-                    />
-                  </div>
-                )}
-
-                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-                  <div>
-                    <span style={{ fontWeight: 600, fontSize: '0.9rem', display: 'block' }}>Always draft before sending</span>
-                    <span style={{ fontSize: '0.8rem', color: 'var(--text-muted)' }}>Customize template preview and destinations before initiating messages.</span>
-                  </div>
-                  <input
-                    type="checkbox"
-                    checked={alwaysDraft}
-                    onChange={(e) => setAlwaysDraft(e.target.checked)}
-                    style={{ width: '18px', height: '18px', cursor: 'pointer' }}
-                    disabled={profileSaving}
-                  />
-                </div>
-
-                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-                  <div>
-                    <span style={{ fontWeight: 600, fontSize: '0.9rem', display: 'block' }}>Default Country Code</span>
-                    <span style={{ fontSize: '0.8rem', color: 'var(--text-muted)' }}>Default prefix (e.g. +92) used to normalize local phone numbers for WhatsApp/SMS.</span>
-                  </div>
-                  <input
-                    type="text"
-                    value={defaultCountryCode}
-                    onChange={(e) => setDefaultCountryCode(e.target.value)}
-                    placeholder="+92"
-                    style={{ width: '80px', padding: '4px 8px', background: 'var(--bg-page)', border: '1px solid var(--border)', borderRadius: '3px', color: 'var(--text-primary)', fontSize: '0.85rem', textAlign: 'center' }}
-                    disabled={profileSaving}
-                  />
-                </div>
-
-                <div style={{ borderTop: '1px solid var(--border)', margin: '0.75rem 0', paddingTop: '0.75rem' }}>
-                  <span style={{ fontWeight: 600, fontSize: '0.9rem', display: 'block', marginBottom: '0.25rem' }}>Call outcome rules</span>
-                  <span style={{ fontSize: '0.8rem', color: 'var(--text-muted)', display: 'block', marginBottom: '0.75rem' }}>
-                    When you log a call, Reachdesk can auto-update status and call next step. Customize mappings below.
-                  </span>
-                  <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
-                    {callOutcomeRules.map((rule, idx) => (
-                      <div key={rule.outcome} style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: '0.5rem', alignItems: 'center', fontSize: '0.82rem' }}>
-                        <select
-                          className="form-input"
-                          value={rule.outcome}
-                          onChange={(e) => {
-                            const next = [...callOutcomeRules];
-                            next[idx] = { ...next[idx], outcome: e.target.value };
-                            setCallOutcomeRules(next);
-                          }}
-                          disabled={profileSaving}
-                        >
-                          {CALL_OUTCOMES.map((o) => (
-                            <option key={o} value={o}>{o}</option>
-                          ))}
-                        </select>
-                        <input
-                          type="text"
-                          className="form-input"
-                          placeholder="Status (optional)"
-                          value={rule.suggested_status || ''}
-                          onChange={(e) => {
-                            const next = [...callOutcomeRules];
-                            next[idx] = { ...next[idx], suggested_status: e.target.value || null };
-                            setCallOutcomeRules(next);
-                          }}
-                          disabled={profileSaving}
-                        />
-                        <input
-                          type="text"
-                          className="form-input"
-                          placeholder="Call next step"
-                          value={rule.suggested_call_action || ''}
-                          onChange={(e) => {
-                            const next = [...callOutcomeRules];
-                            next[idx] = { ...next[idx], suggested_call_action: e.target.value || null };
-                            setCallOutcomeRules(next);
-                          }}
-                          disabled={profileSaving}
-                        />
-                      </div>
-                    ))}
-                  </div>
-                  <button
-                    type="button"
-                    className="btn btn-secondary btn-sm"
-                    style={{ marginTop: '0.5rem' }}
-                    disabled={profileSaving}
-                    onClick={() => setCallOutcomeRules([...DEFAULT_CALL_OUTCOME_RULES])}
-                  >
-                    Reset outcome rules to defaults
-                  </button>
-                </div>
-
-                <div style={{ borderTop: '1px solid var(--border)', margin: '0.75rem 0', paddingTop: '0.75rem' }}>
-                  <span style={{ fontWeight: 600, fontSize: '0.9rem', display: 'block', marginBottom: '0.25rem' }}>Status → call next step</span>
-                  <span style={{ fontSize: '0.8rem', color: 'var(--text-muted)', display: 'block', marginBottom: '0.75rem' }}>
-                    Suggested call action shown as a lightbulb in Call Queue when status changes.
-                  </span>
-                  <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
-                    {callStatusRules.map((rule, idx) => (
-                      <div key={`${rule.status}-${idx}`} style={{ display: 'grid', gridTemplateColumns: '1fr 1fr auto', gap: '0.5rem', alignItems: 'center', fontSize: '0.82rem' }}>
-                        <input
-                          type="text"
-                          className="form-input"
-                          placeholder="Lead status"
-                          value={rule.status}
-                          onChange={(e) => {
-                            const next = [...callStatusRules];
-                            next[idx] = { ...next[idx], status: e.target.value };
-                            setCallStatusRules(next);
-                          }}
-                          disabled={profileSaving}
-                        />
-                        <input
-                          type="text"
-                          className="form-input"
-                          placeholder="Suggested call next step"
-                          value={rule.suggested_call_action || ''}
-                          onChange={(e) => {
-                            const next = [...callStatusRules];
-                            next[idx] = { ...next[idx], suggested_call_action: e.target.value };
-                            setCallStatusRules(next);
-                          }}
-                          disabled={profileSaving}
-                        />
-                        <button
-                          type="button"
-                          className="btn-icon"
-                          title="Remove rule"
-                          disabled={profileSaving}
-                          onClick={() => setCallStatusRules(callStatusRules.filter((_, i) => i !== idx))}
-                        >
-                          <Trash2 size={14} />
-                        </button>
-                      </div>
-                    ))}
-                  </div>
-                  <button
-                    type="button"
-                    className="btn btn-secondary btn-sm"
-                    style={{ marginTop: '0.5rem', marginRight: '0.5rem' }}
-                    disabled={profileSaving}
-                    onClick={() => setCallStatusRules([...callStatusRules, { status: '', suggested_call_action: '' }])}
-                  >
-                    <Plus size={14} /> Add status rule
-                  </button>
-                  <button
-                    type="button"
-                    className="btn btn-secondary btn-sm"
-                    style={{ marginTop: '0.5rem' }}
-                    disabled={profileSaving}
-                    onClick={() => setCallStatusRules([...DEFAULT_CALL_STATUS_RULES])}
-                  >
-                    Reset to defaults
-                  </button>
-                </div>
-
-                <div style={{ borderTop: '1px solid var(--border)', margin: '0.75rem 0', paddingTop: '0.75rem' }}>
-                  <span style={{ fontWeight: 600, fontSize: '0.9rem', display: 'block', marginBottom: '0.35rem' }}>Default dialer (Cold Calls)</span>
-                  <span style={{ fontSize: '0.8rem', color: 'var(--text-muted)', display: 'block', marginBottom: '0.5rem' }}>
-                    Used by the Call button in Cold Calls mode. Other options stay in the dropdown menu.
-                  </span>
-                  <select
-                    className="form-select"
-                    value={defaultDialer}
-                    onChange={(e) => setDefaultDialer(e.target.value)}
-                    disabled={profileSaving}
-                    style={{ maxWidth: 280, marginBottom: '0.5rem' }}
-                  >
-                    {DIALER_OPTIONS.map((o) => (
-                      <option key={o.id} value={o.id}>{o.label}</option>
-                    ))}
-                  </select>
-                  {defaultDialer === 'ghl' && (
-                    <input
-                      type="url"
-                      className="form-input"
-                      value={ghlDialerUrl}
-                      onChange={(e) => setGhlDialerUrl(e.target.value)}
-                      placeholder="https://app.gohighlevel.com/...?phone={phone}"
-                      disabled={profileSaving}
-                      style={{ fontSize: '0.85rem' }}
-                    />
-                  )}
-                  {defaultDialer === 'custom' && (
-                    <input
-                      type="url"
-                      className="form-input"
-                      value={customDialerUrl}
-                      onChange={(e) => setCustomDialerUrl(e.target.value)}
-                      placeholder="https://your-dialer.com/call?n={phone}"
-                      disabled={profileSaving}
-                      style={{ fontSize: '0.85rem' }}
-                    />
-                  )}
-                </div>
-              </div>
-            </div>
-
-          <div style={{ display: 'flex', justifyContent: 'flex-end', marginTop: '0.5rem' }}>
-            <button type="submit" className="btn btn-primary" disabled={profileSaving}>
-              <Save size={16} /> {profileSaving ? 'Saving Profile...' : 'Save Profile'}
-            </button>
-          </div>
-        </div>
-      </form>
-
-      {/* SECTION: My Snippets */}
-      <div className="card flex-col gap-3" style={{ marginBottom: '1.5rem' }}>
-        <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', borderBottom: '1px solid var(--border-color)', paddingBottom: '0.5rem', marginBottom: '0.5rem' }}>
-          <Sparkles size={18} style={{ color: 'var(--accent-blue)' }} />
-          <h3 style={{ fontSize: '1.1rem' }}>My Snippets</h3>
-        </div>
-
-        <p style={{ color: 'var(--text-secondary)', fontSize: '0.85rem', lineHeight: 1.5, margin: 0 }}>
-          Create user-defined snippets with static values (e.g. <code>[calendly_link]</code> or <code>[signature]</code>) to quickly personalize your templates.
-        </p>
-
-        {/* Quick Add Snippet Form */}
-        <form onSubmit={onCreateSnippet} style={{ display: 'flex', gap: '0.75rem', alignItems: 'flex-start', flexWrap: 'wrap', marginTop: '0.5rem' }}>
-          <div style={{ display: 'flex', flexDirection: 'column', gap: '0.25rem', flex: 1, minWidth: '150px' }}>
-            <label style={{ fontSize: '0.75rem', color: 'var(--text-muted)' }}>Snippet Key</label>
-            <input
-              type="text"
-              className="form-input"
-              value={newKey}
-              onChange={e => setNewKey(e.target.value)}
-              placeholder="e.g. calendly_link"
-              required
-            />
-          </div>
-          <div style={{ display: 'flex', flexDirection: 'column', gap: '0.25rem', flex: 2, minWidth: '250px' }}>
-            <label style={{ fontSize: '0.75rem', color: 'var(--text-muted)' }}>Snippet Value</label>
-            <input
-              type="text"
-              className="form-input"
-              value={newValue}
-              onChange={e => setNewValue(e.target.value)}
-              placeholder="e.g. https://calendly.com/username"
-              required
-            />
-          </div>
-          <button type="submit" className="btn btn-primary" style={{ marginTop: '1.3rem', height: '38px', padding: '0 1rem' }}>
-            <Plus size={16} /> Add Snippet
-          </button>
-        </form>
-
-        {snippetError && (
-          <div style={{ padding: '0.5rem 0.75rem', borderRadius: '4px', background: 'rgba(224, 82, 82, 0.1)', border: '1px solid rgba(224, 82, 82, 0.2)', color: 'var(--status-hot)', fontSize: '0.8rem' }}>
-            {snippetError}
-          </div>
-        )}
-
-        {snippetSuccess && (
-          <div style={{ padding: '0.5rem 0.75rem', borderRadius: '4px', background: 'rgba(16, 185, 129, 0.1)', border: '1px solid rgba(16, 185, 129, 0.2)', color: '#10b981', fontSize: '0.8rem' }}>
-            {snippetSuccess}
-          </div>
-        )}
-
-        {/* Snippets List */}
-        <div style={{ marginTop: '0.5rem', border: '1px solid var(--border)', borderRadius: '6px', overflow: 'hidden' }}>
-          <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '0.85rem' }}>
-            <thead>
-              <tr style={{ background: 'var(--bg-secondary)', borderBottom: '1px solid var(--border)' }}>
-                <th style={{ padding: '8px 12px', textAlign: 'left', color: 'var(--text-muted)', fontWeight: 600 }}>Key</th>
-                <th style={{ padding: '8px 12px', textAlign: 'left', color: 'var(--text-muted)', fontWeight: 600 }}>Value</th>
-                <th style={{ padding: '8px 12px', textAlign: 'right', color: 'var(--text-muted)', fontWeight: 600, width: '120px' }}>Actions</th>
-              </tr>
-            </thead>
-            <tbody>
-              {userSnippets.length === 0 ? (
-                <tr>
-                  <td colSpan={3} style={{ padding: '16px', textAlign: 'center', color: 'var(--text-muted)', fontStyle: 'italic' }}>
-                    No snippets created yet.
-                  </td>
-                </tr>
-              ) : (
-                userSnippets.map(snip => {
-                  const isEditing = editingSnippetId === snip.id;
-                  return (
-                    <tr key={snip.id} style={{ borderBottom: '1px solid var(--border)' }}>
-                      <td style={{ padding: '8px 12px', verticalAlign: 'middle' }}>
-                        {isEditing ? (
-                          <input
-                            type="text"
-                            className="form-input"
-                            value={editingKey}
-                            onChange={e => setEditingKey(e.target.value)}
-                            style={{ padding: '4px 8px', fontSize: '0.8rem', height: '28px' }}
-                          />
-                        ) : (
-                          <code style={{ fontSize: '0.85rem', color: 'var(--accent-blue)' }}>[{snip.snippet_key}]</code>
-                        )}
-                      </td>
-                      <td style={{ padding: '8px 12px', verticalAlign: 'middle' }}>
-                        {isEditing ? (
-                          <div style={{ display: 'flex', flexDirection: 'column', gap: '0.25rem' }}>
-                            <input
-                              type="text"
-                              className="form-input"
-                              value={editingValue}
-                              onChange={e => setEditingValue(e.target.value)}
-                              style={{ padding: '4px 8px', fontSize: '0.8rem', height: '28px' }}
-                            />
-                            {editError && (
-                              <span style={{ color: 'var(--danger-color)', fontSize: '0.7rem' }}>{editError}</span>
-                            )}
-                          </div>
-                        ) : (
-                          <span style={{ color: 'var(--text-secondary)' }}>{snip.snippet_value}</span>
-                        )}
-                      </td>
-                      <td style={{ padding: '8px 12px', textAlign: 'right', verticalAlign: 'middle' }}>
-                        <div style={{ display: 'inline-flex', gap: '0.35rem' }}>
-                          {isEditing ? (
-                            <>
-                              <button
-                                type="button"
-                                onClick={() => setEditingSnippetId(null)}
-                                className="btn btn-secondary btn-sm"
-                                style={{ padding: '2px 8px', minHeight: 'auto', fontSize: '0.75rem', height: '26px' }}
-                              >
-                                Cancel
-                              </button>
-                              <button
-                                type="button"
-                                onClick={() => onSaveEdit(snip.id)}
-                                className="btn btn-primary btn-sm"
-                                style={{ padding: '2px 8px', minHeight: 'auto', fontSize: '0.75rem', height: '26px' }}
-                              >
-                                Save
-                              </button>
-                            </>
-                          ) : (
-                            <>
-                              <button
-                                type="button"
-                                onClick={() => onStartEdit(snip)}
-                                className="btn btn-secondary btn-sm"
-                                style={{ padding: '4px', minHeight: 'auto', display: 'flex', alignItems: 'center', justifyContent: 'center' }}
-                                title="Edit snippet"
-                              >
-                                <Edit3 size={13} />
-                              </button>
-                              <button
-                                type="button"
-                                onClick={() => onDeleteSnippetClick(snip.id)}
-                                className="btn btn-danger btn-sm"
-                                style={{ padding: '4px', minHeight: 'auto', display: 'flex', alignItems: 'center', justifyContent: 'center' }}
-                                title="Delete snippet"
-                              >
-                                <Trash2 size={13} />
-                              </button>
-                            </>
-                          )}
-                        </div>
-                      </td>
-                    </tr>
-                  );
-                })
-              )}
-            </tbody>
-          </table>
+      <div className="config-layout">
+        <SettingsNav
+          activeTab={activeTab}
+          onTabChange={handleTabChange}
+          canAccessTeam={canAccessTeam}
+        />
+        <div className="config-panel">
+          {renderActivePanel()}
         </div>
       </div>
 
-      {/* SECTION 0.5: Data Export backup */}
-      <div className="card flex-col gap-3" style={{ marginBottom: '1.5rem' }}>
-        <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', borderBottom: '1px solid var(--border-color)', paddingBottom: '0.5rem', marginBottom: '0.5rem' }}>
-          <Download size={18} style={{ color: 'var(--primary-purple)' }} />
-          <h3 style={{ fontSize: '1.1rem' }}>Data Export (Backup)</h3>
-        </div>
-        <p style={{ color: 'var(--text-secondary)', fontSize: '0.85rem', lineHeight: 1.5, margin: 0 }}>
-          Download a proactive backup of your freelance data at any time. Leads are exported as a CSV spreadsheet, and notes are exported as a structured plain text document.
-        </p>
-        <div style={{ display: 'flex', gap: '1rem', marginTop: '0.5rem' }}>
-          <button
-            type="button"
-            className="btn btn-secondary"
-            onClick={handleExportLeadsClick}
-            disabled={exporting === 'leads'}
-            style={{ display: 'flex', alignItems: 'center', gap: '6px' }}
-          >
-            <Download size={14} />
-            {exporting === 'leads' ? 'Exporting...' : 'Export Leads (CSV)'}
-          </button>
-          <button
-            type="button"
-            className="btn btn-secondary"
-            onClick={handleExportNotesClick}
-            disabled={exporting === 'notes'}
-            style={{ display: 'flex', alignItems: 'center', gap: '6px' }}
-          >
-            <FileText size={14} />
-            {exporting === 'notes' ? 'Exporting...' : 'Export Notes (TXT)'}
-          </button>
-        </div>
-      </div>
-
-      {/* SECTION 1: Business specifications */}
-      <form onSubmit={handleSubmitSettings} className="flex-col gap-4">
-        <div className="card flex-col gap-3">
-          <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', borderBottom: '1px solid var(--border-color)', paddingBottom: '0.5rem', marginBottom: '0.5rem' }}>
-            <Settings size={18} style={{ color: 'var(--primary-purple)' }} />
-            <h3 style={{ fontSize: '1.1rem' }}>Business Footprint Settings</h3>
-          </div>
-
-          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1.5rem' }}>
-            <div className="form-group">
-              <label className="form-label">Freelancer Brand Label Name</label>
-              <input
-                type="text"
-                className="form-input"
-                value={localBrand}
-                onChange={(e) => setLocalBrand(e.target.value)}
-                placeholder="e.g. ESEMDOT Core Solutions"
-                required
-              />
-            </div>
-
-            <div className="form-group">
-              <label className="form-label">Operation Currency Node Symbol</label>
-              <input
-                type="text"
-                className="form-input"
-                value={localCurrency}
-                onChange={(e) => setLocalCurrency(e.target.value)}
-                placeholder="e.g. PKR"
-                required
-              />
-            </div>
-          </div>
-          
-          {/* Webhook URL — hidden for Starter plan */}
-          {(currentUser?.plan || '').toLowerCase() !== 'starter' && (
-            <div className="form-group">
-              <label className="form-label">Webhook URL (Telemetry Integrations)</label>
-              <input
-                type="url"
-                className="form-input"
-                value={localWebhook}
-                onChange={(e) => setLocalWebhook(e.target.value)}
-                placeholder="e.g. https://api.yourdomain.com/v1/telemetry"
-              />
-            </div>
-          )}
-
-          {/* Bank Details section removed */}
-          
-          <div style={{ display: 'flex', justifyContent: 'flex-end', marginTop: '0.5rem' }}>
-            <button type="submit" className="btn btn-primary">
-              <Save size={16} /> Save Settings
-            </button>
-          </div>
-        </div>
-      </form>
-
-
-      {/* SECTION 3: Team workspace — managed on Teams page */}
-      {(isProOwner || hasTeamsPageAccess(currentUser)) && (
-        <div className="card flex-col gap-3">
-          <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', borderBottom: '1px solid var(--border-color)', paddingBottom: '0.5rem', marginBottom: '0.5rem' }}>
-            <Users size={18} style={{ color: 'var(--primary-magenta)' }} />
-            <h3 style={{ fontSize: '1.1rem' }}>Team workspace</h3>
-          </div>
-          <p style={{ fontSize: '0.85rem', color: 'var(--text-secondary)', margin: 0 }}>
-            Invite teammates, manage seats, and set sharing permissions from the Teams page.
-          </p>
-          <div>
-            <button type="button" className="btn btn-primary" onClick={() => navigate('/teams')}>
-              Open Teams
-            </button>
-          </div>
-        </div>
-      )}
-
-      {/* SECTION 3.5 & 4: Billing & Subscription */}
-      <div className="card flex-col gap-3">
-        <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', borderBottom: '1px solid var(--border-color)', paddingBottom: '0.5rem', marginBottom: '0.5rem' }}>
-          <CreditCard size={18} style={{ color: 'var(--accent-blue)' }} />
-          <h3 style={{ fontSize: '1.1rem' }}>Billing &amp; Subscription</h3>
-        </div>
-
-        {cancelSuccessMsg && (
-          <div style={{ padding: '0.75rem 1rem', borderRadius: '8px', background: 'rgba(16, 185, 129, 0.1)', border: '1px solid rgba(16, 185, 129, 0.2)', color: '#10b981', fontSize: '0.875rem', display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
-            <Check size={15} style={{ flexShrink: 0 }} />
-            <span>{cancelSuccessMsg}</span>
-          </div>
-        )}
-
-        {cancelErrorMsg && (
-          <div style={{ padding: '0.75rem 1rem', borderRadius: '8px', background: 'rgba(224, 82, 82, 0.1)', border: '1px solid rgba(224, 82, 82, 0.2)', color: 'var(--status-hot)', fontSize: '0.875rem', display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
-            <AlertCircle size={16} style={{ flexShrink: 0 }} />
-            <span>{cancelErrorMsg}</span>
-          </div>
-        )}
-
-        <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
-          <div style={{ display: 'flex', gap: '1rem', alignItems: 'center' }}>
-            <span style={{ fontSize: '0.85rem', color: 'var(--text-muted)', minWidth: '100px' }}>Current Plan</span>
-            <span style={{
-              fontSize: '0.85rem',
-              fontWeight: 700,
-              color: 'var(--text-primary)',
-              textTransform: 'capitalize'
-            }}>
-              {currentUser?.plan || 'Trial'}
-            </span>
-          </div>
-          <div style={{ display: 'flex', gap: '1rem', alignItems: 'center' }}>
-            <span style={{ fontSize: '0.85rem', color: 'var(--text-muted)', minWidth: '100px' }}>Status</span>
-            <span style={{
-              fontSize: '0.8rem',
-              fontWeight: 600,
-              padding: '2px 10px',
-              borderRadius: '3px',
-              background: currentUser?.plan_status === 'active'
-                ? 'rgba(16, 185, 129, 0.1)'
-                : currentUser?.plan_status === 'cancelling'
-                  ? 'rgba(245, 158, 11, 0.1)'
-                  : 'rgba(245, 158, 11, 0.1)',
-              color: currentUser?.plan_status === 'active'
-                ? '#10b981'
-                : currentUser?.plan_status === 'cancelling'
-                  ? 'var(--warning-color)'
-                  : 'var(--warning-color)',
-              border: `1px solid ${
-                currentUser?.plan_status === 'active'
-                  ? '#10b981'
-                  : currentUser?.plan_status === 'cancelling'
-                    ? 'rgba(245, 158, 11, 0.4)'
-                    : 'rgba(245, 158, 11, 0.4)'
-              }`,
-            }}>
-              {currentUser?.plan_status === 'active'
-                ? 'Active'
-                : currentUser?.plan_status === 'cancelling'
-                  ? 'Cancelling'
-                  : currentUser?.plan === 'trial'
-                    ? 'Trial'
-                    : 'Inactive'}
-            </span>
-          </div>
-        </div>
-
-        {/* Usage Progress Section */}
-        {(() => {
-          const planKey = getEffectivePlan(currentUser);
-          const limits = PLAN_LIMITS[planKey] || PLAN_LIMITS.trial;
-          const maxLeads = getPlanLeadLimit(planKey, getEffectiveBillingCycle(currentUser)) ?? limits.leads;
-          const maxTemplates = limits.templates;
-          const maxAi = aiUsage.limit || getAiCreditLimit(planKey);
-
-          return (
-            <div style={{ borderTop: '1px solid var(--border-color)', paddingTop: '0.75rem', marginTop: '0.5rem', display: 'flex', flexDirection: 'column', gap: '0.75rem' }}>
-              {/* Leads Usage */}
-              <div style={{ display: 'flex', flexDirection: 'column', gap: '0.25rem' }}>
-                <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.85rem' }}>
-                  <span style={{ color: 'var(--text-muted)' }}>Leads</span>
-                  <span style={{ fontWeight: 600, color: 'var(--text-primary)' }}>
-                    {leadsCount} / {maxLeads === Infinity || maxLeads === null ? 'Unlimited' : maxLeads.toLocaleString()}
-                  </span>
-                </div>
-                <div style={{ height: '8px', background: 'var(--border-color)', borderRadius: '4px', overflow: 'hidden' }}>
-                  <div style={{
-                    height: '100%',
-                    background: 'var(--accent-blue)',
-                    width: `${maxLeads === Infinity || maxLeads === null ? 0 : Math.min(100, (leadsCount / maxLeads) * 100)}%`,
-                    borderRadius: '4px'
-                  }} />
-                </div>
-              </div>
-
-              {/* Templates Usage */}
-              <div style={{ display: 'flex', flexDirection: 'column', gap: '0.25rem' }}>
-                <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.85rem' }}>
-                  <span style={{ color: 'var(--text-muted)' }}>Templates</span>
-                  <span style={{ fontWeight: 600, color: 'var(--text-primary)' }}>
-                    {templatesCount} / {maxTemplates === Infinity || maxTemplates === null ? 'Unlimited' : maxTemplates}
-                  </span>
-                </div>
-                <div style={{ height: '8px', background: 'var(--border-color)', borderRadius: '4px', overflow: 'hidden' }}>
-                  <div style={{
-                    height: '100%',
-                    background: 'var(--accent-blue)',
-                    width: `${maxTemplates === Infinity || maxTemplates === null ? 0 : Math.min(100, (templatesCount / maxTemplates) * 100)}%`,
-                    borderRadius: '4px'
-                  }} />
-                </div>
-              </div>
-
-              {/* AI Credits Usage */}
-              <div style={{ display: 'flex', flexDirection: 'column', gap: '0.25rem' }}>
-                <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.85rem' }}>
-                  <span style={{ color: 'var(--text-muted)' }}>AI credits {planKey === 'trial' ? '(trial)' : '(this month)'}</span>
-                  <span style={{ fontWeight: 600, color: 'var(--text-primary)' }}>
-                    {aiUsage.loading ? '…' : `${aiUsage.used} / ${maxAi}`}
-                  </span>
-                </div>
-                <div style={{ height: '8px', background: 'var(--border-color)', borderRadius: '4px', overflow: 'hidden' }}>
-                  <div style={{
-                    height: '100%',
-                    background: 'var(--accent-blue)',
-                    width: `${maxAi ? Math.min(100, (aiUsage.used / maxAi) * 100) : 0}%`,
-                    borderRadius: '4px'
-                  }} />
-                </div>
-              </div>
-
-              {isProOwner && (
-                <div style={{ display: 'flex', flexDirection: 'column', gap: '0.25rem' }}>
-                  <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.85rem' }}>
-                    <span style={{ color: 'var(--text-muted)' }}>Team seats</span>
-                    <span style={{ fontWeight: 600, color: 'var(--text-primary)' }}>
-                      {teamLoading ? '…' : `${seatsUsed} / ${seatLimit}`}
-                    </span>
-                  </div>
-                  <div style={{ height: '8px', background: 'var(--border-color)', borderRadius: '4px', overflow: 'hidden' }}>
-                    <div style={{
-                      height: '100%',
-                      background: seatsAtCap ? 'var(--warning-color)' : 'var(--accent-blue)',
-                      width: `${Math.min(100, (seatsUsed / seatLimit) * 100)}%`,
-                      borderRadius: '4px'
-                    }} />
-                  </div>
-                </div>
-              )}
-            </div>
-          );
-        })()}
-
-        <div style={{ marginTop: '0.5rem', display: 'flex', flexDirection: 'column', gap: '0.5rem', alignItems: 'flex-start' }}>
-          <button
-            type="button"
-            className="btn btn-primary"
-            onClick={() => navigate('/upgrade')}
-          >
-            <CreditCard size={15} /> Manage Plan
-          </button>
-
-          {currentUser?.plan_status === 'active' && currentUser?.paddle_subscription_id && (
-            <button
-              type="button"
-              onClick={() => setCancelModalOpen(true)}
-              style={{
-                background: 'none',
-                border: 'none',
-                color: 'var(--status-hot)',
-                fontSize: '0.85rem',
-                cursor: 'pointer',
-                padding: 0,
-                marginTop: '0.25rem',
-                textDecoration: 'underline',
-                fontFamily: 'inherit'
-              }}
-            >
-              Cancel Subscription
-            </button>
-          )}
-        </div>
-      </div>
-
-      {/* ─── INTEGRATIONS SECTION ─────────────────────────────────────────── */}
-      <div className="card flex-col gap-3" id="integrations">
-        <div className="rd-section-head" style={{ borderBottom: '1px solid var(--border-color)', paddingBottom: 'var(--space-3)', marginBottom: 'var(--space-1)' }}>
-          <div style={{ display: 'flex', alignItems: 'center', gap: 'var(--space-2)' }}>
-            <Plug size={18} style={{ color: 'var(--status-cold)' }} />
-            <h3 style={{ fontSize: 'var(--text-md)', margin: 0, fontFamily: 'var(--font-heading)' }}>Integrations</h3>
-          </div>
-        </div>
-
-        {calSuccessMsg && (
-          <div style={{ padding: '0.75rem 1rem', borderRadius: 'var(--radius-md)', background: 'color-mix(in srgb, var(--success-color) 10%, transparent)', border: '1px solid color-mix(in srgb, var(--success-color) 25%, transparent)', color: 'var(--success-color)', fontSize: 'var(--text-sm)', display: 'flex', alignItems: 'center', gap: 'var(--space-2)' }}>
-            <CheckCircle size={16} style={{ flexShrink: 0 }} />
-            <span>{calSuccessMsg}</span>
-          </div>
-        )}
-
-        {sheetsSuccessMsg && (
-          <div style={{ padding: '0.75rem 1rem', borderRadius: 'var(--radius-md)', background: 'color-mix(in srgb, var(--success-color) 10%, transparent)', border: '1px solid color-mix(in srgb, var(--success-color) 25%, transparent)', color: 'var(--success-color)', fontSize: 'var(--text-sm)', display: 'flex', alignItems: 'center', gap: 'var(--space-2)' }}>
-            <CheckCircle size={16} style={{ flexShrink: 0 }} />
-            <span>{sheetsSuccessMsg}</span>
-          </div>
-        )}
-
-        {/* Google Calendar Row */}
-        <div className="rd-integration-row">
-          <div className="rd-integration-icon rd-integration-icon--calendar">
-            <Calendar size={20} />
-          </div>
-          <div className="rd-integration-body">
-            <strong>Google Calendar</strong>
-            <span>
-              {calLoading
-                ? 'Checking status…'
-                : calIntegration
-                  ? `Connected · since ${new Date(calIntegration.connected_at).toLocaleDateString()}`
-                  : 'Not connected — leads won\'t be auto-marked as Booked'}
-            </span>
-          </div>
-          <div className="rd-integration-actions">
-            {!PLAN_LIMITS[getEffectivePlan(currentUser)]?.calendarIntegration ? (
-              <button
-                type="button"
-                onClick={() => navigate('/upgrade')}
-                className="btn btn-secondary btn-sm"
-                style={{ display: 'flex', alignItems: 'center', gap: '0.35rem' }}
-              >
-                <Lock size={12} /> Available on Pro plan
-              </button>
-            ) : !calLoading && (
-              calIntegration ? (
-                <>
-                  <span className="rd-integration-status">
-                    <Check size={14} /> Connected
-                  </span>
-                  <button
-                    type="button"
-                    onClick={handleDisconnectCalendar}
-                    disabled={calDisconnecting}
-                    className="btn btn-secondary btn-sm"
-                    style={{ display: 'flex', alignItems: 'center', gap: '0.35rem', color: 'var(--danger-color)', borderColor: 'var(--danger-color)' }}
-                  >
-                    <Unlink size={14} />
-                    {calDisconnecting ? 'Disconnecting…' : 'Disconnect'}
-                  </button>
-                </>
-              ) : (
-                <button
-                  type="button"
-                  onClick={handleConnectCalendar}
-                  className="btn btn-primary btn-sm"
-                  style={{ display: 'flex', alignItems: 'center', gap: '0.35rem' }}
-                >
-                  <Calendar size={14} /> Connect
-                </button>
-              )
-            )}
-          </div>
-        </div>
-
-        {/* Google Sheets Row */}
-        <div className="rd-integration-row">
-          <div className="rd-integration-icon rd-integration-icon--sheets">
-            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
-              <path d="M19 3H5C3.9 3 3 3.9 3 5V19C3 20.1 3.9 21 5 21H19C20.1 21 21 20.1 21 19V5C21 3.9 20.1 3 19 3ZM10 17H7V14H10V17ZM10 12H7V9H10V12ZM17 17H12V14H17V17ZM17 12H12V9H17V12Z" fill="currentColor"/>
-            </svg>
-          </div>
-          <div className="rd-integration-body">
-            <strong>Google Sheets</strong>
-            <span>
-              {sheetsLoading
-                ? 'Checking status…'
-                : sheetsIntegration
-                  ? `Connected · since ${new Date(sheetsIntegration.connected_at).toLocaleDateString()}`
-                  : 'Not connected — export and import from Google Sheets'}
-            </span>
-          </div>
-          <div className="rd-integration-actions">
-            {!sheetsLoading && (
-              sheetsIntegration ? (
-                <>
-                  <span className="rd-integration-status">
-                    <Check size={14} /> Connected
-                  </span>
-                  <button
-                    type="button"
-                    onClick={handleDisconnectSheets}
-                    disabled={sheetsDisconnecting}
-                    className="btn btn-secondary btn-sm"
-                    style={{ display: 'flex', alignItems: 'center', gap: '0.35rem', color: 'var(--danger-color)', borderColor: 'var(--danger-color)' }}
-                  >
-                    <Unlink size={14} />
-                    {sheetsDisconnecting ? 'Disconnecting…' : 'Disconnect'}
-                  </button>
-                </>
-              ) : (
-                <button
-                  type="button"
-                  onClick={handleConnectSheets}
-                  className="btn btn-primary btn-sm"
-                  style={{ display: 'flex', alignItems: 'center', gap: '0.35rem' }}
-                >
-                  Connect Sheets
-                </button>
-              )
-            )}
-          </div>
-        </div>
-
-        <p className="rd-integration-footnote">
-          {BRAND_NAME} reads your calendar to detect bookings and can create events you add in-app.
-          Disconnect anytime to revoke access. Reconnect if you connected before write access was enabled.
-        </p>
-      </div>
-
-      {/* Confirmation Modal */}
-      {cancelModalOpen && (
-        <div style={{
-          position: 'fixed',
-          inset: 0,
-          backgroundColor: 'rgba(0,0,0,0.7)',
-          display: 'flex',
-          alignItems: 'center',
-          justifyContent: 'center',
-          zIndex: 100000,
-          padding: '1rem'
-        }}>
-          <div className="card flex-col gap-4" style={{ maxWidth: '450px', width: '100%', background: 'var(--bg-card)', border: '1px solid var(--border)', borderRadius: '3px', padding: '1.5rem' }}>
-            <h3 style={{ fontSize: '1.2rem', margin: 0, color: 'var(--text-primary)', fontFamily: 'Mattone, sans-serif' }}>Cancel Subscription?</h3>
-            
-            <p style={{ fontSize: '0.9rem', color: 'var(--text-secondary)', lineHeight: '1.4', margin: 0 }}>
-              Are you sure? Your plan will remain active until the end of your current billing period, then your data is retained for 30 days.
-            </p>
-
-            <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '0.75rem', marginTop: '0.5rem' }}>
-              <button
-                type="button"
-                className="btn"
-                onClick={() => setCancelModalOpen(false)}
-                style={{
-                  background: 'transparent',
-                  border: '1px solid var(--accent-blue)',
-                  color: 'var(--accent-blue)',
-                  borderRadius: '3px',
-                  padding: '0.4rem 1rem',
-                  cursor: 'pointer'
-                }}
-                disabled={cancelLoading}
-              >
-                Keep My Plan
-              </button>
-              <button
-                type="button"
-                className="btn"
-                onClick={handleCancelSubscription}
-                style={{
-                  background: 'transparent',
-                  border: '1px solid var(--status-hot)',
-                  color: 'var(--status-hot)',
-                  borderRadius: '3px',
-                  padding: '0.4rem 1rem',
-                  cursor: 'pointer'
-                }}
-                disabled={cancelLoading}
-              >
-                {cancelLoading ? 'Cancelling...' : 'Yes, Cancel'}
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
+      <CancelSubscriptionModal
+        open={cancelModalOpen}
+        loading={cancelLoading}
+        onClose={() => setCancelModalOpen(false)}
+        onConfirm={handleCancelSubscription}
+      />
     </div>
   );
 }

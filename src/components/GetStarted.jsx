@@ -426,7 +426,7 @@ function GetStartedContent({ isAppView, theme, navigate }) {
           <section id="snippets" style={{ scrollMarginTop: '120px' }}>
             <h2 style={sectionTitle()}>Snippet Keys</h2>
             <p style={{ color: muted, margin: 0 }}>
-              Go to Configuration → Snippets to create custom replacement tags. E.g. save key <code>calendly</code> with your booking URL. In any template, type <code>{"{"}{"{"}calendly{"}"}{"}"}</code> and it will auto-populate during outreach.
+              Go to <Link to="/settings?tab=snippets">Configuration → Snippets</Link> to create custom replacement tags. E.g. save key <code>calendly</code> with your booking URL. In any template, type <code>{"{"}{"{"}calendly{"}"}{"}"}</code> and it will auto-populate during outreach.
             </p>
           </section>
 

@@ -5,6 +5,7 @@ import {
   buildOutreachSessionQueue,
   sortByCallability,
 } from '../../../lib/outreachQueue';
+import { getEffectiveUserTimeZone } from '../../../lib/dateTime';
 import {
   deleteCallAttempt,
   fetchMyCallAttempts,
@@ -49,6 +50,7 @@ export default function CallActivityHub({
   const [error, setError] = useState('');
 
   const teamId = currentUser?.team_id || null;
+  const userTimeZone = useMemo(() => getEffectiveUserTimeZone(currentUser), [currentUser?.timezone]);
   const showTeamTab = hasTeamCallActivity(currentUser);
   const defaultCountryCode = currentUser?.default_country_code || '+92';
   const showNoteSharing = !!teamId;
@@ -147,12 +149,12 @@ export default function CallActivityHub({
 
   const sessionQueue = useMemo(() => {
     const flatAttempts = [...attemptsByLead.values()];
-    let q = buildOutreachSessionQueue(scopedLeads, flatAttempts);
+    let q = buildOutreachSessionQueue(scopedLeads, flatAttempts, userTimeZone);
     if (prioritizeCallable) {
       q = sortByCallability(q, new Date(), defaultCountryCode);
     }
     return q;
-  }, [scopedLeads, attemptsByLead, prioritizeCallable, defaultCountryCode]);
+  }, [scopedLeads, attemptsByLead, prioritizeCallable, defaultCountryCode, userTimeZone]);
 
   const handleLogged = (payload) => {
     const attempt = payload?.attempt || payload;
@@ -202,6 +204,7 @@ export default function CallActivityHub({
         defaultCountryCode={defaultCountryCode}
         showNoteSharing={showNoteSharing}
         onLogged={handleLogged}
+        timeZone={userTimeZone}
       />
     );
   }
@@ -306,6 +309,7 @@ export default function CallActivityHub({
           onAttemptUpdated={handleAttemptUpdated}
           onAttemptDeleted={handleAttemptDeleted}
           currentUserId={currentUser.id}
+          userTimeZone={userTimeZone}
         />
       )}
 
@@ -317,6 +321,7 @@ export default function CallActivityHub({
         teamId={teamId}
         showNoteSharing={showNoteSharing}
         onLogged={handleLogged}
+        timeZone={userTimeZone}
       />
     </div>
   );

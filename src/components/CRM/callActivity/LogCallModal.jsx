@@ -14,6 +14,7 @@ export default function LogCallModal({
   fixedLead = null,
   showNoteSharing = false,
   updateLeadFields = true,
+  timeZone = null,
 }) {
   const [leadId, setLeadId] = useState(defaultLeadId || '');
   const [outcome, setOutcome] = useState('No Answer');
@@ -53,6 +54,7 @@ export default function LogCallModal({
         noteVisibility: showNoteSharing ? noteVisibility : 'team',
         teamId,
         updateLeadFields: applyStatusAction,
+        timeZone,
       });
       onLogged?.({ attempt, leadUpdates });
       onClose();

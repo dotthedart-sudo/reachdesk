@@ -27,6 +27,9 @@ export default function SheetsImportModal({ onClose, onImportComplete, currentUs
   const [headers, setHeaders] = useState<string[]>([]);
   const [previewRows, setPreviewRows] = useState<any[][]>([]);
   const [previewTotalRows, setPreviewTotalRows] = useState<number | null>(null);
+  const [previewColumnCount, setPreviewColumnCount] = useState<number | null>(null);
+  const [tabStatsLoading, setTabStatsLoading] = useState(false);
+  const [statsLoadedForTab, setStatsLoadedForTab] = useState<string | null>(null);
 
   // Mapping
   const [mapping, setMapping] = useState<Record<number, string>>({});
@@ -137,40 +140,103 @@ export default function SheetsImportModal({ onClose, onImportComplete, currentUs
     });
   };
 
-  const handleFetchPreview = async () => {
-    if (!spreadsheet || !selectedTab) return;
-    setLoading(true);
+  const applyPreviewData = (data: {
+    headers?: string[];
+    rows?: any[][];
+    totalRows?: number;
+    columnCount?: number;
+  }) => {
+    const fetchedHeaders: string[] = data.headers || [];
+    const fetchedRows: any[][] = data.rows || [];
+
+    if (fetchedHeaders.length === 0) {
+      throw new Error('No header row found in this tab.');
+    }
+
+    setHeaders(fetchedHeaders);
+    setPreviewRows(fetchedRows);
+    setPreviewTotalRows(typeof data.totalRows === 'number' ? data.totalRows : fetchedRows.length);
+    setPreviewColumnCount(
+      typeof data.columnCount === 'number'
+        ? data.columnCount
+        : fetchedHeaders.filter((h) => String(h ?? '').trim() !== '').length
+    );
+
+    const newMapping = autoMatchHeaders(fetchedHeaders);
+    setMapping(newMapping);
+    const matched = Object.values(newMapping).filter(v => v !== 'skip').length;
+    setAutoMatchedCount(matched);
+    setStatsLoadedForTab(selectedTab);
+  };
+
+  const fetchTabStats = async (tabName: string) => {
+    if (!spreadsheet || !tabName) return;
+    setTabStatsLoading(true);
     setErrorMsg('');
 
     try {
       const { data, error } = await supabase.functions.invoke('get-sheet-preview', {
-        body: { spreadsheetId: spreadsheet.id, sheetName: selectedTab },
+        body: { spreadsheetId: spreadsheet.id, sheetName: tabName },
       });
       if (error) throw error;
       if (data?.error) throw new Error(data.error);
 
-      const fetchedHeaders: string[] = data.headers || [];
-      const fetchedRows: any[][] = data.rows || [];
-
-      if (fetchedHeaders.length === 0) {
-        throw new Error('No header row found in this tab.');
-      }
-
-      setHeaders(fetchedHeaders);
-      setPreviewRows(fetchedRows);
-      setPreviewTotalRows(typeof data.totalRows === 'number' ? data.totalRows : fetchedRows.length);
-
-      const newMapping = autoMatchHeaders(fetchedHeaders);
-      setMapping(newMapping);
-      const matched = Object.values(newMapping).filter(v => v !== 'skip').length;
-      setAutoMatchedCount(matched);
-
-      setStep(2);
+      applyPreviewData(data);
     } catch (err: any) {
-      setErrorMsg(err.message || 'Failed to fetch preview data from the sheet.');
+      setPreviewTotalRows(null);
+      setPreviewColumnCount(null);
+      setStatsLoadedForTab(null);
+      setErrorMsg(err.message || 'Failed to read tab dimensions from the sheet.');
+      throw err;
+    } finally {
+      setTabStatsLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    if (step !== 1 || !spreadsheet || !selectedTab) return;
+    if (statsLoadedForTab === selectedTab && previewTotalRows != null) return;
+    fetchTabStats(selectedTab);
+  }, [step, spreadsheet?.id, selectedTab]);
+
+  const handleFetchPreview = async () => {
+    if (!spreadsheet || !selectedTab) return;
+
+    if (statsLoadedForTab === selectedTab && headers.length > 0) {
+      setStep(2);
+      return;
+    }
+
+    setLoading(true);
+    setErrorMsg('');
+
+    try {
+      await fetchTabStats(selectedTab);
+      setStep(2);
+    } catch {
+      // fetchTabStats sets errorMsg
     } finally {
       setLoading(false);
     }
+  };
+
+  const renderDetectedStats = () => {
+    if (tabStatsLoading) {
+      return (
+        <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', color: '#9ca3af', fontSize: '0.875rem' }}>
+          <Loader size={16} style={{ animation: 'spin 1s linear infinite' }} /> Scanning tab…
+        </div>
+      );
+    }
+
+    if (previewTotalRows == null || previewColumnCount == null) return null;
+
+    return (
+      <div style={{ display: 'flex', gap: '0.75rem', flexWrap: 'wrap', marginTop: '0.75rem' }}>
+        <span className="csv-pill">{previewTotalRows.toLocaleString()} data row{previewTotalRows === 1 ? '' : 's'} detected</span>
+        <span className="csv-pill">{previewColumnCount.toLocaleString()} column{previewColumnCount === 1 ? '' : 's'} detected</span>
+      </div>
+    );
   };
 
   const validateMapping = () => {
@@ -325,7 +391,12 @@ export default function SheetsImportModal({ onClose, onImportComplete, currentUs
                     className="csv-select"
                     style={{ width: '100%', maxWidth: '320px' }}
                     value={selectedTab}
-                    onChange={e => setSelectedTab(e.target.value)}
+                    onChange={e => {
+                      setSelectedTab(e.target.value);
+                      setStatsLoadedForTab(null);
+                      setPreviewTotalRows(null);
+                      setPreviewColumnCount(null);
+                    }}
                   >
                     {tabs.map(tab => <option key={tab} value={tab}>{tab}</option>)}
                   </select>
@@ -333,14 +404,16 @@ export default function SheetsImportModal({ onClose, onImportComplete, currentUs
               )}
 
               {tabs.length === 1 && (
-                <div style={{ padding: '0.75rem 1rem', borderRadius: '8px', background: 'var(--bg-hover)', border: '1px solid var(--border)', color: 'var(--text-secondary)', fontSize: '0.875rem', marginBottom: '1.5rem' }}>
+                <div style={{ padding: '0.75rem 1rem', borderRadius: '8px', background: 'var(--bg-hover)', border: '1px solid var(--border)', color: 'var(--text-secondary)', fontSize: '0.875rem', marginBottom: '0.5rem' }}>
                   Found 1 tab: <strong>{selectedTab}</strong> — will use this tab.
                 </div>
               )}
 
+              {renderDetectedStats()}
+
               {loading && (
-                <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', color: '#9ca3af', fontSize: '0.875rem' }}>
-                  <Loader size={16} style={{ animation: 'spin 1s linear infinite' }} /> Fetching preview…
+                <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', color: '#9ca3af', fontSize: '0.875rem', marginTop: '1rem' }}>
+                  <Loader size={16} style={{ animation: 'spin 1s linear infinite' }} /> Loading preview…
                 </div>
               )}
             </div>
@@ -351,8 +424,8 @@ export default function SheetsImportModal({ onClose, onImportComplete, currentUs
             <div>
               <h3 style={{ fontSize: '1.25rem', marginBottom: '0.25rem' }}>Preview of your sheet data</h3>
               <p style={{ color: '#9ca3af', fontSize: '0.875rem', marginBottom: '1.5rem' }}>
-                {previewTotalRows != null
-                  ? `Your sheet has ${previewTotalRows} data row${previewTotalRows === 1 ? '' : 's'} — preview shows the first ${Math.min(previewRows.length, 5)} only.`
+                {previewTotalRows != null && previewColumnCount != null
+                  ? `Detected ${previewTotalRows.toLocaleString()} data row${previewTotalRows === 1 ? '' : 's'} and ${previewColumnCount} column${previewColumnCount === 1 ? '' : 's'} — preview shows the first ${Math.min(previewRows.length, 5)} rows only.`
                   : 'Preview shows the first rows only — the full sheet tab is imported.'}
               </p>
 
@@ -589,7 +662,7 @@ export default function SheetsImportModal({ onClose, onImportComplete, currentUs
             <button
               className="csv-btn csv-btn-primary"
               onClick={handleFetchPreview}
-              disabled={!selectedTab || loading}
+              disabled={!selectedTab || loading || tabStatsLoading || previewTotalRows == null}
               style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}
             >
               {loading ? <Loader size={16} style={{ animation: 'spin 1s linear infinite' }} /> : null}

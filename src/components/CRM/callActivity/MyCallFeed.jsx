@@ -22,6 +22,7 @@ export default function MyCallFeed({
   onAttemptUpdated,
   onAttemptDeleted,
   currentUserId,
+  userTimeZone = null,
 }) {
   const [filter, setFilter] = useState('all');
   const [sort, setSort] = useState('recent');
@@ -46,7 +47,7 @@ export default function MyCallFeed({
   }, [leads]);
 
   const rows = useMemo(() => {
-    const today = startOfToday();
+    const today = startOfToday(userTimeZone);
     const result = [];
 
     for (const lead of leads) {
@@ -93,7 +94,7 @@ export default function MyCallFeed({
     }
 
     return sorted;
-  }, [leads, attemptsByLead, filter, sort]);
+  }, [leads, attemptsByLead, filter, sort, userTimeZone]);
 
   const canEdit = (attempt) => {
     if (!attempt || attempt.user_id !== currentUserId) return false;

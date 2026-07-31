@@ -2,6 +2,7 @@ import React from 'react';
 import {
   FolderPlus, Sparkles, Users, Upload, Database,
 } from 'lucide-react';
+import QuickViewChips from './QuickViewChips';
 import ListsTableView from './ListsTableView';
 import './FolderBrowser.css';
 
@@ -26,6 +27,10 @@ export default function FolderBrowser({
   onCreateSmartList,
   onImportCsv,
   onImportSheets,
+  onRenameFolder,
+  onDeleteFolder,
+  onDeleteSmartFolder,
+  onExportFolder,
   canBulkImport = false,
   canUseIntegrations = false,
   hasLeads = true,
@@ -36,7 +41,7 @@ export default function FolderBrowser({
         <div>
           <h2 className="crm-folder-browser-title">Lists</h2>
           <p className="crm-folder-browser-desc">
-            Pick a list to work a focused batch of leads. Manual lists hold leads you assign; auto lists update from rules.
+            Your lists hold assigned leads. Quick views filter by priority or status.
           </p>
         </div>
         <div className="crm-folder-browser-actions">
@@ -71,14 +76,23 @@ export default function FolderBrowser({
         </div>
       )}
 
-      <ListsTableView
-        folders={folders}
-        userFolders={userFolders}
-        systemFolderNames={systemFolderNames}
+      <QuickViewChips
         systemViews={SYSTEM_VIEWS}
+        systemFolderNames={systemFolderNames}
         getLeadCount={getLeadCount}
         totalLeads={totalLeads}
         onSelectFolder={onSelectFolder}
+      />
+
+      <ListsTableView
+        folders={folders}
+        userFolders={userFolders}
+        getLeadCount={getLeadCount}
+        onSelectFolder={onSelectFolder}
+        onRenameFolder={onRenameFolder}
+        onDeleteFolder={onDeleteFolder}
+        onDeleteSmartFolder={onDeleteSmartFolder}
+        onExportFolder={onExportFolder}
       />
     </div>
   );

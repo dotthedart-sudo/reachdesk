@@ -2,6 +2,8 @@ import { supabase } from './supabase';
 import { PLAN_LIMITS, normalizePlan, getEffectivePlan } from './planConfig';
 import { isActiveTeamMember } from './teamWorkspace';
 import { applyOutcomeToLead } from './callOutcomeRules';
+import { captureDeviceTimestamp } from './dateTime';
+import { logLeadTimelineEvent } from './leadTimeline';
 
 export { CALL_OUTCOMES, computeNextFollowUp, leadDisplayName } from './outreachQueue';
 
@@ -67,7 +69,9 @@ export async function logCallWithUpdates({
   teamId = null,
   updateLeadFields = true,
   customOutcomeRules = null,
+  timeZone = null,
 }) {
+  const stamp = captureDeviceTimestamp(timeZone);
   const attempt = await insertCallAttempt({
     userId,
     leadId,
@@ -78,9 +82,54 @@ export async function logCallWithUpdates({
   });
 
   let leadUpdates = null;
+  let prevStatus = null;
   if (updateLeadFields) {
+    const { data: before } = await supabase
+      .from('leads')
+      .select('status')
+      .eq('id', leadId)
+      .maybeSingle();
+    prevStatus = before?.status ?? null;
+
     leadUpdates = await applyOutcomeToLead(leadId, outcome, userId, customOutcomeRules);
+
+    // Always stamp last_called_at (+ last_contacted_at) to device/profile "now"
+    const timePatch = {
+      last_called_at: stamp.occurredAt,
+      last_contacted_at: stamp.occurredAt,
+    };
+    const { data: stamped, error: stampErr } = await supabase
+      .from('leads')
+      .update(timePatch)
+      .eq('id', leadId)
+      .select('*')
+      .single();
+    if (!stampErr && stamped) {
+      leadUpdates = { ...(leadUpdates || {}), ...stamped };
+    }
   }
+
+  const statusDelta =
+    leadUpdates?.status && prevStatus && leadUpdates.status !== prevStatus
+      ? { from: prevStatus, to: leadUpdates.status }
+      : null;
+
+  await logLeadTimelineEvent({
+    leadId,
+    userId,
+    teamId,
+    eventType: 'call_logged',
+    summary: statusDelta
+      ? `Call: ${outcome} · Status → ${statusDelta.to}`
+      : `Call: ${outcome}`,
+    detail: {
+      outcome,
+      note: note?.trim() || null,
+      ...(statusDelta || {}),
+    },
+    timeZone,
+    occurredAt: stamp.occurredAt,
+  });
 
   return { attempt, leadUpdates };
 }

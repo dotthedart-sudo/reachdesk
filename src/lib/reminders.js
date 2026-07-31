@@ -1,4 +1,6 @@
 import { supabase } from './supabase';
+import { captureDeviceTimestamp, getEffectiveUserTimeZone } from './dateTime';
+import { logLeadTimelineEvent } from './leadTimeline';
 
 export const CHECKPOINT_OFFSETS_HOURS = [12, 24, 72, 120, 168, 336, 504];
 
@@ -110,23 +112,27 @@ export async function updateLeadStatusAndCheckpoint({
     throw new Error('Lead not found');
   }
   
+  const prevStatus = targetLead.status;
+  const skipAutoContacted = !!extraUpdates.skip_auto_last_contacted;
+  const stamp = captureDeviceTimestamp(getEffectiveUserTimeZone(currentUser));
   const isFirstContact = newStatus === 'Contacted' && !targetLead.last_contacted_at;
-  
-  // Determine target last_contacted_at
+
+  // Auto-set last_contacted_at on every status change (device/profile local "now")
+  // unless caller opts out (manual timestamp edit).
   let lastContacted = targetLead.last_contacted_at;
-  if (isFirstContact) {
-    lastContacted = new Date().toISOString();
+  if (!skipAutoContacted) {
+    lastContacted = stamp.occurredAt;
   }
-  
+
   const baseTime = lastContacted ? new Date(lastContacted).getTime() : Date.now();
   const nowMs = Date.now();
-  
+
   // Calculate next checkpoint timestamp
   let nextCheckpoint = null;
   const isFollowUpCycle = REPLY_CHECK_STATUSES.includes(newStatus) || FOLLOW_UP_CHECK_STATUSES.includes(newStatus);
-  
+
   if (isFollowUpCycle && lastContacted) {
-    if (isFirstContact) {
+    if (isFirstContact || !targetLead.last_contacted_at) {
       // First checkpoint can be overridden by custom hours
       let hoursOffset = 12; // default first offset from CHECKPOINT_OFFSETS_HOURS[0]
       if (customHours !== null && customHours !== undefined) {
@@ -150,19 +156,19 @@ export async function updateLeadStatusAndCheckpoint({
       }
     }
   }
-  
+
   // Determine suggested action
   const suggestedAction = getSuggestionForStatus(newStatus, suggestionRules);
-  
+
   // Build lead update payload
+  const { skip_auto_last_contacted: _skip, ...safeExtra } = extraUpdates;
   const leadUpdate = {
     status: newStatus,
     next_checkpoint_at: nextCheckpoint,
-    ...extraUpdates
+    ...safeExtra,
   };
-  
-  // Only include last_contacted_at in update if it was freshly set
-  if (isFirstContact) {
+
+  if (!skipAutoContacted) {
     leadUpdate.last_contacted_at = lastContacted;
   }
   
@@ -195,6 +201,18 @@ export async function updateLeadStatusAndCheckpoint({
     
   if (updateError) throw updateError;
 
+  if (prevStatus !== newStatus && currentUser?.id) {
+    logLeadTimelineEvent({
+      leadId: targetLead.id,
+      userId: currentUser.id,
+      teamId: currentUser.team_id || null,
+      eventType: 'status_changed',
+      summary: `Status → ${newStatus}`,
+      detail: { from: prevStatus, to: newStatus, field: 'status' },
+      timeZone: getEffectiveUserTimeZone(currentUser),
+    }).catch(() => {});
+  }
+
   let draftCreated = false;
   if (['Booked', 'Rescheduled'].includes(newStatus)) {
     try {
@@ -207,7 +225,7 @@ export async function updateLeadStatusAndCheckpoint({
   if (updatedLead) {
     updatedLead.draftCreated = draftCreated;
   }
-  
+
   return updatedLead;
 }
 

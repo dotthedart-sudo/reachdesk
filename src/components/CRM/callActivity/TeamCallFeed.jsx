@@ -1,6 +1,7 @@
 import React, { useMemo, useState } from 'react';
 import { ChevronRight } from 'lucide-react';
 import { CALL_OUTCOMES, leadDisplayName, computeNextFollowUp } from '../../../lib/outreachQueue';
+import { formatActivityDateTime } from '../../../lib/dateTime';
 import OutcomeBadge from './OutcomeBadge';
 import MemberActivityFilter from './MemberActivityFilter';
 
@@ -88,7 +89,7 @@ export default function TeamCallFeed({
               {enriched.map((row) => (
                 <tr key={row.id} style={{ borderTop: '1px solid var(--border-color)' }}>
                   <td style={{ padding: '0.65rem 0.75rem', whiteSpace: 'nowrap' }}>
-                    {new Date(row.created_at).toLocaleString()}
+                    {formatActivityDateTime(row.created_at, { showZone: true })}
                   </td>
                   <td style={{ padding: '0.65rem 0.75rem' }}>{row.caller_name || row.caller_email || '—'}</td>
                   <td

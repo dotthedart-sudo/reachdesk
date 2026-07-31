@@ -7,6 +7,7 @@ import {
   getEffectivePlan,
   getEffectiveBillingCycle,
 } from './planConfig';
+import { getEffectiveUserTimeZone } from './dateTime';
 
 export {
   PLAN_LIMITS,
@@ -15,6 +16,7 @@ export {
   canInviteTeammates,
   getEffectivePlan,
   getEffectiveBillingCycle,
+  getEffectiveUserTimeZone,
 };
 
 export const getTeamIds = async (userId) => {
