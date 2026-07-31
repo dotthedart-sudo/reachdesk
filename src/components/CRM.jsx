@@ -318,6 +318,9 @@ export default function CRM({
     resetRowHeight,
   } = useCrmTableLayout(outreachMode === 'calls' ? 'call_queue' : view);
 
+  // Must be declared before activeListShowsLocalTime (used in its deps)
+  const [listSettingsTick, setListSettingsTick] = useState(0);
+
   const activeListShowsLocalTime = useMemo(() => {
     if (!activeManualFolderId || outreachMode !== 'messages' || view === 'clients') return false;
     return listFolderShowsLocalTime(activeManualFolderId);
@@ -629,7 +632,6 @@ export default function CRM({
   const [showExportSheetsModal, setShowExportSheetsModal] = useState(false);
   const [exportSheetsLeads, setExportSheetsLeads] = useState(null);
   const [exportSheetsOptions, setExportSheetsOptions] = useState({});
-  const [listSettingsTick, setListSettingsTick] = useState(0);
   const [showSheetsImportModal, setShowSheetsImportModal] = useState(false);
   const [sheetsConnected, setSheetsConnected] = useState(false);
   const [sheetsConnectedChecked, setSheetsConnectedChecked] = useState(false);

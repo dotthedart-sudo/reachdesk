@@ -16,17 +16,42 @@ import { Lock } from 'lucide-react';
 import { subscribeToPush } from './utils/pushNotifications';
 import { isLocalDev, getAppUrl, getMarketingUrl } from './utils/domain';
 import { identifyUser, resetPostHog } from './utils/posthog';
-import { forceAppRefresh, clearAppRefreshFlags } from './utils/forceAppRefresh';
+import { forceAppRefresh, clearAppRefreshFlags, clearServiceWorkersAndCaches } from './utils/forceAppRefresh';
 import { BRAND_NAME } from './config/brand';
 
 // Helper for lazy loading components with automatic retry on dynamic import / chunk load failures (e.g. after new deployments)
+const LAZY_IMPORT_RETRIES = 3;
+const LAZY_IMPORT_RETRY_DELAY_MS = 400;
+
+function sleep(ms) {
+  return new Promise((resolve) => setTimeout(resolve, ms));
+}
+
+async function importWithDevRetries(componentImport) {
+  let lastError;
+  for (let attempt = 0; attempt < LAZY_IMPORT_RETRIES; attempt += 1) {
+    try {
+      return await componentImport();
+    } catch (error) {
+      lastError = error;
+      if (attempt < LAZY_IMPORT_RETRIES - 1) {
+        console.warn(`[lazyWithRetry] Import attempt ${attempt + 1} failed, retrying…`, error);
+        await sleep(LAZY_IMPORT_RETRY_DELAY_MS);
+      }
+    }
+  }
+  throw lastError;
+}
+
 function lazyWithRetry(componentImport) {
   return lazy(async () => {
     const pageHasAlreadyBeenReloaded = JSON.parse(
       sessionStorage.getItem('retry_lazy_reload') || 'false'
     );
     try {
-      const component = await componentImport();
+      const component = isLocalDev()
+        ? await importWithDevRetries(componentImport)
+        : await componentImport();
       sessionStorage.setItem('retry_lazy_reload', 'false');
       return component;
     } catch (error) {
@@ -45,10 +70,21 @@ class GlobalErrorBoundary extends React.Component {
   constructor(props) {
     super(props);
     this.state = { hasError: false, error: null };
+    this.handleRetry = this.handleRetry.bind(this);
+    this.handleRefresh = this.handleRefresh.bind(this);
   }
 
   static getDerivedStateFromError(error) {
     return { hasError: true, error };
+  }
+
+  handleRetry() {
+    clearAppRefreshFlags();
+    this.setState({ hasError: false, error: null });
+  }
+
+  handleRefresh() {
+    forceAppRefresh();
   }
 
   componentDidCatch(error, errorInfo) {
@@ -72,6 +108,9 @@ class GlobalErrorBoundary extends React.Component {
 
   render() {
     if (this.state.hasError) {
+      const dev = isLocalDev();
+      const errorMessage = this.state.error?.message || window.__lastBoundaryError || 'Unknown error';
+
       return (
         <div style={{
           display: 'flex',
@@ -85,26 +124,72 @@ class GlobalErrorBoundary extends React.Component {
           textAlign: 'center',
           fontFamily: 'Plus Jakarta Sans, system-ui, sans-serif'
         }}>
-          <h2 style={{ fontSize: '1.4rem', marginBottom: '0.75rem' }}>App updated or a temporary load issue occurred</h2>
-          <p style={{ color: '#A3A3A3', marginBottom: '1.5rem', fontSize: '0.9rem' }}>
-            A new version of ReachDesk CRM is active. Please refresh to load the latest release.
+          <h2 style={{ fontSize: '1.4rem', marginBottom: '0.75rem' }}>
+            {dev ? 'Something went wrong loading the app' : 'App updated or a temporary load issue occurred'}
+          </h2>
+          <p style={{ color: '#A3A3A3', marginBottom: '1rem', fontSize: '0.9rem', maxWidth: 480 }}>
+            {dev
+              ? 'This often happens after hot reload during development. Try again, or restart the dev server if it persists.'
+              : 'A new version of ReachDesk CRM is active. Please refresh to load the latest release.'}
           </p>
-          <button
-            type="button"
-            onClick={() => forceAppRefresh()}
-            style={{
-              padding: '8px 18px',
-              backgroundColor: '#FFFFFF',
-              color: '#050505',
-              border: 'none',
+          {dev && (
+            <pre style={{
+              color: '#fca5a5',
+              fontSize: '0.75rem',
+              marginBottom: '1.25rem',
+              maxWidth: 'min(640px, 90vw)',
+              overflow: 'auto',
+              textAlign: 'left',
+              padding: '0.75rem',
+              background: 'rgba(255,255,255,0.05)',
               borderRadius: '6px',
-              fontWeight: 600,
-              fontSize: '0.9rem',
-              cursor: 'pointer'
-            }}
-          >
-            Refresh Now
-          </button>
+              whiteSpace: 'pre-wrap',
+              wordBreak: 'break-word',
+            }}>
+              {errorMessage}
+            </pre>
+          )}
+          {!dev && (
+            <p style={{ color: '#737373', marginBottom: '1.25rem', fontSize: '0.8rem', maxWidth: 420 }}>
+              If this keeps happening, try a hard refresh (Ctrl+Shift+R) or clear site data for this domain.
+            </p>
+          )}
+          <div style={{ display: 'flex', gap: '0.75rem', flexWrap: 'wrap', justifyContent: 'center' }}>
+            {dev && (
+              <button
+                type="button"
+                onClick={this.handleRetry}
+                style={{
+                  padding: '8px 18px',
+                  backgroundColor: 'transparent',
+                  color: '#FFFFFF',
+                  border: '1px solid #525252',
+                  borderRadius: '6px',
+                  fontWeight: 600,
+                  fontSize: '0.9rem',
+                  cursor: 'pointer'
+                }}
+              >
+                Try again
+              </button>
+            )}
+            <button
+              type="button"
+              onClick={this.handleRefresh}
+              style={{
+                padding: '8px 18px',
+                backgroundColor: '#FFFFFF',
+                color: '#050505',
+                border: 'none',
+                borderRadius: '6px',
+                fontWeight: 600,
+                fontSize: '0.9rem',
+                cursor: 'pointer'
+              }}
+            >
+              Refresh Now
+            </button>
+          </div>
         </div>
       );
     }
@@ -1471,14 +1556,8 @@ export default function App() {
     // fights Vite HMR and traps users in an endless "Refresh Now" loop.
     if (isLocalDev()) {
       clearAppRefreshFlags();
-      navigator.serviceWorker.getRegistrations()
-        .then((regs) => Promise.all(regs.map((reg) => reg.unregister())))
+      clearServiceWorkersAndCaches()
         .catch((err) => console.warn('[SW] Dev unregister failed:', err));
-      if ('caches' in window) {
-        caches.keys()
-          .then((keys) => Promise.all(keys.map((key) => caches.delete(key))))
-          .catch(() => {});
-      }
       return;
     }
 

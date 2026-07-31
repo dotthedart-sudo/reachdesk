@@ -1,3 +1,5 @@
+import { isLocalDev } from './domain';
+
 const VAPID_PUBLIC_KEY = import.meta.env.VITE_VAPID_PUBLIC_KEY;
 
 /**
@@ -24,6 +26,11 @@ function urlBase64ToUint8Array(base64String) {
  */
 export async function subscribeToPush(supabase, userId) {
   try {
+    if (isLocalDev()) {
+      console.log('[Push] Skipping push subscription on local dev.');
+      return false;
+    }
+
     if (!('serviceWorker' in navigator) || !('PushManager' in window)) {
       console.log('[Push] Push notifications not supported in this browser.');
       return false;

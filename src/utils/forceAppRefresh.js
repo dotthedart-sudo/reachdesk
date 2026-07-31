@@ -1,8 +1,37 @@
+import { isLocalDev } from './domain';
+
 const REFRESH_FLAGS = ['chunk_error_reloaded', 'retry_lazy_reload'];
 
 /** Clear deployment retry flags so the next load can attempt a clean boot. */
 export function clearAppRefreshFlags() {
   REFRESH_FLAGS.forEach((key) => sessionStorage.removeItem(key));
+}
+
+/** Remove service workers and caches (used on localhost to avoid SW/HMR conflicts). */
+export async function clearServiceWorkersAndCaches() {
+  try {
+    if ('caches' in window) {
+      const keys = await caches.keys();
+      await Promise.all(keys.map((key) => caches.delete(key)));
+    }
+  } catch (err) {
+    console.warn('[forceAppRefresh] cache clear failed:', err);
+  }
+
+  try {
+    if ('serviceWorker' in navigator) {
+      const regs = await navigator.serviceWorker.getRegistrations();
+      await Promise.all(regs.map((reg) => reg.unregister()));
+    }
+  } catch (err) {
+    console.warn('[forceAppRefresh] service worker unregister failed:', err);
+  }
+}
+
+function cacheBustReload() {
+  const url = new URL(window.location.href);
+  url.searchParams.set('_rd', String(Date.now()));
+  window.location.replace(url.toString());
 }
 
 /**
@@ -11,6 +40,12 @@ export function clearAppRefreshFlags() {
  */
 export async function forceAppRefresh({ clearFlags = true } = {}) {
   if (clearFlags) clearAppRefreshFlags();
+
+  if (isLocalDev()) {
+    await clearServiceWorkersAndCaches();
+    cacheBustReload();
+    return;
+  }
 
   try {
     if ('caches' in window) {
@@ -30,5 +65,5 @@ export async function forceAppRefresh({ clearFlags = true } = {}) {
     console.warn('[forceAppRefresh] service worker activation failed:', err);
   }
 
-  window.location.reload();
+  cacheBustReload();
 }
