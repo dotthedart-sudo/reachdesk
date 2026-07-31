@@ -11,9 +11,10 @@ import LogCallModal from './LogCallModal';
 import QuickLogChips from './QuickLogChips';
 import OutcomeBadge from './OutcomeBadge';
 import ResizableTh from '../ResizableTh';
+import ResizableTr from '../ResizableTr';
 import { getTableColumns, CALL_QUEUE_DEFAULT_DEFS } from '../crmTableColumns';
 import { logCallWithUpdates, fetchMyCallAttempts } from '../../../lib/callActivity';
-import { getCallActionForStatus } from '../../../lib/callOutcomeRules';
+import { getCallActionForStatus, displayCallStatus } from '../../../lib/callOutcomeRules';
 import { attemptsByLeadMap, buildOutreachSessionQueue } from '../../../lib/outreachQueue';
 import { formatLocalTime, getEffectiveUserTimeZone } from '../../../lib/dateTime';
 import CallingSession from './CallingSession';
@@ -22,13 +23,18 @@ export default function CallQueueTable({
   columnDefs = [],
   getWidth,
   setWidth,
+  resetWidth,
+  getRowHeight,
+  setRowHeight,
+  resetRowHeight,
   currentUser,
   teamId,
   onOpenLead,
-  onStatusChange,
+  onCallStatusChange,
   onFieldChange,
   onCopied,
   onRefresh,
+  onLeadUpdated,
   onOpenColumnManager,
   showNoteSharing = false,
   suggestionRules = [],
@@ -97,11 +103,17 @@ export default function CallQueueTable({
   const handleLogged = ({ attempt, leadUpdates } = {}) => {
     if (attempt) setAttempts((prev) => [attempt, ...prev]);
     setLogLead(null);
-    if (leadUpdates) {
-      onRefresh?.();
-    } else {
-      onRefresh?.();
+    if (leadUpdates?.id) {
+      onLeadUpdated?.(leadUpdates);
     }
+  };
+
+  const handleCallStatusChange = async (leadId, newStatus) => {
+    const result = await onCallStatusChange?.(leadId, newStatus);
+    if (result?.attempt) {
+      setAttempts((prev) => [result.attempt, ...prev]);
+    }
+    return result;
   };
 
   const handleQuickLog = async (lead, outcome) => {
@@ -148,15 +160,17 @@ export default function CallQueueTable({
       case 'status':
         return (
           <GroupedStatusDropdown
-            value={lead.status || 'Lead'}
-            onChange={(val) => onStatusChange?.(lead.id, val)}
+            channel="calls"
+            value={displayCallStatus(lead.call_status)}
+            onChange={(val) => handleCallStatusChange(lead.id, val)}
             isTableInline
             onUpdate={onRefresh}
           />
         );
       case 'call_action': {
+        const callStatusLabel = displayCallStatus(lead.call_status);
         const expected = suggestionsEnabled
-          ? getCallActionForStatus(lead.status, userId, suggestionRules)
+          ? getCallActionForStatus(callStatusLabel, userId, suggestionRules)
           : null;
         const isMismatch = expected && lead.call_action !== expected;
 
@@ -281,7 +295,7 @@ export default function CallQueueTable({
       </div>
 
       <div style={{ overflowX: 'auto' }}>
-        <table className="data-table" style={{ width: '100%' }}>
+        <table className="data-table data-table--resizable" style={{ width: '100%' }}>
           <thead>
             <tr>
               {tableCols.map((col) => (
@@ -290,6 +304,7 @@ export default function CallQueueTable({
                   columnKey={col.column_key}
                   width={getWidth?.(col.column_key) || 130}
                   onResize={setWidth}
+                  onReset={resetWidth}
                 >
                   {col.column_label}
                 </ResizableTh>
@@ -309,8 +324,12 @@ export default function CallQueueTable({
               const interactiveKeys = new Set(['status', 'call_action', 'priority', 'phone', '_actions']);
 
               return (
-                <tr
+                <ResizableTr
                   key={lead.id}
+                  rowKey={lead.id}
+                  height={getRowHeight?.(lead.id) || 44}
+                  onResize={setRowHeight}
+                  onReset={resetRowHeight}
                   style={{ cursor: 'pointer' }}
                   onClick={() => onOpenLead?.(lead, 'calls')}
                 >
@@ -323,7 +342,7 @@ export default function CallQueueTable({
                       {renderCell(col, lead, last, attemptList)}
                     </td>
                   ))}
-                </tr>
+                </ResizableTr>
               );
             })}
           </tbody>

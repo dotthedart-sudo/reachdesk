@@ -2,6 +2,7 @@ import React, { useEffect, useState } from 'react';
 import { Phone, SkipForward, PhoneCall, AlertCircle } from 'lucide-react';
 import { leadDisplayName } from '../../../lib/outreachQueue';
 import { logCallWithUpdates, fetchRecentCallsOnLead } from '../../../lib/callActivity';
+import { displayCallStatus } from '../../../lib/callOutcomeRules';
 import CallWindowBadge from '../CallWindowBadge';
 import { getLeadLocalTime } from '../../../lib/leadTimezone';
 import LogCallModal from './LogCallModal';
@@ -131,7 +132,7 @@ export default function CallingSession({
             </a>
           )}
           {lead.email && <span>{lead.email}</span>}
-          {lead.status && <span>Status: {lead.status}</span>}
+          {displayCallStatus(lead.call_status) && <span>Call status: {displayCallStatus(lead.call_status)}</span>}
           {lead.call_action && <span>Next: {lead.call_action}</span>}
         </div>
       </div>

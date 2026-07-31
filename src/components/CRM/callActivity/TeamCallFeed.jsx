@@ -1,9 +1,23 @@
-import React, { useMemo, useState } from 'react';
+import React, { useMemo } from 'react';
 import { ChevronRight } from 'lucide-react';
 import { CALL_OUTCOMES, leadDisplayName, computeNextFollowUp } from '../../../lib/outreachQueue';
 import { formatActivityDateTime } from '../../../lib/dateTime';
 import OutcomeBadge from './OutcomeBadge';
 import MemberActivityFilter from './MemberActivityFilter';
+import ResizableTh from '../ResizableTh';
+import ResizableTr from '../ResizableTr';
+import { useCrmTableLayout } from '../useCrmTableLayout';
+import '../DataTableEnhancements.css';
+
+const COLS = [
+  { key: 'when', label: 'When' },
+  { key: 'member', label: 'Member' },
+  { key: 'lead', label: 'Lead' },
+  { key: 'outcome', label: 'Outcome' },
+  { key: 'note', label: 'Note' },
+  { key: 'followup', label: 'Follow-up' },
+  { key: '_actions', label: '' },
+];
 
 export default function TeamCallFeed({
   rows = [],
@@ -16,6 +30,9 @@ export default function TeamCallFeed({
   onOpenLead,
   canViewTeam = true,
 }) {
+  const { getWidth, setWidth, resetWidth, getRowHeight, setRowHeight, resetRowHeight } =
+    useCrmTableLayout('team_call_feed');
+
   const enriched = useMemo(() => {
     return rows.map((row) => ({
       ...row,
@@ -73,51 +90,63 @@ export default function TeamCallFeed({
         </div>
       ) : (
         <div style={{ overflowX: 'auto', border: '1px solid var(--border-color)', borderRadius: 6 }}>
-          <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '0.875rem' }}>
+          <table className="data-table data-table--resizable" style={{ width: '100%', borderCollapse: 'collapse', fontSize: '0.875rem' }}>
             <thead>
               <tr style={{ background: 'var(--bg-tertiary)', textAlign: 'left' }}>
-                <th style={{ padding: '0.65rem 0.75rem', fontWeight: 600 }}>When</th>
-                <th style={{ padding: '0.65rem 0.75rem', fontWeight: 600 }}>Member</th>
-                <th style={{ padding: '0.65rem 0.75rem', fontWeight: 600 }}>Lead</th>
-                <th style={{ padding: '0.65rem 0.75rem', fontWeight: 600 }}>Outcome</th>
-                <th style={{ padding: '0.65rem 0.75rem', fontWeight: 600 }}>Note</th>
-                <th style={{ padding: '0.65rem 0.75rem', fontWeight: 600 }}>Follow-up</th>
-                <th style={{ padding: '0.65rem 0.75rem', fontWeight: 600 }} />
+                {COLS.map((col) => (
+                  <ResizableTh
+                    key={col.key}
+                    columnKey={col.key}
+                    width={getWidth(col.key)}
+                    onResize={setWidth}
+                    onReset={resetWidth}
+                    style={{ padding: '0.65rem 0.75rem', fontWeight: 600 }}
+                  >
+                    {col.label}
+                  </ResizableTh>
+                ))}
               </tr>
             </thead>
             <tbody>
               {enriched.map((row) => (
-                <tr key={row.id} style={{ borderTop: '1px solid var(--border-color)' }}>
-                  <td style={{ padding: '0.65rem 0.75rem', whiteSpace: 'nowrap' }}>
+                <ResizableTr
+                  key={row.id}
+                  rowKey={row.id}
+                  height={getRowHeight(row.id)}
+                  onResize={setRowHeight}
+                  onReset={resetRowHeight}
+                  style={{ borderTop: '1px solid var(--border-color)' }}
+                >
+                  <td style={{ padding: '0.65rem 0.75rem', whiteSpace: 'nowrap', width: getWidth('when'), minWidth: getWidth('when'), maxWidth: getWidth('when') }}>
                     {formatActivityDateTime(row.created_at, { showZone: true })}
                   </td>
-                  <td style={{ padding: '0.65rem 0.75rem' }}>{row.caller_name || row.caller_email || '—'}</td>
+                  <td style={{ padding: '0.65rem 0.75rem', width: getWidth('member'), minWidth: getWidth('member'), maxWidth: getWidth('member') }}>{row.caller_name || row.caller_email || '—'}</td>
                   <td
-                    style={{ padding: '0.65rem 0.75rem', cursor: 'pointer' }}
+                    style={{ padding: '0.65rem 0.75rem', cursor: 'pointer', width: getWidth('lead'), minWidth: getWidth('lead'), maxWidth: getWidth('lead') }}
                     onClick={() => onOpenLead?.(row.lead, 'calls')}
                   >
                     <div style={{ fontWeight: 600 }}>{leadDisplayName(row.lead)}</div>
                     <div style={{ fontSize: '0.75rem', color: 'var(--text-muted)' }}>{row.lead.company || row.lead.phone || '—'}</div>
                   </td>
-                  <td style={{ padding: '0.65rem 0.75rem' }}>
+                  <td style={{ padding: '0.65rem 0.75rem', width: getWidth('outcome'), minWidth: getWidth('outcome'), maxWidth: getWidth('outcome') }}>
                     <OutcomeBadge outcome={row.outcome} />
                   </td>
-                  <td style={{ padding: '0.65rem 0.75rem', maxWidth: 200, color: 'var(--text-secondary)' }}>
+                  <td style={{ padding: '0.65rem 0.75rem', color: 'var(--text-secondary)', width: getWidth('note'), minWidth: getWidth('note'), maxWidth: getWidth('note') }}>
                     {!row.note_visible && row.note == null ? (
                       <span style={{ fontStyle: 'italic', color: 'var(--text-muted)' }}>(private)</span>
                     ) : (
                       row.note || '—'
                     )}
                   </td>
-                  <td style={{ padding: '0.65rem 0.75rem' }}>
+                  <td style={{ padding: '0.65rem 0.75rem', width: getWidth('followup'), minWidth: getWidth('followup'), maxWidth: getWidth('followup') }}>
                     {row.nextFollowUp ? row.nextFollowUp.toLocaleDateString() : '—'}
                   </td>
-                  <td style={{ padding: '0.65rem 0.75rem', textAlign: 'right' }}>
+                  <td style={{ padding: '0.65rem 0.75rem', textAlign: 'right', width: getWidth('_actions'), minWidth: getWidth('_actions'), maxWidth: getWidth('_actions') }}>
                     <button type="button" className="btn-icon" onClick={() => onOpenLead?.(row.lead, 'calls')}>
                       <ChevronRight size={16} style={{ color: 'var(--text-muted)' }} />
                     </button>
                   </td>
-                </tr>
+                </ResizableTr>
               ))}
             </tbody>
           </table>

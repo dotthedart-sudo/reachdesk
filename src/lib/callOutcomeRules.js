@@ -1,26 +1,72 @@
-/** Default mappings from call outcome → lead status + call_action. User overrides in localStorage. */
+/** Default mappings from call outcome / call status → call_status + call_action + priority. User overrides in localStorage. */
 
 import { supabase } from './supabase';
+import { CALL_OUTCOMES } from './outreachQueue';
+
+export const DEFAULT_CALL_STATUSES = [
+  { label: 'Not called', color: '#3b82f6' },
+  { label: 'No answer', color: '#6b7280' },
+  { label: 'Busy', color: '#f59e0b' },
+  { label: 'Voicemail left', color: '#8b5cf6' },
+  { label: 'Answered', color: '#10b981' },
+  { label: 'Callback requested', color: '#06b6d4' },
+  { label: 'Interested', color: '#22c55e' },
+  { label: 'Meeting booked', color: '#ec4899' },
+  { label: 'Wrong number', color: '#ef4444' },
+  { label: 'Not interested', color: '#64748b' },
+];
 
 export const DEFAULT_CALL_OUTCOME_RULES = [
-  { outcome: 'Voicemail Left', suggested_status: 'Voice Mail sent', suggested_call_action: 'Try again tomorrow' },
-  { outcome: 'No Answer', suggested_status: null, suggested_call_action: 'Try again tomorrow' },
-  { outcome: 'Busy', suggested_status: null, suggested_call_action: 'Try again tomorrow' },
-  { outcome: 'Answered', suggested_status: 'Contacted', suggested_call_action: 'Callback scheduled' },
-  { outcome: 'Callback Requested', suggested_status: null, suggested_call_action: 'Callback scheduled' },
-  { outcome: 'Not Interested', suggested_status: 'Not Interested', suggested_call_action: 'Not interested — close' },
-  { outcome: 'Wrong Number', suggested_status: null, suggested_call_action: 'Wrong number — remove' },
+  { outcome: 'Voicemail Left', suggested_call_status: 'Voicemail left', suggested_call_action: 'Try again tomorrow', suggested_priority: 'Cold' },
+  { outcome: 'No Answer', suggested_call_status: 'No answer', suggested_call_action: 'Try again tomorrow', suggested_priority: 'Cold' },
+  { outcome: 'Busy', suggested_call_status: 'Busy', suggested_call_action: 'Try again tomorrow', suggested_priority: 'Cold' },
+  { outcome: 'Answered', suggested_call_status: 'Answered', suggested_call_action: 'Callback scheduled', suggested_priority: 'Warm' },
+  { outcome: 'Callback Requested', suggested_call_status: 'Callback requested', suggested_call_action: 'Callback scheduled', suggested_priority: 'Warm' },
+  { outcome: 'Not Interested', suggested_call_status: 'Not interested', suggested_call_action: 'Not interested — close', suggested_priority: 'Cold' },
+  { outcome: 'Wrong Number', suggested_call_status: 'Wrong number', suggested_call_action: 'Wrong number — remove', suggested_priority: 'Cold' },
 ];
 
 export const DEFAULT_CALL_STATUS_RULES = [
-  { status: 'Lead', suggested_call_action: 'Call now' },
-  { status: 'Contacted', suggested_call_action: 'Callback scheduled' },
-  { status: 'Voice Mail sent', suggested_call_action: 'Try again tomorrow' },
-  { status: 'Not Interested', suggested_call_action: 'Not interested — close' },
+  { status: 'Not called', suggested_call_action: 'Call now', suggested_priority: 'Cold' },
+  { status: 'No answer', suggested_call_action: 'Try again tomorrow', suggested_priority: 'Cold' },
+  { status: 'Busy', suggested_call_action: 'Try again tomorrow', suggested_priority: 'Cold' },
+  { status: 'Voicemail left', suggested_call_action: 'Try again tomorrow', suggested_priority: 'Cold' },
+  { status: 'Answered', suggested_call_action: 'Callback scheduled', suggested_priority: 'Warm' },
+  { status: 'Callback requested', suggested_call_action: 'Callback scheduled', suggested_priority: 'Warm' },
+  { status: 'Interested', suggested_call_action: 'Send info by email', suggested_priority: 'Hot' },
+  { status: 'Meeting booked', suggested_call_action: 'No call needed', suggested_priority: 'Hot' },
+  { status: 'Wrong number', suggested_call_action: 'Wrong number — remove', suggested_priority: 'Cold' },
+  { status: 'Not interested', suggested_call_action: 'Not interested — close', suggested_priority: 'Cold' },
 ];
 
 const OUTCOME_RULES_KEY = (userId) => `crm_call_outcome_rules_${userId}`;
 const STATUS_RULES_KEY = (userId) => `crm_call_status_rules_${userId}`;
+
+const CALL_STATUS_TO_OUTCOME = {
+  'no answer': 'No Answer',
+  busy: 'Busy',
+  'voicemail left': 'Voicemail Left',
+  answered: 'Answered',
+  'callback requested': 'Callback Requested',
+  'not interested': 'Not Interested',
+  'wrong number': 'Wrong Number',
+};
+
+function normalize(val) {
+  if (!val) return '';
+  return val.trim().toLowerCase().replace(/_/g, ' ');
+}
+
+function normalizeCallStatus(val) {
+  return normalize(val || 'Not called');
+}
+
+function migrateOutcomeRule(rule) {
+  if (!rule) return rule;
+  if (rule.suggested_call_status) return rule;
+  if (!rule.suggested_status) return rule;
+  return { ...rule, suggested_call_status: rule.suggested_status, suggested_status: undefined };
+}
 
 export function loadCallOutcomeRules(userId) {
   if (!userId) return [...DEFAULT_CALL_OUTCOME_RULES];
@@ -28,7 +74,8 @@ export function loadCallOutcomeRules(userId) {
     const raw = localStorage.getItem(OUTCOME_RULES_KEY(userId));
     if (!raw) return [...DEFAULT_CALL_OUTCOME_RULES];
     const parsed = JSON.parse(raw);
-    return Array.isArray(parsed) && parsed.length > 0 ? parsed : [...DEFAULT_CALL_OUTCOME_RULES];
+    if (!Array.isArray(parsed) || parsed.length === 0) return [...DEFAULT_CALL_OUTCOME_RULES];
+    return parsed.map(migrateOutcomeRule);
   } catch {
     return [...DEFAULT_CALL_OUTCOME_RULES];
   }
@@ -56,20 +103,15 @@ export function saveCallStatusRules(userId, rules) {
   localStorage.setItem(STATUS_RULES_KEY(userId), JSON.stringify(rules));
 }
 
-function normalize(val) {
-  if (!val) return '';
-  return val.trim().toLowerCase().replace(/_/g, ' ');
-}
-
 export function getOutcomeMapping(outcome, userId, dbRules = []) {
   const custom = loadCallOutcomeRules(userId);
   const fromCustom = custom.find((r) => r.outcome === outcome);
-  if (fromCustom) return fromCustom;
+  if (fromCustom) return migrateOutcomeRule(fromCustom);
 
   const fromDb = (dbRules || []).find((r) => r.outcome === outcome);
-  if (fromDb) return fromDb;
+  if (fromDb) return migrateOutcomeRule(fromDb);
 
-  return DEFAULT_CALL_OUTCOME_RULES.find((r) => r.outcome === outcome) || null;
+  return migrateOutcomeRule(DEFAULT_CALL_OUTCOME_RULES.find((r) => r.outcome === outcome) || null);
 }
 
 export function getCallActionForStatus(status, userId, suggestionRules = []) {
@@ -89,11 +131,44 @@ export function getCallActionForStatus(status, userId, suggestionRules = []) {
   return fallback?.suggested_call_action || null;
 }
 
+export function getPriorityForCallStatus(status, userId) {
+  if (!status) return null;
+
+  const custom = loadCallStatusRules(userId);
+  const fromCustom = custom.find((r) => normalize(r.status) === normalize(status));
+  if (fromCustom?.suggested_priority) return fromCustom.suggested_priority;
+
+  const fallback = DEFAULT_CALL_STATUS_RULES.find((r) => normalize(r.status) === normalize(status));
+  return fallback?.suggested_priority || null;
+}
+
+export function getCallStatusPatch(callStatus, userId) {
+  const patch = { call_status: callStatus };
+  const action = getCallActionForStatus(callStatus, userId);
+  const priority = getPriorityForCallStatus(callStatus, userId);
+  if (action) patch.call_action = action;
+  if (priority) patch.priority = priority;
+  return patch;
+}
+
+export function outcomeForCallStatus(callStatus) {
+  const key = normalize(callStatus);
+  if (CALL_STATUS_TO_OUTCOME[key]) return CALL_STATUS_TO_OUTCOME[key];
+  const match = CALL_OUTCOMES.find((o) => normalize(o) === key);
+  return match || callStatus;
+}
+
+export function displayCallStatus(callStatus) {
+  return callStatus || 'Not called';
+}
+
 export async function applyOutcomeToLead(leadId, outcome, userId, customOutcomeRules = null) {
   const mapping = getOutcomeMapping(outcome, userId, customOutcomeRules);
   const patch = {};
-  if (mapping?.suggested_status) patch.status = mapping.suggested_status;
+  const callStatus = mapping?.suggested_call_status ?? mapping?.suggested_status;
+  if (callStatus) patch.call_status = callStatus;
   if (mapping?.suggested_call_action) patch.call_action = mapping.suggested_call_action;
+  if (mapping?.suggested_priority) patch.priority = mapping.suggested_priority;
 
   if (Object.keys(patch).length === 0) return null;
 
@@ -106,3 +181,17 @@ export async function applyOutcomeToLead(leadId, outcome, userId, customOutcomeR
   if (error) throw error;
   return data;
 }
+
+export async function applyCallStatusToLead(leadId, callStatus, userId) {
+  const patch = getCallStatusPatch(callStatus, userId);
+  const { data, error } = await supabase
+    .from('leads')
+    .update(patch)
+    .eq('id', leadId)
+    .select('*')
+    .single();
+  if (error) throw error;
+  return data;
+}
+
+export { normalizeCallStatus };

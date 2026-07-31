@@ -132,7 +132,7 @@ export default function AutomationsPanel({
           <div style={{ borderTop: '1px solid var(--border)', margin: '0.75rem 0', paddingTop: '0.75rem' }}>
             <span style={{ fontWeight: 600, fontSize: '0.9rem', display: 'block', marginBottom: '0.25rem' }}>Call outcome rules</span>
             <span style={{ fontSize: '0.8rem', color: 'var(--text-muted)', display: 'block', marginBottom: '0.75rem' }}>
-              When you log a call, Reachdesk can auto-update status and call next step. Customize mappings below.
+              When you log a call, Reachdesk can auto-update call status and call next step. Customize mappings below.
             </span>
             <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
               {callOutcomeRules.map((rule, idx) => (
@@ -154,11 +154,15 @@ export default function AutomationsPanel({
                   <input
                     type="text"
                     className="form-input"
-                    placeholder="Status (optional)"
-                    value={rule.suggested_status || ''}
+                    placeholder="Call status (optional)"
+                    value={rule.suggested_call_status || rule.suggested_status || ''}
                     onChange={(e) => {
                       const next = [...callOutcomeRules];
-                      next[idx] = { ...next[idx], suggested_status: e.target.value || null };
+                      next[idx] = {
+                        ...next[idx],
+                        suggested_call_status: e.target.value || null,
+                        suggested_status: undefined,
+                      };
                       setCallOutcomeRules(next);
                     }}
                     disabled={automationSaving}
@@ -190,9 +194,9 @@ export default function AutomationsPanel({
           </div>
 
           <div style={{ borderTop: '1px solid var(--border)', margin: '0.75rem 0', paddingTop: '0.75rem' }}>
-            <span style={{ fontWeight: 600, fontSize: '0.9rem', display: 'block', marginBottom: '0.25rem' }}>Status → call next step</span>
+            <span style={{ fontWeight: 600, fontSize: '0.9rem', display: 'block', marginBottom: '0.25rem' }}>Call status → call next step</span>
             <span style={{ fontSize: '0.8rem', color: 'var(--text-muted)', display: 'block', marginBottom: '0.75rem' }}>
-              Suggested call action shown as a lightbulb in Call Queue when status changes.
+              Suggested call action shown as a lightbulb in Call Queue when call status changes.
             </span>
             <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
               {callStatusRules.map((rule, idx) => (
@@ -200,7 +204,7 @@ export default function AutomationsPanel({
                   <input
                     type="text"
                     className="form-input"
-                    placeholder="Lead status"
+                    placeholder="Call status"
                     value={rule.status}
                     onChange={(e) => {
                       const next = [...callStatusRules];

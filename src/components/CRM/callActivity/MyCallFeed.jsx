@@ -10,6 +10,19 @@ import {
 import CallWindowBadge from '../CallWindowBadge';
 import OutcomeBadge from './OutcomeBadge';
 import EditCallAttemptModal from './EditCallAttemptModal';
+import ResizableTh from '../ResizableTh';
+import ResizableTr from '../ResizableTr';
+import { useCrmTableLayout } from '../useCrmTableLayout';
+import '../DataTableEnhancements.css';
+
+const COLS = [
+  { key: 'lead', label: 'Lead' },
+  { key: 'local_time', label: 'Local time' },
+  { key: 'outcome', label: 'Last outcome' },
+  { key: 'attempts', label: 'Attempts' },
+  { key: 'followup', label: 'Next follow-up' },
+  { key: '_actions', label: '' },
+];
 
 export default function MyCallFeed({
   leads = [],
@@ -27,24 +40,20 @@ export default function MyCallFeed({
   const [filter, setFilter] = useState('all');
   const [sort, setSort] = useState('recent');
   const [editAttempt, setEditAttempt] = useState(null);
+  const { getWidth, setWidth, resetWidth, getRowHeight, setRowHeight, resetRowHeight } =
+    useCrmTableLayout('my_call_feed');
 
   const attemptsByLead = useMemo(() => {
     const map = new Map();
-    for (const attempt of attempts) {
-      if (!map.has(attempt.lead_id)) map.set(attempt.lead_id, []);
-      map.get(attempt.lead_id).push(attempt);
+    for (const a of attempts) {
+      if (!map.has(a.lead_id)) map.set(a.lead_id, []);
+      map.get(a.lead_id).push(a);
     }
-    for (const [, list] of map) {
+    for (const list of map.values()) {
       list.sort((a, b) => new Date(b.created_at) - new Date(a.created_at));
     }
     return map;
   }, [attempts]);
-
-  const leadMap = useMemo(() => {
-    const m = new Map();
-    for (const l of leads) m.set(l.id, l);
-    return m;
-  }, [leads]);
 
   const rows = useMemo(() => {
     const today = startOfToday(userTimeZone);
@@ -131,12 +140,12 @@ export default function MyCallFeed({
 
   return (
     <>
-      <div style={{ display: 'flex', gap: '0.75rem', flexWrap: 'wrap', alignItems: 'center' }}>
+      <div style={{ display: 'flex', gap: '0.75rem', flexWrap: 'wrap', alignItems: 'center', marginBottom: '0.75rem' }}>
         <label style={{ fontSize: '0.8rem', color: 'var(--text-muted)', display: 'flex', alignItems: 'center', gap: '0.4rem' }}>
           Filter
           <select className="form-input" style={{ width: 'auto', minWidth: 160 }} value={filter} onChange={(e) => setFilter(e.target.value)}>
-            <option value="all">All</option>
-            <option value="needs_followup">Needs Follow-up Today</option>
+            <option value="all">All with calls</option>
+            <option value="needs_followup">Needs follow-up</option>
             {CALL_OUTCOMES.map((o) => (
               <option key={o} value={`outcome:${o}`}>{o}</option>
             ))}
@@ -154,25 +163,35 @@ export default function MyCallFeed({
       </div>
 
       <div style={{ overflowX: 'auto', border: '1px solid var(--border-color)', borderRadius: 6 }}>
-        <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '0.875rem' }}>
+        <table className="data-table data-table--resizable" style={{ width: '100%', borderCollapse: 'collapse', fontSize: '0.875rem' }}>
           <thead>
             <tr style={{ background: 'var(--bg-tertiary)', textAlign: 'left' }}>
-              <th style={{ padding: '0.65rem 0.75rem', fontWeight: 600 }}>Lead</th>
-              <th style={{ padding: '0.65rem 0.75rem', fontWeight: 600 }}>Local time</th>
-              <th style={{ padding: '0.65rem 0.75rem', fontWeight: 600 }}>Last outcome</th>
-              <th style={{ padding: '0.65rem 0.75rem', fontWeight: 600 }}>Attempts</th>
-              <th style={{ padding: '0.65rem 0.75rem', fontWeight: 600 }}>Next follow-up</th>
-              <th style={{ padding: '0.65rem 0.75rem', fontWeight: 600 }} />
+              {COLS.map((col) => (
+                <ResizableTh
+                  key={col.key}
+                  columnKey={col.key}
+                  width={getWidth(col.key)}
+                  onResize={setWidth}
+                  onReset={resetWidth}
+                  style={{ padding: '0.65rem 0.75rem', fontWeight: 600 }}
+                >
+                  {col.label}
+                </ResizableTh>
+              ))}
             </tr>
           </thead>
           <tbody>
             {rows.map((row) => (
-              <tr
+              <ResizableTr
                 key={row.lead.id}
+                rowKey={row.lead.id}
+                height={getRowHeight(row.lead.id)}
+                onResize={setRowHeight}
+                onReset={resetRowHeight}
                 style={{ borderTop: '1px solid var(--border-color)' }}
               >
                 <td
-                  style={{ padding: '0.65rem 0.75rem', cursor: 'pointer' }}
+                  style={{ padding: '0.65rem 0.75rem', cursor: 'pointer', width: getWidth('lead'), minWidth: getWidth('lead'), maxWidth: getWidth('lead') }}
                   onClick={() => onOpenLead?.(row.lead, 'calls')}
                 >
                   <div style={{ fontWeight: 600 }}>{leadDisplayName(row.lead)}</div>
@@ -180,20 +199,20 @@ export default function MyCallFeed({
                     {row.lead.phone || row.lead.email || '—'}
                   </div>
                 </td>
-                <td style={{ padding: '0.65rem 0.75rem' }}>
+                <td style={{ padding: '0.65rem 0.75rem', width: getWidth('local_time'), minWidth: getWidth('local_time'), maxWidth: getWidth('local_time') }}>
                   <CallWindowBadge lead={row.lead} defaultCountryCode={defaultCountryCode} showLocalTime />
                 </td>
-                <td style={{ padding: '0.65rem 0.75rem' }}>
+                <td style={{ padding: '0.65rem 0.75rem', width: getWidth('outcome'), minWidth: getWidth('outcome'), maxWidth: getWidth('outcome') }}>
                   <OutcomeBadge outcome={row.lastOutcome} />
                 </td>
-                <td style={{ padding: '0.65rem 0.75rem' }}>{row.attemptCount}</td>
-                <td style={{ padding: '0.65rem 0.75rem', color: row.needsFollowUpToday ? 'var(--status-hot)' : 'var(--text-secondary)' }}>
+                <td style={{ padding: '0.65rem 0.75rem', width: getWidth('attempts'), minWidth: getWidth('attempts'), maxWidth: getWidth('attempts') }}>{row.attemptCount}</td>
+                <td style={{ padding: '0.65rem 0.75rem', color: row.needsFollowUpToday ? 'var(--status-hot)' : 'var(--text-secondary)', width: getWidth('followup'), minWidth: getWidth('followup'), maxWidth: getWidth('followup') }}>
                   {row.nextFollowUp ? row.nextFollowUp.toLocaleDateString() : '—'}
                   {row.needsFollowUpToday && (
                     <span style={{ display: 'block', fontSize: '0.7rem', fontWeight: 600 }}>Due today</span>
                   )}
                 </td>
-                <td style={{ padding: '0.65rem 0.75rem', textAlign: 'right' }}>
+                <td style={{ padding: '0.65rem 0.75rem', textAlign: 'right', width: getWidth('_actions'), minWidth: getWidth('_actions'), maxWidth: getWidth('_actions') }}>
                   <div style={{ display: 'flex', gap: '0.25rem', justifyContent: 'flex-end' }}>
                     {canEdit(row.lastAttempt) && (
                       <>
@@ -218,7 +237,7 @@ export default function MyCallFeed({
                     </button>
                   </div>
                 </td>
-              </tr>
+              </ResizableTr>
             ))}
           </tbody>
         </table>

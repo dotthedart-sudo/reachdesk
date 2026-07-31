@@ -3,11 +3,15 @@ import {
   FileSpreadsheet, Sparkles, ChevronRight,
 } from 'lucide-react';
 import ListRowMenu from './ListRowMenu';
+import ResizableTh from './ResizableTh';
+import ResizableTr from './ResizableTr';
+import { useCrmTableLayout } from './useCrmTableLayout';
+import './DataTableEnhancements.css';
 
-function SectionHeader({ title }) {
+function SectionHeader({ title, colSpan = 4 }) {
   return (
     <tr className="crm-lists-table-section">
-      <td colSpan={4}>{title}</td>
+      <td colSpan={colSpan}>{title}</td>
     </tr>
   );
 }
@@ -40,18 +44,31 @@ function ListRow({
   canExportSheets = false,
   showLocalTime = false,
   onToggleLocalTime,
+  rowKey,
+  height,
+  onResizeRow,
+  onResetRow,
+  getWidth,
 }) {
   const dateLine = formatListDate(createdAt);
+  const w = (key) => {
+    const width = getWidth?.(key);
+    return width ? { width, minWidth: width, maxWidth: width } : undefined;
+  };
 
   return (
-    <tr
+    <ResizableTr
       className="crm-lists-table-row"
+      rowKey={rowKey}
+      height={height}
+      onResize={onResizeRow}
+      onReset={onResetRow}
       onClick={onClick}
       role="button"
       tabIndex={0}
       onKeyDown={(e) => e.key === 'Enter' && onClick()}
     >
-      <td className="crm-lists-table-name">
+      <td className="crm-lists-table-name" style={w('list_name')}>
         <span className="crm-lists-table-icon" style={{ color: iconColor || 'var(--accent-blue)' }}>
           <Icon size={18} />
         </span>
@@ -62,13 +79,13 @@ function ListRow({
           )}
         </span>
       </td>
-      <td className="crm-lists-table-type">
+      <td className="crm-lists-table-type" style={w('type')}>
         <span className={`crm-lists-table-type-pill crm-lists-table-type-pill--${typeVariant}`}>
           {typeLabel}
         </span>
       </td>
-      <td className="crm-lists-table-count">{count}</td>
-      <td className="crm-lists-table-actions">
+      <td className="crm-lists-table-count" style={w('leads_count')}>{count}</td>
+      <td className="crm-lists-table-actions" style={w('_actions')}>
         <ListRowMenu
           onOpen={onClick}
           onRename={onRename}
@@ -82,7 +99,7 @@ function ListRow({
         />
         <ChevronRight size={16} className="crm-lists-table-chevron" aria-hidden />
       </td>
-    </tr>
+    </ResizableTr>
   );
 }
 
@@ -100,6 +117,9 @@ export default function ListsTableView({
   getFolderSettings,
   onToggleFolderLocalTime,
 }) {
+  const { getWidth, setWidth, resetWidth, getRowHeight, setRowHeight, resetRowHeight } =
+    useCrmTableLayout('lists_home');
+
   const hasOwnedLists = folders.length > 0 || userFolders.length > 0;
 
   if (!hasOwnedLists) {
@@ -112,13 +132,21 @@ export default function ListsTableView({
 
   return (
     <div className="crm-lists-table-wrap">
-      <table className="crm-lists-table">
+      <table className="crm-lists-table data-table--resizable">
         <thead>
           <tr>
-            <th>Name</th>
-            <th>Type</th>
-            <th>Leads</th>
-            <th aria-label="Actions" />
+            <ResizableTh columnKey="list_name" width={getWidth('list_name')} onResize={setWidth} onReset={resetWidth}>
+              Name
+            </ResizableTh>
+            <ResizableTh columnKey="type" width={getWidth('type')} onResize={setWidth} onReset={resetWidth}>
+              Type
+            </ResizableTh>
+            <ResizableTh columnKey="leads_count" width={getWidth('leads_count')} onResize={setWidth} onReset={resetWidth}>
+              Leads
+            </ResizableTh>
+            <ResizableTh columnKey="_actions" width={getWidth('_actions')} onResize={setWidth} onReset={resetWidth} aria-label="Actions">
+              {' '}
+            </ResizableTh>
           </tr>
         </thead>
         <tbody>
@@ -128,6 +156,11 @@ export default function ListsTableView({
               {folders.map((f) => (
                 <ListRow
                   key={f.id}
+                  rowKey={f.id}
+                  height={getRowHeight(f.id)}
+                  onResizeRow={setRowHeight}
+                  onResetRow={resetRowHeight}
+                  getWidth={getWidth}
                   icon={FileSpreadsheet}
                   iconColor={f.color}
                   name={f.name}
@@ -155,6 +188,11 @@ export default function ListsTableView({
               {userFolders.map((uf) => (
                 <ListRow
                   key={uf.id}
+                  rowKey={uf.id}
+                  height={getRowHeight(uf.id)}
+                  onResizeRow={setRowHeight}
+                  onResetRow={resetRowHeight}
+                  getWidth={getWidth}
                   icon={Sparkles}
                   iconColor="var(--accent-blue)"
                   name={uf.name}

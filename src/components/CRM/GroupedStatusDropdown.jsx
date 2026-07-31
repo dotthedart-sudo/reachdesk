@@ -2,6 +2,7 @@ import React, { useState, useRef, useEffect } from 'react';
 import { createPortal } from 'react-dom';
 import { Search, ChevronDown, Pencil, Plus, Trash2, Check, X } from 'lucide-react';
 import { supabase } from '../../lib/supabase';
+import { DEFAULT_CALL_STATUSES as CALL_STATUS_DEFAULTS } from '../../lib/callOutcomeRules';
 
 const PRESET_COLORS = [
   '#8B949E', // Gray
@@ -15,7 +16,7 @@ const PRESET_COLORS = [
   '#6B7280'  // Slate Gray
 ];
 
-const DEFAULT_STATUSES = [
+export const DEFAULT_STATUSES = [
   { label: 'Lead', color: '#3b82f6' },
   { label: 'Contacted', color: '#f59e0b' },
   { label: 'Positive Reply', color: '#8b5cf6' },
@@ -29,13 +30,33 @@ const DEFAULT_STATUSES = [
   { label: 'Closed Won', color: '#10b981' }
 ];
 
+export const DEFAULT_CALL_STATUSES = CALL_STATUS_DEFAULTS;
+
 const seedingPromises = {};
 
-export default function GroupedStatusDropdown({ value, onChange, isTableInline = false, onUpdate }) {
+function channelDefaults(channel) {
+  return channel === 'calls' ? DEFAULT_CALL_STATUSES : DEFAULT_STATUSES;
+}
+
+function channelFallbackLabel(channel) {
+  return channel === 'calls' ? 'Not called' : 'Lead';
+}
+
+function channelLeadField(channel) {
+  return channel === 'calls' ? 'call_status' : 'status';
+}
+
+export default function GroupedStatusDropdown({
+  value,
+  onChange,
+  isTableInline = false,
+  onUpdate,
+  channel = 'messaging',
+}) {
   const [isOpen, setIsOpen] = useState(false);
   const [isEditing, setIsEditing] = useState(false);
   const [search, setSearch] = useState('');
-  const [statuses, setStatuses] = useState([]);
+  const [statuses, setStatuses] = useState(() => channelDefaults(channel));
   const [userId, setUserId] = useState(null);
   const [dropdownPos, setDropdownPos] = useState({ top: 0, left: 0, width: 220, openUp: false });
 
@@ -46,23 +67,38 @@ export default function GroupedStatusDropdown({ value, onChange, isTableInline =
   const [newLabel, setNewLabel] = useState('');
   const [newColor, setNewColor] = useState(PRESET_COLORS[0]);
 
-  const dropdownRef = useRef(null);
+  const panelRef = useRef(null);
   const triggerRef = useRef(null);
+  const defaults = channelDefaults(channel);
+  const fallbackLabel = channelFallbackLabel(channel);
+  const leadField = channelLeadField(channel);
+  const seedKey = (uid) => `${uid}:${channel}`;
 
   useEffect(() => {
+    if (!isOpen) return undefined;
+
     const handleClickOutside = (e) => {
-      const isInsideTrigger = triggerRef.current && triggerRef.current.contains(e.target);
-      const isInsideDropdown = dropdownRef.current && dropdownRef.current.contains(e.target);
-      if (!isInsideTrigger && !isInsideDropdown) {
+      const inTrigger = triggerRef.current?.contains(e.target);
+      const inPanel = panelRef.current?.contains(e.target);
+      if (!inTrigger && !inPanel) {
         setIsOpen(false);
         setIsEditing(false);
       }
     };
-    document.addEventListener('mousedown', handleClickOutside);
-    return () => document.removeEventListener('mousedown', handleClickOutside);
-  }, []);
 
-  const openDropdown = () => {
+    // Defer so the opening click does not immediately close the panel.
+    const timer = setTimeout(() => {
+      document.addEventListener('mousedown', handleClickOutside);
+    }, 0);
+
+    return () => {
+      clearTimeout(timer);
+      document.removeEventListener('mousedown', handleClickOutside);
+    };
+  }, [isOpen]);
+
+  const openDropdown = (e) => {
+    e?.stopPropagation?.();
     if (triggerRef.current) {
       const rect = triggerRef.current.getBoundingClientRect();
       const dropdownHeight = 320; // max expected height
@@ -80,6 +116,26 @@ export default function GroupedStatusDropdown({ value, onChange, isTableInline =
     setIsEditing(false);
   };
 
+  const dedupeStatuses = (rows) => {
+    const seen = new Set();
+    return (rows || []).filter((d) => {
+      const labelLower = d.label.toLowerCase();
+      if (seen.has(labelLower)) return false;
+      seen.add(labelLower);
+      return true;
+    });
+  };
+
+  const fetchChannelStatuses = async (uid) => {
+    const { data } = await supabase
+      .from('custom_statuses')
+      .select('*')
+      .eq('user_id', uid)
+      .eq('channel', channel)
+      .order('sort_order', { ascending: true });
+    return dedupeStatuses(data);
+  };
+
   // Load user session and custom statuses from Supabase
   const loadStatuses = async () => {
     try {
@@ -88,25 +144,13 @@ export default function GroupedStatusDropdown({ value, onChange, isTableInline =
       const uid = session.user.id;
       setUserId(uid);
 
+      const key = seedKey(uid);
+
       // Lock to prevent concurrent seedings
-      if (seedingPromises[uid]) {
-        await seedingPromises[uid];
-        const { data } = await supabase
-          .from('custom_statuses')
-          .select('*')
-          .eq('user_id', uid)
-          .order('sort_order', { ascending: true });
-        if (data) {
-          // De-duplicate locally just in case
-          const seen = new Set();
-          const unique = data.filter(d => {
-            const labelLower = d.label.toLowerCase();
-            if (seen.has(labelLower)) return false;
-            seen.add(labelLower);
-            return true;
-          });
-          setStatuses(unique);
-        }
+      if (seedingPromises[key]) {
+        await seedingPromises[key];
+        const unique = await fetchChannelStatuses(uid);
+        if (unique.length > 0) setStatuses(unique);
         return;
       }
 
@@ -114,11 +158,17 @@ export default function GroupedStatusDropdown({ value, onChange, isTableInline =
         .from('custom_statuses')
         .select('*')
         .eq('user_id', uid)
+        .eq('channel', channel)
         .order('sort_order', { ascending: true });
 
-      if (!error) {
-        if (data && data.length > 0) {
-          // Self-heal: Clean up duplicates from previous race conditions
+      if (error) {
+        console.warn('Error loading custom statuses:', error);
+        setStatuses(defaults);
+        return;
+      }
+
+      if (data) {
+        if (data.length > 0) {
           const seenLabels = new Set();
           const duplicateIds = [];
           const uniqueData = [];
@@ -138,12 +188,13 @@ export default function GroupedStatusDropdown({ value, onChange, isTableInline =
           }
 
           const existingLabels = new Set(uniqueData.map(d => d.label.toLowerCase()));
-          const missingDefaults = DEFAULT_STATUSES.filter(d => !existingLabels.has(d.label.toLowerCase()));
+          const missingDefaults = defaults.filter(d => !existingLabels.has(d.label.toLowerCase()));
           
           if (missingDefaults.length > 0) {
             const performSeeding = async () => {
               const seedMissing = missingDefaults.map((d, idx) => ({
                 user_id: uid,
+                channel,
                 label: d.label,
                 color: d.color,
                 sort_order: uniqueData.length + idx
@@ -160,18 +211,18 @@ export default function GroupedStatusDropdown({ value, onChange, isTableInline =
               return uniqueData;
             };
 
-            seedingPromises[uid] = performSeeding();
-            const result = await seedingPromises[uid];
-            delete seedingPromises[uid];
+            seedingPromises[key] = performSeeding();
+            const result = await seedingPromises[key];
+            delete seedingPromises[key];
             setStatuses(result);
           } else {
             setStatuses(uniqueData);
           }
         } else {
-          // If custom_statuses is empty, seed it with defaults
           const performInitialSeeding = async () => {
-            const seedData = DEFAULT_STATUSES.map((d, idx) => ({
+            const seedData = defaults.map((d, idx) => ({
               user_id: uid,
+              channel,
               label: d.label,
               color: d.color,
               sort_order: idx
@@ -184,23 +235,25 @@ export default function GroupedStatusDropdown({ value, onChange, isTableInline =
             if (!insertErr && insertedData) {
               return insertedData;
             }
-            return DEFAULT_STATUSES;
+            return defaults;
           };
 
-          seedingPromises[uid] = performInitialSeeding();
-          const result = await seedingPromises[uid];
-          delete seedingPromises[uid];
+          seedingPromises[key] = performInitialSeeding();
+          const result = await seedingPromises[key];
+          delete seedingPromises[key];
           setStatuses(result);
         }
       }
     } catch (err) {
       console.error('Error loading custom statuses:', err);
+      setStatuses(defaults);
     }
   };
 
   useEffect(() => {
+    setStatuses(defaults);
     loadStatuses();
-  }, []);
+  }, [channel]);
 
   const handleSelect = (val) => {
     onChange(val);
@@ -220,6 +273,7 @@ export default function GroupedStatusDropdown({ value, onChange, isTableInline =
         .from('custom_statuses')
         .insert({
           user_id: userId,
+          channel,
           label: newLabel.trim(),
           color: newColor,
           sort_order: statuses.length
@@ -267,13 +321,20 @@ export default function GroupedStatusDropdown({ value, onChange, isTableInline =
         setStatuses(updated);
         setEditingIndex(null);
 
-        // If label changed, update all leads using this status
         if (oldLabel !== newL) {
-          await supabase
-            .from('leads')
-            .update({ status: newL })
-            .eq('user_id', userId)
-            .eq('status', oldLabel);
+          if (channel === 'calls') {
+            await supabase
+              .from('leads')
+              .update({ call_status: newL })
+              .eq('user_id', userId)
+              .eq('call_status', oldLabel);
+          } else {
+            await supabase
+              .from('leads')
+              .update({ status: newL })
+              .eq('user_id', userId)
+              .eq('status', oldLabel);
+          }
         }
         if (onUpdate) onUpdate();
       }
@@ -287,23 +348,32 @@ export default function GroupedStatusDropdown({ value, onChange, isTableInline =
     if (!userId) return;
 
     try {
-      // Check if any leads currently use this status
-      const { count, error } = await supabase
+      const query = supabase
         .from('leads')
         .select('id', { count: 'exact', head: true })
-        .eq('user_id', userId)
-        .eq('status', labelToDelete);
+        .eq('user_id', userId);
+
+      if (channel === 'calls') {
+        query.eq('call_status', labelToDelete);
+      } else {
+        query.eq('status', labelToDelete);
+      }
+
+      const { count, error } = await query;
+
+      const resetValue = channel === 'calls' ? null : fallbackLabel;
+      const resetLabel = channel === 'calls' ? 'Not called' : fallbackLabel;
 
       if (!error && count > 0) {
-        if (!confirm(`Warning: ${count} lead(s) are currently in "${labelToDelete}" status. Deleting this will reassign them to "Lead". Proceed?`)) {
+        if (!confirm(`Warning: ${count} lead(s) are currently in "${labelToDelete}" status. Deleting this will reassign them to "${resetLabel}". Proceed?`)) {
           return;
         }
-        // Reassign leads to 'Lead'
+        const updatePayload = channel === 'calls' ? { call_status: resetValue } : { status: resetValue };
         await supabase
           .from('leads')
-          .update({ status: 'Lead' })
+          .update(updatePayload)
           .eq('user_id', userId)
-          .eq('status', labelToDelete);
+          .eq(leadField, labelToDelete);
       }
 
       const { error: deleteErr } = await supabase
@@ -326,12 +396,14 @@ export default function GroupedStatusDropdown({ value, onChange, isTableInline =
       const { error: delErr } = await supabase
         .from('custom_statuses')
         .delete()
-        .eq('user_id', userId);
+        .eq('user_id', userId)
+        .eq('channel', channel);
 
       if (delErr) throw delErr;
 
-      const seedData = DEFAULT_STATUSES.map((d, idx) => ({
+      const seedData = defaults.map((d, idx) => ({
         user_id: userId,
+        channel,
         label: d.label,
         color: d.color,
         sort_order: idx
@@ -347,7 +419,7 @@ export default function GroupedStatusDropdown({ value, onChange, isTableInline =
       if (insertedData && insertedData.length > 0) {
         setStatuses(insertedData);
       } else {
-        setStatuses(DEFAULT_STATUSES);
+        setStatuses(defaults);
       }
       
       if (onUpdate) onUpdate();
@@ -358,7 +430,8 @@ export default function GroupedStatusDropdown({ value, onChange, isTableInline =
     }
   };
 
-  const currentOpt = statuses.find(opt => opt.label.toLowerCase() === (value || '').toLowerCase()) || { label: value || 'Lead', color: '#8B949E' };
+  const displayValue = value || fallbackLabel;
+  const currentOpt = statuses.find(opt => opt.label.toLowerCase() === displayValue.toLowerCase()) || { label: displayValue, color: '#8B949E' };
 
   const filteredOptions = statuses.filter(opt =>
     opt.label.toLowerCase().includes(search.toLowerCase())
@@ -366,8 +439,9 @@ export default function GroupedStatusDropdown({ value, onChange, isTableInline =
 
   const dropdownPanel = isOpen && createPortal(
     <div
-      ref={dropdownRef}
+      ref={panelRef}
       onClick={e => e.stopPropagation()}
+      onMouseDown={e => e.stopPropagation()}
       style={{
         position: 'fixed',
         top: dropdownPos.openUp ? undefined : dropdownPos.top,
@@ -412,7 +486,7 @@ export default function GroupedStatusDropdown({ value, onChange, isTableInline =
               </div>
             ) : (
               filteredOptions.map(opt => {
-                const isSelected = opt.label.toLowerCase() === (value || '').toLowerCase();
+                const isSelected = opt.label.toLowerCase() === displayValue.toLowerCase();
                 return (
                   <div
                     key={opt.label}
@@ -627,12 +701,13 @@ export default function GroupedStatusDropdown({ value, onChange, isTableInline =
   );
 
   return (
-    <div ref={dropdownRef} style={{ position: 'relative', display: 'inline-block', width: isTableInline ? 'auto' : '100%' }} onClick={e => e.stopPropagation()}>
+    <div style={{ position: 'relative', display: 'inline-block', width: isTableInline ? 'auto' : '100%' }} onClick={e => e.stopPropagation()} onMouseDown={e => e.stopPropagation()}>
       {isTableInline ? (
         <button
           ref={triggerRef}
           type="button"
           onClick={openDropdown}
+          onMouseDown={(e) => e.stopPropagation()}
           style={{
             backgroundColor: `${currentOpt.color}22`,
             color: currentOpt.color,
@@ -658,6 +733,7 @@ export default function GroupedStatusDropdown({ value, onChange, isTableInline =
           ref={triggerRef}
           type="button"
           onClick={openDropdown}
+          onMouseDown={(e) => e.stopPropagation()}
           className="form-input"
           style={{
             display: 'flex',

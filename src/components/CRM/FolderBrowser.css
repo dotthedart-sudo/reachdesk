@@ -304,21 +304,8 @@
   background: var(--bg-tertiary);
 }
 
-.crm-lists-table thead th:nth-child(1) {
-  width: auto;
-}
-
-.crm-lists-table thead th:nth-child(2) {
-  width: 88px;
-}
-
 .crm-lists-table thead th:nth-child(3) {
-  width: 72px;
   text-align: right;
-}
-
-.crm-lists-table thead th:nth-child(4) {
-  width: 72px;
 }
 
 .crm-lists-table-section td {

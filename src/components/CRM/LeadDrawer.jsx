@@ -9,7 +9,7 @@ import RichTextEditor from './RichTextEditor';
 import GroupedStatusDropdown from './GroupedStatusDropdown';
 import GroupedTemplateDropdown from './GroupedTemplateDropdown';
 import { updateLeadStatusAndCheckpoint, getSuggestionForStatus, isClientStatus } from '../../lib/reminders';
-import { getCallActionForStatus } from '../../lib/callOutcomeRules';
+import { getCallActionForStatus, displayCallStatus } from '../../lib/callOutcomeRules';
 import { CALL_ACTION_DEFAULT_OPTIONS } from './crmTableColumns';
 import PriorityDropdown from './PriorityDropdown';
 import DateTimePickerCell from './DateTimePickerCell';
@@ -1107,7 +1107,7 @@ export default function LeadDrawer({
                 <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '0.25rem' }}>
                   <label className="form-label" style={{ margin: 0 }}>Call next step</label>
                   {(() => {
-                    const expected = getCallActionForStatus(formData.status || 'Lead', currentUser?.id, suggestionRules);
+                    const expected = getCallActionForStatus(displayCallStatus(formData.call_status), currentUser?.id, suggestionRules);
                     const val = formData.call_action || '';
                     const isMismatch = currentUser?.suggestions_enabled !== false && expected && val !== expected;
                     if (!isMismatch || !showSuggestion) return null;

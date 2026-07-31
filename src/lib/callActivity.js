@@ -1,7 +1,13 @@
 import { supabase } from './supabase';
 import { PLAN_LIMITS, normalizePlan, getEffectivePlan } from './planConfig';
 import { isActiveTeamMember } from './teamWorkspace';
-import { applyOutcomeToLead } from './callOutcomeRules';
+import {
+  applyOutcomeToLead,
+  applyCallStatusToLead,
+  displayCallStatus,
+  outcomeForCallStatus,
+  normalizeCallStatus,
+} from './callOutcomeRules';
 import { captureDeviceTimestamp } from './dateTime';
 import { logLeadTimelineEvent } from './leadTimeline';
 
@@ -82,14 +88,14 @@ export async function logCallWithUpdates({
   });
 
   let leadUpdates = null;
-  let prevStatus = null;
+  let prevCallStatus = null;
   if (updateLeadFields) {
     const { data: before } = await supabase
       .from('leads')
-      .select('status')
+      .select('call_status')
       .eq('id', leadId)
       .maybeSingle();
-    prevStatus = before?.status ?? null;
+    prevCallStatus = before?.call_status ?? null;
 
     leadUpdates = await applyOutcomeToLead(leadId, outcome, userId, customOutcomeRules);
 
@@ -109,9 +115,11 @@ export async function logCallWithUpdates({
     }
   }
 
-  const statusDelta =
-    leadUpdates?.status && prevStatus && leadUpdates.status !== prevStatus
-      ? { from: prevStatus, to: leadUpdates.status }
+  const prevDisplay = displayCallStatus(prevCallStatus);
+  const nextDisplay = displayCallStatus(leadUpdates?.call_status ?? prevCallStatus);
+  const callStatusDelta =
+    leadUpdates?.call_status != null && normalizeCallStatus(prevCallStatus) !== normalizeCallStatus(leadUpdates.call_status)
+      ? { from: prevDisplay, to: nextDisplay }
       : null;
 
   await logLeadTimelineEvent({
@@ -119,19 +127,82 @@ export async function logCallWithUpdates({
     userId,
     teamId,
     eventType: 'call_logged',
-    summary: statusDelta
-      ? `Call: ${outcome} · Status → ${statusDelta.to}`
+    summary: callStatusDelta
+      ? `Call: ${outcome} · Call status → ${callStatusDelta.to}`
       : `Call: ${outcome}`,
     detail: {
       outcome,
       note: note?.trim() || null,
-      ...(statusDelta || {}),
+      ...(callStatusDelta || {}),
     },
     timeZone,
     occurredAt: stamp.occurredAt,
   });
 
   return { attempt, leadUpdates };
+}
+
+/** Changing Call Queue status counts as a call attempt and applies call-action/priority rules. */
+export async function logCallStatusChange({
+  userId,
+  leadId,
+  newCallStatus,
+  teamId = null,
+  timeZone = null,
+}) {
+  const { data: before } = await supabase
+    .from('leads')
+    .select('call_status')
+    .eq('id', leadId)
+    .maybeSingle();
+
+  const prevCallStatus = before?.call_status ?? null;
+  if (normalizeCallStatus(prevCallStatus) === normalizeCallStatus(newCallStatus)) {
+    return null;
+  }
+
+  const outcome = outcomeForCallStatus(newCallStatus);
+  const stamp = captureDeviceTimestamp(timeZone);
+  const attempt = await insertCallAttempt({
+    userId,
+    leadId,
+    outcome,
+    teamId,
+  });
+
+  const leadUpdates = await applyCallStatusToLead(leadId, newCallStatus, userId);
+
+  const timePatch = {
+    last_called_at: stamp.occurredAt,
+    last_contacted_at: stamp.occurredAt,
+  };
+  const { data: stamped, error: stampErr } = await supabase
+    .from('leads')
+    .update(timePatch)
+    .eq('id', leadId)
+    .select('*')
+    .single();
+
+  const mergedUpdates = stampErr ? leadUpdates : { ...(leadUpdates || {}), ...stamped };
+  const prevDisplay = displayCallStatus(prevCallStatus);
+  const nextDisplay = displayCallStatus(newCallStatus);
+
+  await logLeadTimelineEvent({
+    leadId,
+    userId,
+    teamId,
+    eventType: 'call_logged',
+    summary: `Call status → ${nextDisplay}`,
+    detail: {
+      outcome,
+      from: prevDisplay,
+      to: nextDisplay,
+    },
+    timeZone,
+    occurredAt: stamp.occurredAt,
+  });
+
+  return { attempt, leadUpdates: mergedUpdates };
 }
 
 export async function updateCallAttempt(id, { outcome, note, noteVisibility }) {

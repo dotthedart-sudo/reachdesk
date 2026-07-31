@@ -27,12 +27,13 @@ import CallWindowBadge from './CRM/CallWindowBadge';
 import ListSwitcher from './CRM/ListSwitcher';
 import CopyableCell from './CRM/CopyableCell';
 import ResizableTh from './CRM/ResizableTh';
+import ResizableTr from './CRM/ResizableTr';
 import { getTableColumns, getLeadCellCopyValue, CALL_QUEUE_DEFAULT_DEFS, CALL_ACTION_DEFAULT_OPTIONS } from './CRM/crmTableColumns';
-import { useCrmColumnWidths } from './CRM/useCrmColumnWidths';
+import { useCrmTableLayout } from './CRM/useCrmTableLayout';
 import './CRM/DataTableEnhancements.css';
 import ConvertModal from './CRM/ConvertModal';
 import LeadFormFields from './CRM/LeadFormFields';
-import GroupedStatusDropdown from './CRM/GroupedStatusDropdown';
+import GroupedStatusDropdown, { DEFAULT_CALL_STATUSES } from './CRM/GroupedStatusDropdown';
 import GroupedTemplateDropdown from './CRM/GroupedTemplateDropdown';
 import CheckpointPopover from './CRM/CheckpointPopover';
 import HelpPopover from './HelpPopover';
@@ -41,6 +42,8 @@ import { updateLeadStatusAndCheckpoint, getSuggestionForStatus, REPLY_CHECK_STAT
 import PriorityDropdown from './CRM/PriorityDropdown';
 import { exportLeads, exportNotes } from '../utils/exportUtils';
 import { resolveLeadTimezoneForSave } from '../lib/leadTimezone';
+import { logCallStatusChange } from '../lib/callActivity';
+import { displayCallStatus } from '../lib/callOutcomeRules';
 import { getListFolderSettings, setListFolderSettings, listFolderShowsLocalTime } from '../lib/listFolderSettings';
 import { mergeTemplateFields, normalizePhoneNumber, generatePrefilledUrl } from '../utils/templateMerge';
 import { celebrateClosedWon } from '../utils/celebrateWin';
@@ -182,6 +185,7 @@ export default function CRM({
       return defaults;
     }
   });
+  const [callStatuses, setCallStatuses] = useState(DEFAULT_CALL_STATUSES);
   const [templates, setTemplates] = useState([]);
   const [loading, setLoading] = useState(true);
 
@@ -305,7 +309,14 @@ export default function CRM({
     }
   });
 
-  const { getWidth, setWidth } = useCrmColumnWidths(outreachMode === 'calls' ? 'call_queue' : view);
+  const {
+    getWidth,
+    setWidth,
+    resetWidth,
+    getRowHeight,
+    setRowHeight,
+    resetRowHeight,
+  } = useCrmTableLayout(outreachMode === 'calls' ? 'call_queue' : view);
 
   const activeListShowsLocalTime = useMemo(() => {
     if (!activeManualFolderId || outreachMode !== 'messages' || view === 'clients') return false;
@@ -759,8 +770,17 @@ export default function CRM({
       setUserFolders(ufData);
       
       if (sData.length > 0) {
-        setStatuses(sData);
-        localStorage.setItem('crm_custom_statuses', JSON.stringify(sData));
+        const messagingStatuses = sData.filter((s) => !s.channel || s.channel === 'messaging');
+        const myCallStatuses = sData.filter(
+          (s) => s.user_id === currentUser.id && s.channel === 'calls',
+        );
+        if (messagingStatuses.length > 0) {
+          setStatuses(messagingStatuses);
+          localStorage.setItem('crm_custom_statuses', JSON.stringify(messagingStatuses));
+        }
+        if (myCallStatuses.length > 0) {
+          setCallStatuses(myCallStatuses);
+        }
       }
       
       const parsedTemplates = tData.map(tmpl => {
@@ -1519,6 +1539,49 @@ export default function CRM({
     }
   };
 
+  const handleCallStatusChange = async (leadId, newCallStatus) => {
+    const lead = leads.find((l) => l.id === leadId);
+    if (!lead || !currentUser?.id) return null;
+
+    try {
+      const result = await logCallStatusChange({
+        userId: currentUser.id,
+        leadId,
+        newCallStatus,
+        teamId: currentUser.team_id || null,
+        timeZone: getEffectiveUserTimeZone(currentUser),
+      });
+      if (!result) return null;
+
+      setLeads((prev) => prev.map((l) => (
+        l.id === leadId ? { ...l, ...result.leadUpdates } : l
+      )));
+      if (onRefreshReminders) onRefreshReminders();
+      return result;
+    } catch (err) {
+      console.error('Error updating call status:', err);
+      return null;
+    }
+  };
+
+  const refreshCallStatuses = async () => {
+    if (!currentUser?.id) return;
+    const { data } = await supabase
+      .from('custom_statuses')
+      .select('*')
+      .eq('user_id', currentUser.id)
+      .eq('channel', 'calls')
+      .order('sort_order', { ascending: true });
+    if (data?.length) setCallStatuses(data);
+  };
+
+  const handleCallLeadUpdated = (leadUpdates) => {
+    if (!leadUpdates?.id) return;
+    setLeads((prev) => prev.map((l) => (
+      l.id === leadUpdates.id ? { ...l, ...leadUpdates } : l
+    )));
+  };
+
   // Save Reply Type Prompt
   const handleSaveReplyPrompt = async (forcedNextStep = null, forcedLink = null) => {
     if (!replyPromptLead) return;
@@ -2084,7 +2147,10 @@ export default function CRM({
         if (lower === 'no show' || lower === 'no show / rescheduled') return 'no show';
         return lower.replace(/_/g, ' ');
       };
-      return normalizeStatus(l.status) === normalizeStatus(statusFilter);
+      const statusValue = outreachMode === 'calls' && callSubView === 'queue'
+        ? displayCallStatus(l.call_status)
+        : l.status;
+      return normalizeStatus(statusValue) === normalizeStatus(statusFilter);
     })();
 
     // Priority filter matches via helper
@@ -2161,6 +2227,12 @@ export default function CRM({
       }
       
       case 'status': {
+        if (outreachMode === 'calls' && callSubView === 'queue') {
+          const callStatusOrder = DEFAULT_CALL_STATUSES.map((s) => s.label.toLowerCase());
+          const aStatus = callStatusOrder.indexOf(displayCallStatus(a.call_status).toLowerCase());
+          const bStatus = callStatusOrder.indexOf(displayCallStatus(b.call_status).toLowerCase());
+          return (aStatus === -1 ? 99 : aStatus) - (bStatus === -1 ? 99 : bStatus);
+        }
         const statusOrder = [
           'lead',
           'contacted',
@@ -2457,7 +2529,7 @@ export default function CRM({
                   style={{ width: 'auto', minWidth: 130, fontSize: '0.85rem' }}
                 >
                   <option value="">Status: All</option>
-                  {statuses.map((st) => (
+                  {(callStatuses.length > 0 ? callStatuses : DEFAULT_CALL_STATUSES).map((st) => (
                     <option key={st.label} value={st.label}>{st.label}</option>
                   ))}
                 </select>
@@ -2489,13 +2561,18 @@ export default function CRM({
               columnDefs={columnDefs}
               getWidth={getWidth}
               setWidth={setWidth}
+              resetWidth={resetWidth}
+              getRowHeight={getRowHeight}
+              setRowHeight={setRowHeight}
+              resetRowHeight={resetRowHeight}
               currentUser={currentUser}
               teamId={currentUser?.team_id || null}
               onOpenLead={handleOpenLead}
-              onStatusChange={handleStatusChange}
+              onCallStatusChange={handleCallStatusChange}
               onFieldChange={handleLeadFieldChange}
               onCopied={handleCopyCell}
-              onRefresh={fetchData}
+              onRefresh={refreshCallStatuses}
+              onLeadUpdated={handleCallLeadUpdated}
               onOpenColumnManager={() => setShowColumnManager(true)}
               showNoteSharing={!!currentUser?.team_id}
               suggestionRules={suggestionRules}
@@ -2990,6 +3067,7 @@ export default function CRM({
                       columnKey={col.column_key}
                       width={getWidth(col.column_key)}
                       onResize={setWidth}
+                      onReset={resetWidth}
                     >
                       <div style={{ display: 'inline-flex', alignItems: 'center', gap: 'var(--space-1)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
                         {col.column_key === 'status' ? (
@@ -3017,7 +3095,7 @@ export default function CRM({
                   );
                 })}
                 {isTeamView && (
-                  <ResizableTh columnKey="_added_by" width={getWidth('_added_by')} onResize={setWidth}>
+                  <ResizableTh columnKey="_added_by" width={getWidth('_added_by')} onResize={setWidth} onReset={resetWidth}>
                     Added By
                   </ResizableTh>
                 )}
@@ -3052,13 +3130,17 @@ export default function CRM({
                   const addedByEmail = teamProfilesMap[lead.user_id];
 
                   return (
-                    <tr 
-                      key={lead.id} 
+                    <ResizableTr
+                      key={lead.id}
+                      rowKey={lead.id}
+                      height={getRowHeight(lead.id)}
+                      onResize={setRowHeight}
+                      onReset={resetRowHeight}
                       onClick={() => setSelectedLead(lead)}
-                      style={{ 
-                        borderBottom: '1px solid var(--border-color)', 
+                      style={{
+                        borderBottom: '1px solid var(--border-color)',
                         background: isSelected ? 'rgba(91, 143, 185, 0.06)' : 'transparent',
-                        cursor: 'pointer'
+                        cursor: 'pointer',
                       }}
                     >
                       <td onClick={(e) => e.stopPropagation()}>
@@ -3375,7 +3457,7 @@ export default function CRM({
                           )}
                         </div>
                       </td>
-                    </tr>
+                    </ResizableTr>
                   );
                 })
               )}
