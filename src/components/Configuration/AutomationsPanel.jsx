@@ -5,15 +5,27 @@ import {
   DEFAULT_CALL_OUTCOME_RULES,
   DEFAULT_CALL_STATUS_RULES,
 } from '../../lib/callOutcomeRules';
+import {
+  DEFAULT_MESSAGING_ACTION_RULES,
+  MESSAGING_STATUS_OPTIONS,
+} from '../../lib/automationRules';
 import { CALL_OUTCOMES } from '../../lib/outreachQueue';
 
 export default function AutomationsPanel({
   remindersEnabled,
   setRemindersEnabled,
+  reminderNotificationMode,
+  setReminderNotificationMode,
+  reminderDigestHour,
+  setReminderDigestHour,
   suggestionsEnabled,
   setSuggestionsEnabled,
   suggestionsAutoApply,
   setSuggestionsAutoApply,
+  callSuggestionsAutoApply,
+  setCallSuggestionsAutoApply,
+  messagingActionRules,
+  setMessagingActionRules,
   alwaysDraft,
   setAlwaysDraft,
   defaultCountryCode,
@@ -59,7 +71,9 @@ export default function AutomationsPanel({
           <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
             <div>
               <span style={{ fontWeight: 600, fontSize: '0.9rem', display: 'block' }}>Follow-up Reminders</span>
-              <span style={{ fontSize: '0.8rem', color: 'var(--text-muted)' }}>Generate reminders automatically based on checkpoint timeline.</span>
+              <span style={{ fontSize: '0.8rem', color: 'var(--text-muted)' }}>
+                Pause all follow-up reminders and push digests for this account.
+              </span>
             </div>
             <input
               type="checkbox"
@@ -68,6 +82,80 @@ export default function AutomationsPanel({
               style={{ width: '18px', height: '18px', cursor: 'pointer' }}
               disabled={automationSaving}
             />
+          </div>
+
+          {remindersEnabled && (
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '0.75rem', paddingLeft: '0.25rem', borderLeft: '2px solid var(--border)' }}>
+              <div>
+                <span style={{ fontWeight: 600, fontSize: '0.9rem', display: 'block', marginBottom: '0.35rem' }}>
+                  Push notification mode
+                </span>
+                <span style={{ fontSize: '0.8rem', color: 'var(--text-muted)', display: 'block', marginBottom: '0.5rem' }}>
+                  Default is one daily digest. Instant mode pushes once per due lead.
+                </span>
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '0.4rem' }}>
+                  <label style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', fontSize: '0.85rem', cursor: 'pointer' }}>
+                    <input
+                      type="radio"
+                      name="reminder_notification_mode"
+                      checked={reminderNotificationMode === 'digest'}
+                      onChange={() => setReminderNotificationMode('digest')}
+                      disabled={automationSaving}
+                    />
+                    Daily digest (recommended)
+                  </label>
+                  <label style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', fontSize: '0.85rem', cursor: 'pointer' }}>
+                    <input
+                      type="radio"
+                      name="reminder_notification_mode"
+                      checked={reminderNotificationMode === 'instant'}
+                      onChange={() => setReminderNotificationMode('instant')}
+                      disabled={automationSaving}
+                    />
+                    Instant per follow-up
+                  </label>
+                </div>
+              </div>
+
+              {reminderNotificationMode === 'digest' && (
+                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '1rem' }}>
+                  <div>
+                    <span style={{ fontWeight: 600, fontSize: '0.9rem', display: 'block' }}>Digest time</span>
+                    <span style={{ fontSize: '0.8rem', color: 'var(--text-muted)' }}>
+                      Local hour for the daily “follow-ups due” push.
+                    </span>
+                  </div>
+                  <select
+                    value={reminderDigestHour}
+                    onChange={(e) => setReminderDigestHour(Number(e.target.value))}
+                    disabled={automationSaving}
+                    style={{
+                      padding: '4px 8px',
+                      background: 'var(--bg-page)',
+                      border: '1px solid var(--border)',
+                      borderRadius: '3px',
+                      color: 'var(--text-primary)',
+                      fontSize: '0.85rem',
+                    }}
+                  >
+                    {Array.from({ length: 24 }, (_, h) => (
+                      <option key={h} value={h}>
+                        {h === 0 ? '12:00 AM' : h < 12 ? `${h}:00 AM` : h === 12 ? '12:00 PM' : `${h - 12}:00 PM`}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+              )}
+            </div>
+          )}
+
+          <div style={{ borderTop: '1px solid var(--border)', margin: '0.75rem 0', paddingTop: '0.75rem' }}>
+            <span style={{ fontWeight: 600, fontSize: '0.95rem', display: 'block', marginBottom: '0.35rem' }}>
+              Messaging automations
+            </span>
+            <span style={{ fontSize: '0.8rem', color: 'var(--text-muted)', display: 'block', marginBottom: '0.75rem' }}>
+              When messaging status changes, suggest or auto-fill the next step column.
+            </span>
           </div>
 
           <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
@@ -87,8 +175,8 @@ export default function AutomationsPanel({
           {suggestionsEnabled && (
             <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
               <div>
-                <span style={{ fontWeight: 600, fontSize: '0.9rem', display: 'block' }}>Auto-apply Suggestions</span>
-                <span style={{ fontSize: '0.8rem', color: 'var(--text-muted)' }}>Automatically sync action_to_take when a lead&apos;s status changes.</span>
+                <span style={{ fontWeight: 600, fontSize: '0.9rem', display: 'block' }}>Auto-apply next step</span>
+                <span style={{ fontSize: '0.8rem', color: 'var(--text-muted)' }}>Automatically sync messaging next step when status changes.</span>
               </div>
               <input
                 type="checkbox"
@@ -99,6 +187,105 @@ export default function AutomationsPanel({
               />
             </div>
           )}
+
+          {suggestionsEnabled && (
+            <div style={{ borderTop: '1px solid var(--border)', paddingTop: '0.75rem' }}>
+              <span style={{ fontWeight: 600, fontSize: '0.9rem', display: 'block', marginBottom: '0.25rem' }}>
+                Messaging: status → next step
+              </span>
+              <span style={{ fontSize: '0.8rem', color: 'var(--text-muted)', display: 'block', marginBottom: '0.75rem' }}>
+                When a lead&apos;s messaging status changes, suggest or auto-fill the next step column.
+              </span>
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
+                {messagingActionRules.map((rule, idx) => (
+                  <div
+                    key={`${rule.status}-${idx}`}
+                    style={{ display: 'grid', gridTemplateColumns: '1fr 1fr auto', gap: '0.5rem', alignItems: 'center', fontSize: '0.82rem' }}
+                  >
+                    <select
+                      className="form-input"
+                      value={rule.status || ''}
+                      onChange={(e) => {
+                        const next = [...messagingActionRules];
+                        next[idx] = { ...next[idx], status: e.target.value };
+                        setMessagingActionRules(next);
+                      }}
+                      disabled={automationSaving}
+                    >
+                      <option value="">Select status</option>
+                      {MESSAGING_STATUS_OPTIONS.map((s) => (
+                        <option key={s} value={s}>{s}</option>
+                      ))}
+                    </select>
+                    <input
+                      type="text"
+                      className="form-input"
+                      placeholder="Suggested next step"
+                      value={rule.suggested_action || ''}
+                      onChange={(e) => {
+                        const next = [...messagingActionRules];
+                        next[idx] = { ...next[idx], suggested_action: e.target.value };
+                        setMessagingActionRules(next);
+                      }}
+                      disabled={automationSaving}
+                    />
+                    <button
+                      type="button"
+                      className="btn-icon"
+                      title="Remove rule"
+                      disabled={automationSaving}
+                      onClick={() => setMessagingActionRules(messagingActionRules.filter((_, i) => i !== idx))}
+                    >
+                      <Trash2 size={14} />
+                    </button>
+                  </div>
+                ))}
+              </div>
+              <button
+                type="button"
+                className="btn btn-secondary btn-sm"
+                style={{ marginTop: '0.5rem', marginRight: '0.5rem' }}
+                disabled={automationSaving}
+                onClick={() => setMessagingActionRules([...messagingActionRules, { status: '', suggested_action: '' }])}
+              >
+                <Plus size={14} /> Add messaging rule
+              </button>
+              <button
+                type="button"
+                className="btn btn-secondary btn-sm"
+                style={{ marginTop: '0.5rem' }}
+                disabled={automationSaving}
+                onClick={() => setMessagingActionRules(DEFAULT_MESSAGING_ACTION_RULES.map((r) => ({ ...r })))}
+              >
+                Reset messaging rules
+              </button>
+            </div>
+          )}
+
+          <div style={{ borderTop: '1px solid var(--border)', margin: '0.75rem 0', paddingTop: '0.75rem' }}>
+            <span style={{ fontWeight: 600, fontSize: '0.95rem', display: 'block', marginBottom: '0.35rem' }}>
+              Call automations
+            </span>
+            <span style={{ fontSize: '0.8rem', color: 'var(--text-muted)', display: 'block', marginBottom: '0.75rem' }}>
+              Map call outcomes and call status to the suggested call next step.
+            </span>
+
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '0.75rem' }}>
+              <div>
+                <span style={{ fontWeight: 600, fontSize: '0.9rem', display: 'block' }}>Auto-apply call next step</span>
+                <span style={{ fontSize: '0.8rem', color: 'var(--text-muted)' }}>
+                  When call status or outcome changes, sync call next step from rules below.
+                </span>
+              </div>
+              <input
+                type="checkbox"
+                checked={callSuggestionsAutoApply}
+                onChange={(e) => setCallSuggestionsAutoApply(e.target.checked)}
+                style={{ width: '18px', height: '18px', cursor: 'pointer' }}
+                disabled={automationSaving}
+              />
+            </div>
+          </div>
 
           <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
             <div>

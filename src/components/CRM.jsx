@@ -13,7 +13,7 @@ import {
   Database, Info, Users, Phone, Gem
 } from 'lucide-react';
 
-import EditableDropdown from './CRM/EditableDropdown';
+import EditableDropdown, { DEFAULT_ACTION_OPTIONS } from './CRM/EditableDropdown';
 import ColumnManager from './CRM/ColumnManager';
 import LeadDrawer from './CRM/LeadDrawer';
 import OutreachTracker from './CRM/OutreachTracker';
@@ -42,16 +42,21 @@ import { updateLeadStatusAndCheckpoint, getSuggestionForStatus, REPLY_CHECK_STAT
 import PriorityDropdown from './CRM/PriorityDropdown';
 import { exportLeads, exportNotes } from '../utils/exportUtils';
 import { resolveLeadTimezoneForSave } from '../lib/leadTimezone';
-import { logCallStatusChange } from '../lib/callActivity';
+import { teamMemberEmail } from '../lib/teamWorkspace';
+import { logLeadTimelineEvent } from '../lib/leadTimeline';
 import { displayCallStatus } from '../lib/callOutcomeRules';
 import { getListFolderSettings, setListFolderSettings, listFolderShowsLocalTime } from '../lib/listFolderSettings';
 import { isTeamOwner } from '../lib/teamWorkspace';
 import {
   fetchSharesForUser,
   fetchSharesForFolder,
+  fetchSharesForFolders,
   shareCountForFolder as countSharesForFolder,
   canShareFolder as userCanShareFolder,
 } from '../lib/folderShares';
+import { softBadgeStyle } from '../lib/softBadgeStyle';
+
+const ACTION_TO_TAKE_SEED = DEFAULT_ACTION_OPTIONS;
 import ShareListModal from './CRM/ShareListModal';
 import { mergeTemplateFields, normalizePhoneNumber, generatePrefilledUrl } from '../utils/templateMerge';
 import { celebrateClosedWon } from '../utils/celebrateWin';
@@ -153,6 +158,7 @@ function mapProfileUrlToLeadFields(url, platformLabel) {
 export default function CRM({
   currentUser, 
   teamProfilesMap = {}, 
+  teamIds = [],
   isTeamView = false, 
   onRefreshReminders 
 }) {
@@ -185,6 +191,14 @@ export default function CRM({
   const [userFolders, setUserFolders] = useState([]);
   const [folderShares, setFolderShares] = useState([]);
   const [teamMembersList, setTeamMembersList] = useState([]);
+
+  const effectiveProfilesMap = useMemo(() => {
+    const map = { ...(teamProfilesMap || {}) };
+    teamMembersList.forEach((m) => {
+      map[m.id] = { id: m.id, email: m.email, full_name: m.full_name };
+    });
+    return map;
+  }, [teamProfilesMap, teamMembersList]);
   const [shareListTarget, setShareListTarget] = useState(null);
   const [shareListShares, setShareListShares] = useState([]);
   const [clients, setClients] = useState([]);
@@ -558,6 +572,18 @@ export default function CRM({
         if (!error && data) {
           setLeads((prev) => prev.map((l) => (l.id === reachLead.id ? data : l)));
         }
+        logLeadTimelineEvent({
+          leadId: reachLead.id,
+          userId: currentUser.id,
+          teamId: currentUser.team_id || null,
+          eventType: 'message_sent',
+          summary: `Message sent via ${reachChannel}`,
+          detail: {
+            channel: reachChannel,
+            template: updates.template_used || null,
+          },
+          timeZone: getEffectiveUserTimeZone(currentUser),
+        }).catch(() => {});
       } catch (err) {
         console.error('Error updating lead after reach send:', err);
       }
@@ -818,7 +844,19 @@ export default function CRM({
       setFolders(fData);
       localStorage.setItem('crm_folders', JSON.stringify(fData));
       setUserFolders(ufData);
-      setFolderShares(sharesRes);
+      let mergedShares = sharesRes || [];
+      if (isOwner && fData.length > 0) {
+        const teamFolderIds = fData
+          .filter((f) => f.user_id !== currentUser.id)
+          .map((f) => f.id);
+        if (teamFolderIds.length > 0) {
+          const teamShares = await fetchSharesForFolders(teamFolderIds);
+          const shareById = new Map();
+          [...mergedShares, ...teamShares].forEach((s) => shareById.set(s.id, s));
+          mergedShares = [...shareById.values()];
+        }
+      }
+      setFolderShares(mergedShares);
       setTeamMembersList(teamMembersRes.data || []);
       
       if (sData.length > 0) {
@@ -868,17 +906,7 @@ export default function CRM({
           // ── Contact Details view — Default visible: Name, Status, Reach
           { user_id: currentUser.id, table_view: 'contact_details', column_key: 'name',              column_label: 'Name',             column_type: 'text',     is_visible: true,  is_default: true, sort_order: 0, dropdown_options: [] },
           { user_id: currentUser.id, table_view: 'contact_details', column_key: 'status',            column_label: 'Status',           column_type: 'status',   is_visible: true,  is_default: true, sort_order: 1, dropdown_options: [] },
-          { user_id: currentUser.id, table_view: 'contact_details', column_key: 'action_to_take',    column_label: 'Next step',        column_type: 'dropdown', is_visible: true,  is_default: true, sort_order: 2, dropdown_options: [
-            { label: 'Send first pitch', color: '#FFFFFF' },
-            { label: 'Wait for reply', color: '#737373' },
-            { label: 'Send a follow up', color: '#D4D4D4' },
-            { label: 'Send a different pitch', color: '#A3A3A3' },
-            { label: 'Send proposal', color: '#E5E5E5' },
-            { label: 'Send Calendly', color: '#D4D4D4' },
-            { label: 'Prepare for call', color: '#A3A3A3' },
-            { label: 'Send invoice', color: '#FFFFFF' },
-            { label: 'No action needed', color: '#525252' }
-          ] },
+          { user_id: currentUser.id, table_view: 'contact_details', column_key: 'action_to_take',    column_label: 'Next step',        column_type: 'dropdown', is_visible: true,  is_default: true, sort_order: 2, dropdown_options: ACTION_TO_TAKE_SEED },
           { user_id: currentUser.id, table_view: 'contact_details', column_key: 'platform',          column_label: 'Reach',            column_type: 'reach',    is_visible: true,  is_default: true, sort_order: 3, dropdown_options: [] },
           { user_id: currentUser.id, table_view: 'contact_details', column_key: 'phone',             column_label: 'Phone',            column_type: 'text',     is_visible: true,  is_default: true, sort_order: 4, dropdown_options: [] },
           { user_id: currentUser.id, table_view: 'contact_details', column_key: 'last_contacted_at', column_label: 'Last Contacted At',column_type: 'date',     is_visible: true,  is_default: true, sort_order: 5, dropdown_options: [] },
@@ -901,17 +929,7 @@ export default function CRM({
             { label: 'Cold', color: '#3b82f6' }
           ] },
           { user_id: currentUser.id, table_view: 'pipeline', column_key: 'status',            column_label: 'Status',            column_type: 'dropdown', is_visible: true,  is_default: true, sort_order: 2, dropdown_options: [] },
-          { user_id: currentUser.id, table_view: 'pipeline', column_key: 'action_to_take',    column_label: 'Action to Take',    column_type: 'dropdown', is_visible: true,  is_default: true, sort_order: 3, dropdown_options: [
-            { label: 'Send first pitch', color: '#FFFFFF' },
-            { label: 'Wait for reply', color: '#737373' },
-            { label: 'Send a follow up', color: '#D4D4D4' },
-            { label: 'Send a different pitch', color: '#A3A3A3' },
-            { label: 'Send proposal', color: '#E5E5E5' },
-            { label: 'Send Calendly', color: '#D4D4D4' },
-            { label: 'Prepare for call', color: '#A3A3A3' },
-            { label: 'Send invoice', color: '#FFFFFF' },
-            { label: 'No action needed', color: '#525252' }
-          ] },
+          { user_id: currentUser.id, table_view: 'pipeline', column_key: 'action_to_take',    column_label: 'Action to Take',    column_type: 'dropdown', is_visible: true,  is_default: true, sort_order: 3, dropdown_options: ACTION_TO_TAKE_SEED },
           { user_id: currentUser.id, table_view: 'pipeline', column_key: 'last_contacted_at', column_label: 'Last Contacted At', column_type: 'date',     is_visible: true,  is_default: true, sort_order: 4, dropdown_options: [] },
           { user_id: currentUser.id, table_view: 'pipeline', column_key: 'template_used',     column_label: 'Template Used',    column_type: 'link',     is_visible: true,  is_default: true, sort_order: 5, dropdown_options: [] },
           { user_id: currentUser.id, table_view: 'pipeline', column_key: 'platform',          column_label: 'Reach',             column_type: 'reach',    is_visible: true,  is_default: true, sort_order: 6, dropdown_options: [] },
@@ -974,9 +992,7 @@ export default function CRM({
           // contact_details
           { table_view: 'contact_details', column_key: 'name',              column_label: 'Name',             column_type: 'text',     is_visible: true,  sort_order: 0,  dropdown_options: [] },
           { table_view: 'contact_details', column_key: 'status',            column_label: 'Status',           column_type: 'status',   is_visible: true,  sort_order: 1,  dropdown_options: [] },
-          { table_view: 'contact_details', column_key: 'action_to_take',    column_label: 'Next step',        column_type: 'dropdown', is_visible: true,  sort_order: 2,  dropdown_options: [
-            { label: 'Send first pitch', color: '#FFFFFF' }, { label: 'Wait for reply', color: '#737373' }, { label: 'Send a follow up', color: '#D4D4D4' }, { label: 'Send a different pitch', color: '#A3A3A3' }, { label: 'Send proposal', color: '#E5E5E5' }, { label: 'Send Calendly', color: '#D4D4D4' }, { label: 'Prepare for call', color: '#A3A3A3' }, { label: 'Send invoice', color: '#FFFFFF' }, { label: 'No action needed', color: '#525252' }
-          ] },
+          { table_view: 'contact_details', column_key: 'action_to_take',    column_label: 'Next step',        column_type: 'dropdown', is_visible: true,  sort_order: 2,  dropdown_options: ACTION_TO_TAKE_SEED },
           { table_view: 'contact_details', column_key: 'platform',          column_label: 'Reach',            column_type: 'reach',    is_visible: true,  sort_order: 3,  dropdown_options: [] },
           { table_view: 'contact_details', column_key: 'phone',             column_label: 'Phone',            column_type: 'text',     is_visible: true,  sort_order: 4,  dropdown_options: [] },
           { table_view: 'contact_details', column_key: 'last_contacted_at', column_label: 'Last Contacted At', column_type: 'date',    is_visible: true,  sort_order: 5,  dropdown_options: [] },
@@ -996,9 +1012,7 @@ export default function CRM({
             { label: 'Hot', color: '#ef4444' }, { label: 'Warm', color: '#f59e0b' }, { label: 'Cold', color: '#3b82f6' }
           ] },
           { table_view: 'pipeline', column_key: 'status',            column_label: 'Status',            column_type: 'dropdown', is_visible: true,  sort_order: 2, dropdown_options: [] },
-          { table_view: 'pipeline', column_key: 'action_to_take',    column_label: 'Action to Take',    column_type: 'dropdown', is_visible: true,  sort_order: 3, dropdown_options: [
-            { label: 'Send first pitch', color: '#FFFFFF' }, { label: 'Wait for reply', color: '#737373' }, { label: 'Send a follow up', color: '#D4D4D4' }, { label: 'Send a different pitch', color: '#A3A3A3' }, { label: 'Send proposal', color: '#E5E5E5' }, { label: 'Send Calendly', color: '#D4D4D4' }, { label: 'Prepare for call', color: '#A3A3A3' }, { label: 'Send invoice', color: '#FFFFFF' }, { label: 'No action needed', color: '#525252' }
-          ] },
+          { table_view: 'pipeline', column_key: 'action_to_take',    column_label: 'Action to Take',    column_type: 'dropdown', is_visible: true,  sort_order: 3, dropdown_options: ACTION_TO_TAKE_SEED },
           { table_view: 'pipeline', column_key: 'last_contacted_at', column_label: 'Last Contacted At', column_type: 'date',     is_visible: true,  sort_order: 4, dropdown_options: [] },
           { table_view: 'pipeline', column_key: 'template_used',     column_label: 'Template Used',    column_type: 'link',     is_visible: true,  sort_order: 5, dropdown_options: [] },
           { table_view: 'pipeline', column_key: 'platform',          column_label: 'Reach',             column_type: 'reach',    is_visible: true,  sort_order: 6, dropdown_options: [] },
@@ -1093,17 +1107,34 @@ export default function CRM({
 
   const handleLeadFieldChange = (leadId, field, newVal) => handleDropdownChange(leadId, field, newVal);
 
-  const handleClearFilters = () => {
+  const resetListFilters = () => {
     setStatusFilter('');
     setPriorityFilter('');
     setFilterStatuses([]);
     setFilterPriorities([]);
     setFilterActions([]);
+    setFilterCallActions([]);
     setFilterProjects([]);
     setFilterDateRange('all');
     setFilterDateField('created_at');
     setSearchQuery('');
   };
+
+  const handleClearFilters = () => {
+    resetListFilters();
+  };
+
+  const hasActiveListFilters = !!(
+    searchQuery
+    || statusFilter
+    || priorityFilter
+    || filterStatuses.length
+    || filterPriorities.length
+    || filterActions.length
+    || filterCallActions.length
+    || filterProjects.length
+    || filterDateRange !== 'all'
+  );
 
   const handleResetToDefault = async (targetView) => {
     const viewToReset = targetView || (outreachMode === 'calls' ? 'call_queue' : view);
@@ -1134,26 +1165,40 @@ export default function CRM({
     setCurrentPage(1);
   }, [searchQuery, statusFilter, activeFolderId]);
 
-  // Auto-open lead from follow-up reminder action
+  // Auto-open lead from ?lead= query, sessionStorage, or custom event
   useEffect(() => {
+    const openLeadById = async (leadId, preselectStatus = null) => {
+      if (!leadId) return;
+      const { data: lead, error } = await supabase
+        .from('leads')
+        .select('*')
+        .eq('id', leadId)
+        .maybeSingle();
+
+      if (!error && lead) {
+        const modifiedLead = preselectStatus ? { ...lead, status: preselectStatus } : lead;
+        setSelectedLead(modifiedLead);
+      }
+    };
+
     const checkAutoOpen = async () => {
+      if (!currentUser) return;
+
+      const leadFromQuery = searchParams.get('lead');
+      if (leadFromQuery) {
+        await openLeadById(leadFromQuery);
+        const next = new URLSearchParams(searchParams);
+        next.delete('lead');
+        setSearchParams(next, { replace: true });
+        return;
+      }
+
       const stored = sessionStorage.getItem('reachdesk_auto_open_lead');
-      if (stored && currentUser) {
+      if (stored) {
         sessionStorage.removeItem('reachdesk_auto_open_lead');
         try {
           const { leadId, preselectStatus } = JSON.parse(stored);
-          if (leadId) {
-            const { data: lead, error } = await supabase
-              .from('leads')
-              .select('*')
-              .eq('id', leadId)
-              .maybeSingle();
-
-            if (!error && lead) {
-              const modifiedLead = { ...lead, status: preselectStatus };
-              setSelectedLead(modifiedLead);
-            }
-          }
+          await openLeadById(leadId, preselectStatus || null);
         } catch (e) {
           console.error('[CRM] Error parsing auto-open lead:', e);
         }
@@ -1166,7 +1211,7 @@ export default function CRM({
     return () => {
       window.removeEventListener('reachdesk_trigger_auto_open', checkAutoOpen);
     };
-  }, [currentUser]);
+  }, [currentUser, searchParams]);
 
   // Google Sheets: check connection status & handle callback success banner
   useEffect(() => {
@@ -1602,6 +1647,7 @@ export default function CRM({
         newCallStatus,
         teamId: currentUser.team_id || null,
         timeZone: getEffectiveUserTimeZone(currentUser),
+        profile: currentUser,
       });
       if (!result) return null;
 
@@ -1691,6 +1737,24 @@ export default function CRM({
       if (updatedLead?.draftCreated && showToast) {
         showToast(`Draft invoice generated for ${[updatedLead.first_name, updatedLead.last_name].filter(Boolean).join(' ') || 'Lead'}`);
       }
+
+      const replySummary = replyType === 'skip'
+        ? 'Reply skipped'
+        : `Reply logged${repType ? `: ${repType}` : ''}`;
+      logLeadTimelineEvent({
+        leadId: replyPromptLead.id,
+        userId: currentUser.id,
+        teamId: currentUser.team_id || null,
+        eventType: 'reply_logged',
+        summary: replySummary,
+        detail: {
+          reply_type: repType,
+          reply_notes: replyNotes || null,
+          template_id: replyTemplateId || null,
+          new_status: targetStatus,
+        },
+        timeZone: getEffectiveUserTimeZone(currentUser),
+      }).catch(() => {});
 
       setLeads(prev => prev.map(l => l.id === replyPromptLead.id ? updatedLead : l));
       setReplyPromptLead(null);
@@ -1825,6 +1889,7 @@ export default function CRM({
   const matchRule = (lead, rule) => {
     const { field, operator, value } = rule;
     if (!field) return true;
+    if (value == null || String(value).trim() === '') return false;
     
     let leadValue = '';
     if (field === 'Status') {
@@ -2058,6 +2123,20 @@ export default function CRM({
     }
   };
 
+  const handleBulkMoveAllInViewToFolder = async (folderId) => {
+    if (!folderId) return;
+    const ids = sortedLeads.map((l) => l.id);
+    if (ids.length === 0) return;
+    try {
+      await supabase.from('leads').update({ folder_id: folderId }).in('id', ids);
+      setLeads((prev) => prev.map((l) => (ids.includes(l.id) ? { ...l, folder_id: folderId } : l)));
+      setSelectedIds([]);
+    } catch (err) {
+      console.error('Error assigning all leads in view:', err);
+      alert(err.message || 'Failed to assign leads to list.');
+    }
+  };
+
   const handleQuickCleanSelect = (type) => {
     setShowQuickClean(false);
     if (type === 'not_interested') {
@@ -2164,16 +2243,25 @@ export default function CRM({
 
   const getStatusStyle = (statusVal) => {
     const match = statuses.find(s => s.label.toLowerCase() === (statusVal || '').toLowerCase());
-    const colors = match ? { bg: `${match.color}22`, text: match.color } : { bg: '#374151', text: '#D1D5DB' };
+    if (match) {
+      return {
+        ...softBadgeStyle(match.color),
+        borderRadius: '6px',
+        padding: '0.2rem 0.55rem',
+        fontSize: '0.75rem',
+        fontWeight: 700,
+        whiteSpace: 'nowrap',
+      };
+    }
     return {
-      background: colors.bg,
-      color: colors.text,
-      border: `1px solid ${colors.text}33`,
+      background: '#374151',
+      color: '#D1D5DB',
+      border: '1px solid rgba(209,213,219,0.3)',
       borderRadius: '6px',
       padding: '0.2rem 0.55rem',
       fontSize: '0.75rem',
       fontWeight: 700,
-      whiteSpace: 'nowrap'
+      whiteSpace: 'nowrap',
     };
   };
 
@@ -2332,6 +2420,7 @@ export default function CRM({
   });
 
   const handleSelectFolder = (id) => {
+    resetListFilters();
     setSearchParams(prev => {
       const next = new URLSearchParams(prev);
       if (id === null || id === 'home') {
@@ -2360,6 +2449,9 @@ export default function CRM({
 
   const activeList = view === 'clients' ? filteredClients : sortedLeads;
   const totalFiltered = activeList.length;
+  const folderListTotal = !isBrowseMode && activeFolderId && view !== 'clients'
+    ? getLeadCountForFolder(activeFolderId)
+    : null;
   const paginatedList = activeList.slice((currentPage - 1) * pageSize, currentPage * pageSize);
 
   const currentExportFolder = folders.find((f) => f.id === activeFolderId);
@@ -2440,6 +2532,7 @@ export default function CRM({
             systemFolderNames={systemFolderNames}
             getLeadCount={getLeadCountForFolder}
             totalLeads={leads.length}
+            unfiledCount={getLeadCountForFolder('unfiled')}
             onSelectFolder={handleSelectFolder}
             onCreateList={() => setShowFolderModal(true)}
             onCreateSmartList={() => {
@@ -2469,7 +2562,8 @@ export default function CRM({
             canUseIntegrations={canUseIntegrations}
             hasLeads={leads.length > 0}
             currentUser={currentUser}
-            teamProfilesMap={teamProfilesMap}
+            teamProfilesMap={effectiveProfilesMap}
+            teamIds={teamIds}
             folderShares={folderShares}
             shareCountForFolder={(folderId) => countSharesForFolder(folderId, folderShares)}
             canShareFolder={(folder) => userCanShareFolder(folder, currentUser)}
@@ -2489,9 +2583,26 @@ export default function CRM({
             systemFolderNames={systemFolderNames}
             getLeadCount={getLeadCountForFolder}
             onSelectFolder={handleSelectFolder}
-            teamProfilesMap={teamProfilesMap}
+            teamProfilesMap={effectiveProfilesMap}
             currentUserId={currentUser?.id}
           />
+          {!isBrowseMode && folders.length > 0 && activeList.length > 0 && (
+            <select
+              className="form-select btn-sm"
+              defaultValue=""
+              style={{ marginLeft: '0.5rem', maxWidth: 180, fontSize: '0.8rem' }}
+              onChange={(e) => {
+                const val = e.target.value;
+                if (val) handleBulkMoveAllInViewToFolder(val);
+                e.target.value = '';
+              }}
+            >
+              <option value="" disabled>Assign all {activeList.length} in view…</option>
+              {folders.filter((f) => f.user_id === currentUser?.id).map((f) => (
+                <option key={f.id} value={f.id}>{f.name}</option>
+              ))}
+            </select>
+          )}
         </nav>
 
         {/* Outreach mode switcher */}
@@ -2989,8 +3100,8 @@ export default function CRM({
                   defaultValue=""
                   style={{ width: '130px', padding: '0.2rem 0.5rem', height: 'auto' }}
                 >
-                  <option value="" disabled>Move to Folder</option>
-                  <option value="">(All Leads)</option>
+                  <option value="" disabled>Move to list</option>
+                  <option value="">(Unfiled)</option>
                   {folders.map(f => <option key={f.id} value={f.id}>{f.name}</option>)}
                 </select>
               )}
@@ -3196,7 +3307,7 @@ export default function CRM({
               ) : (
                 paginatedList.map((lead, rowIndex) => {
                   const isSelected = selectedIds.includes(lead.id);
-                  const addedByEmail = teamProfilesMap[lead.user_id];
+                  const addedByEmail = teamMemberEmail(teamProfilesMap[lead.user_id]);
 
                   return (
                     <ResizableTr
@@ -3314,7 +3425,7 @@ export default function CRM({
 
                         if (col.column_type === 'dropdown') {
                           const isActionToTake = col.column_key === 'action_to_take';
-                          const expectedSuggestion = isActionToTake ? getSuggestionForStatus(lead.status, suggestionRules) : null;
+                          const expectedSuggestion = isActionToTake ? getSuggestionForStatus(lead.status, suggestionRules, currentUser) : null;
                           const suggestionsEnabled = currentUser?.suggestions_enabled !== false;
                           const remindersEnabled = currentUser?.reminders_enabled !== false;
                           const isSuggestionMismatch = suggestionsEnabled && expectedSuggestion && cellValue !== expectedSuggestion;
@@ -3540,7 +3651,22 @@ export default function CRM({
           <div className="flex gap-4 align-center" style={{ fontSize: '0.85rem', color: 'var(--text-secondary)' }}>
             <span>
               Showing {totalFiltered === 0 ? 0 : (currentPage - 1) * pageSize + 1}–{Math.min(currentPage * pageSize, totalFiltered)} of {totalFiltered} leads
+              {folderListTotal != null && hasActiveListFilters && folderListTotal !== totalFiltered && (
+                <span style={{ marginLeft: '0.35rem', color: 'var(--status-warm)' }}>
+                  ({folderListTotal} in this list)
+                </span>
+              )}
             </span>
+            {hasActiveListFilters && (
+              <button
+                type="button"
+                className="btn btn-secondary btn-sm"
+                onClick={handleClearFilters}
+                style={{ fontSize: '0.75rem', padding: '0.15rem 0.45rem' }}
+              >
+                Clear filters
+              </button>
+            )}
             <div className="flex align-center gap-1">
               <span>Page Size:</span>
               <select
@@ -4279,6 +4405,7 @@ export default function CRM({
         columnDefs={columnDefs}
         currentUser={currentUser}
         folderId={activeManualFolderId || null}
+        folders={folders.filter((f) => f.user_id === currentUser?.id)}
       />
 
       {/* NEW CSV Import Modal */}
@@ -4347,6 +4474,12 @@ export default function CRM({
             <form onSubmit={async (e) => {
               e.preventDefault();
               if (!smartFolderForm.name.trim()) return;
+              const rules = smartFolderForm.rules || [];
+              const incomplete = rules.filter((r) => r.field && !(r.value || '').trim());
+              if (incomplete.length > 0) {
+                alert('Each rule needs a value. Remove empty rules or pick a status/priority/tag.');
+                return;
+              }
               try {
                 const newFolder = {
                   user_id: currentUser.id,
@@ -4386,6 +4519,11 @@ export default function CRM({
                 <label className="form-label">Rules (all rules must match)</label>
                 <p style={{ fontSize: '0.75rem', color: 'var(--text-muted)', margin: '0 0 0.5rem' }}>
                   Leads matching these rules appear in this list automatically — you don&apos;t assign them manually.
+                  {smartFolderForm.rules.length === 0 && (
+                    <span style={{ display: 'block', marginTop: '0.25rem', color: 'var(--status-warm)' }}>
+                      No rules = all leads match this auto list.
+                    </span>
+                  )}
                 </p>
                 <div className="flex-col gap-2" style={{ marginTop: '0.5rem', marginBottom: '0.5rem' }}>
                   {smartFolderForm.rules.map((rule, idx) => (

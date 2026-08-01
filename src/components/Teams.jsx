@@ -1,6 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Users, Mail, UserMinus, Lock, Shield, Check } from 'lucide-react';
+import { Users, Mail, UserMinus, Lock, Check } from 'lucide-react';
 import { supabase } from '../lib/supabase';
 import {
   ensureProTeamWorkspace,
@@ -19,6 +19,11 @@ import {
   updateTeamCallSettings,
   upsertMemberCallPermission,
 } from '../lib/callActivity';
+import {
+  fetchTeamCalendarPermissions,
+  updateTeamCalendarSettings,
+  upsertMemberCalendarPermission,
+} from '../lib/calendarActivity';
 
 export default function Teams({ currentUser, onRefreshProfile }) {
   const navigate = useNavigate();
@@ -38,6 +43,11 @@ export default function Teams({ currentUser, onRefreshProfile }) {
     call_notes_visible_to_team: false,
     memberPermissions: {},
   });
+  const [calendarSettings, setCalendarSettings] = useState({
+    calendar_activity_sharing: 'off',
+    memberPermissions: {},
+  });
+  const [activeSection, setActiveSection] = useState('people');
   const [settingsSaving, setSettingsSaving] = useState(false);
   const [callSettingsSaving, setCallSettingsSaving] = useState(false);
 
@@ -76,10 +86,14 @@ export default function Teams({ currentUser, onRefreshProfile }) {
           call_notes_visible_to_team: false,
           memberPermissions: {},
         });
+        setCalendarSettings({
+          calendar_activity_sharing: 'off',
+          memberPermissions: {},
+        });
         return;
       }
 
-      const [{ data: members, error: mErr }, { data: invites, error: iErr }, teamSettings, callPerms] = await Promise.all([
+      const [{ data: members, error: mErr }, { data: invites, error: iErr }, teamSettings, callPerms, calPerms] = await Promise.all([
         supabase
           .from('user_profiles')
           .select('id, email, full_name, team_role, plan')
@@ -93,6 +107,7 @@ export default function Teams({ currentUser, onRefreshProfile }) {
           .order('created_at', { ascending: false }),
         getTeamSettings(teamId),
         fetchTeamCallPermissions(teamId),
+        fetchTeamCalendarPermissions(teamId),
       ]);
 
       if (mErr) throw mErr;
@@ -102,6 +117,7 @@ export default function Teams({ currentUser, onRefreshProfile }) {
       setTeamInvitations(invites || []);
       setSettings(teamSettings);
       setCallSettings(callPerms);
+      setCalendarSettings(calPerms);
     } catch (err) {
       console.error('Error loading team details:', err);
       setTeamError(err.message || 'Failed to load team workspace.');
@@ -113,6 +129,19 @@ export default function Teams({ currentUser, onRefreshProfile }) {
   useEffect(() => {
     if (currentUser) loadTeam();
   }, [currentUser?.id, currentUser?.team_id, currentUser?.plan, currentUser?.team_role]);
+
+  useEffect(() => {
+    if (!currentUser?.team_id) return undefined;
+    const channel = supabase
+      .channel(`team-settings-${currentUser.team_id}`)
+      .on(
+        'postgres_changes',
+        { event: 'UPDATE', schema: 'public', table: 'teams', filter: `id=eq.${currentUser.team_id}` },
+        () => { loadTeam(); },
+      )
+      .subscribe();
+    return () => { supabase.removeChannel(channel); };
+  }, [currentUser?.team_id]);
 
   const handleSendInvite = async (e) => {
     e.preventDefault();
@@ -177,21 +206,43 @@ export default function Teams({ currentUser, onRefreshProfile }) {
   const handleRemoveMember = async (memberId) => {
     if (!canManage) return;
     if (!confirm('Remove this member from your workspace? They will lose access to shared leads and templates.')) return;
+    setTeamError('');
     try {
-      const { error } = await supabase
-        .from('user_profiles')
-        .update({
-          team_id: null,
-          team_role: 'owner',
-        })
-        .eq('id', memberId);
-
+      const { data, error } = await supabase.functions.invoke('remove-team-member', {
+        body: { memberId },
+      });
       if (error) throw error;
+      if (data?.success === false) throw new Error(data.error || 'Failed to remove member');
       setTeamMembers((prev) => prev.filter((m) => m.id !== memberId));
       setTeamSuccess('Team member removed.');
+      await loadTeam();
     } catch (err) {
       console.error('Error removing team member:', err);
-      setTeamError('Failed to remove team member.');
+      setTeamError(err.message || 'Failed to remove team member.');
+    }
+  };
+
+  const handleLeadVisibilityChange = async (ownLeadsOnly) => {
+    if (!canManage || !currentUser?.team_id) return;
+    if (!!settings.members_see_own_leads_only === ownLeadsOnly) return;
+    const next = { ...settings, members_see_own_leads_only: ownLeadsOnly };
+    setSettings(next);
+    setSettingsSaving(true);
+    setTeamError('');
+    try {
+      const saved = await updateTeamSettings(currentUser.team_id, next);
+      setSettings({
+        members_can_view_revenue: !!saved.members_can_view_revenue,
+        members_see_own_leads_only: !!saved.members_see_own_leads_only,
+      });
+      setTeamSuccess('Permissions updated.');
+      if (onRefreshProfile) await onRefreshProfile();
+    } catch (err) {
+      console.error('Error updating team settings:', err);
+      setSettings((prev) => ({ ...prev, members_see_own_leads_only: !ownLeadsOnly }));
+      setTeamError(err.message || 'Failed to update permissions.');
+    } finally {
+      setSettingsSaving(false);
     }
   };
 
@@ -220,16 +271,24 @@ export default function Teams({ currentUser, onRefreshProfile }) {
 
   const handleCallSharingChange = async (value) => {
     if (!canManage || !currentUser?.team_id) return;
+    const prevSharing = callSettings.call_activity_sharing;
     const next = { ...callSettings, call_activity_sharing: value };
     setCallSettings(next);
     setCallSettingsSaving(true);
     setTeamError('');
     try {
       await updateTeamCallSettings(currentUser.team_id, next);
+      if (value !== 'selected_members') {
+        await supabase
+          .from('team_member_permissions')
+          .update({ can_view_team_call_activity: false, can_view_call_notes: false })
+          .eq('team_id', currentUser.team_id);
+        await loadTeam();
+      }
       setTeamSuccess('Call activity permissions updated.');
     } catch (err) {
       console.error('Error updating call sharing:', err);
-      setCallSettings((prev) => ({ ...prev, call_activity_sharing: callSettings.call_activity_sharing }));
+      setCallSettings((prev) => ({ ...prev, call_activity_sharing: prevSharing }));
       setTeamError(err.message || 'Failed to update call activity settings.');
     } finally {
       setCallSettingsSaving(false);
@@ -262,6 +321,7 @@ export default function Teams({ currentUser, onRefreshProfile }) {
 
   const handleMemberCallPermission = async (userId, key, value) => {
     if (!canManage || !currentUser?.team_id) return;
+    if (callSettings.call_activity_sharing !== 'selected_members' && key === 'can_view_team_call_activity') return;
     const existing = callSettings.memberPermissions[userId] || {
       can_view_team_call_activity: false,
       can_view_call_notes: false,
@@ -285,6 +345,54 @@ export default function Teams({ currentUser, onRefreshProfile }) {
     }
   };
 
+  const handleCalendarSharingChange = async (value) => {
+    if (!canManage || !currentUser?.team_id) return;
+    const prevSharing = calendarSettings.calendar_activity_sharing;
+    const next = { ...calendarSettings, calendar_activity_sharing: value };
+    setCalendarSettings(next);
+    setCallSettingsSaving(true);
+    setTeamError('');
+    try {
+      await updateTeamCalendarSettings(currentUser.team_id, next);
+      if (value !== 'selected_members') {
+        await supabase
+          .from('team_member_permissions')
+          .update({ can_view_team_calendar_activity: false })
+          .eq('team_id', currentUser.team_id);
+        await loadTeam();
+      }
+      setTeamSuccess('Calendar activity permissions updated.');
+    } catch (err) {
+      console.error('Error updating calendar sharing:', err);
+      setCalendarSettings((prev) => ({ ...prev, calendar_activity_sharing: prevSharing }));
+      setTeamError(err.message || 'Failed to update calendar activity settings.');
+    } finally {
+      setCallSettingsSaving(false);
+    }
+  };
+
+  const handleMemberCalendarPermission = async (userId, value) => {
+    if (!canManage || !currentUser?.team_id) return;
+    if (calendarSettings.calendar_activity_sharing !== 'selected_members') return;
+    const nextPerm = { can_view_team_calendar_activity: value };
+    setCalendarSettings((prev) => ({
+      ...prev,
+      memberPermissions: { ...prev.memberPermissions, [userId]: nextPerm },
+    }));
+    setCallSettingsSaving(true);
+    setTeamError('');
+    try {
+      await upsertMemberCalendarPermission(currentUser.team_id, userId, nextPerm);
+      setTeamSuccess('Member calendar permissions updated.');
+    } catch (err) {
+      console.error('Error updating member calendar permission:', err);
+      setTeamError(err.message || 'Failed to update member permissions.');
+      await loadTeam();
+    } finally {
+      setCallSettingsSaving(false);
+    }
+  };
+
   if (locked) {
     return (
       <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', minHeight: '360px', gap: '1rem', color: 'var(--text-muted)', textAlign: 'center', padding: '2rem' }}>
@@ -299,6 +407,12 @@ export default function Teams({ currentUser, onRefreshProfile }) {
       </div>
     );
   }
+
+  const sectionTabs = [
+    { id: 'people', label: 'People' },
+    { id: 'data', label: 'Data access' },
+    { id: 'activity', label: 'Activity sharing' },
+  ];
 
   return (
     <div className="flex-col gap-4" style={{ maxWidth: '760px' }}>
@@ -321,16 +435,53 @@ export default function Teams({ currentUser, onRefreshProfile }) {
         </div>
       )}
 
+      <div
+        role="tablist"
+        aria-label="Teams sections"
+        style={{
+          display: 'inline-flex',
+          padding: 3,
+          borderRadius: 8,
+          border: '1px solid var(--border-color)',
+          background: 'var(--bg-tertiary)',
+          gap: 2,
+          flexWrap: 'wrap',
+        }}
+      >
+        {sectionTabs.map(({ id, label }) => (
+          <button
+            key={id}
+            type="button"
+            role="tab"
+            aria-selected={activeSection === id}
+            onClick={() => setActiveSection(id)}
+            style={{
+              padding: '0.45rem 0.85rem',
+              border: 'none',
+              borderRadius: 6,
+              cursor: 'pointer',
+              fontSize: '0.82rem',
+              fontWeight: 600,
+              background: activeSection === id ? 'var(--bg-card)' : 'transparent',
+              color: activeSection === id ? 'var(--text-primary)' : 'var(--text-muted)',
+            }}
+          >
+            {label}
+          </button>
+        ))}
+      </div>
+
+      {activeSection === 'people' && (
+        <>
       {/* Members */}
-      <div className="card flex-col gap-3">
-        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '1rem', borderBottom: '1px solid var(--border-color)', paddingBottom: '0.5rem' }}>
+      <div className="card rd-page-form flex-col gap-3">
+        <div className="rd-page-form-header" style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '1rem' }}>
           <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
             <Users size={18} style={{ color: 'var(--primary-magenta)' }} />
-            <h3 style={{ fontSize: '1.1rem', margin: 0 }}>Members</h3>
+            <h3 style={{ fontSize: '1.1rem', margin: 0 }}>People</h3>
           </div>
           <span style={{ fontSize: '0.85rem', fontWeight: 600, color: 'var(--text-primary)' }}>
-            {seatsUsed} of {seatLimit} seats used
-            {canManage && seatsRemaining > 0 ? ` · ${seatsRemaining} available` : ''}
+            {seatsUsed} of {seatLimit} seats
           </span>
         </div>
 
@@ -387,10 +538,10 @@ export default function Teams({ currentUser, onRefreshProfile }) {
 
       {/* Pending invites — owner only controls; members still see list if any */}
       {(canManage || teamInvitations.length > 0) && (
-        <div className="card flex-col gap-3">
-          <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', borderBottom: '1px solid var(--border-color)', paddingBottom: '0.5rem' }}>
+        <div className="card rd-page-form flex-col gap-3" style={{ marginTop: '0.75rem' }}>
+          <div className="rd-page-form-header" style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
             <Mail size={18} style={{ color: 'var(--accent-blue)' }} />
-            <h3 style={{ fontSize: '1.1rem', margin: 0 }}>Pending invites</h3>
+            <h3 style={{ fontSize: '1.05rem', margin: 0 }}>Pending invites</h3>
           </div>
 
           {teamLoading ? (
@@ -429,10 +580,10 @@ export default function Teams({ currentUser, onRefreshProfile }) {
 
       {/* Invite form — owner only */}
       {canManage && (
-        <div className="card flex-col gap-3">
-          <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', borderBottom: '1px solid var(--border-color)', paddingBottom: '0.5rem' }}>
+        <div className="card rd-page-form flex-col gap-3" style={{ marginTop: '0.75rem' }}>
+          <div className="rd-page-form-header" style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
             <Mail size={18} style={{ color: 'var(--primary-magenta)' }} />
-            <h3 style={{ fontSize: '1.1rem', margin: 0 }}>Invite teammate</h3>
+            <h3 style={{ fontSize: '1.05rem', margin: 0 }}>Invite teammate</h3>
           </div>
 
           {seatsAtCap && (
@@ -463,21 +614,50 @@ export default function Teams({ currentUser, onRefreshProfile }) {
           </form>
         </div>
       )}
+        </>
+      )}
 
-      {/* Permissions — owner only */}
-      {canManage && (
-        <div className="card flex-col gap-3">
-          <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', borderBottom: '1px solid var(--border-color)', paddingBottom: '0.5rem' }}>
-            <Shield size={18} style={{ color: 'var(--accent-blue)' }} />
-            <h3 style={{ fontSize: '1.1rem', margin: 0 }}>Permissions</h3>
+      {activeSection === 'data' && (
+        <div className="card rd-page-form flex-col gap-3">
+          <div className="rd-page-form-header">
+            <h3>Data access</h3>
+            <p className="rd-modal-sub">Lead visibility, revenue sharing, and what members can see in the CRM.</p>
           </div>
 
           {!currentUser?.team_id ? (
             <p style={{ fontSize: '0.85rem', color: 'var(--text-muted)', margin: 0 }}>
               Send an invite to create your workspace before changing permissions.
             </p>
-          ) : (
+          ) : canManage ? (
             <div className="flex-col gap-3">
+              <div style={{ fontWeight: 600, fontSize: '0.9rem' }}>Lead visibility</div>
+              <label style={{ display: 'flex', alignItems: 'flex-start', gap: '0.5rem', cursor: settingsSaving ? 'wait' : 'pointer' }}>
+                <input
+                  type="radio"
+                  name="lead_visibility"
+                  checked={!settings.members_see_own_leads_only}
+                  onChange={() => handleLeadVisibilityChange(false)}
+                  disabled={settingsSaving}
+                />
+                <div>
+                  <div style={{ fontWeight: 600, fontSize: '0.85rem' }}>Shared pipeline</div>
+                  <div style={{ fontSize: '0.8rem', color: 'var(--text-muted)' }}>Everyone on the team sees all leads.</div>
+                </div>
+              </label>
+              <label style={{ display: 'flex', alignItems: 'flex-start', gap: '0.5rem', cursor: settingsSaving ? 'wait' : 'pointer' }}>
+                <input
+                  type="radio"
+                  name="lead_visibility"
+                  checked={!!settings.members_see_own_leads_only}
+                  onChange={() => handleLeadVisibilityChange(true)}
+                  disabled={settingsSaving}
+                />
+                <div>
+                  <div style={{ fontWeight: 600, fontSize: '0.85rem' }}>Hybrid — own leads + shared lists</div>
+                  <div style={{ fontSize: '0.8rem', color: 'var(--text-muted)' }}>Members see their own leads plus lists explicitly shared with them.</div>
+                </div>
+              </label>
+
               <label
                 style={{
                   display: 'flex',
@@ -489,12 +669,13 @@ export default function Teams({ currentUser, onRefreshProfile }) {
                   border: '1px solid var(--border-color)',
                   borderRadius: '6px',
                   cursor: settingsSaving ? 'wait' : 'pointer',
+                  marginTop: '0.5rem',
                 }}
               >
                 <div>
                   <div style={{ fontWeight: 600, fontSize: '0.9rem' }}>Members can view Revenue Tracker</div>
                   <div style={{ fontSize: '0.8rem', color: 'var(--text-muted)', marginTop: '0.2rem' }}>
-                    When on, teammates can see your shared revenue entries. When off, revenue stays private to each person.
+                    When on, teammates can see revenue entries across the workspace.
                   </div>
                 </div>
                 <input
@@ -505,35 +686,33 @@ export default function Teams({ currentUser, onRefreshProfile }) {
                   style={{ width: 18, height: 18, marginTop: 2, flexShrink: 0 }}
                 />
               </label>
+            </div>
+          ) : (
+            <div style={{ fontSize: '0.85rem', color: 'var(--text-secondary)', lineHeight: 1.5 }}>
+              <strong>Your access:</strong>{' '}
+              {settings.members_see_own_leads_only
+                ? 'You see your own leads plus lists shared with you.'
+                : 'You see the full team pipeline.'}
+              {' '}
+              Revenue tracker is {settings.members_can_view_revenue ? 'shared with the team' : 'private to each person'}.
+            </div>
+          )}
+        </div>
+      )}
 
-              <label
-                style={{
-                  display: 'flex',
-                  alignItems: 'flex-start',
-                  justifyContent: 'space-between',
-                  gap: '1rem',
-                  padding: '0.75rem',
-                  background: 'var(--bg-tertiary)',
-                  border: '1px solid var(--border-color)',
-                  borderRadius: '6px',
-                  cursor: settingsSaving ? 'wait' : 'pointer',
-                }}
-              >
-                <div>
-                  <div style={{ fontWeight: 600, fontSize: '0.9rem' }}>Members see only their own leads</div>
-                  <div style={{ fontSize: '0.8rem', color: 'var(--text-muted)', marginTop: '0.2rem' }}>
-                    When on, members only see leads they own. When off, everyone on the team shares the full pipeline.
-                  </div>
-                </div>
-                <input
-                  type="checkbox"
-                  checked={!!settings.members_see_own_leads_only}
-                  onChange={() => handleToggleSetting('members_see_own_leads_only')}
-                  disabled={settingsSaving}
-                  style={{ width: 18, height: 18, marginTop: 2, flexShrink: 0 }}
-                />
-              </label>
+      {activeSection === 'activity' && (
+        <div className="card rd-page-form flex-col gap-3">
+          <div className="rd-page-form-header">
+            <h3>Activity sharing</h3>
+            <p className="rd-modal-sub">Call activity and calendar timeline visibility for teammates.</p>
+          </div>
 
+          {!currentUser?.team_id ? (
+            <p style={{ fontSize: '0.85rem', color: 'var(--text-muted)', margin: 0 }}>
+              Send an invite to create your workspace before changing permissions.
+            </p>
+          ) : canManage ? (
+            <div className="flex-col gap-3">
               <div
                 style={{
                   padding: '0.75rem',
@@ -666,12 +845,101 @@ export default function Teams({ currentUser, onRefreshProfile }) {
                   </div>
                 )}
               </div>
+
+              <div
+                style={{
+                  padding: '0.75rem',
+                  background: 'var(--bg-tertiary)',
+                  border: '1px solid var(--border-color)',
+                  borderRadius: '6px',
+                }}
+              >
+                <div style={{ fontWeight: 600, fontSize: '0.9rem', marginBottom: '0.35rem' }}>Calendar activity sharing</div>
+                <div style={{ fontSize: '0.8rem', color: 'var(--text-muted)', marginBottom: '0.75rem' }}>
+                  Control who can browse teammates&apos; calendar timeline and planned outreach.
+                </div>
+                <div className="flex-col gap-2" style={{ marginBottom: '0.75rem' }}>
+                  {[
+                    { value: 'off', label: 'Off — members see only their own calendar activity' },
+                    { value: 'all_members', label: 'All members — everyone sees team calendar activity' },
+                    { value: 'selected_members', label: 'Selected members — pick who can view team activity' },
+                  ].map((opt) => (
+                    <label
+                      key={opt.value}
+                      style={{
+                        display: 'flex',
+                        alignItems: 'center',
+                        gap: '0.5rem',
+                        fontSize: '0.85rem',
+                        cursor: callSettingsSaving ? 'wait' : 'pointer',
+                      }}
+                    >
+                      <input
+                        type="radio"
+                        name="calendar_activity_sharing"
+                        checked={calendarSettings.calendar_activity_sharing === opt.value}
+                        onChange={() => handleCalendarSharingChange(opt.value)}
+                        disabled={callSettingsSaving}
+                      />
+                      {opt.label}
+                    </label>
+                  ))}
+                </div>
+
+                {calendarSettings.calendar_activity_sharing === 'selected_members' && (
+                  <div style={{ marginTop: '0.75rem', paddingTop: '0.75rem', borderTop: '1px solid var(--border-color)' }}>
+                    <div style={{ fontWeight: 600, fontSize: '0.85rem', marginBottom: '0.5rem' }}>Calendar access by member</div>
+                    {teamMembers.filter((m) => (m.team_role || '').toLowerCase() !== 'owner').length === 0 ? (
+                      <p style={{ margin: 0, fontSize: '0.8rem', color: 'var(--text-muted)' }}>No members yet.</p>
+                    ) : (
+                      <div className="flex-col gap-2">
+                        {teamMembers
+                          .filter((m) => (m.team_role || '').toLowerCase() !== 'owner')
+                          .map((member) => {
+                            const perm = calendarSettings.memberPermissions[member.id] || {
+                              can_view_team_calendar_activity: false,
+                            };
+                            const label = member.full_name || member.email;
+                            return (
+                              <label
+                                key={member.id}
+                                style={{
+                                  display: 'flex',
+                                  alignItems: 'center',
+                                  justifyContent: 'space-between',
+                                  gap: '0.75rem',
+                                  padding: '0.5rem 0',
+                                  borderBottom: '1px solid var(--border-color)',
+                                  fontSize: '0.85rem',
+                                  cursor: 'pointer',
+                                }}
+                              >
+                                <span style={{ fontWeight: 500 }}>{label}</span>
+                                <input
+                                  type="checkbox"
+                                  checked={!!perm.can_view_team_calendar_activity}
+                                  disabled={callSettingsSaving}
+                                  onChange={(e) => handleMemberCalendarPermission(member.id, e.target.checked)}
+                                />
+                              </label>
+                            );
+                          })}
+                      </div>
+                    )}
+                  </div>
+                )}
+              </div>
+            </div>
+          ) : (
+            <div style={{ fontSize: '0.85rem', color: 'var(--text-secondary)', lineHeight: 1.5 }}>
+              Call activity: {callSettings.call_activity_sharing === 'off' ? 'private to each person' : 'shared with the team'}.
+              Calendar activity: {calendarSettings.calendar_activity_sharing === 'off' ? 'private to each person' : 'shared with the team'}.
             </div>
           )}
         </div>
       )}
 
-      {!isOwner && (
+      {!isOwner && activeSection === 'people' && (
         <p style={{ fontSize: '0.8rem', color: 'var(--text-muted)', margin: 0 }}>
           You’re a member of this workspace. Only the owner can invite people, change permissions, or remove members.
         </p>

@@ -1,5 +1,5 @@
 import React from 'react';
-import { Phone, RefreshCw, CheckCircle2, StickyNote, CalendarCheck, AlertCircle } from 'lucide-react';
+import { Phone, RefreshCw, CheckCircle2, StickyNote, CalendarCheck, AlertCircle, Mail } from 'lucide-react';
 import { formatActivityDateTime } from '../../lib/dateTime';
 import { actorDisplayName, leadDisplayFromTimeline } from '../../lib/leadTimeline';
 
@@ -14,6 +14,7 @@ const ICONS = {
   checkpoint_done: CheckCircle2,
   note_added: StickyNote,
   reply_logged: StickyNote,
+  message_sent: Mail,
 };
 
 export default function ActivityTimelineRow({

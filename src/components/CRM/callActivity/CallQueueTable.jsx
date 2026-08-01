@@ -155,7 +155,7 @@ export default function CallQueueTable({
       case 'call_action': {
         const callStatusLabel = displayCallStatus(lead.call_status);
         const expected = suggestionsEnabled
-          ? getCallActionForStatus(callStatusLabel, userId, suggestionRules)
+          ? getCallActionForStatus(callStatusLabel, userId, currentUser)
           : null;
         const isMismatch = expected && lead.call_action !== expected;
 
@@ -238,6 +238,7 @@ export default function CallQueueTable({
         queue={sessionQueue}
         userId={userId}
         teamId={teamId}
+        profile={currentUser}
         onClose={() => setSessionOpen(false)}
         onOpenLead={(lead) => onOpenLead?.(lead, 'calls')}
         defaultCountryCode={defaultCountryCode}

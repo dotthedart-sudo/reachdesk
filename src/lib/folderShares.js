@@ -26,6 +26,20 @@ export async function fetchSharesForFolder(folderId) {
   return data || [];
 }
 
+/** All shares for a set of folder IDs (owner team list badges). */
+export async function fetchSharesForFolders(folderIds = []) {
+  if (!folderIds?.length) return [];
+  const { data, error } = await supabase
+    .from('folder_shares')
+    .select('*')
+    .in('folder_id', folderIds);
+  if (error) {
+    console.warn('[folderShares] fetchSharesForFolders:', error.message);
+    return [];
+  }
+  return data || [];
+}
+
 /** Replace share list for a folder. */
 export async function saveFolderShares(folderId, sharedByUserId, entries = []) {
   if (!folderId || !sharedByUserId) return;

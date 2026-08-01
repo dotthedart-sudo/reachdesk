@@ -1,6 +1,7 @@
 import { supabase } from './supabase';
 import { captureDeviceTimestamp, getEffectiveUserTimeZone } from './dateTime';
 import { logLeadTimelineEvent } from './leadTimeline';
+import { resolveMessagingActionRules } from './automationRules';
 
 export const CHECKPOINT_OFFSETS_HOURS = [12, 24, 72, 120, 168, 336, 504];
 
@@ -17,23 +18,25 @@ export function isClientStatus(status) {
 
 /**
  * Returns the suggested action based on the rules and current status.
+ * @param {string} status
+ * @param {Array} suggestionRules - global DB rules or pre-resolved rules
+ * @param {object|null} profile - when set, prefers profile.messaging_action_rules
  */
-export function getSuggestionForStatus(status, suggestionRules = []) {
+export function getSuggestionForStatus(status, suggestionRules = [], profile = null) {
   if (!status) return null;
 
-  // Normalize string: trim, lowercase, replace underscores with spaces
   const normalize = (val) => {
     if (!val) return '';
     return val.trim().toLowerCase().replace(/_/g, ' ');
   };
 
   const normStatus = normalize(status);
+  const rules = profile
+    ? resolveMessagingActionRules(profile, suggestionRules)
+    : suggestionRules;
 
-  // 1. Try matching rule in database case-insensitively
-  const rule = suggestionRules.find(r => normalize(r.status) === normStatus);
-  if (rule) return rule.suggested_action;
-
-  // 2. Fallback default suggestions
+  const rule = rules.find((r) => normalize(r.status) === normStatus);
+  if (rule?.suggested_action) return rule.suggested_action;
   const fallbacks = {
     'lead': 'Send first pitch',
     'contacted': 'Wait for reply',
@@ -65,9 +68,9 @@ export function getSuggestionForStatus(status, suggestionRules = []) {
 /**
  * Automatically applies the status's suggestion to the action_to_take of the lead.
  */
-export async function applySuggestion(lead, suggestionRules = []) {
+export async function applySuggestion(lead, suggestionRules = [], profile = null) {
   if (!lead) return null;
-  const suggestion = getSuggestionForStatus(lead.status, suggestionRules);
+  const suggestion = getSuggestionForStatus(lead.status, suggestionRules, profile);
   if (!suggestion) return null;
   
   const { error } = await supabase
@@ -158,15 +161,21 @@ export async function updateLeadStatusAndCheckpoint({
   }
 
   // Determine suggested action
-  const suggestedAction = getSuggestionForStatus(newStatus, suggestionRules);
+  const suggestedAction = getSuggestionForStatus(newStatus, suggestionRules, currentUser);
 
   // Build lead update payload
   const { skip_auto_last_contacted: _skip, ...safeExtra } = extraUpdates;
+  const prevCheckpoint = targetLead.next_checkpoint_at || null;
   const leadUpdate = {
     status: newStatus,
     next_checkpoint_at: nextCheckpoint,
     ...safeExtra,
   };
+
+  // Allow a new push when the checkpoint reschedules or clears
+  if (prevCheckpoint !== nextCheckpoint) {
+    leadUpdate.checkpoint_notified_at = null;
+  }
 
   if (!skipAutoContacted) {
     leadUpdate.last_contacted_at = lastContacted;

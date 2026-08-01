@@ -4,7 +4,7 @@ import { CURRENCY_MAP } from './CurrencySelector';
 import { supabase } from '../lib/supabase';
 import { useAppContext } from '../App';
 import { getTeamIds, PLAN_LIMITS, getEffectivePlan } from '../lib/utils';
-import { isTeamOwner } from '../lib/teamWorkspace';
+import { isTeamOwner, hasTeammates } from '../lib/teamWorkspace';
 import {
   buildPersonalUpNextFeed,
   buildTeamOverview,
@@ -21,6 +21,13 @@ import {
   REPLY_CHECK_STATUSES, 
   FOLLOW_UP_CHECK_STATUSES 
 } from '../lib/reminders';
+import {
+  fetchDueCheckpointLeads,
+  leadDisplayName,
+  formatOverdueLabel,
+} from '../lib/checkpointNotifications';
+import { getEffectiveUserTimeZone, todayDateKeyInZone } from '../lib/dateTime';
+import { softBadgeStyle, softDotStyle } from '../lib/softBadgeStyle';
 import { 
   Users, Mail, MessageSquare, ThumbsUp, Trophy, Bell,
   ArrowRight, Lock, TrendingUp, DollarSign, Activity,
@@ -76,7 +83,7 @@ function formatTimePhrasing(targetDateStr, type) {
 
 export default function Dashboard({ currentUser, onSelectLead }) {
   const navigate = useNavigate();
-  const { showToast, teamProfilesMap = {} } = useAppContext() || {};
+  const { showToast, teamProfilesMap = {}, teamIds = [] } = useAppContext() || {};
   const [metrics, setMetrics] = useState({ total: 0, contacted: 0, replied: 0, positive: 0 });
   const [copyAnalytics, setCopyAnalytics] = useState([]);
   const [reminders, setReminders] = useState([]);
@@ -98,7 +105,7 @@ export default function Dashboard({ currentUser, onSelectLead }) {
   const plan = getEffectivePlan(currentUser);
   const limits = PLAN_LIMITS[plan] || PLAN_LIMITS.trial;
   const isOwner = isTeamOwner(currentUser);
-  const hasTeam = !!currentUser?.team_id;
+  const hasTeam = hasTeammates(teamIds);
   const suggestionsEnabled = currentUser?.suggestions_enabled !== false;
 
   const loadDashboardData = async () => {
@@ -112,22 +119,24 @@ export default function Dashboard({ currentUser, onSelectLead }) {
       }
 
       // Parallel Data Fetching
-      const [invoicesRes, rulesRes, leadsRes, remindersRes] = await Promise.all([
+      const remindersEnabled = currentUser?.reminders_enabled !== false;
+      const [invoicesRes, rulesRes, leadsRes, dueCheckpoints] = await Promise.all([
         supabase.from('invoices').select('*').eq('user_id', currentUser.id),
         supabase.from('action_suggestion_rules').select('*'),
         supabase.from('leads').select('id, user_id, first_name, last_name, status, created_at, last_contacted_at, action_to_take, next_checkpoint_at, template_used, reply_type, meeting_ends_at').in('user_id', teamIds).order('created_at', { ascending: false }).order('id', { ascending: true }),
-        supabase.from('follow_up_reminders').select('*').in('user_id', teamIds).eq('status', 'pending').lte('scheduled_at', new Date().toISOString()).order('scheduled_at', { ascending: true }).limit(3)
+        remindersEnabled
+          ? fetchDueCheckpointLeads({ userIds: [currentUser.id], limit: 5 })
+          : Promise.resolve([]),
       ]);
 
       const loadedInvoices = invoicesRes.data || [];
       const loadedRules = rulesRes.data || [];
       const loadedLeads = leadsRes.data || [];
-      const loadedReminders = remindersRes.data || [];
 
       setInvoices(loadedInvoices);
       setSuggestionRules(loadedRules);
       setLeadsList(loadedLeads);
-      setReminders(loadedReminders.filter((r) => r.user_id === currentUser.id));
+      setReminders(dueCheckpoints);
 
       // 1. Calculate Core Metrics
       const totalLeads = loadedLeads.length;
@@ -175,6 +184,7 @@ export default function Dashboard({ currentUser, onSelectLead }) {
         windowDays,
         currentUserId: currentUser.id,
         suggestionsEnabled,
+        profile: currentUser,
       });
       setUpNextFeed(personalFeed);
 
@@ -184,9 +194,16 @@ export default function Dashboard({ currentUser, onSelectLead }) {
           rules: loadedRules,
           teamProfilesMap,
           suggestionsEnabled,
+          profile: currentUser,
+          currentUserId: currentUser.id,
         }));
         try {
-          const events = await fetchTeamTimelineForDay({ limit: 10 });
+          const todayKey = todayDateKeyInZone(getEffectiveUserTimeZone(currentUser));
+          const events = await fetchTeamTimelineForDay({
+            fromDate: todayKey,
+            toDate: todayKey,
+            limit: 10,
+          });
           setTeamActivity(events.slice(0, 10));
         } catch {
           setTeamActivity([]);
@@ -208,6 +225,17 @@ export default function Dashboard({ currentUser, onSelectLead }) {
       loadDashboardData();
     }
   }, [currentUser, windowDays, teamProfilesMap]);
+
+  // Digest push deep-link: scroll to Due Follow-ups
+  useEffect(() => {
+    const params = new URLSearchParams(window.location.search);
+    if (params.get('dueFollowups') === '1') {
+      const el = document.getElementById('due-followups');
+      if (el) {
+        el.scrollIntoView({ behavior: 'smooth', block: 'start' });
+      }
+    }
+  }, [loading, reminders]);
 
   // Unified Handler: Suggestion mismatch apply
   const handleApplyMismatchSuggestion = async (lead, suggestion) => {
@@ -543,9 +571,11 @@ export default function Dashboard({ currentUser, onSelectLead }) {
                     width: '26px',
                     height: '26px',
                     borderRadius: '50%',
-                    background: hasLeads ? stageColor : 'transparent',
-                    border: `2px solid ${hasLeads ? stageColor : 'var(--border-strong)'}`,
-                    color: hasLeads ? '#FFFFFF' : 'var(--text-muted)',
+                    ...(hasLeads ? softBadgeStyle(stageColor) : {
+                      background: 'transparent',
+                      border: '2px solid var(--border-strong)',
+                      color: 'var(--text-muted)',
+                    }),
                     display: 'flex',
                     alignItems: 'center',
                     justifyContent: 'center',
@@ -631,6 +661,15 @@ export default function Dashboard({ currentUser, onSelectLead }) {
                 onClick={() => setUpNextTab('team')}
               >
                 Team
+              </button>
+            </div>
+          )}
+
+          {isOwner && !hasTeam && (
+            <div style={{ padding: '1rem', border: '1px dashed var(--border)', borderRadius: '8px', fontSize: '0.85rem', color: 'var(--text-muted)' }}>
+              No teammates invited yet.{' '}
+              <button type="button" className="crm-list-breadcrumb-link" style={{ fontSize: 'inherit' }} onClick={() => navigate('/teams')}>
+                Invite from Teams →
               </button>
             </div>
           )}
@@ -998,61 +1037,55 @@ export default function Dashboard({ currentUser, onSelectLead }) {
         {/* Column 2: Urgent Follow-ups Preview & Templates */}
         <div style={{ display: 'flex', flexDirection: 'column', gap: '1.5rem' }}>
           
-          {/* Urgent Follow-up Reminders */}
-          <div className="card">
+          {/* Due Follow-ups (from leads.next_checkpoint_at) */}
+          <div className="card" id="due-followups">
             <div className="flex justify-between align-center mb-3">
               <h3 style={{ fontSize: '0.95rem', display: 'flex', alignItems: 'center', gap: '0.4rem' }}>
-                <Bell size={18} style={{ color: 'var(--danger-color)' }} /> Pending Reminders
+                <Bell size={18} style={{ color: 'var(--danger-color)' }} /> Due Follow-ups
               </h3>
               {reminders.length > 0 && (
-                <button onClick={() => navigate('/reminders')} className="btn btn-secondary btn-sm" style={{ fontSize: '0.7rem', padding: '0.25rem 0.5rem', display: 'flex', alignItems: 'center', gap: '0.15rem' }}>
-                  All <ArrowRight size={12} />
+                <button onClick={() => navigate('/crm')} className="btn btn-secondary btn-sm" style={{ fontSize: '0.7rem', padding: '0.25rem 0.5rem', display: 'flex', alignItems: 'center', gap: '0.15rem' }}>
+                  Open CRM <ArrowRight size={12} />
                 </button>
               )}
             </div>
 
             {reminders.length === 0 ? (
               <div style={{ padding: '1.5rem', textAlign: 'center', color: 'var(--text-muted)', fontSize: '0.8rem' }}>
-                No pending follow-up alerts.
+                No due follow-ups.
               </div>
             ) : (
               <div className="flex-col gap-2">
-                {reminders.map(rem => {
-                  const diffMs = Date.now() - new Date(rem.scheduled_at).getTime();
-                  const diffHours = Math.floor(diffMs / (1000 * 60 * 60));
-                  const diffMins = Math.floor(diffMs / (1000 * 60));
-                  let timeLabel = 'Just now';
-                  if (diffMins > 0 && diffMins < 60) timeLabel = `${diffMins} mins ago`;
-                  else if (diffHours >= 1 && diffHours < 24) timeLabel = `${diffHours} hr${diffHours === 1 ? '' : 's'} ago`;
-                  else if (diffHours >= 24) {
-                    const days = Math.floor(diffHours / 24);
-                    timeLabel = `${days} day${days === 1 ? '' : 's'} ago`;
-                  }
-
+                {reminders.map((lead) => {
+                  const timeLabel = formatOverdueLabel(lead.next_checkpoint_at);
                   return (
-                    <div key={rem.id} className="flex justify-between align-center" style={{ padding: '0.6rem 0.75rem', border: '1px solid var(--border)', borderRadius: '6px', background: 'var(--bg-card-hover)', fontSize: '0.8rem' }}>
+                    <button
+                      key={lead.id}
+                      type="button"
+                      onClick={() => navigate(`/crm?lead=${lead.id}`)}
+                      className="flex justify-between align-center"
+                      style={{
+                        padding: '0.6rem 0.75rem',
+                        border: '1px solid var(--border)',
+                        borderRadius: '6px',
+                        background: 'var(--bg-card-hover)',
+                        fontSize: '0.8rem',
+                        cursor: 'pointer',
+                        textAlign: 'left',
+                        width: '100%',
+                        color: 'inherit',
+                      }}
+                    >
                       <div>
-                        <div style={{ fontWeight: 600 }}>{rem.lead_name}</div>
+                        <div style={{ fontWeight: 600 }}>{leadDisplayName(lead)}</div>
                         <div style={{ fontSize: '0.7rem', color: 'var(--text-muted)' }}>
-                          Reminder #{rem.reminder_number}
+                          {lead.status || 'Lead'}
                         </div>
                       </div>
-                      <div className="flex gap-1 align-center">
-                        <span style={{ fontSize: '0.65rem', marginRight: '0.4rem', color: 'var(--danger-color)', fontWeight: 600 }}>
-                          {timeLabel}
-                        </span>
-                        <button 
-                          onClick={async () => {
-                            await supabase.from('follow_up_reminders').update({ status: 'completed' }).eq('id', rem.id);
-                            setReminders(prev => prev.filter(r => r.id !== rem.id));
-                          }}
-                          className="btn btn-primary btn-sm"
-                          style={{ fontSize: '0.65rem', padding: '0.2rem 0.4rem' }}
-                        >
-                          Done
-                        </button>
-                      </div>
-                    </div>
+                      <span style={{ fontSize: '0.65rem', color: 'var(--danger-color)', fontWeight: 600 }}>
+                        {timeLabel}
+                      </span>
+                    </button>
                   );
                 })}
               </div>

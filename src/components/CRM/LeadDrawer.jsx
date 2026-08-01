@@ -8,7 +8,14 @@ import EditableDropdown from './EditableDropdown';
 import RichTextEditor from './RichTextEditor';
 import GroupedStatusDropdown from './GroupedStatusDropdown';
 import GroupedTemplateDropdown from './GroupedTemplateDropdown';
-import { updateLeadStatusAndCheckpoint, getSuggestionForStatus, isClientStatus } from '../../lib/reminders';
+import {
+  updateLeadStatusAndCheckpoint,
+  getSuggestionForStatus,
+  isClientStatus,
+  REPLY_CHECK_STATUSES,
+  FOLLOW_UP_CHECK_STATUSES,
+} from '../../lib/reminders';
+import { isCheckpointDue } from '../../lib/checkpointNotifications';
 import { getCallActionForStatus, displayCallStatus } from '../../lib/callOutcomeRules';
 import { CALL_ACTION_DEFAULT_OPTIONS } from './crmTableColumns';
 import PriorityDropdown from './PriorityDropdown';
@@ -159,6 +166,13 @@ export default function LeadDrawer({
       setShowSuggestion(true);
       if (initialTab === 'calls') {
         setActiveTab('activity');
+      } else if (
+        isCheckpointDue(lead, {
+          remindersEnabled: currentUser?.reminders_enabled !== false,
+        })
+      ) {
+        // Deep-link from bell/push: show checkpoint actions on Pipeline tab
+        setActiveTab('pipeline');
       }
     }
   }, [lead, initialTab]);
@@ -932,6 +946,110 @@ export default function LeadDrawer({
         {/* Pipeline Tab */}
         {activeTab === 'pipeline' && (
           <div className="flex-col gap-3">
+            {(() => {
+              const status = formData.status || lead?.status || 'Lead';
+              const checkpointAt = formData.next_checkpoint_at ?? lead?.next_checkpoint_at;
+              const due = isCheckpointDue(
+                { ...lead, ...formData, status, next_checkpoint_at: checkpointAt },
+                { remindersEnabled: currentUser?.reminders_enabled !== false },
+              );
+              if (!due) return null;
+
+              const firstName =
+                (formData.first_name || lead?.first_name || 'they').split(' ')[0] || 'they';
+              const isReplyCheck = REPLY_CHECK_STATUSES.includes(status);
+              const isFollowUpCheck = FOLLOW_UP_CHECK_STATUSES.includes(status);
+
+              const handleCheckpointOutcome = async (newStatus, extra = {}) => {
+                try {
+                  const updated = await updateLeadStatusAndCheckpoint({
+                    lead: { ...lead, ...formData },
+                    newStatus,
+                    suggestionRules,
+                    currentUser,
+                    extraUpdates: extra,
+                  });
+                  setFormData((prev) => ({ ...prev, ...updated }));
+                  if (onUpdateLead) onUpdateLead(updated);
+                  if (newStatus === 'Closed Won' && lead?.status !== 'Closed Won') {
+                    celebrateClosedWon();
+                  }
+                  if (onRefresh) onRefresh();
+                } catch (err) {
+                  console.error('Error updating checkpoint outcome:', err);
+                  showToast?.('Failed to update status');
+                }
+              };
+
+              return (
+                <div
+                  style={{
+                    padding: '0.85rem',
+                    border: '1px solid rgba(139, 92, 246, 0.35)',
+                    borderRadius: '8px',
+                    background: 'rgba(139, 92, 246, 0.08)',
+                    display: 'flex',
+                    flexDirection: 'column',
+                    gap: '0.65rem',
+                  }}
+                >
+                  <div style={{ fontSize: '0.85rem', fontWeight: 700, color: 'var(--text-primary)' }}>
+                    {isReplyCheck
+                      ? `Did ${firstName} reply?`
+                      : isFollowUpCheck
+                        ? `Did you follow up with ${firstName}?`
+                        : 'Follow-up due'}
+                  </div>
+                  {isReplyCheck && (
+                    <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '0.45rem' }}>
+                      <button
+                        type="button"
+                        className="btn btn-secondary btn-sm"
+                        style={{ borderColor: 'var(--success-color)', color: 'var(--success-color)', fontWeight: 600 }}
+                        onClick={() => handleCheckpointOutcome('Positive Reply', { reply_type: 'positive' })}
+                      >
+                        Positive reply
+                      </button>
+                      <button
+                        type="button"
+                        className="btn btn-secondary btn-sm"
+                        style={{ borderColor: '#8b5cf6', color: '#8b5cf6', fontWeight: 600 }}
+                        onClick={() => handleCheckpointOutcome('Booked', { reply_type: 'positive' })}
+                      >
+                        Call booked
+                      </button>
+                      <button
+                        type="button"
+                        className="btn btn-secondary btn-sm"
+                        style={{ borderColor: 'var(--warning-color)', color: 'var(--warning-color)', fontWeight: 600 }}
+                        onClick={() => handleCheckpointOutcome('No Show / Rescheduled')}
+                      >
+                        No show
+                      </button>
+                      <button
+                        type="button"
+                        className="btn btn-secondary btn-sm"
+                        style={{ borderColor: 'var(--danger-color)', color: 'var(--danger-color)', fontWeight: 600 }}
+                        onClick={() => handleCheckpointOutcome('Not Interested', { reply_type: 'negative' })}
+                      >
+                        Negative reply
+                      </button>
+                    </div>
+                  )}
+                  {isFollowUpCheck && (
+                    <button
+                      type="button"
+                      className="btn btn-primary btn-sm"
+                      style={{ fontWeight: 600 }}
+                      onClick={() => handleCheckpointOutcome('Waiting')}
+                    >
+                      Mark as done
+                    </button>
+                  )}
+                </div>
+              );
+            })()}
+
             {/* Priority Status Dropdowns */}
             {pipelineCols.map(col => {
               const isCustom = !col.is_default;
@@ -989,7 +1107,7 @@ export default function LeadDrawer({
 
               if (col.column_key === 'action_to_take') {
                 const suggestionsEnabled = currentUser?.suggestions_enabled !== false;
-                const expectedSuggestion = getSuggestionForStatus(formData.status || 'Lead', suggestionRules);
+                const expectedSuggestion = getSuggestionForStatus(formData.status || 'Lead', suggestionRules, currentUser);
                 const isMismatch = suggestionsEnabled && expectedSuggestion && val !== expectedSuggestion;
 
                 return (
@@ -1121,7 +1239,7 @@ export default function LeadDrawer({
                 <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '0.25rem' }}>
                   <label className="form-label" style={{ margin: 0 }}>Call next step</label>
                   {(() => {
-                    const expected = getCallActionForStatus(displayCallStatus(formData.call_status), currentUser?.id, suggestionRules);
+                    const expected = getCallActionForStatus(displayCallStatus(formData.call_status), currentUser?.id, currentUser);
                     const val = formData.call_action || '';
                     const isMismatch = currentUser?.suggestions_enabled !== false && expected && val !== expected;
                     if (!isMismatch || !showSuggestion) return null;
@@ -1486,6 +1604,7 @@ export default function LeadDrawer({
         fixedLead={lead}
         userId={currentUser?.id}
         teamId={currentUser?.team_id || null}
+        profile={currentUser}
         showNoteSharing={!!currentUser?.team_id}
         onLogged={handleCallLogged}
         timeZone={getEffectiveUserTimeZone(currentUser)}

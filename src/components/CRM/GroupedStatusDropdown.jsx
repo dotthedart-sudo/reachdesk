@@ -3,6 +3,7 @@ import { createPortal } from 'react-dom';
 import { Search, ChevronDown, Pencil, Plus, Trash2, Check, X } from 'lucide-react';
 import { supabase } from '../../lib/supabase';
 import { DEFAULT_CALL_STATUSES as CALL_STATUS_DEFAULTS } from '../../lib/callOutcomeRules';
+import { softBadgeStyle, softDotStyle } from '../../lib/softBadgeStyle';
 
 const PRESET_COLORS = [
   '#8B949E', // Gray
@@ -709,9 +710,7 @@ export default function GroupedStatusDropdown({
           onClick={openDropdown}
           onMouseDown={(e) => e.stopPropagation()}
           style={{
-            backgroundColor: `${currentOpt.color}22`,
-            color: currentOpt.color,
-            border: `1px solid ${currentOpt.color}55`,
+            ...softBadgeStyle(currentOpt.color),
             borderRadius: '6px',
             padding: '0.25rem 0.6rem',
             fontSize: '0.8rem',
@@ -724,7 +723,7 @@ export default function GroupedStatusDropdown({
             whiteSpace: 'nowrap'
           }}
         >
-          <span style={{ width: '8px', height: '8px', borderRadius: '50%', backgroundColor: currentOpt.color, display: 'inline-block', flexShrink: 0 }} />
+          <span style={{ width: '8px', height: '8px', borderRadius: '50%', ...softDotStyle(currentOpt.color), display: 'inline-block', flexShrink: 0 }} />
           {currentOpt.label}
           <ChevronDown size={12} style={{ opacity: 0.7 }} />
         </button>

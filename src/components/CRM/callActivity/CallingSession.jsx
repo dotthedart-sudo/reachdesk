@@ -12,6 +12,7 @@ export default function CallingSession({
   queue,
   userId,
   teamId,
+  profile = null,
   onClose,
   onLogged,
   onOpenLead,
@@ -68,6 +69,7 @@ export default function CallingSession({
         teamId,
         updateLeadFields: true,
         timeZone,
+        profile,
       });
       onLogged?.(result);
       setUndo({ outcome, leadName: leadDisplayName(lead) });
@@ -175,6 +177,7 @@ export default function CallingSession({
         leads={queue}
         userId={userId}
         teamId={teamId}
+        profile={profile}
         fixedLead={lead}
         showNoteSharing={showNoteSharing}
         onLogged={(result) => {

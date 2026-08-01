@@ -35,8 +35,11 @@ export async function getEffectiveCalendarAccess(profile) {
   return isActiveTeamMember(profile);
 }
 
-export function hasTeamCallActivity(profile) {
-  return !!profile?.team_id;
+import { hasTeammates } from './teamWorkspace';
+
+export function hasTeamCallActivity(profile, teamIds = null) {
+  if (Array.isArray(teamIds)) return hasTeammates(teamIds);
+  return false;
 }
 
 export async function insertCallAttempt({
@@ -76,6 +79,7 @@ export async function logCallWithUpdates({
   updateLeadFields = true,
   customOutcomeRules = null,
   timeZone = null,
+  profile = null,
 }) {
   const stamp = captureDeviceTimestamp(timeZone);
   const attempt = await insertCallAttempt({
@@ -97,7 +101,7 @@ export async function logCallWithUpdates({
       .maybeSingle();
     prevCallStatus = before?.call_status ?? null;
 
-    leadUpdates = await applyOutcomeToLead(leadId, outcome, userId, customOutcomeRules);
+    leadUpdates = await applyOutcomeToLead(leadId, outcome, userId, profile, customOutcomeRules);
 
     // Always stamp last_called_at (+ last_contacted_at) to device/profile "now"
     const timePatch = {
@@ -149,6 +153,7 @@ export async function logCallStatusChange({
   newCallStatus,
   teamId = null,
   timeZone = null,
+  profile = null,
 }) {
   const { data: before } = await supabase
     .from('leads')
@@ -170,7 +175,7 @@ export async function logCallStatusChange({
     teamId,
   });
 
-  const leadUpdates = await applyCallStatusToLead(leadId, newCallStatus, userId);
+  const leadUpdates = await applyCallStatusToLead(leadId, newCallStatus, userId, profile);
 
   const timePatch = {
     last_called_at: stamp.occurredAt,

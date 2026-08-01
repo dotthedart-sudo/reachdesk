@@ -3,7 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import {
   ChevronLeft, ChevronRight, Plus, Calendar as CalendarIcon,
   Phone, X, Link as LinkIcon, Lock, ExternalLink, Activity,
-  Pencil, Trash2, ClipboardList, Layers,
+  Pencil, Trash2, ClipboardList, Layers, Mail, Bell,
 } from 'lucide-react';
 import { supabase } from '../lib/supabase';
 import { getTeamIds } from '../lib/utils';
@@ -28,6 +28,15 @@ import CallWindowBadge from './CRM/CallWindowBadge';
 import ActivityTimelineRow from './CRM/ActivityTimelineRow';
 import { getLeadLocalTime } from '../lib/leadTimezone';
 import { fetchTeamTimelineForDay, logLeadTimelineEvent } from '../lib/leadTimeline';
+import {
+  fetchTeamCalendarPermissions,
+  fetchTeamMembersForCalendar,
+  fetchTeamPlannedTasks,
+  canViewTeamCalendarFeed,
+  hasTeamCalendarActivity,
+} from '../lib/calendarActivity';
+import { hasTeammates } from '../lib/teamWorkspace';
+import MemberActivityFilter from './CRM/callActivity/MemberActivityFilter';
 
 const WEEKDAYS = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
 const VIEWS = [
@@ -43,6 +52,33 @@ const DURATION_CHIPS = [
   { label: '45m', minutes: 45 },
   { label: '1h', minutes: 60 },
 ];
+
+const ACTIVITY_FILTERS = [
+  { id: 'all', label: 'All' },
+  { id: 'calls', label: 'Calls' },
+  { id: 'messages', label: 'Messages' },
+  { id: 'status', label: 'Status changes' },
+  { id: 'notes', label: 'Notes' },
+  { id: 'plan', label: 'Plan' },
+];
+
+const TASK_TYPE_LABELS = {
+  call: 'Call',
+  email: 'Email',
+  follow_up: 'Follow-up',
+  other: 'Task',
+};
+
+function matchesActivityFilter(event, filterId) {
+  if (!event || filterId === 'all') return true;
+  const type = event.event_type;
+  if (filterId === 'calls') return type === 'call_logged';
+  if (filterId === 'messages') return type === 'reply_logged' || type === 'message_sent';
+  if (filterId === 'status') return type === 'status_changed' || type === 'field_changed' || type === 'timestamp_corrected';
+  if (filterId === 'notes') return type === 'note_added';
+  if (filterId === 'plan') return type === 'plan_completed' || type === 'plan_missed' || type === 'plan_cancelled';
+  return true;
+}
 
 function toDateKey(d) {
   return `${d.getFullYear()}-${pad2(d.getMonth() + 1)}-${pad2(d.getDate())}`;
@@ -165,7 +201,9 @@ function MeetingCard({ ev, onEdit, onDelete, deleting, timeZone }) {
 }
 
 function PlanTaskRow({ task, onLog, onCancel, onOpenLead, defaultCountryCode }) {
-  const lead = task.leads;
+  const lead = task.leads || task.lead;
+  const taskType = task.task_type || 'call';
+  const isCheckpoint = !!task.is_checkpoint;
   const localTime = lead ? getLeadLocalTime(lead, new Date(), defaultCountryCode) : null;
   const statusStyle = {
     pending: { bg: 'rgba(59, 130, 246, 0.15)', color: '#3b82f6' },
@@ -173,6 +211,13 @@ function PlanTaskRow({ task, onLog, onCancel, onOpenLead, defaultCountryCode }) 
     missed: { bg: 'rgba(245, 158, 11, 0.15)', color: '#f59e0b' },
     cancelled: { bg: 'rgba(107, 114, 128, 0.2)', color: '#9ca3af' },
   }[task.status] || { bg: 'var(--bg-tertiary)', color: 'var(--text-muted)' };
+
+  const actionLabel = taskType === 'email'
+    ? 'Open lead'
+    : taskType === 'follow_up'
+      ? 'Follow up'
+      : 'Log call';
+  const ActionIcon = taskType === 'email' ? Mail : taskType === 'follow_up' ? Bell : Phone;
 
   return (
     <div
@@ -190,28 +235,38 @@ function PlanTaskRow({ task, onLog, onCancel, onOpenLead, defaultCountryCode }) 
           style={{ background: 'none', border: 'none', padding: 0, cursor: 'pointer', textAlign: 'left', color: 'inherit', flex: 1 }}
         >
           <div style={{ fontWeight: 600, fontSize: '0.9rem' }}>{leadDisplayName(lead)}</div>
-          {lead?.phone && (
+          {lead?.phone && taskType === 'call' && (
             <div style={{ fontSize: '0.75rem', color: 'var(--text-muted)', marginTop: 2 }}>{lead.phone}</div>
           )}
-          {localTime && (
+          {isCheckpoint && lead?.action_to_take && (
+            <div style={{ fontSize: '0.75rem', color: 'var(--text-muted)', marginTop: 2 }}>
+              Next step: {lead.action_to_take}
+            </div>
+          )}
+          {localTime && taskType === 'call' && (
             <div style={{ fontSize: '0.75rem', color: 'var(--text-muted)', marginTop: 2 }}>
               Their time: {localTime}
             </div>
           )}
         </button>
         <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: 4 }}>
-          <span className="badge" style={{ background: statusStyle.bg, color: statusStyle.color, border: 'none', fontSize: '0.65rem' }}>
-            {task.status}
+          <span className="badge" style={{ background: 'rgba(99, 102, 241, 0.15)', color: '#6366f1', border: 'none', fontSize: '0.65rem' }}>
+            {isCheckpoint ? 'Due follow-up' : TASK_TYPE_LABELS[taskType] || taskType}
           </span>
-          {lead && <CallWindowBadge lead={lead} defaultCountryCode={defaultCountryCode} />}
+          {!isCheckpoint && (
+            <span className="badge" style={{ background: statusStyle.bg, color: statusStyle.color, border: 'none', fontSize: '0.65rem' }}>
+              {task.status}
+            </span>
+          )}
+          {lead && taskType === 'call' && <CallWindowBadge lead={lead} defaultCountryCode={defaultCountryCode} />}
         </div>
       </div>
-      {(task.status === 'pending' || task.status === 'missed') && onLog && (
+      {(task.status === 'pending' || task.status === 'missed' || isCheckpoint) && onLog && (
         <div style={{ display: 'flex', gap: '0.5rem', marginTop: '0.5rem', flexWrap: 'wrap' }}>
           <button type="button" className="btn btn-primary btn-sm" onClick={() => onLog(task)}>
-            <Phone size={12} /> Log call
+            <ActionIcon size={12} /> {actionLabel}
           </button>
-          {onCancel && (
+          {!isCheckpoint && onCancel && (
             <button type="button" className="btn btn-secondary btn-sm" onClick={() => onCancel(task)}>
               Remove
             </button>
@@ -256,6 +311,11 @@ export default function CalendarPage({ currentUser }) {
   const [logCallTask, setLogCallTask] = useState(null);
   const [saving, setSaving] = useState(false);
   const [deletingId, setDeletingId] = useState(null);
+  const [activityTypeFilter, setActivityTypeFilter] = useState('all');
+  const [memberFilter, setMemberFilter] = useState('');
+  const [calendarMembers, setCalendarMembers] = useState([]);
+  const [calendarPerms, setCalendarPerms] = useState(null);
+  const [teamIds, setTeamIds] = useState([currentUser?.id].filter(Boolean));
 
   const year = cursor.getFullYear();
   const month = cursor.getMonth();
@@ -321,13 +381,27 @@ export default function CalendarPage({ currentUser }) {
         ),
       ).toISOString();
 
-      const teamIds = await getTeamIds(currentUser.id);
+      const teamIdsResolved = await getTeamIds(currentUser.id);
+      setTeamIds(teamIdsResolved);
+
+      const teamId = currentUser.team_id || null;
+      if (teamId && hasTeammates(teamIdsResolved)) {
+        const [members, perms] = await Promise.all([
+          fetchTeamMembersForCalendar(teamId),
+          fetchTeamCalendarPermissions(teamId),
+        ]);
+        setCalendarMembers(members || []);
+        setCalendarPerms(perms);
+      } else {
+        setCalendarMembers([]);
+        setCalendarPerms(null);
+      }
 
       const [
         { data: attempts, error: attErr },
-        { data: planned, error: planErr },
         { data: leads, error: leadsErr },
         { data: folderRows, error: folderErr },
+        { data: checkpointLeads, error: checkpointErr },
       ] = await Promise.all([
         supabase
           .from('lead_call_attempts')
@@ -337,29 +411,57 @@ export default function CalendarPage({ currentUser }) {
           .lte('created_at', outreachEnd.toISOString())
           .order('created_at', { ascending: false }),
         supabase
+          .from('leads')
+          .select('id, first_name, last_name, email, phone, company, folder_id, status, timezone, timezone_source, next_checkpoint_at, action_to_take')
+          .in('user_id', teamIdsResolved)
+          .order('created_at', { ascending: false }),
+        supabase
+          .from('folders')
+          .select('id, name, color')
+          .in('user_id', teamIdsResolved)
+          .order('sort_order', { ascending: true }),
+        supabase
+          .from('leads')
+          .select('id, first_name, last_name, email, phone, status, timezone, timezone_source, next_checkpoint_at, action_to_take')
+          .in('user_id', teamIdsResolved)
+          .not('next_checkpoint_at', 'is', null)
+          .gte('next_checkpoint_at', `${planStartKey}T00:00:00`)
+          .lte('next_checkpoint_at', `${planEndKey}T23:59:59`),
+      ]);
+
+      let planned = [];
+      try {
+        planned = await fetchTeamPlannedTasks({
+          fromDate: planStartKey,
+          toDate: planEndKey,
+          memberId: memberFilter || null,
+        });
+        if (planned.length > 0) {
+          const leadIds = [...new Set(planned.map((t) => t.lead_id).filter(Boolean))];
+          const leadMap = new Map((leads || []).map((l) => [l.id, l]));
+          planned = planned.map((task) => ({
+            ...task,
+            leads: leadMap.get(task.lead_id) || null,
+          }));
+        }
+      } catch (planFetchErr) {
+        console.warn('[Calendar] planned tasks RPC failed, falling back:', planFetchErr);
+        const { data: fallbackPlan, error: planErr } = await supabase
           .from('planned_outreach_tasks')
           .select('*, leads:lead_id(id, first_name, last_name, email, phone, status, timezone, timezone_source)')
           .eq('user_id', currentUser.id)
           .gte('planned_date', planStartKey)
           .lte('planned_date', planEndKey)
           .neq('status', 'cancelled')
-          .order('planned_date', { ascending: true }),
-        supabase
-          .from('leads')
-          .select('id, first_name, last_name, email, phone, company, folder_id, status, timezone, timezone_source')
-          .in('user_id', teamIds)
-          .order('created_at', { ascending: false }),
-        supabase
-          .from('folders')
-          .select('id, name, color')
-          .in('user_id', teamIds)
-          .order('sort_order', { ascending: true }),
-      ]);
+          .order('planned_date', { ascending: true });
+        if (planErr) throw planErr;
+        planned = fallbackPlan || [];
+      }
 
       if (attErr) throw attErr;
-      if (planErr) throw planErr;
       if (leadsErr) throw leadsErr;
       if (folderErr) throw folderErr;
+      if (checkpointErr) throw checkpointErr;
 
       setAllLeads(leads || []);
       setFolders(folderRows || []);
@@ -394,6 +496,7 @@ export default function CalendarPage({ currentUser }) {
         const timelineRows = await fetchTeamTimelineForDay({
           fromDate: planStartKey,
           toDate: planEndKey,
+          memberId: memberFilter || null,
           limit: 1000,
         });
         const tMap = {};
@@ -419,6 +522,20 @@ export default function CalendarPage({ currentUser }) {
         if (!planMap[key]) planMap[key] = [];
         planMap[key].push(task);
       }
+      for (const lead of checkpointLeads || []) {
+        const key = parseEventDayKeyInZone(lead.next_checkpoint_at, userTz);
+        if (!key) continue;
+        if (!planMap[key]) planMap[key] = [];
+        planMap[key].push({
+          id: `checkpoint-${lead.id}-${key}`,
+          lead_id: lead.id,
+          leads: lead,
+          lead,
+          task_type: 'follow_up',
+          status: 'pending',
+          is_checkpoint: true,
+        });
+      }
       setPlanByDay(planMap);
 
       if (integration && calAllowed) {
@@ -441,7 +558,7 @@ export default function CalendarPage({ currentUser }) {
     } finally {
       setLoading(false);
     }
-  }, [currentUser?.id, monthStart, monthEnd, gridStart, gridEnd, calAllowed, today, markPastPendingAsMissed, userTz]);
+  }, [currentUser?.id, currentUser?.team_id, monthStart, monthEnd, gridStart, gridEnd, calAllowed, today, markPastPendingAsMissed, userTz, memberFilter]);
 
   useEffect(() => {
     loadData();
@@ -472,11 +589,15 @@ export default function CalendarPage({ currentUser }) {
 
   const selectedEvents = eventsByDay[selectedDay] || [];
   const selectedOutreach = outreachByDay[selectedDay] || [];
-  const selectedTimeline = timelineByDay[selectedDay] || [];
+  const filteredTimeline = (timelineByDay[selectedDay] || []).filter((ev) => matchesActivityFilter(ev, activityTypeFilter));
+  const selectedTimeline = filteredTimeline;
   const selectedPlan = planByDay[selectedDay] || [];
-  const planPending = selectedPlan.filter((t) => t.status === 'pending');
-  const planDone = selectedPlan.filter((t) => t.status === 'done');
-  const planMissed = selectedPlan.filter((t) => t.status === 'missed');
+  const planPending = selectedPlan.filter((t) => t.status === 'pending' || t.is_checkpoint);
+  const planDone = selectedPlan.filter((t) => t.status === 'done' && !t.is_checkpoint);
+  const planMissed = selectedPlan.filter((t) => t.status === 'missed' && !t.is_checkpoint);
+
+  const showMemberFilter = hasTeamCalendarActivity(currentUser, teamIds)
+    && canViewTeamCalendarFeed(currentUser, calendarPerms);
 
   const isPlan = view === 'plan';
   const isActivity = view === 'activity';
@@ -491,6 +612,14 @@ export default function CalendarPage({ currentUser }) {
     if (!leadId) return;
     sessionStorage.setItem('reachdesk_auto_open_lead', JSON.stringify({ leadId }));
     navigate('/leads');
+  };
+
+  const handlePlanAction = (task) => {
+    if (task.is_checkpoint || task.task_type === 'follow_up' || task.task_type === 'email') {
+      openLead(task.lead_id || task.leads?.id);
+      return;
+    }
+    setLogCallTask(task);
   };
 
   const handleCalendarWriteError = (err, data) => {
@@ -732,6 +861,13 @@ export default function CalendarPage({ currentUser }) {
 
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: '0.75rem', flexWrap: 'wrap' }}>
         <ViewSwitcher view={view} onChange={setView} />
+        {showMemberFilter && (
+          <MemberActivityFilter
+            members={calendarMembers}
+            value={memberFilter}
+            onChange={setMemberFilter}
+          />
+        )}
         {isMeetings && (
           <div
             style={{
@@ -1024,7 +1160,7 @@ export default function CalendarPage({ currentUser }) {
                       <PlanTaskRow
                         key={task.id}
                         task={task}
-                        onLog={setLogCallTask}
+                        onLog={handlePlanAction}
                         onCancel={handleCancelPlanTask}
                         onOpenLead={openLead}
                         defaultCountryCode={defaultCountryCode}
@@ -1047,7 +1183,7 @@ export default function CalendarPage({ currentUser }) {
                       <PlanTaskRow
                         key={task.id}
                         task={task}
-                        onLog={setLogCallTask}
+                        onLog={handlePlanAction}
                         onCancel={handleCancelPlanTask}
                         onOpenLead={openLead}
                         defaultCountryCode={defaultCountryCode}
@@ -1060,6 +1196,18 @@ export default function CalendarPage({ currentUser }) {
 
             {(isActivity || isAll) && (
               <DaySection title={`ACTIVITY (${selectedTimeline.length || selectedOutreach.length})`}>
+                <div style={{ display: 'flex', gap: '0.35rem', flexWrap: 'wrap', marginBottom: '0.5rem' }}>
+                  {ACTIVITY_FILTERS.map((f) => (
+                    <button
+                      key={f.id}
+                      type="button"
+                      className={activityTypeFilter === f.id ? 'btn btn-primary btn-sm' : 'btn btn-secondary btn-sm'}
+                      onClick={() => setActivityTypeFilter(f.id)}
+                    >
+                      {f.label}
+                    </button>
+                  ))}
+                </div>
                 <div style={{ marginBottom: '0.5rem' }}>
                   <button
                     type="button"

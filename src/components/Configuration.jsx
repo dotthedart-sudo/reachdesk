@@ -19,11 +19,16 @@ import { getDialerPrefs, setDialerPrefs } from '../lib/callDialer';
 import {
   DEFAULT_CALL_OUTCOME_RULES,
   DEFAULT_CALL_STATUS_RULES,
-  loadCallOutcomeRules,
-  saveCallOutcomeRules,
-  loadCallStatusRules,
-  saveCallStatusRules,
 } from '../lib/callOutcomeRules';
+import {
+  buildCallRulesMigrationPatch,
+  clearMigratedCallRulesLocalStorage,
+  DEFAULT_MESSAGING_ACTION_RULES,
+  getCallOutcomeRulesForEditor,
+  getCallStatusRulesForEditor,
+  getMessagingRulesForEditor,
+} from '../lib/automationRules';
+import { getSuggestionForStatus } from '../lib/reminders';
 import { getBrowserTimeZone, getSupportedTimeZones } from '../lib/dateTime';
 import SettingsNav from './Configuration/SettingsNav';
 import ProfilePanel from './Configuration/ProfilePanel';
@@ -168,8 +173,20 @@ export default function Configuration({
   const [automationSuccess, setAutomationSuccess] = useState('');
   const [automationError, setAutomationError] = useState('');
   const [remindersEnabled, setRemindersEnabled] = useState(currentUser?.reminders_enabled !== false);
+  const [reminderNotificationMode, setReminderNotificationMode] = useState(
+    currentUser?.reminder_notification_mode === 'instant' ? 'instant' : 'digest',
+  );
+  const [reminderDigestHour, setReminderDigestHour] = useState(
+    Number.isFinite(currentUser?.reminder_digest_hour) ? Number(currentUser.reminder_digest_hour) : 9,
+  );
   const [suggestionsEnabled, setSuggestionsEnabled] = useState(currentUser?.suggestions_enabled !== false);
   const [suggestionsAutoApply, setSuggestionsAutoApply] = useState(currentUser?.suggestions_auto_apply !== false);
+  const [callSuggestionsAutoApply, setCallSuggestionsAutoApply] = useState(
+    currentUser?.call_suggestions_auto_apply !== false,
+  );
+  const [messagingActionRules, setMessagingActionRules] = useState(() =>
+    DEFAULT_MESSAGING_ACTION_RULES.map((r) => ({ ...r })),
+  );
   const [monthlyRevenueTarget, setMonthlyRevenueTarget] = useState(currentUser?.monthly_revenue_target || '');
   const [alwaysDraft, setAlwaysDraft] = useState(currentUser?.always_draft_before_sending !== false);
   const [defaultCountryCode, setDefaultCountryCode] = useState(currentUser?.default_country_code || '+92');
@@ -227,9 +244,6 @@ export default function Configuration({
   const [teamMembers, setTeamMembers] = useState([]);
   const [teamInvitations, setTeamInvitations] = useState([]);
   const [teamLoading, setTeamLoading] = useState(true);
-  const [inviteEmail, setInviteEmail] = useState('');
-  const [teamError, setTeamError] = useState('');
-  const [teamSuccess, setTeamSuccess] = useState('');
   // Load Team Members
   const loadTeam = async () => {
     if (!isProTeamOwner(currentUser)) {
@@ -238,7 +252,6 @@ export default function Configuration({
     }
 
     setTeamLoading(true);
-    setTeamError('');
     try {
       let teamId = currentUser.team_id;
       if (!teamId) {
@@ -269,11 +282,50 @@ export default function Configuration({
       setTeamInvitations(invites || []);
     } catch (err) {
       console.error('Error loading team details:', err);
-      setTeamError(err.message || 'Failed to load team workspace.');
     } finally {
       setTeamLoading(false);
     }
   };
+
+  useEffect(() => {
+    if (!currentUser?.id) return;
+
+    let cancelled = false;
+
+    async function loadAutomationEditorState() {
+      const { data: globalRules } = await supabase.from('action_suggestion_rules').select('*');
+      if (cancelled) return;
+
+      setMessagingActionRules(getMessagingRulesForEditor(currentUser, globalRules || []));
+      setCallOutcomeRules(getCallOutcomeRulesForEditor(currentUser, currentUser.id));
+      setCallStatusRules(getCallStatusRulesForEditor(currentUser, currentUser.id));
+      setCallSuggestionsAutoApply(currentUser.call_suggestions_auto_apply !== false);
+
+      const patch = buildCallRulesMigrationPatch(currentUser, currentUser.id);
+      if (patch) {
+        const { error } = await supabase
+          .from('user_profiles')
+          .update(patch)
+          .eq('id', currentUser.id);
+        if (!error) {
+          clearMigratedCallRulesLocalStorage(currentUser.id);
+          if (onRefreshProfile) await onRefreshProfile();
+        }
+      }
+    }
+
+    loadAutomationEditorState();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [
+    currentUser?.id,
+    currentUser?.messaging_action_rules,
+    currentUser?.call_status_rules,
+    currentUser?.call_outcome_rules,
+    currentUser?.call_suggestions_auto_apply,
+  ]);
 
   useEffect(() => {
     if (currentUser) {
@@ -290,11 +342,16 @@ export default function Configuration({
       setProfileAvatarPreview('');
       setProfileDefaultCurrency(currentUser.default_currency || 'PKR');
       setProfileTimezone(currentUser.timezone || '');
-      setCallOutcomeRules(loadCallOutcomeRules(currentUser.id));
-      setCallStatusRules(loadCallStatusRules(currentUser.id));
       setRemindersEnabled(currentUser.reminders_enabled !== false);
+      setReminderNotificationMode(
+        currentUser.reminder_notification_mode === 'instant' ? 'instant' : 'digest',
+      );
+      setReminderDigestHour(
+        Number.isFinite(currentUser.reminder_digest_hour) ? Number(currentUser.reminder_digest_hour) : 9,
+      );
       setSuggestionsEnabled(currentUser.suggestions_enabled !== false);
       setSuggestionsAutoApply(currentUser.suggestions_auto_apply !== false);
+      setCallSuggestionsAutoApply(currentUser.call_suggestions_auto_apply !== false);
       setMonthlyRevenueTarget(currentUser.monthly_revenue_target || '');
       setAlwaysDraft(currentUser.always_draft_before_sending !== false);
       setDefaultCountryCode(currentUser.default_country_code || '+92');
@@ -652,8 +709,18 @@ export default function Configuration({
         .from('user_profiles')
         .update({
           reminders_enabled: remindersEnabled,
+          reminder_notification_mode: reminderNotificationMode === 'instant' ? 'instant' : 'digest',
+          reminder_digest_hour: Math.min(23, Math.max(0, Number(reminderDigestHour) || 9)),
           suggestions_enabled: suggestionsEnabled,
           suggestions_auto_apply: suggestionsAutoApply,
+          call_suggestions_auto_apply: callSuggestionsAutoApply,
+          messaging_action_rules: messagingActionRules.filter(
+            (r) => (r.status || '').trim() && (r.suggested_action || '').trim(),
+          ),
+          call_status_rules: callStatusRules.filter(
+            (r) => (r.status || '').trim() && (r.suggested_call_action || '').trim(),
+          ),
+          call_outcome_rules: callOutcomeRules.filter((r) => (r.outcome || '').trim()),
           always_draft_before_sending: alwaysDraft,
           default_country_code: defaultCountryCode.trim() || '+92',
         })
@@ -667,23 +734,21 @@ export default function Configuration({
         customUrl: customDialerUrl,
       });
 
-      saveCallOutcomeRules(currentUser.id, callOutcomeRules);
-      saveCallStatusRules(currentUser.id, callStatusRules);
-
       if (suggestionsEnabled && suggestionsAutoApply) {
         try {
-          const [rulesRes, leadsRes] = await Promise.all([
-            supabase.from('action_suggestion_rules').select('*'),
-            supabase.from('leads').select('id, status, action_to_take').eq('user_id', currentUser.id),
-          ]);
-          const rules = rulesRes.data || [];
-          const leadsData = leadsRes.data || [];
+          const { data: leadsData } = await supabase
+            .from('leads')
+            .select('id, status, action_to_take')
+            .eq('user_id', currentUser.id);
 
-          if (leadsData.length > 0 && rules.length > 0) {
+          if (leadsData?.length > 0) {
             const updates = [];
             for (const lead of leadsData) {
-              const matchedRule = rules.find((r) => r.status.toLowerCase() === (lead.status || '').toLowerCase());
-              const suggestedAction = matchedRule ? matchedRule.suggested_action : null;
+              const suggestedAction = getSuggestionForStatus(
+                lead.status,
+                messagingActionRules,
+                { messaging_action_rules: messagingActionRules },
+              );
               if (suggestedAction && lead.action_to_take !== suggestedAction) {
                 updates.push(
                   supabase.from('leads').update({ action_to_take: suggestedAction }).eq('id', lead.id),
@@ -711,85 +776,6 @@ export default function Configuration({
     }
   };
 
-
-  // â”€â”€ Team Invitation Helpers â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
-
-  const handleSendInvite = async (e) => {
-    e.preventDefault();
-    setTeamError('');
-    setTeamSuccess('');
-
-    if (!inviteEmail.trim()) return;
-
-    const seatLimit = getTeamSeatLimit(currentUser?.plan);
-    const seatsUsed = getSeatsUsed(teamMembers.length, teamInvitations.length);
-    if (seatsUsed >= seatLimit) {
-      setTeamError(`All ${seatLimit} seats are in use. Remove a member or cancel a pending invite to add someone else.`);
-      return;
-    }
-
-    try {
-      if (!currentUser.team_id) {
-        await ensureProTeamWorkspace(currentUser.id);
-        if (onRefreshProfile) await onRefreshProfile();
-      }
-
-      const { data, error } = await supabase.functions.invoke('send-team-invite', {
-        body: { invitedEmail: inviteEmail.trim().toLowerCase() },
-      });
-
-      if (error) throw error;
-      if (data?.success === false) throw new Error(data.error || 'Failed to send invite');
-
-      const sentTo = inviteEmail.trim();
-      setInviteEmail('');
-      setTeamSuccess(
-        data?.emailSent
-          ? `Invite email sent to ${sentTo}. They must sign up with that address.`
-          : `Invite created for ${sentTo}.${data?.warning ? ` ${data.warning}` : ''}`
-      );
-      loadTeam();
-    } catch (err) {
-      console.error('Error sending invite:', err);
-      setTeamError(err.message || 'Failed to send invite.');
-    }
-  };
-
-  const handleCancelInvite = async (inviteId) => {
-    setTeamError('');
-    try {
-      const { error } = await supabase
-        .from('team_invitations')
-        .update({ status: 'cancelled' })
-        .eq('id', inviteId);
-      if (error) throw error;
-      setTeamSuccess('Invite cancelled.');
-      loadTeam();
-    } catch (err) {
-      console.error('Error cancelling invite:', err);
-      setTeamError('Failed to cancel invite.');
-    }
-  };
-
-  const handleRemoveMember = async (memberId) => {
-    if (!confirm('Remove this member from your workspace? They will lose access to shared leads and templates.')) return;
-    try {
-      const { error } = await supabase
-        .from('user_profiles')
-        .update({
-          team_id: null,
-          team_role: 'owner',
-        })
-        .eq('id', memberId);
-
-      if (error) throw error;
-      setTeamMembers(prev => prev.filter(m => m.id !== memberId));
-      setTeamSuccess('Team member removed.');
-    } catch (err) {
-      console.error('Error removing team member:', err);
-      setTeamError('Failed to remove team member.');
-    }
-  };
 
   const handleLeaveWorkspace = async () => {
     const { data, error } = await supabase.functions.invoke('leave-team');
@@ -908,10 +894,18 @@ export default function Configuration({
           <AutomationsPanel
             remindersEnabled={remindersEnabled}
             setRemindersEnabled={setRemindersEnabled}
+            reminderNotificationMode={reminderNotificationMode}
+            setReminderNotificationMode={setReminderNotificationMode}
+            reminderDigestHour={reminderDigestHour}
+            setReminderDigestHour={setReminderDigestHour}
             suggestionsEnabled={suggestionsEnabled}
             setSuggestionsEnabled={setSuggestionsEnabled}
             suggestionsAutoApply={suggestionsAutoApply}
             setSuggestionsAutoApply={setSuggestionsAutoApply}
+            callSuggestionsAutoApply={callSuggestionsAutoApply}
+            setCallSuggestionsAutoApply={setCallSuggestionsAutoApply}
+            messagingActionRules={messagingActionRules}
+            setMessagingActionRules={setMessagingActionRules}
             alwaysDraft={alwaysDraft}
             setAlwaysDraft={setAlwaysDraft}
             defaultCountryCode={defaultCountryCode}

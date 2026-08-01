@@ -1,5 +1,6 @@
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
+import { useAppContext } from '../../../App';
 import { Phone, Plus, Lock, PhoneCall } from 'lucide-react';
 import {
   buildOutreachSessionQueue,
@@ -33,6 +34,7 @@ export default function CallActivityHub({
   onGoToQueue = null,
 }) {
   const navigate = useNavigate();
+  const { teamIds = [] } = useAppContext() || {};
   const [unlocked, setUnlocked] = useState(null);
   const [tab, setTab] = useState('my');
   const [attempts, setAttempts] = useState([]);
@@ -51,7 +53,8 @@ export default function CallActivityHub({
 
   const teamId = currentUser?.team_id || null;
   const userTimeZone = useMemo(() => getEffectiveUserTimeZone(currentUser), [currentUser?.timezone]);
-  const showTeamTab = hasTeamCallActivity(currentUser);
+  const showTeamTab = hasTeamCallActivity(currentUser, teamIds)
+    && (teamPerms?.call_activity_sharing || 'off') !== 'off';
   const defaultCountryCode = currentUser?.default_country_code || '+92';
   const showNoteSharing = !!teamId;
 
@@ -199,6 +202,7 @@ export default function CallActivityHub({
         queue={sessionQueue}
         userId={currentUser.id}
         teamId={teamId}
+        profile={currentUser}
         onClose={() => setSessionOpen(false)}
         onOpenLead={onOpenLead}
         defaultCountryCode={defaultCountryCode}
@@ -319,6 +323,7 @@ export default function CallActivityHub({
         leads={scopedLeads}
         userId={currentUser.id}
         teamId={teamId}
+        profile={currentUser}
         showNoteSharing={showNoteSharing}
         onLogged={handleLogged}
         timeZone={userTimeZone}

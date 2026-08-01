@@ -19,6 +19,7 @@ import { identifyUser, resetPostHog } from './utils/posthog';
 import { forceAppRefresh, clearAppRefreshFlags, clearServiceWorkersAndCaches } from './utils/forceAppRefresh';
 import { BRAND_NAME } from './config/brand';
 import { CALL_SCRIPT_SECTIONS, TEMPLATE_KINDS } from './lib/templateKinds';
+import { countDueCheckpointLeads } from './lib/checkpointNotifications';
 
 // Helper for lazy loading components with automatic retry on dynamic import / chunk load failures (e.g. after new deployments)
 const LAZY_IMPORT_RETRIES = 3;
@@ -792,10 +793,10 @@ function AppProvider({ children }) {
 
             if (ids.length > 0) {
               const { data: members } = await supabase.from('user_profiles')
-                .select('id, email')
+                .select('id, email, full_name')
                 .in('id', ids);
               const mapping = {};
-              members?.forEach(m => { mapping[m.id] = m.email; });
+              members?.forEach(m => { mapping[m.id] = { id: m.id, email: m.email, full_name: m.full_name }; });
               setTeamProfilesMap(mapping);
             }
 
@@ -841,12 +842,13 @@ function AppProvider({ children }) {
         }
       }
 
-      const [inv, rev, l, t, snip] = await Promise.all([
+      const [inv, rev, l, t, snip, revProfilesRes] = await Promise.all([
         supabase.from('invoices').select('*').eq('user_id', userId).order('created_at', { ascending: false }),
         revenueQuery,
         supabase.from('leads').select('*').in('user_id', ids).order('created_at', { ascending: false }).order('id', { ascending: true }),
         supabase.from('templates').select('*').or(`user_id.in.(${ids.join(',')}),user_id.is.null`),
         supabase.from('user_snippets').select('*').eq('user_id', userId).order('created_at', { ascending: true }),
+        supabase.from('user_profiles').select('id, email, full_name').in('id', ids),
       ]);
 
       let email = session?.user?.email || profile?.email || '';
@@ -873,6 +875,10 @@ function AppProvider({ children }) {
         userEmail: email
       }));
       setInvoices(mappedInvoices);
+      const emailByUserId = {};
+      (revProfilesRes.data || []).forEach((p) => {
+        emailByUserId[p.id] = p.email;
+      });
       // Map DB columns → frontend shape
       const mappedRevenue = (rev.data || []).map(r => ({
         id: r.id,
@@ -884,7 +890,7 @@ function AppProvider({ children }) {
         description: r.notes || '',      // DB: notes → frontend: description
         service: r.service || '',        // DB: service → frontend: service
         dateAdded: r.created_at ? new Date(r.created_at).toLocaleDateString() : '',
-        userEmail: email
+        userEmail: emailByUserId[r.user_id] || email,
       }));
       setRevenueLogs(mappedRevenue);
       // Client-side priority migration for emojis
@@ -939,19 +945,12 @@ function AppProvider({ children }) {
       ]);
       setUserSnippets(snip.data || []);
 
-      // Reminders count (Count active due reminders from follow_up_reminders if enabled)
+      // Reminders count — due checkpoints on leads.next_checkpoint_at
       let totalReminders = 0;
       const activeProfile = profileObj || profile;
       const remindersEnabled = activeProfile?.reminders_enabled !== false;
       if (remindersEnabled) {
-        const now = new Date().toISOString();
-        const { count } = await supabase.from('follow_up_reminders')
-          .select('*', { count: 'exact', head: true })
-          .in('user_id', ids)
-          .eq('status', 'pending')
-          .lte('scheduled_at', now);
-        
-        totalReminders = count || 0;
+        totalReminders = await countDueCheckpointLeads({ userIds: ids });
       }
       
       if (isAdmin) {
@@ -1401,7 +1400,7 @@ function DashboardPage() {
 
 function CRMPage() {
   const { profile, teamProfilesMap, teamIds } = useAppContext();
-  return <CRM currentUser={profile} teamProfilesMap={teamProfilesMap} isTeamView={teamIds.length > 1} />;
+  return <CRM currentUser={profile} teamProfilesMap={teamProfilesMap} teamIds={teamIds} isTeamView={teamIds.length > 1} />;
 }
 
 function TemplatesPage() {

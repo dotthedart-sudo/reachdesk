@@ -2,6 +2,7 @@ import React, { useState, useEffect, useRef } from 'react';
 import { createPortal } from 'react-dom';
 import { Pencil, Plus, Trash2, ChevronUp, ChevronDown, X, Lock } from 'lucide-react';
 import { supabase } from '../../lib/supabase';
+import { softBadgeStyle, softDotStyle } from '../../lib/softBadgeStyle';
 
 const PRESET_COLORS = [
   '#ef4444', // Red
@@ -191,9 +192,7 @@ const ACTION_COLORS = {
     currentOpt = { label: value || 'None', color: fallbackColor };
   }
   const chipStyle = {
-    background: `${currentOpt.color}18`,
-    color: currentOpt.color,
-    border: `1px solid ${currentOpt.color}44`,
+    ...softBadgeStyle(currentOpt.color),
     padding: '0.2rem 0.6rem',
     borderRadius: '6px',
     fontSize: '0.8rem',
@@ -288,7 +287,7 @@ const ACTION_COLORS = {
   return (
     <div style={{ position: 'relative', display: 'inline-block' }} onClick={e => e.stopPropagation()}>
       <button ref={triggerRef} onClick={openDropdown} style={chipStyle} type="button">
-        <span style={{ width: '6px', height: '6px', borderRadius: '50%', backgroundColor: currentOpt.color }} />
+        <span style={{ width: '6px', height: '6px', borderRadius: '50%', ...softDotStyle(currentOpt.color) }} />
         {currentOpt.label}
       </button>
 

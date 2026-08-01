@@ -159,7 +159,7 @@ export default function CheckpointPopover({
 
   const handleApplySuggestion = async () => {
     try {
-      const res = await applySuggestion(lead, suggestionRules);
+      const res = await applySuggestion(lead, suggestionRules, currentUser);
       if (res) {
         onResolved({ ...lead, ...res });
       }

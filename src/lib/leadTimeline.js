@@ -83,6 +83,7 @@ export async function fetchTeamTimelineForDay({
   date = null,
   fromDate = null,
   toDate = null,
+  memberId = null,
   limit = 500,
 } = {}) {
   const { data, error } = await supabase.rpc('get_team_timeline_for_day', {
@@ -90,6 +91,7 @@ export async function fetchTeamTimelineForDay({
     p_from: fromDate || null,
     p_to: toDate || null,
     p_limit: limit,
+    p_member_id: memberId || null,
   });
   if (error) {
     console.warn('[leadTimeline] get_team_timeline_for_day failed:', error.message);

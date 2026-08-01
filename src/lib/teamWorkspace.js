@@ -70,6 +70,25 @@ export function isTeamOwner(profile) {
   return (profile.team_role || 'owner').toLowerCase() === 'owner';
 }
 
+/** True when the workspace has more than one user (invited member joined). */
+export function hasTeammates(teamIds) {
+  return Array.isArray(teamIds) && teamIds.length > 1;
+}
+
+/** Display name from teamProfilesMap entry (object or legacy email string). */
+export function teamMemberDisplayName(entry, fallback = 'Teammate') {
+  if (!entry) return fallback;
+  if (typeof entry === 'string') return entry;
+  return entry.full_name || entry.email || fallback;
+}
+
+/** Email string from teamProfilesMap entry. */
+export function teamMemberEmail(entry) {
+  if (!entry) return '';
+  if (typeof entry === 'string') return entry;
+  return entry.email || '';
+}
+
 export function getTeamSeatLimit(plan) {
   return getTeamWorkspaceSeatLimit(plan);
 }
@@ -260,7 +279,7 @@ export async function getTeamOwnerProfile(teamId) {
 
 export async function getTeamSettings(teamId) {
   if (!teamId) {
-    return { members_can_view_revenue: false, members_see_own_leads_only: false };
+    return { members_can_view_revenue: false, members_see_own_leads_only: true };
   }
   const { data, error } = await supabase
     .from('teams')
@@ -269,7 +288,7 @@ export async function getTeamSettings(teamId) {
     .maybeSingle();
   if (error) {
     console.error('[teamWorkspace] getTeamSettings failed:', error);
-    return { members_can_view_revenue: false, members_see_own_leads_only: false };
+    return { members_can_view_revenue: false, members_see_own_leads_only: true };
   }
   return {
     members_can_view_revenue: !!data?.members_can_view_revenue,

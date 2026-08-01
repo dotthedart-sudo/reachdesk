@@ -5,7 +5,7 @@ import {
 import QuickViewChips from './QuickViewChips';
 import ListsTableView from './ListsTableView';
 import { classifyFolders } from '../../lib/folderShares';
-import { isTeamOwner } from '../../lib/teamWorkspace';
+import { isTeamOwner, hasTeammates } from '../../lib/teamWorkspace';
 import './FolderBrowser.css';
 
 export const SYSTEM_VIEWS = [
@@ -24,6 +24,7 @@ export default function FolderBrowser({
   systemFolderNames = {},
   getLeadCount,
   totalLeads = 0,
+  unfiledCount = 0,
   onSelectFolder,
   onCreateList,
   onCreateSmartList,
@@ -46,9 +47,11 @@ export default function FolderBrowser({
   folderShares = [],
   shareCountForFolder,
   canShareFolder,
+  teamIds = [],
 }) {
   const [listFilter, setListFilter] = useState('mine');
   const isOwner = isTeamOwner(currentUser);
+  const showTeamTab = isOwner && hasTeammates(teamIds);
   const currentUserId = currentUser?.id;
 
   const sharedFolderIds = useMemo(
@@ -142,7 +145,7 @@ export default function FolderBrowser({
         >
           Shared with me
         </button>
-        {isOwner && (
+        {showTeamTab && (
           <button
             type="button"
             className={listFilter === 'all' ? 'btn btn-primary btn-sm' : 'btn btn-secondary btn-sm'}
@@ -172,6 +175,22 @@ export default function FolderBrowser({
         totalLeads={totalLeads}
         onSelectFolder={onSelectFolder}
       />
+
+      {unfiledCount > 0 && classified.mine.some((f) => (getLeadCount?.(f.id) ?? 0) === 0) && (
+        <p style={{ fontSize: '0.8rem', color: 'var(--text-muted)', margin: '0 0 0.75rem' }}>
+          Manual lists count leads assigned to that list.
+          {' '}
+          <button
+            type="button"
+            className="crm-list-breadcrumb-link"
+            style={{ fontSize: 'inherit', padding: 0 }}
+            onClick={() => onSelectFolder?.('unfiled')}
+          >
+            {unfiledCount} unfiled lead{unfiledCount === 1 ? '' : 's'}
+          </button>
+          {' '}are not in any list yet.
+        </p>
+      )}
 
       <ListsTableView
         folders={folders}

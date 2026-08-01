@@ -37,6 +37,7 @@ export default function PlanColdCallsModal({
   const [folderId, setFolderId] = useState('');
   const [selected, setSelected] = useState(new Set());
   const [callableOnly, setCallableOnly] = useState(false);
+  const [taskType, setTaskType] = useState('call');
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState('');
 
@@ -95,7 +96,7 @@ export default function PlanColdCallsModal({
         lead_id: leadId,
         planned_date: plannedDate,
         planned_at: new Date(`${plannedDate}T12:00:00`).toISOString(),
-        task_type: 'call',
+        task_type: taskType,
         status: 'pending',
       }));
       const { error: insertErr } = await supabase
@@ -125,13 +126,30 @@ export default function PlanColdCallsModal({
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '0.75rem' }}>
           <div>
             <h3 style={{ margin: 0, display: 'flex', alignItems: 'center', gap: 8 }}>
-              <Phone size={18} /> Plan cold calls
+              <Phone size={18} /> Plan outreach
             </h3>
             <p style={{ margin: '0.25rem 0 0', fontSize: '0.8rem', color: 'var(--text-muted)' }}>
               {new Date(plannedDate + 'T12:00:00').toLocaleDateString('en-US', { weekday: 'long', month: 'long', day: 'numeric' })}
             </p>
           </div>
           <button type="button" className="btn-icon" onClick={onClose} aria-label="Close"><X size={16} /></button>
+        </div>
+
+        <div style={{ display: 'flex', gap: 4, flexWrap: 'wrap', marginBottom: '0.75rem' }}>
+          {[
+            { id: 'call', label: 'Calls' },
+            { id: 'email', label: 'Emails' },
+            { id: 'follow_up', label: 'Follow-ups' },
+          ].map((opt) => (
+            <button
+              key={opt.id}
+              type="button"
+              onClick={() => setTaskType(opt.id)}
+              className={taskType === opt.id ? 'btn btn-primary btn-sm' : 'btn btn-secondary btn-sm'}
+            >
+              {opt.label}
+            </button>
+          ))}
         </div>
 
         <div style={{ display: 'flex', gap: 4, flexWrap: 'wrap', marginBottom: '0.75rem' }}>

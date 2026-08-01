@@ -1,20 +1,20 @@
-import { getSuggestionForStatus } from './reminders';
+import { teamMemberDisplayName } from './teamWorkspace';
 
 const MISMATCH_CAP = 5;
 
 /** Build grouped + capped mismatch feed items for a lead set. */
-export function buildMismatchFeedItems(leads, rules, { suggestionsEnabled = true, ownerId = null } = {}) {
+export function buildMismatchFeedItems(leads, rules, { suggestionsEnabled = true, ownerId = null, profile = null } = {}) {
   if (!suggestionsEnabled) return { items: [], overflowCount: 0 };
 
   const mismatches = leads.filter((l) => {
     if (ownerId && l.user_id !== ownerId) return false;
-    const suggestion = getSuggestionForStatus(l.status, rules);
+    const suggestion = getSuggestionForStatus(l.status, rules, profile);
     return suggestion && l.action_to_take !== suggestion;
   });
 
   const groups = new Map();
   mismatches.forEach((l) => {
-    const suggestion = getSuggestionForStatus(l.status, rules);
+    const suggestion = getSuggestionForStatus(l.status, rules, profile);
     const key = `${l.status || ''}|${l.action_to_take || ''}|${suggestion}`;
     if (!groups.has(key)) {
       groups.set(key, { status: l.status, action: l.action_to_take, suggestion, leads: [] });
@@ -53,7 +53,7 @@ export function buildMismatchFeedItems(leads, rules, { suggestionsEnabled = true
         id: `mismatch-${lead.id}`,
         type: 'mismatch',
         lead,
-        suggestion: getSuggestionForStatus(lead.status, rules),
+        suggestion: getSuggestionForStatus(lead.status, rules, profile),
         severity: 'medium',
       });
       shown += 1;
@@ -70,6 +70,7 @@ export function buildPersonalUpNextFeed({
   windowDays,
   currentUserId,
   suggestionsEnabled = true,
+  profile = null,
 }) {
   const now = new Date();
   const nowStr = now.toISOString();
@@ -77,16 +78,21 @@ export function buildPersonalUpNextFeed({
   const windowLimitStr = windowLimit.toISOString();
   const ownLeads = leads.filter((l) => l.user_id === currentUserId);
 
+  // Include overdue (<= now) and upcoming within window; overdue sorts first via date
   const upcomingCheckpoints = ownLeads
-    .filter((l) => l.next_checkpoint_at && l.next_checkpoint_at > nowStr && l.next_checkpoint_at <= windowLimitStr)
-    .map((l) => ({
-      id: `checkpoint-${l.id}`,
-      type: 'checkpoint',
-      lead: l,
-      title: `Follow up with ${l.first_name || ''} ${l.last_name || ''}`,
-      date: l.next_checkpoint_at,
-      severity: 'high',
-    }));
+    .filter((l) => l.next_checkpoint_at && l.next_checkpoint_at <= windowLimitStr)
+    .map((l) => {
+      const overdue = l.next_checkpoint_at <= nowStr;
+      return {
+        id: `checkpoint-${l.id}`,
+        type: 'checkpoint',
+        lead: l,
+        title: `Follow up with ${l.first_name || ''} ${l.last_name || ''}`.trim(),
+        date: l.next_checkpoint_at,
+        severity: overdue ? 'critical' : 'high',
+        overdue,
+      };
+    });
 
   const upcomingInvoices = invoices
     .filter((inv) => {
@@ -107,7 +113,7 @@ export function buildPersonalUpNextFeed({
   const { items: mismatchItems, overflowCount: mismatchOverflow } = buildMismatchFeedItems(
     ownLeads,
     rules,
-    { suggestionsEnabled, ownerId: currentUserId },
+    { suggestionsEnabled, ownerId: currentUserId, profile },
   );
 
   const postMeetingCheckIns = ownLeads
@@ -148,14 +154,20 @@ export function buildTeamOverview({
   rules,
   teamProfilesMap = {},
   suggestionsEnabled = true,
+  profile = null,
+  currentUserId = null,
 }) {
   const byMember = {};
   leads.forEach((l) => {
     const uid = l.user_id;
     if (!byMember[uid]) {
+      const entry = teamProfilesMap[uid];
+      const name = uid === currentUserId
+        ? 'You'
+        : teamMemberDisplayName(entry);
       byMember[uid] = {
         userId: uid,
-        name: teamProfilesMap[uid]?.full_name || teamProfilesMap[uid]?.email || 'Teammate',
+        name,
         leads: [],
         mismatchCount: 0,
         checkpointCount: 0,
@@ -166,7 +178,7 @@ export function buildTeamOverview({
       byMember[uid].checkpointCount += 1;
     }
     if (suggestionsEnabled) {
-      const suggestion = getSuggestionForStatus(l.status, rules);
+      const suggestion = getSuggestionForStatus(l.status, rules, profile);
       if (suggestion && l.action_to_take !== suggestion) {
         byMember[uid].mismatchCount += 1;
       }
@@ -198,8 +210,6 @@ export function mismatchCopy({ lead, suggestion, teamProfilesMap, currentUserId,
   if (isOwnLead || lead.user_id === currentUserId) {
     return `You marked ${name}'s next step as '${current}' — we'd suggest '${suggestion}' instead.`;
   }
-  const owner = teamProfilesMap[lead.user_id]?.full_name
-    || teamProfilesMap[lead.user_id]?.email
-    || 'A teammate';
+  const owner = teamMemberDisplayName(teamProfilesMap[lead.user_id], 'A teammate');
   return `${owner}'s lead ${name} — next step is '${current}'; suggested '${suggestion}'.`;
 }

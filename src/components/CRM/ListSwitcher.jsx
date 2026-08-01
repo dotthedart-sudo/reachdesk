@@ -3,6 +3,7 @@ import {
   ChevronDown, Folder, FileSpreadsheet, Sparkles, LayoutGrid, Users,
 } from 'lucide-react';
 import { SYSTEM_VIEWS } from './FolderBrowser';
+import { teamMemberDisplayName } from '../../lib/teamWorkspace';
 import './FolderBrowser.css';
 
 function SwitcherItem({ icon: Icon, iconColor, label, count, active, onClick }) {
@@ -63,8 +64,7 @@ export default function ListSwitcher({
 
   const creatorSuffix = (userId) => {
     if (!userId || userId === currentUserId) return '';
-    const p = teamProfilesMap[userId];
-    const name = p?.full_name || p?.email;
+    const name = teamMemberDisplayName(teamProfilesMap[userId], '');
     return name ? ` · ${name.split(' ')[0]}` : '';
   };
 

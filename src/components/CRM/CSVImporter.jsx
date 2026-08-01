@@ -42,7 +42,8 @@ export default function CSVImporter({
   onImportComplete,
   columnDefs,
   currentUser,
-  folderId
+  folderId,
+  folders = [],
 }) {
   const [step, setStep] = useState(1); // 1: Upload, 2: Map, 3: Strategy, 4: Progress, 5: Summary
   const [file, setFile] = useState(null);
@@ -50,6 +51,7 @@ export default function CSVImporter({
   const [headers, setHeaders] = useState([]);
   const [mapping, setMapping] = useState({});
   const [duplicateStrategy, setDuplicateStrategy] = useState('skip'); // 'skip' | 'overwrite'
+  const [destinationFolderId, setDestinationFolderId] = useState(folderId || '');
   
   // Progress & Stats
   const [totalRows, setTotalRows] = useState(0);
@@ -84,6 +86,14 @@ export default function CSVImporter({
     fields.push({ key: 'skip', label: 'Skip Field' });
     return fields;
   };
+
+  useEffect(() => {
+    if (!isOpen) return;
+    setDestinationFolderId(folderId || '');
+  }, [isOpen, folderId]);
+
+  const resolvedFolderId = destinationFolderId || folderId || null;
+  const needsFolderPick = !folderId && folders.length > 0;
 
   const handleFileUpload = (e) => {
     const uploadedFile = e.target.files[0];
@@ -141,6 +151,10 @@ export default function CSVImporter({
   };
 
   const executeImport = async () => {
+    if (needsFolderPick && !destinationFolderId) {
+      alert('Choose a list to assign imported leads to, or import from inside a list.');
+      return;
+    }
     setStep(4);
     setProgress(0);
     const dataRows = csvData.slice(1);
@@ -176,7 +190,7 @@ export default function CSVImporter({
       for (const row of batch) {
         const leadObj = {
           user_id: currentUser.id,
-          folder_id: folderId || null,
+          folder_id: resolvedFolderId,
           custom_fields: {},
           status: 'Lead',
           priority: 'medium'
@@ -503,6 +517,26 @@ export default function CSVImporter({
                 </div>
               </label>
             </div>
+
+            {needsFolderPick && (
+              <div className="form-group">
+                <label className="form-label">Assign to list *</label>
+                <select
+                  className="form-select"
+                  value={destinationFolderId}
+                  onChange={(e) => setDestinationFolderId(e.target.value)}
+                  required
+                >
+                  <option value="">Select a list…</option>
+                  {folders.map((f) => (
+                    <option key={f.id} value={f.id}>{f.name}</option>
+                  ))}
+                </select>
+                <p style={{ fontSize: '0.75rem', color: 'var(--text-muted)', marginTop: '0.35rem' }}>
+                  Imported leads are assigned to this list. Open a list first to skip this step.
+                </p>
+              </div>
+            )}
 
             <div className="flex justify-between mt-3">
               <button type="button" onClick={() => setStep(2)} className="btn btn-secondary">

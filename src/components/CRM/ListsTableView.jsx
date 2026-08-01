@@ -27,11 +27,12 @@ function formatListDate(iso) {
   }
 }
 
+import { teamMemberDisplayName } from '../../lib/teamWorkspace';
+
 function creatorLabel(userId, teamProfilesMap, currentUserId) {
   if (!userId) return '—';
   if (userId === currentUserId) return 'You';
-  const p = teamProfilesMap?.[userId];
-  return p?.full_name || p?.email || 'Teammate';
+  return teamMemberDisplayName(teamProfilesMap?.[userId]);
 }
 
 function ListRow({
@@ -41,6 +42,7 @@ function ListRow({
   typeLabel,
   typeVariant,
   count,
+  countHint,
   createdAt,
   createdBy,
   shareBadge,
@@ -95,7 +97,14 @@ function ListRow({
           {typeLabel}
         </span>
       </td>
-      <td className="crm-lists-table-count" style={w('leads_count')}>{count}</td>
+      <td className="crm-lists-table-count" style={w('leads_count')}>
+        {count}
+        {countHint && (
+          <div style={{ fontSize: '0.68rem', color: 'var(--text-muted)', fontWeight: 400, marginTop: '0.15rem' }}>
+            {countHint}
+          </div>
+        )}
+      </td>
       <td style={{ ...w('created_by'), fontSize: '0.82rem', color: 'var(--text-secondary)' }}>
         {createdBy}
       </td>
@@ -161,6 +170,11 @@ function renderFolderRows({
         typeLabel="Manual"
         typeVariant="manual"
         count={getLeadCount?.(f.id) ?? 0}
+        countHint={
+          (getLeadCount?.(f.id) ?? 0) === 0
+            ? 'No leads assigned yet'
+            : null
+        }
         createdAt={f.created_at}
         createdBy={creatorLabel(f.user_id, teamProfilesMap, currentUserId)}
         shareBadge={shareBadge}

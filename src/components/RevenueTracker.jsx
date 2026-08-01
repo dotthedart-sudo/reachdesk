@@ -30,7 +30,8 @@ export default function RevenueTracker({
     return <div className="loading-container">Loading profile...</div>;
   }
 
-  const userLogs = revenueLogs.filter(log => log.userEmail === currentUser.email);
+  const userLogs = revenueLogs;
+  const showAttribution = userLogs.some((log) => log.userEmail && log.userEmail !== currentUser.email);
 
   // Group and calculate totals by currency
   const currencyTotals = userLogs.reduce((acc, log) => {
@@ -244,7 +245,14 @@ export default function RevenueTracker({
                   {userLogs.map(log => (
                     <tr key={log.id}>
                       <td style={{ fontWeight: 600 }}>{log.date}</td>
-                      <td data-ph-mask>{log.source}</td>
+                      <td data-ph-mask>
+                        {log.source}
+                        {showAttribution && log.userEmail && log.userEmail !== currentUser.email && (
+                          <div style={{ fontSize: '0.72rem', color: 'var(--text-muted)', marginTop: 2 }}>
+                            {log.userEmail.split('@')[0]}
+                          </div>
+                        )}
+                      </td>
                       <td style={{ fontSize: '0.85rem', color: 'var(--text-muted)' }} data-ph-mask>{log.service || '—'}</td>
                       <td style={{ fontWeight: 700, color: 'var(--success-color)' }} data-ph-mask>
                         {(log.amount || 0).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}

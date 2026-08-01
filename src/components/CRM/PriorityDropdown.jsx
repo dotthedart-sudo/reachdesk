@@ -2,6 +2,7 @@ import React, { useState, useEffect, useRef } from 'react';
 import { createPortal } from 'react-dom';
 import { Flame, Sun, Snowflake, ChevronDown, Pencil, Plus, Trash2, Check, X } from 'lucide-react';
 import { supabase } from '../../lib/supabase';
+import { softBadgeStyle, softDotStyle } from '../../lib/softBadgeStyle';
 
 const PRESET_COLORS = [
   '#ef4444', // Red
@@ -250,23 +251,19 @@ export default function PriorityDropdown({ value, onChange, onUpdate }) {
   const normalizedVal = value ? stripEmojis(value.trim()) : 'Cold';
   const currentPriority = priorities.find(p => p.label.toLowerCase() === normalizedVal.toLowerCase()) || { label: normalizedVal, color: '#6b7280' };
 
-  const getPriorityStyle = (color) => {
-    return {
-      background: `${color}18`,
-      color: color,
-      border: `1px solid ${color}44`,
-      padding: '0.25rem 0.65rem',
-      borderRadius: '12px',
-      fontSize: '0.8rem',
-      fontWeight: 600,
-      cursor: 'pointer',
-      display: 'inline-flex',
-      alignItems: 'center',
-      gap: '0.35rem',
-      whiteSpace: 'nowrap',
-      transition: 'all 0.15s ease'
-    };
-  };
+  const getPriorityStyle = (color) => ({
+    ...softBadgeStyle(color),
+    padding: '0.25rem 0.65rem',
+    borderRadius: '12px',
+    fontSize: '0.8rem',
+    fontWeight: 600,
+    cursor: 'pointer',
+    display: 'inline-flex',
+    alignItems: 'center',
+    gap: '0.35rem',
+    whiteSpace: 'nowrap',
+    transition: 'all 0.15s ease',
+  });
 
   const dropdownPanel = isOpen && createPortal(
     <div

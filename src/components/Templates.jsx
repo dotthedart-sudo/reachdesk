@@ -2,6 +2,7 @@ import React, { useState, useEffect, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { supabase } from '../lib/supabase';
 import { useAppContext } from '../App';
+import { teamMemberEmail } from '../lib/teamWorkspace';
 import { 
   Plus, 
   Copy, 
@@ -546,7 +547,7 @@ export default function Templates({
                 }}
               >
                 {list.map(template => {
-                  const addedByEmail = teamProfilesMap[template.user_id];
+                  const addedByEmail = teamMemberEmail(teamProfilesMap[template.user_id]);
                   return (
                     <div 
                       key={template.id}
@@ -796,7 +797,7 @@ export default function Templates({
                 }}
               >
                 {filteredMyTemplates.map(template => {
-                  const addedByEmail = teamProfilesMap[template.user_id];
+                  const addedByEmail = teamMemberEmail(teamProfilesMap[template.user_id]);
                   return (
                     <div 
                       key={template.id}

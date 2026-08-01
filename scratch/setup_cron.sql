@@ -12,7 +12,11 @@
 -- Remove existing jobs if re-running (idempotent)
 SELECT cron.unschedule(jobid)
 FROM cron.job
-WHERE jobname IN ('renew-google-calendar-watches', 'cleanup-draft-invoices-daily');
+WHERE jobname IN (
+  'renew-google-calendar-watches',
+  'cleanup-draft-invoices-daily',
+  'send-reminder-notifications-15m'
+);
 
 -- Daily 3am: renew Google Calendar watch channels
 SELECT cron.schedule(
@@ -37,6 +41,22 @@ SELECT cron.schedule(
   $$
   SELECT net.http_post(
     url := 'https://efxgwqfdstrhrnnvtynl.supabase.co/functions/v1/cleanup-draft-invoices',
+    headers := jsonb_build_object(
+      'x-cron-secret', current_setting('app.settings.cron_secret', true),
+      'Content-Type', 'application/json'
+    ),
+    body := '{}'::jsonb
+  );
+  $$
+);
+
+-- Every 15 minutes: follow-up digest / instant push (reads leads.next_checkpoint_at)
+SELECT cron.schedule(
+  'send-reminder-notifications-15m',
+  '*/15 * * * *',
+  $$
+  SELECT net.http_post(
+    url := 'https://efxgwqfdstrhrnnvtynl.supabase.co/functions/v1/send-reminder-notifications',
     headers := jsonb_build_object(
       'x-cron-secret', current_setting('app.settings.cron_secret', true),
       'Content-Type', 'application/json'

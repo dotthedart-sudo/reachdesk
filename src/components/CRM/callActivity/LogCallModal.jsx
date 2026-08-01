@@ -10,6 +10,7 @@ export default function LogCallModal({
   defaultLeadId,
   userId,
   teamId = null,
+  profile = null,
   onLogged,
   fixedLead = null,
   showNoteSharing = false,
@@ -55,6 +56,7 @@ export default function LogCallModal({
         teamId,
         updateLeadFields: applyStatusAction,
         timeZone,
+        profile,
       });
       onLogged?.({ attempt, leadUpdates });
       onClose();
