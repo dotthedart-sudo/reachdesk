@@ -7,6 +7,25 @@ import {
 
 export { PLAN_SEATS as TEAM_SEAT_LIMIT } from './planConfig';
 
+/** Paid plans with access through end of billing period (includes scheduled cancel). */
+export function isPaidPlanActive(profile) {
+  if (!profile?.plan_status) return true;
+  return profile.plan_status === 'active' || profile.plan_status === 'cancelling';
+}
+
+/** Invited teammate — billing is owned by the workspace owner, not this user. */
+export function isTeamMember(profile) {
+  if (!profile?.team_id) return false;
+  return (profile.team_role || 'owner').toLowerCase() === 'member';
+}
+
+/** May view Settings billing and open personal Paddle checkout. */
+export function canManageOwnBilling(profile) {
+  if (!profile) return false;
+  if (profile.role === 'admin') return false;
+  return !isTeamMember(profile);
+}
+
 /** Owner who can manage invites/permissions (Teams, Trial, or grandfathered Pro with team_id). */
 export function isProTeamOwner(profile) {
   if (!profile) return false;
@@ -14,12 +33,12 @@ export function isProTeamOwner(profile) {
   if (role !== 'owner') return false;
   const plan = normalizePlan(profile.plan);
   if (plan === 'teams' || plan === 'trial') {
-    if (plan === 'teams' && profile.plan_status && profile.plan_status !== 'active') return false;
+    if (plan === 'teams' && profile.plan_status && !isPaidPlanActive(profile)) return false;
     return true;
   }
   // Grandfather: legacy Pro owners who already created a workspace
   if (plan === 'pro' && profile.team_id) {
-    if (profile.plan_status && profile.plan_status !== 'active') return false;
+    if (profile.plan_status && !isPaidPlanActive(profile)) return false;
     return true;
   }
   return false;
@@ -31,11 +50,11 @@ export function hasTeamsPageAccess(profile) {
   const plan = normalizePlan(profile.plan);
   if (plan === 'trial') return true;
   if (plan === 'teams') {
-    if (profile.plan_status && profile.plan_status !== 'active') return false;
+    if (profile.plan_status && !isPaidPlanActive(profile)) return false;
     return true;
   }
   if (plan === 'pro' && profile.team_id) {
-    if (profile.plan_status && profile.plan_status !== 'active') return false;
+    if (profile.plan_status && !isPaidPlanActive(profile)) return false;
     return true;
   }
   return false;
@@ -124,7 +143,7 @@ export async function getTeamOwnerProfileForMember(profile) {
   if (team?.owner_id) {
     const { data: ownerById } = await supabase
       .from('user_profiles')
-      .select('id, plan, plan_status, team_id, team_role')
+      .select('id, email, full_name, plan, plan_status, team_id, team_role')
       .eq('id', team.owner_id)
       .maybeSingle();
     if (ownerById) return ownerById;
@@ -218,7 +237,7 @@ export async function ensureProOwnerWorkspaceIfNeeded(profile) {
   const plan = normalizePlan(profile.plan);
   const role = (profile.team_role || 'owner').toLowerCase();
   if ((plan !== 'teams' && plan !== 'trial') || role === 'member' || profile.team_id) return profile;
-  if (plan === 'teams' && profile.plan_status && profile.plan_status !== 'active') return profile;
+  if (plan === 'teams' && profile.plan_status && !isPaidPlanActive(profile)) return profile;
   await ensureProTeamWorkspace(profile.id);
   const { data: refreshed } = await supabase
     .from('user_profiles')

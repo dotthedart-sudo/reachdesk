@@ -1,9 +1,11 @@
-import React from 'react';
+import React, { useMemo, useState } from 'react';
 import {
   FolderPlus, Sparkles, Users, Upload, Database,
 } from 'lucide-react';
 import QuickViewChips from './QuickViewChips';
 import ListsTableView from './ListsTableView';
+import { classifyFolders } from '../../lib/folderShares';
+import { isTeamOwner } from '../../lib/teamWorkspace';
 import './FolderBrowser.css';
 
 export const SYSTEM_VIEWS = [
@@ -32,20 +34,77 @@ export default function FolderBrowser({
   onDeleteSmartFolder,
   onExportFolder,
   onExportFolderSheets,
+  onShareFolder,
   canExportSheets = false,
   getFolderSettings,
   onToggleFolderLocalTime,
   canBulkImport = false,
   canUseIntegrations = false,
   hasLeads = true,
+  currentUser,
+  teamProfilesMap = {},
+  folderShares = [],
+  shareCountForFolder,
+  canShareFolder,
 }) {
+  const [listFilter, setListFilter] = useState('mine');
+  const isOwner = isTeamOwner(currentUser);
+  const currentUserId = currentUser?.id;
+
+  const sharedFolderIds = useMemo(
+    () => new Set(folderShares.map((s) => s.folder_id)),
+    [folderShares],
+  );
+
+  const classified = useMemo(
+    () => classifyFolders(folders, {
+      currentUserId,
+      sharedFolderIds,
+      isOwner,
+    }),
+    [folders, currentUserId, sharedFolderIds, isOwner],
+  );
+
+  const filteredUserFolders = useMemo(() => {
+    if (listFilter === 'all' && isOwner) return userFolders;
+    return userFolders.filter((uf) => uf.user_id === currentUserId);
+  }, [userFolders, listFilter, isOwner, currentUserId]);
+
+  const listSections = useMemo(() => {
+    if (listFilter === 'mine') {
+      return {
+        mine: classified.mine,
+        sharedWithMe: [],
+        team: [],
+        auto: filteredUserFolders,
+      };
+    }
+    if (listFilter === 'shared') {
+      return {
+        mine: [],
+        sharedWithMe: classified.sharedWithMe,
+        team: [],
+        auto: [],
+      };
+    }
+    if (listFilter === 'all' && isOwner) {
+      return {
+        mine: classified.mine,
+        sharedWithMe: classified.sharedWithMe,
+        team: classified.team,
+        auto: filteredUserFolders,
+      };
+    }
+    return { mine: classified.mine, sharedWithMe: [], team: [], auto: filteredUserFolders };
+  }, [listFilter, classified, filteredUserFolders, isOwner]);
+
   return (
     <div className="crm-folder-browser crm-folder-browser--full">
       <div className="crm-folder-browser-header">
         <div>
           <h2 className="crm-folder-browser-title">Lists</h2>
           <p className="crm-folder-browser-desc">
-            Your lists hold assigned leads. Quick views filter by priority or status.
+            Your lists hold assigned leads. Share a list with teammates from the row menu.
           </p>
         </div>
         <div className="crm-folder-browser-actions">
@@ -66,6 +125,32 @@ export default function FolderBrowser({
             </button>
           )}
         </div>
+      </div>
+
+      <div style={{ display: 'flex', gap: '0.5rem', marginBottom: '1rem', flexWrap: 'wrap' }}>
+        <button
+          type="button"
+          className={listFilter === 'mine' ? 'btn btn-primary btn-sm' : 'btn btn-secondary btn-sm'}
+          onClick={() => setListFilter('mine')}
+        >
+          Mine
+        </button>
+        <button
+          type="button"
+          className={listFilter === 'shared' ? 'btn btn-primary btn-sm' : 'btn btn-secondary btn-sm'}
+          onClick={() => setListFilter('shared')}
+        >
+          Shared with me
+        </button>
+        {isOwner && (
+          <button
+            type="button"
+            className={listFilter === 'all' ? 'btn btn-primary btn-sm' : 'btn btn-secondary btn-sm'}
+            onClick={() => setListFilter('all')}
+          >
+            All team
+          </button>
+        )}
       </div>
 
       {!hasLeads && (
@@ -91,6 +176,7 @@ export default function FolderBrowser({
       <ListsTableView
         folders={folders}
         userFolders={userFolders}
+        listSections={listSections}
         getLeadCount={getLeadCount}
         onSelectFolder={onSelectFolder}
         onRenameFolder={onRenameFolder}
@@ -98,9 +184,14 @@ export default function FolderBrowser({
         onDeleteSmartFolder={onDeleteSmartFolder}
         onExportFolder={onExportFolder}
         onExportFolderSheets={onExportFolderSheets}
+        onShareFolder={onShareFolder}
         canExportSheets={canExportSheets}
         getFolderSettings={getFolderSettings}
         onToggleFolderLocalTime={onToggleFolderLocalTime}
+        teamProfilesMap={teamProfilesMap}
+        currentUserId={currentUserId}
+        shareCountForFolder={shareCountForFolder}
+        canShareFolder={canShareFolder}
       />
     </div>
   );

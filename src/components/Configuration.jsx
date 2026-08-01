@@ -6,9 +6,11 @@ import { getAiCreditLimit } from '../lib/aiCredits';
 import {
   ensureProTeamWorkspace,
   getSeatsUsed,
+  getTeamOwnerProfileForMember,
   getTeamSeatLimit,
   hasTeamsPageAccess,
   isProTeamOwner,
+  isTeamMember,
 } from '../lib/teamWorkspace';
 import { getAppUrl } from '../utils/domain';
 import { exportLeads, exportNotes } from '../utils/exportUtils';
@@ -144,11 +146,13 @@ export default function Configuration({
   const [localCurrency, setLocalCurrency] = useState(currencySymbol);
   const [localWebhook, setLocalWebhook] = useState(webhookUrl);
 
-  // Cancellation States
+  // Cancellation / resume states
   const [cancelModalOpen, setCancelModalOpen] = useState(false);
-  const [cancelLoading, setCancelLoading] = useState(false);
+  const [billingActionLoading, setBillingActionLoading] = useState(false);
   const [cancelSuccessMsg, setCancelSuccessMsg] = useState('');
   const [cancelErrorMsg, setCancelErrorMsg] = useState('');
+  const [resumeSuccessMsg, setResumeSuccessMsg] = useState('');
+  const [resumeErrorMsg, setResumeErrorMsg] = useState('');
   const [aiUsage, setAiUsage] = useState({ used: 0, limit: 0, loading: true });
 
   // Profile Settings States
@@ -330,11 +334,30 @@ export default function Configuration({
   const canAccessTeam = currentUser
     ? isProTeamOwner(currentUser) || hasTeamsPageAccess(currentUser)
     : false;
+  const isMember = isTeamMember(currentUser);
+  const [teamOwnerLabel, setTeamOwnerLabel] = useState('');
+
+  useEffect(() => {
+    if (!isMember || !currentUser) {
+      setTeamOwnerLabel('');
+      return;
+    }
+    getTeamOwnerProfileForMember(currentUser)
+      .then((owner) => {
+        if (!owner) {
+          setTeamOwnerLabel('');
+          return;
+        }
+        const label = owner.full_name || owner.email || 'your workspace owner';
+        setTeamOwnerLabel(label);
+      })
+      .catch(() => setTeamOwnerLabel(''));
+  }, [isMember, currentUser?.id, currentUser?.team_id]);
 
   useEffect(() => {
     if (!currentUser) return;
-    setActiveTab(resolveSettingsTab(location.search, canAccessTeam));
-  }, [location.search, canAccessTeam, currentUser]);
+    setActiveTab(resolveSettingsTab(location.search, canAccessTeam, isMember));
+  }, [location.search, canAccessTeam, isMember, currentUser]);
 
   const handleTabChange = (tabId) => {
     navigate(`/settings?tab=${tabId}`, { replace: true });
@@ -768,13 +791,27 @@ export default function Configuration({
     }
   };
 
+  const handleLeaveWorkspace = async () => {
+    const { data, error } = await supabase.functions.invoke('leave-team');
+    if (error) throw error;
+    if (data && data.success === false) {
+      throw new Error(data.error || 'Failed to leave workspace');
+    }
+    if (onRefreshProfile) {
+      await onRefreshProfile();
+    }
+    navigate('/settings?tab=profile', { replace: true });
+  };
+
   const handleCancelSubscription = async () => {
-    setCancelLoading(true);
+    setBillingActionLoading(true);
     setCancelErrorMsg('');
     setCancelSuccessMsg('');
+    setResumeSuccessMsg('');
+    setResumeErrorMsg('');
     try {
       const { data, error } = await supabase.functions.invoke('cancel-subscription', {
-        body: { subscription_id: currentUser?.paddle_subscription_id }
+        body: { subscription_id: currentUser?.paddle_subscription_id },
       });
 
       if (error) throw error;
@@ -782,7 +819,11 @@ export default function Configuration({
         throw new Error(data.error || 'Failed to cancel subscription');
       }
 
-      setCancelSuccessMsg('Your subscription has been cancelled. Access continues till end of billing period.');
+      const endsLabel = data?.plan_cancels_at
+        ? new Date(data.plan_cancels_at).toLocaleDateString(undefined, { year: 'numeric', month: 'long', day: 'numeric' })
+        : 'the end of your billing period';
+
+      setCancelSuccessMsg(`Cancellation scheduled. Access continues until ${endsLabel}.`);
       setCancelModalOpen(false);
       if (onRefreshProfile) {
         await onRefreshProfile();
@@ -791,7 +832,33 @@ export default function Configuration({
       console.error('Error cancelling subscription:', err);
       setCancelErrorMsg(err instanceof Error ? err.message : 'Failed to cancel subscription. Please try again.');
     } finally {
-      setCancelLoading(false);
+      setBillingActionLoading(false);
+    }
+  };
+
+  const handleResumeSubscription = async () => {
+    setBillingActionLoading(true);
+    setResumeErrorMsg('');
+    setResumeSuccessMsg('');
+    setCancelSuccessMsg('');
+    setCancelErrorMsg('');
+    try {
+      const { data, error } = await supabase.functions.invoke('resume-subscription');
+
+      if (error) throw error;
+      if (data && data.success === false) {
+        throw new Error(data.error || 'Failed to resume subscription');
+      }
+
+      setResumeSuccessMsg('Subscription resumed. Your plan will renew per your Paddle billing settings.');
+      if (onRefreshProfile) {
+        await onRefreshProfile();
+      }
+    } catch (err) {
+      console.error('Error resuming subscription:', err);
+      setResumeErrorMsg(err instanceof Error ? err.message : 'Failed to resume subscription. Please try again.');
+    } finally {
+      setBillingActionLoading(false);
     }
   };
 
@@ -889,13 +956,23 @@ export default function Configuration({
           />
         );
       case 'team':
-        return <TeamPanel onOpenTeams={() => navigate('/teams')} />;
+        return (
+          <TeamPanel
+            isMember={isMember}
+            ownerLabel={teamOwnerLabel}
+            onOpenTeams={() => navigate('/teams')}
+            onLeaveWorkspace={isMember ? handleLeaveWorkspace : undefined}
+          />
+        );
       case 'billing':
         return (
           <BillingPanel
             currentUser={currentUser}
             cancelSuccessMsg={cancelSuccessMsg}
             cancelErrorMsg={cancelErrorMsg}
+            resumeSuccessMsg={resumeSuccessMsg}
+            resumeErrorMsg={resumeErrorMsg}
+            billingActionLoading={billingActionLoading}
             leadsCount={leadsCount}
             templatesCount={templatesCount}
             aiUsage={aiUsage}
@@ -906,6 +983,7 @@ export default function Configuration({
             seatsAtCap={seatsAtCap}
             onManagePlan={() => navigate('/upgrade')}
             onCancelSubscription={() => setCancelModalOpen(true)}
+            onResumeSubscription={handleResumeSubscription}
           />
         );
       case 'integrations':
@@ -954,6 +1032,7 @@ export default function Configuration({
           activeTab={activeTab}
           onTabChange={handleTabChange}
           canAccessTeam={canAccessTeam}
+          isMember={isMember}
         />
         <div className="config-panel">
           {renderActivePanel()}
@@ -962,7 +1041,7 @@ export default function Configuration({
 
       <CancelSubscriptionModal
         open={cancelModalOpen}
-        loading={cancelLoading}
+        loading={billingActionLoading}
         onClose={() => setCancelModalOpen(false)}
         onConfirm={handleCancelSubscription}
       />

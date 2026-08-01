@@ -37,6 +37,7 @@ const DEFAULT_WIDTHS = {
   type: 100,
   leads_count: 80,
   list_name: 280,
+  created_by: 140,
 };
 
 const DEFAULT_ROW_HEIGHT = 44;

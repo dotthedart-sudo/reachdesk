@@ -1,6 +1,6 @@
 import React, { useState, useRef, useEffect } from 'react';
 import { createPortal } from 'react-dom';
-import { MoreHorizontal, FolderOpen, Pencil, Download, Trash2, FileSpreadsheet, Clock } from 'lucide-react';
+import { MoreHorizontal, FolderOpen, Pencil, Download, Trash2, FileSpreadsheet, Clock, Share2 } from 'lucide-react';
 
 export default function ListRowMenu({
   onOpen,
@@ -8,6 +8,8 @@ export default function ListRowMenu({
   onDelete,
   onExport,
   onExportSheets,
+  onShare,
+  canShare = false,
   canExport = true,
   canExportSheets = false,
   showLocalTime = false,
@@ -81,10 +83,16 @@ export default function ListRowMenu({
         <FolderOpen size={14} />
         Open
       </button>
-      <button type="button" className="crm-list-row-menu-item" role="menuitem" onClick={run(onRename)}>
-        <Pencil size={14} />
-        Rename
-      </button>
+          <button type="button" className="crm-list-row-menu-item" role="menuitem" onClick={run(onRename)}>
+            <Pencil size={14} />
+            Rename
+          </button>
+          {canShare && onShare && (
+            <button type="button" className="crm-list-row-menu-item" role="menuitem" onClick={run(onShare)}>
+              <Share2 size={14} />
+              Share list…
+            </button>
+          )}
       {canExport && onExport && (
         <button type="button" className="crm-list-row-menu-item" role="menuitem" onClick={run(onExport)}>
           <Download size={14} />

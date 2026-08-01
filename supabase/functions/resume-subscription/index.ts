@@ -4,10 +4,8 @@ import {
   allowTestSubscriptions,
   BILLING_ERROR_MESSAGE,
   BILLING_SUPPORT_EMAIL,
-  formatAccessDate,
   isRealPaddleSubscriptionId,
   logBillingEvent,
-  resolvePlanCancelsAt,
   sendBillingEmail,
 } from '../_shared/billing.ts';
 
@@ -34,7 +32,6 @@ serve(async (req) => {
   const supabaseAdmin = createClient(supabaseUrl, supabaseServiceRoleKey);
 
   let userId: string | null = null;
-  let userEmail: string | null = null;
 
   try {
     const authHeader = req.headers.get('Authorization');
@@ -51,11 +48,10 @@ serve(async (req) => {
     }
 
     userId = user.id;
-    userEmail = user.email ?? null;
 
     const { data: profile, error: profileError } = await supabaseAdmin
       .from('user_profiles')
-      .select('id, email, paddle_subscription_id, plan, plan_status, team_id, team_role')
+      .select('id, email, paddle_subscription_id, plan_status, team_id, team_role')
       .eq('id', user.id)
       .single();
 
@@ -70,27 +66,20 @@ serve(async (req) => {
       );
     }
 
-    const subscriptionId = profile.paddle_subscription_id;
-
-    try {
-      const body = await req.json().catch(() => ({}));
-      if (body?.subscription_id && body.subscription_id !== subscriptionId) {
-        return jsonResponse({ success: false, error: 'Forbidden: subscription mismatch' }, 403);
-      }
-    } catch {
-      // empty body is fine
+    if (profile.plan_status !== 'cancelling') {
+      return jsonResponse({ success: false, error: 'No pending cancellation to resume.' }, 400);
     }
 
+    const subscriptionId = profile.paddle_subscription_id;
     const isTestId = typeof subscriptionId === 'string' && subscriptionId.startsWith('sub_test');
 
     if (!subscriptionId || !isRealPaddleSubscriptionId(subscriptionId)) {
       if (isTestId && allowTestSubscriptions()) {
-        const fakeEndsAt = new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString();
         const { error: dbError } = await supabaseAdmin
           .from('user_profiles')
           .update({
-            plan_status: 'cancelling',
-            plan_cancels_at: fakeEndsAt,
+            plan_status: 'active',
+            plan_cancels_at: null,
             paddle_subscription_status: 'active',
           })
           .eq('id', user.id);
@@ -99,29 +88,20 @@ serve(async (req) => {
 
         await logBillingEvent(supabaseAdmin, {
           userId: user.id,
-          eventType: 'cancel_confirmed',
+          eventType: 'resume_confirmed',
           source: 'user_action',
           rawPayload: { subscription_id: subscriptionId, test_mode: true },
         });
 
-        return jsonResponse({
-          success: true,
-          message: 'Subscription scheduled for cancellation (test mode).',
-          plan_cancels_at: fakeEndsAt,
-        });
+        return jsonResponse({ success: true, message: 'Subscription resumed (test mode).' });
       }
 
       await logBillingEvent(supabaseAdmin, {
         userId: user.id,
-        eventType: 'cancel_failed',
+        eventType: 'resume_failed',
         source: 'user_action',
-        rawPayload: {
-          reason: 'invalid_or_missing_subscription_id',
-          subscription_id: subscriptionId,
-        },
+        rawPayload: { subscription_id: subscriptionId },
       });
-
-      console.error(`[Cancel] Invalid subscription for user ${user.id}: ${subscriptionId}`);
       return jsonResponse({ success: false, error: BILLING_ERROR_MESSAGE }, 400);
     }
 
@@ -130,27 +110,20 @@ serve(async (req) => {
       throw new Error('PADDLE_API_KEY environment variable is not set');
     }
 
-    console.log(`[Cancel] Calling Paddle API for subscription: ${subscriptionId} (user=${user.id})`);
-
     const paddleResponse = await fetch(`https://api.paddle.com/subscriptions/${subscriptionId}`, {
       method: 'PATCH',
       headers: {
         'Content-Type': 'application/json',
         Authorization: `Bearer ${paddleApiKey}`,
       },
-      body: JSON.stringify({
-        scheduled_change: {
-          action: 'cancel',
-          effective_at: 'next_billing_period',
-        },
-      }),
+      body: JSON.stringify({ scheduled_change: null }),
     });
 
     if (!paddleResponse.ok) {
       const errText = await paddleResponse.text();
       await logBillingEvent(supabaseAdmin, {
         userId: user.id,
-        eventType: 'cancel_failed',
+        eventType: 'resume_failed',
         source: 'user_action',
         rawPayload: { subscription_id: subscriptionId, paddle_status: paddleResponse.status, error: errText },
       });
@@ -159,26 +132,13 @@ serve(async (req) => {
 
     const paddleData = await paddleResponse.json();
     const subData = paddleData?.data as Record<string, unknown> | undefined;
-    const scheduledChange = subData?.scheduled_change as Record<string, unknown> | undefined;
-
-    if (scheduledChange?.action !== 'cancel') {
-      await logBillingEvent(supabaseAdmin, {
-        userId: user.id,
-        eventType: 'cancel_failed',
-        source: 'user_action',
-        rawPayload: { subscription_id: subscriptionId, paddle_response: paddleData },
-      });
-      throw new Error('Paddle did not confirm cancellation scheduling. Please try again or contact support.');
-    }
-
-    const planCancelsAt = resolvePlanCancelsAt(subData, scheduledChange);
-    const paddleStatus = typeof subData?.status === 'string' ? subData.status : null;
+    const paddleStatus = typeof subData?.status === 'string' ? subData.status : 'active';
 
     const { error: dbError } = await supabaseAdmin
       .from('user_profiles')
       .update({
-        plan_status: 'cancelling',
-        plan_cancels_at: planCancelsAt,
+        plan_status: 'active',
+        plan_cancels_at: null,
         paddle_subscription_status: paddleStatus,
       })
       .eq('id', user.id)
@@ -190,27 +150,20 @@ serve(async (req) => {
 
     await logBillingEvent(supabaseAdmin, {
       userId: user.id,
-      eventType: 'cancel_confirmed',
+      eventType: 'resume_confirmed',
       source: 'user_action',
-      rawPayload: {
-        subscription_id: subscriptionId,
-        plan_cancels_at: planCancelsAt,
-        paddle_status: paddleStatus,
-      },
+      rawPayload: { subscription_id: subscriptionId, paddle_status: paddleStatus },
     });
 
-    const recipient = profile.email || userEmail;
-    if (recipient) {
-      const accessUntil = formatAccessDate(planCancelsAt);
+    if (profile.email) {
       await sendBillingEmail(
-        recipient,
-        'ReachDesk CRM — Cancellation confirmed',
+        profile.email,
+        'ReachDesk CRM — Subscription resumed',
         `
           <div style="background-color: #0D1117; color: #FFFFFF; font-family: sans-serif; padding: 30px; border-radius: 3px; max-width: 600px; margin: 0 auto; border: 1px solid #21262D;">
-            <h2 style="color: #5B8FB9;">Cancellation confirmed</h2>
-            <p>Your ReachDesk subscription is scheduled to end. You keep full access until <strong>${accessUntil}</strong>, and your plan will not renew after that date.</p>
-            <p>Billing reminders and receipts are sent by Paddle using your payment method on file.</p>
-            <p>To undo this before your access ends, open Settings → Billing and choose <strong>Resume Subscription</strong>.</p>
+            <h2 style="color: #5B8FB9;">Subscription resumed</h2>
+            <p>Your scheduled cancellation has been removed. Your ReachDesk plan will renew automatically per your Paddle billing settings.</p>
+            <p>Paddle sends upcoming charge and receipt emails for billing. Manage your plan anytime in Settings → Billing.</p>
             <p style="color: #8B949E; font-size: 0.8rem; margin-top: 24px;">Questions? Contact ${BILLING_SUPPORT_EMAIL}</p>
           </div>
         `,
@@ -219,16 +172,15 @@ serve(async (req) => {
 
     return jsonResponse({
       success: true,
-      message: 'Subscription scheduled for cancellation.',
-      plan_cancels_at: planCancelsAt,
+      message: 'Subscription resumed successfully.',
       data: paddleData,
     });
   } catch (error) {
-    console.error('[Cancel] Error processing subscription cancellation:', error);
+    console.error('[Resume] Error processing subscription resume:', error);
     if (userId) {
       await logBillingEvent(supabaseAdmin, {
         userId,
-        eventType: 'cancel_failed',
+        eventType: 'resume_failed',
         source: 'user_action',
         rawPayload: { error: (error as Error).message },
       });

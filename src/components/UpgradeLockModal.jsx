@@ -8,6 +8,8 @@ import { ShinyButton } from '@/registry/magicui/shiny-button';
 
 // ─────────────────────────────────────────────────────────────────────────────
 
+import { isTeamMember } from '../lib/teamWorkspace';
+
 export default function UpgradeLockModal({ profile, handleLogout, theme }) {
   const navigate = useNavigate();
   const [exporting, setExporting] = useState(null); // 'leads' | 'notes' | null
@@ -69,6 +71,7 @@ export default function UpgradeLockModal({ profile, handleLogout, theme }) {
 
   if (profile?.plan_status === 'active') return null;
   const isTrial = profile?.plan === 'trial';
+  const memberLocked = isTeamMember(profile);
 
   // ── Export Leads ────────────────────────────────────────────────────────────
   const handleExportLeads = async () => {
@@ -180,12 +183,14 @@ export default function UpgradeLockModal({ profile, handleLogout, theme }) {
 
         {/* Description */}
         <p style={{ color: 'var(--text-secondary)', fontSize: '0.9rem', lineHeight: 1.6 }}>
-          {isTrial
-            ? 'Your free trial has ended. Upgrade your plan to continue accessing your ReachDesk CRM workspace.'
-            : 'Your subscription has expired. Renew your plan to unlock client data.'}
+          {memberLocked
+            ? 'Your workspace owner\'s plan is no longer active. Ask them to renew the team subscription, or leave the workspace in Settings → Team workspace to subscribe on your own.'
+            : isTrial
+              ? 'Your free trial has ended. Upgrade your plan to continue accessing your ReachDesk CRM workspace.'
+              : 'Your subscription has expired. Renew your plan to unlock client data.'}
         </p>
 
-        {/* Upgrade CTA */}
+        {!memberLocked && (
         <ShinyButton
           onClick={() => navigate('/upgrade')}
           className="shiny-button--full"
@@ -197,6 +202,18 @@ export default function UpgradeLockModal({ profile, handleLogout, theme }) {
         >
           Upgrade Plan
         </ShinyButton>
+        )}
+
+        {memberLocked && (
+          <button
+            type="button"
+            className="btn btn-primary"
+            onClick={() => navigate('/settings?tab=team')}
+            style={{ width: '100%' }}
+          >
+            Team settings
+          </button>
+        )}
 
         {/* ── Export section ─────────────────────────────────────────────── */}
         <div style={{ width: '100%' }}>

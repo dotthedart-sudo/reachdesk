@@ -7,6 +7,8 @@ import { PLANS, getPlanFeatures } from '../lib/planMarketing';
 import { ShinyButton } from '@/registry/magicui/shiny-button';
 import { isRegionExcluded, formatPlanHeroAmount, formatPlanHeroPeriod, formatPlanHeroSub, formatPlanHeroBillingNote } from '../lib/regionalPricing';
 import { normalizePlan } from '../lib/planConfig';
+import { canManageOwnBilling, isTeamMember } from '../lib/teamWorkspace';
+import MemberBillingNotice from './MemberBillingNotice';
 import AuthLogo from './AuthLogo';
 
 // ─── Unified Pricing Data ──────────────────────────────────────────────────
@@ -174,7 +176,7 @@ function PlanCard({ plan, billing, handlePaddleCheckout, profile, country, forma
   const pricing = hasPricing ? BILLING[billing][id] : null;
 
   const currentUserPlan = normalizePlan(profile?.plan);
-  const isPlanActive = profile?.plan_status === 'active';
+  const isPlanActive = profile?.plan_status === 'active' || profile?.plan_status === 'cancelling';
   const userPlanLevel = PLAN_LEVELS[currentUserPlan] ?? 0;
   const cardPlanLevel = PLAN_LEVELS[id.toLowerCase()] ?? 0;
   const isCurrentPlan = isPlanActive && currentUserPlan === id.toLowerCase();
@@ -326,6 +328,7 @@ export function UpgradePage({ profile, handleLogout, onRefreshProfile, bankAccou
   const handlePaddleCheckout = async (planKey, priceId) => {
     const { data: { user } } = await supabase.auth.getUser();
     if (!user || !priceId) return;
+    if (profile?.role === 'admin' || isTeamMember(profile)) return;
 
     window.Paddle.Checkout.open({
       items: [{ priceId, quantity: 1 }],
@@ -338,6 +341,14 @@ export function UpgradePage({ profile, handleLogout, onRefreshProfile, bankAccou
   };
 
   const isTrialExpired = profile?.plan === 'trial';
+
+  if (profile?.role === 'admin') {
+    return <MemberBillingNotice profile={profile} variant="admin" />;
+  }
+
+  if (isTeamMember(profile)) {
+    return <MemberBillingNotice profile={profile} variant="member" />;
+  }
 
   const headerTitle = isEmbedded
     ? 'Upgrade your workspace'

@@ -8,7 +8,7 @@ import {
   PanelLeftClose, PanelLeftOpen, UsersRound, Lock
 } from 'lucide-react';
 import { useAppContext } from '../App';
-import { isTeamsFeatureLocked } from '../lib/teamWorkspace';
+import { isTeamsFeatureLocked, isPaidPlanActive, canManageOwnBilling, isTeamMember } from '../lib/teamWorkspace';
 import UpgradeLockModal from './UpgradeLockModal';
 import MobileNav from './MobileNav';
 import { useLeadLimitStatus, LeadLimitTopBar } from '../lib/leadLimits';
@@ -261,11 +261,13 @@ export default function AppLayout({
               </Link>
             </li>
 
+            {!isTeamMember(profile) && canManageOwnBilling(profile) && (
             <li>
-              <Link to="/upgrade" title={tip(profile?.plan_status === 'active' ? 'Manage Plan' : 'Upgrade Plan')} className={`sidebar-item ${pathname === '/upgrade' ? 'active' : ''}`}>
-                <CreditCard size={18} /><span className="nav-label">{profile?.plan_status === 'active' ? 'Manage Plan' : 'Upgrade Plan'}</span>
+              <Link to="/upgrade" title={tip(isPaidPlanActive(profile) && profile?.plan !== 'trial' ? 'Manage Plan' : 'Upgrade Plan')} className={`sidebar-item ${pathname === '/upgrade' ? 'active' : ''}`}>
+                <CreditCard size={18} /><span className="nav-label">{isPaidPlanActive(profile) && profile?.plan !== 'trial' ? 'Manage Plan' : 'Upgrade Plan'}</span>
               </Link>
             </li>
+            )}
 
             {isAdmin && (
               <li>
@@ -351,11 +353,13 @@ export default function AppLayout({
               </li>
             )}
 
+            {!isTeamMember(profile) && canManageOwnBilling(profile) && (
             <li>
               <Link to="/upgrade" onClick={() => setIsSidebarOpen(false)} className="mobile-menu-item">
-                {profile?.plan_status === 'active' ? 'Manage Plan' : 'Upgrade Plan'}
+                {isPaidPlanActive(profile) && profile?.plan !== 'trial' ? 'Manage Plan' : 'Upgrade Plan'}
               </Link>
             </li>
+            )}
 
             {isAdmin && (
               <li>

@@ -39,6 +39,8 @@ export default function ListSwitcher({
   systemFolderNames = {},
   getLeadCount,
   onSelectFolder,
+  teamProfilesMap = {},
+  currentUserId,
 }) {
   const [open, setOpen] = useState(false);
   const rootRef = useRef(null);
@@ -57,6 +59,13 @@ export default function ListSwitcher({
   const pick = (id) => {
     setOpen(false);
     onSelectFolder(id);
+  };
+
+  const creatorSuffix = (userId) => {
+    if (!userId || userId === currentUserId) return '';
+    const p = teamProfilesMap[userId];
+    const name = p?.full_name || p?.email;
+    return name ? ` · ${name.split(' ')[0]}` : '';
   };
 
   const unfiledCount = getLeadCount?.('unfiled') ?? 0;
@@ -83,7 +92,7 @@ export default function ListSwitcher({
                   key={f.id}
                   icon={FileSpreadsheet}
                   iconColor={f.color}
-                  label={f.name}
+                  label={`${f.name}${creatorSuffix(f.user_id)}`}
                   count={getLeadCount?.(f.id)}
                   active={activeFolderId === f.id}
                   onClick={() => pick(f.id)}

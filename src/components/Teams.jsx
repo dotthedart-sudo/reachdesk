@@ -31,7 +31,7 @@ export default function Teams({ currentUser, onRefreshProfile }) {
   const [teamSuccess, setTeamSuccess] = useState('');
   const [settings, setSettings] = useState({
     members_can_view_revenue: false,
-    members_see_own_leads_only: false,
+    members_see_own_leads_only: true,
   });
   const [callSettings, setCallSettings] = useState({
     call_activity_sharing: 'off',
@@ -69,7 +69,7 @@ export default function Teams({ currentUser, onRefreshProfile }) {
         setTeamInvitations([]);
         setSettings({
           members_can_view_revenue: false,
-          members_see_own_leads_only: false,
+          members_see_own_leads_only: true,
         });
         setCallSettings({
           call_activity_sharing: 'off',

@@ -1,8 +1,14 @@
 import { serve } from 'https://deno.land/std@0.168.0/http/server.ts';
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2';
-import { getPlanFromPriceId, STARTER_MONTHLY_USD } from '../_shared/prices.ts';
-
-const DEFAULT_FROM_EMAIL = 'ReachDesk CRM <noreply@mail.app.reachdeskcrm.com>';
+import { getPlanFromPriceId } from '../_shared/prices.ts';
+import {
+  findProfileByEmail,
+  getScheduledChange,
+  hasPendingCancelSchedule,
+  logBillingEvent,
+  resolvePlanCancelsAt,
+  sendBillingEmail,
+} from '../_shared/billing.ts';
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
@@ -12,7 +18,7 @@ const corsHeaders = {
 async function verifySignature(
   rawBody: string,
   signatureHeader: string,
-  secretKey: string
+  secretKey: string,
 ): Promise<boolean> {
   const parts = signatureHeader.split(';');
   let ts = '';
@@ -23,36 +29,23 @@ async function verifySignature(
     if (key === 'h1') h1 = val;
   }
 
-  if (!ts || !h1) {
-    return false;
-  }
+  if (!ts || !h1) return false;
 
   const payload = `${ts}:${rawBody}`;
   const encoder = new TextEncoder();
-  
-  const keyBuf = encoder.encode(secretKey);
-  const dataBuf = encoder.encode(payload);
-
   const cryptoKey = await crypto.subtle.importKey(
     'raw',
-    keyBuf,
+    encoder.encode(secretKey),
     { name: 'HMAC', hash: 'SHA-256' },
     false,
-    ['sign']
+    ['sign'],
   );
+  const signatureBuf = await crypto.subtle.sign('HMAC', cryptoKey, encoder.encode(payload));
+  const expectedHash = Array.from(new Uint8Array(signatureBuf))
+    .map((b) => b.toString(16).padStart(2, '0'))
+    .join('');
 
-  const signatureBuf = await crypto.subtle.sign(
-    'HMAC',
-    cryptoKey,
-    dataBuf
-  );
-
-  const hashArray = Array.from(new Uint8Array(signatureBuf));
-  const expectedHash = hashArray.map(b => b.toString(16).padStart(2, '0')).join('');
-
-  if (expectedHash.length !== h1.length) {
-    return false;
-  }
+  if (expectedHash.length !== h1.length) return false;
   let result = 0;
   for (let i = 0; i < expectedHash.length; i++) {
     result |= expectedHash.charCodeAt(i) ^ h1.charCodeAt(i);
@@ -60,402 +53,247 @@ async function verifySignature(
   return result === 0;
 }
 
+function resolvePlanFromPayload(data: Record<string, unknown>) {
+  const items = data.items as Array<Record<string, unknown>> | undefined;
+  const firstItem = items?.[0];
+  const price = firstItem?.price as Record<string, unknown> | undefined;
+  const priceId = (firstItem?.price_id as string) || (price?.id as string);
+  const rawProductName = ((price?.product as Record<string, unknown>)?.name as string) || '';
+
+  let resolvedPlan = getPlanFromPriceId(priceId);
+  if (!resolvedPlan) {
+    const nameLower = rawProductName.toLowerCase();
+    if (nameLower.includes('pro')) resolvedPlan = 'pro';
+    else if (nameLower.includes('teams') || nameLower.includes('team')) resolvedPlan = 'teams';
+    else if (nameLower.includes('starter')) resolvedPlan = 'starter';
+    else resolvedPlan = 'starter';
+  }
+
+  return { resolvedPlan, rawProductName, priceId };
+}
+
+async function ensureTeamsWorkspace(
+  supabaseAdmin: ReturnType<typeof createClient>,
+  customerEmail: string,
+  resolvedPlan: string,
+  updateData: Record<string, unknown>,
+) {
+  if (resolvedPlan !== 'teams') return;
+
+  const { data: existingTeamProfile } = await supabaseAdmin
+    .from('user_profiles')
+    .select('id, email, team_id, team_role')
+    .eq('email', customerEmail)
+    .maybeSingle();
+
+  if (
+    existingTeamProfile
+    && !existingTeamProfile.team_id
+    && (existingTeamProfile.team_role || 'owner') !== 'member'
+  ) {
+    const ownerEmail = existingTeamProfile.email || customerEmail;
+    const { data: team, error: teamError } = await supabaseAdmin
+      .from('teams')
+      .insert({
+        owner_id: existingTeamProfile.id,
+        name: `${ownerEmail}'s Team`,
+      })
+      .select('id')
+      .single();
+
+    if (teamError || !team) {
+      throw new Error(`Failed to create team workspace: ${teamError?.message || 'unknown error'}`);
+    }
+
+    updateData.team_id = team.id;
+    updateData.team_role = 'owner';
+  }
+}
+
 serve(async (req) => {
   if (req.method === 'OPTIONS') {
-    return new Response('ok', { headers: corsHeaders })
+    return new Response('ok', { headers: corsHeaders });
   }
 
   try {
-    const rawBody = await req.text()
-    const signatureHeader = req.headers.get('Paddle-Signature')
-    const secretKey = Deno.env.get('PADDLE_WEBHOOK_SECRET')
-    const testBypassSecret = Deno.env.get('TEST_BYPASS_SECRET')
-    const allowTestBypass = Deno.env.get('ALLOW_TEST_BYPASS') === 'true'
-    const isTestMode = allowTestBypass && !!testBypassSecret && req.headers.get('X-Test-Bypass') === testBypassSecret
+    const rawBody = await req.text();
+    const signatureHeader = req.headers.get('Paddle-Signature');
+    const secretKey = Deno.env.get('PADDLE_WEBHOOK_SECRET');
+    const testBypassSecret = Deno.env.get('TEST_BYPASS_SECRET');
+    const allowTestBypass = Deno.env.get('ALLOW_TEST_BYPASS') === 'true';
+    const isTestMode = allowTestBypass && !!testBypassSecret && req.headers.get('X-Test-Bypass') === testBypassSecret;
 
     if (!isTestMode && (!signatureHeader || !secretKey)) {
-      console.error('[Webhook] Missing Paddle-Signature header or PADDLE_WEBHOOK_SECRET secret')
-      return new Response(
-        JSON.stringify({ success: false, error: 'Unauthorized' }),
-        { headers: { ...corsHeaders, 'Content-Type': 'application/json' }, status: 401 }
-      )
+      return new Response(JSON.stringify({ success: false, error: 'Unauthorized' }), {
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+        status: 401,
+      });
     }
 
     if (!isTestMode) {
-      const isValid = await verifySignature(rawBody, signatureHeader!, secretKey!)
+      const isValid = await verifySignature(rawBody, signatureHeader!, secretKey!);
       if (!isValid) {
-        console.error('[Webhook] Invalid signature check')
-        return new Response(
-          JSON.stringify({ success: false, error: 'Invalid signature' }),
-          { headers: { ...corsHeaders, 'Content-Type': 'application/json' }, status: 401 }
-        )
+        return new Response(JSON.stringify({ success: false, error: 'Invalid signature' }), {
+          headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+          status: 401,
+        });
       }
     }
 
-    const payload = JSON.parse(rawBody)
-    const eventType = payload.event_type || payload.alert_name
+    const payload = JSON.parse(rawBody);
+    const eventType = payload.event_type || payload.alert_name;
+    const data = (payload.data || {}) as Record<string, unknown>;
 
-    const supabaseUrl = Deno.env.get('SUPABASE_URL') ?? ''
-    const supabaseServiceRoleKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? ''
-    const supabaseAdmin = createClient(supabaseUrl, supabaseServiceRoleKey)
+    const supabaseUrl = Deno.env.get('SUPABASE_URL') ?? '';
+    const supabaseServiceRoleKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? '';
+    const supabaseAdmin = createClient(supabaseUrl, supabaseServiceRoleKey);
 
-    const resendApiKey = Deno.env.get('RESEND_API_KEY')
-    if (!resendApiKey) {
-      throw new Error('RESEND_API_KEY environment variable is not set')
-    }
-
-    // Extract customer email
-    const customerEmail = 
-      payload.data?.customer?.email || 
-      payload.data?.customer_details?.email || 
-      payload.data?.email ||
-      payload.email
+    const customerEmail =
+      (data.customer as Record<string, unknown> | undefined)?.email as string
+      || (data.customer_details as Record<string, unknown> | undefined)?.email as string
+      || data.email as string
+      || payload.email as string;
 
     if (!customerEmail) {
-      return new Response(
-        JSON.stringify({ success: false, error: 'No customer email found in webhook payload' }),
-        { headers: { ...corsHeaders, 'Content-Type': 'application/json' }, status: 200 }
-      )
+      return new Response(JSON.stringify({ success: false, error: 'No customer email found in webhook payload' }), {
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+        status: 200,
+      });
     }
 
-    const getFormattedAmount = (amount: any, currencyCode: string = 'USD') => {
-      if (amount === undefined || amount === null) return '$0.00';
-      let num = typeof amount === 'number' ? amount : parseFloat(String(amount));
-      if (isNaN(num)) return `$${amount}`;
+    const profile = await findProfileByEmail(supabaseAdmin, customerEmail);
+    let lastEmailId: string | null = null;
 
-      const code = (currencyCode || 'USD').toUpperCase().trim();
-      const str = String(amount).trim();
-
-      // Handle minor units in integer strings (e.g., "1500" -> 15.00 for USD/EUR/GBP)
-      if (!str.includes('.') && num >= 100 && (code === 'USD' || code === 'EUR' || code === 'GBP')) {
-        num = num / 100;
-      }
-
-      if (code === 'PKR') {
-        return `Rs ${Math.round(num).toLocaleString()}`;
-      }
-      if (code === 'BDT') {
-        return `৳${Math.round(num).toLocaleString()}`;
-      }
-      if (code === 'EUR') {
-        return `€${num.toFixed(2)}`;
-      }
-      if (code === 'GBP') {
-        return `£${num.toFixed(2)}`;
-      }
-      return `$${num.toFixed(2)}`;
-    };
-
-    const sendEmail = async (subject: string, htmlContent: string) => {
-      const emailResponse = await fetch('https://api.resend.com/emails', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${resendApiKey}`
-        },
-        body: JSON.stringify({
-          from: DEFAULT_FROM_EMAIL,
-          reply_to: 'support@reachdeskcrm.com',
-          to: [customerEmail],
-          subject,
-          html: htmlContent
-        })
-      })
-
-      if (!emailResponse.ok) {
-        const errText = await emailResponse.text()
-        console.error(`[Webhook] Resend API failed: ${errText}`)
-        return null
-      } else {
-        const resData = await emailResponse.json()
-        console.log(`[Webhook] Branded email "${subject}" sent to ${customerEmail} (ID: ${resData?.id})`)
-        return resData?.id
-      }
-    }
-
-    let lastEmailId: string | null = null
-
-    // Handle webhook events
     if (eventType === 'transaction.completed' || eventType === 'subscription.activated') {
-      // Fetch user profile to see if it is already active (to differentiate Welcome vs. Renewal)
-      const { data: profile } = await supabaseAdmin
-        .from('user_profiles')
-        .select('plan, plan_status')
-        .eq('email', customerEmail)
-        .maybeSingle()
+      const { resolvedPlan, rawProductName } = resolvePlanFromPayload(data);
+      const paddleCustomerId = (data.customer as Record<string, unknown> | undefined)?.id as string
+        || data.customer_id as string;
+      const paddleSubscriptionId = data.subscription_id as string
+        || ((data.items as Array<Record<string, unknown>> | undefined)?.[0]?.subscription_id as string);
+      const paddleStatus = typeof data.status === 'string' ? data.status : 'active';
+      const pendingCancel = hasPendingCancelSchedule(data)
+        || (profile?.plan_status === 'cancelling' && !!profile?.plan_cancels_at);
 
-      // Extract Paddle IDs & item details
-      const paddleCustomerId = payload.data?.customer?.id || payload.data?.customer_id
-      const paddleSubscriptionId = payload.data?.subscription_id || payload.data?.items?.[0]?.subscription_id
-      const priceId = payload.data?.items?.[0]?.price_id || payload.data?.items?.[0]?.price?.id
-      const rawProductName = payload.data?.items?.[0]?.price?.product?.name || ''
-
-      // Dynamically resolve plan from single source of truth (prices.ts)
-      let resolvedPlan = getPlanFromPriceId(priceId);
-      if (!resolvedPlan) {
-        const nameLower = rawProductName.toLowerCase();
-        if (nameLower.includes('pro')) resolvedPlan = 'pro';
-        else if (nameLower.includes('teams') || nameLower.includes('team')) resolvedPlan = 'teams';
-        else if (nameLower.includes('starter')) resolvedPlan = 'starter';
-        else {
-          console.error('[Webhook] UNKNOWN price ID or product name received:', { priceId, rawProductName });
-          resolvedPlan = 'starter';
-        }
-      }
-
-      const updateData: any = {
+      const updateData: Record<string, unknown> = {
         plan: resolvedPlan,
-        plan_status: 'active',
         trial_ends_at: null,
+        paddle_subscription_status: paddleStatus,
       };
 
-      if (resolvedPlan === 'teams') {
-        const { data: existingTeamProfile } = await supabaseAdmin
-          .from('user_profiles')
-          .select('id, email, team_id, team_role')
-          .eq('email', customerEmail)
-          .maybeSingle();
-        if (
-          existingTeamProfile
-          && !existingTeamProfile.team_id
-          && (existingTeamProfile.team_role || 'owner') !== 'member'
-        ) {
-          const ownerEmail = existingTeamProfile.email || customerEmail;
-          const { data: team, error: teamError } = await supabaseAdmin
-            .from('teams')
-            .insert({
-              owner_id: existingTeamProfile.id,
-              name: `${ownerEmail}'s Team`,
-            })
-            .select('id')
-            .single();
+      if (pendingCancel) {
+        updateData.plan_status = 'cancelling';
+        updateData.plan_cancels_at = resolvePlanCancelsAt(data);
+      } else {
+        updateData.plan_status = 'active';
+        updateData.plan_cancels_at = null;
+      }
 
-          if (teamError || !team) {
-            throw new Error(`Failed to create team workspace: ${teamError?.message || 'unknown error'}`);
-          }
+      if (paddleCustomerId) updateData.paddle_customer_id = paddleCustomerId;
+      if (paddleSubscriptionId) updateData.paddle_subscription_id = paddleSubscriptionId;
 
-          updateData.team_id = team.id;
-          updateData.team_role = 'owner';
+      await ensureTeamsWorkspace(supabaseAdmin, customerEmail, resolvedPlan, updateData);
+
+      const { error: updateError } = await supabaseAdmin
+        .from('user_profiles')
+        .update(updateData)
+        .eq('email', customerEmail);
+
+      if (updateError) throw new Error(`Failed to update user profile: ${updateError.message}`);
+
+      await logBillingEvent(supabaseAdmin, {
+        userId: profile?.id ?? null,
+        eventType: 'webhook_transaction_completed',
+        source: 'paddle_webhook',
+        rawPayload: { event_type: eventType, pending_cancel: pendingCancel, subscription_id: paddleSubscriptionId },
+      });
+
+      const isFirstPayment = !profile || profile.plan_status !== 'active';
+      if (isFirstPayment) {
+        const planName = rawProductName.toLowerCase().endsWith('plan') ? rawProductName : `${rawProductName} Plan`;
+        const resendApiKey = Deno.env.get('RESEND_API_KEY');
+        if (resendApiKey) {
+          const welcomeHtml = `
+            <div style="background-color: #0D1117; color: #FFFFFF; font-family: sans-serif; padding: 30px; border-radius: 3px; max-width: 600px; margin: 0 auto; border: 1px solid #21262D;">
+              <h2 style="color: #5B8FB9;">Welcome to ReachDesk CRM!</h2>
+              <p>Your ${planName} is now active.</p>
+              <p style="color: #8B949E; font-size: 0.85rem;">Paddle sends receipts and renewal reminders for billing. ReachDesk emails you about workspace access.</p>
+            </div>
+          `;
+          lastEmailId = await sendBillingEmail(customerEmail, "You're in — Welcome to ReachDesk CRM!", welcomeHtml);
         }
       }
+    } else if (eventType === 'subscription.updated') {
+      const scheduledChange = getScheduledChange(data);
+      const paddleStatus = typeof data.status === 'string' ? data.status : null;
+      const updateData: Record<string, unknown> = {
+        paddle_subscription_status: paddleStatus,
+      };
 
-      if (paddleCustomerId) {
-        updateData.paddle_customer_id = paddleCustomerId
-      }
-      if (paddleSubscriptionId) {
-        updateData.paddle_subscription_id = paddleSubscriptionId
+      if (scheduledChange?.action === 'cancel') {
+        updateData.plan_status = 'cancelling';
+        updateData.plan_cancels_at = resolvePlanCancelsAt(data, scheduledChange);
+      } else if (
+        (scheduledChange == null || scheduledChange === null)
+        && profile?.plan_status === 'cancelling'
+      ) {
+        updateData.plan_status = 'active';
+        updateData.plan_cancels_at = null;
       }
 
       const { error: updateError } = await supabaseAdmin
         .from('user_profiles')
         .update(updateData)
-        .eq('email', customerEmail)
+        .eq('email', customerEmail);
 
-      if (updateError) {
-        throw new Error(`Failed to update user profile: ${updateError.message}`)
-      }
+      if (updateError) throw new Error(`Failed to update user profile: ${updateError.message}`);
 
-      const isFirstPayment = !profile || profile.plan_status !== 'active'
-      const planName = rawProductName.toLowerCase().endsWith('plan') ? rawProductName : `${rawProductName} Plan`
-
-      if (isFirstPayment) {
-        // Welcome Email
-        const welcomeHtml = `
-          <div style="background-color: #0D1117; color: #FFFFFF; font-family: sans-serif; padding: 30px; border-radius: 3px; max-width: 600px; margin: 0 auto; border: 1px solid #21262D;">
-            <div style="text-align: center; margin-bottom: 20px;">
-              <span style="font-family: Arial, sans-serif; text-transform: uppercase; letter-spacing: 0.08em; font-size: 24px; color: #FFFFFF; font-weight: bold;">ReachDesk</span>
-            </div>
-            <h2 style="color: #5B8FB9; border-bottom: 1px solid #21262D; padding-bottom: 10px;">Welcome to ReachDesk CRM!</h2>
-            <p>Your ${planName} is now active. You have successfully upgraded your account and can now access all advanced CRM tools, email templates, and configurations.</p>
-            <div style="text-align: center; margin: 30px 0;">
-              <a href="https://app.reachdeskcrm.com" style="background-color: #5B8FB9; color: #0D1117; padding: 12px 24px; text-decoration: none; border-radius: 3px; font-weight: bold; display: inline-block;">Log In to Your Workspace</a>
-            </div>
-            <p>If you have any questions or need support getting started, feel free to reply to this email or contact us at <a href="mailto:support@reachdeskcrm.com" style="color: #5B8FB9; text-decoration: none;">support@reachdeskcrm.com</a>.</p>
-            <p style="color: #8B949E; font-size: 0.8rem; border-top: 1px solid #21262D; padding-top: 15px; margin-top: 30px;">
-              This is an automated notification from ReachDesk CRM.
-            </p>
-          </div>
-        `
-        lastEmailId = await sendEmail("You're in — Welcome to ReachDesk CRM!", welcomeHtml)
-      } else {
-        // Receipt Email (recurring renewal)
-        const grandTotal = payload.data?.details?.totals?.grand_total || payload.data?.totals?.grand_total || STARTER_MONTHLY_USD
-        const currencyCode = payload.data?.currency_code || payload.data?.next_transaction?.currency_code || payload.data?.items?.[0]?.price?.unit_price?.currency_code || 'USD'
-        const formattedTotal = getFormattedAmount(grandTotal, currencyCode)
-        const paymentDate = payload.data?.occurred_at 
-          ? new Date(payload.data.occurred_at).toLocaleDateString()
-          : new Date().toLocaleDateString()
-        const nextBillingDate = payload.data?.next_billed_at
-          ? new Date(payload.data.next_billed_at).toLocaleDateString()
-          : 'Monthly renewal'
-
-        const receiptHtml = `
-          <div style="background-color: #0D1117; color: #FFFFFF; font-family: sans-serif; padding: 30px; border-radius: 3px; max-width: 600px; margin: 0 auto; border: 1px solid #21262D;">
-            <div style="text-align: center; margin-bottom: 20px;">
-              <span style="font-family: Arial, sans-serif; text-transform: uppercase; letter-spacing: 0.08em; font-size: 24px; color: #FFFFFF; font-weight: bold;">ReachDesk</span>
-            </div>
-            <h2 style="color: #5B8FB9; border-bottom: 1px solid #21262D; padding-bottom: 10px;">Payment Confirmed</h2>
-            <p>This is a receipt for your recent renewal payment for your ReachDesk subscription.</p>
-            <table style="width: 100%; border-collapse: collapse; margin: 20px 0; color: #FFFFFF;">
-              <tr>
-                <td style="padding: 8px 0; border-bottom: 1px solid #21262D; color: #8B949E; width: 150px;">Subscription Plan:</td>
-                <td style="padding: 8px 0; border-bottom: 1px solid #21262D; font-weight: bold;">${planName}</td>
-              </tr>
-              <tr>
-                <td style="padding: 8px 0; border-bottom: 1px solid #21262D; color: #8B949E;">Amount Charged:</td>
-                <td style="padding: 8px 0; border-bottom: 1px solid #21262D; font-weight: bold; color: #5B8FB9;">${formattedTotal}</td>
-              </tr>
-              <tr>
-                <td style="padding: 8px 0; border-bottom: 1px solid #21262D; color: #8B949E;">Payment Date:</td>
-                <td style="padding: 8px 0; border-bottom: 1px solid #21262D;">${paymentDate}</td>
-              </tr>
-              <tr>
-                <td style="padding: 8px 0; border-bottom: 1px solid #21262D; color: #8B949E;">Next Billing Date:</td>
-                <td style="padding: 8px 0; border-bottom: 1px solid #21262D;">${nextBillingDate}</td>
-              </tr>
-            </table>
-            <div style="text-align: center; margin: 30px 0;">
-              <a href="https://app.reachdeskcrm.com/settings" style="background-color: #5B8FB9; color: #0D1117; padding: 12px 24px; text-decoration: none; border-radius: 3px; font-weight: bold; display: inline-block;">Manage Subscription</a>
-            </div>
-            <p>Thank you for choosing ReachDesk CRM. If you need any assistance, reach out at <a href="mailto:support@reachdeskcrm.com" style="color: #5B8FB9; text-decoration: none;">support@reachdeskcrm.com</a>.</p>
-            <p style="color: #8B949E; font-size: 0.8rem; border-top: 1px solid #21262D; padding-top: 15px; margin-top: 30px;">
-              This is an automated notification from ReachDesk CRM.
-            </p>
-          </div>
-        `
-        lastEmailId = await sendEmail("ReachDesk CRM — Payment Confirmed", receiptHtml)
-      }
-    } else if (eventType === 'subscription.updated') {
-      const nextBilledAtStr = payload.data?.next_billed_at
-      if (nextBilledAtStr) {
-        const nextBilledAt = new Date(nextBilledAtStr)
-        const now = new Date()
-        const diffMs = nextBilledAt.getTime() - now.getTime()
-        const diffDays = diffMs / (1000 * 60 * 60 * 24)
-
-        if (diffDays > 0 && diffDays <= 7) {
-          const dateStr = nextBilledAt.toLocaleDateString('en-US', {
-            year: 'numeric',
-            month: 'long',
-            day: 'numeric'
-          })
-
-          const rawProductName = payload.data?.items?.[0]?.price?.product?.name 
-            || payload.data?.subscription?.items?.[0]?.price?.product?.name 
-            || 'Starter Plan'
-          const planName = rawProductName.toLowerCase().endsWith('plan') ? rawProductName : `${rawProductName} Plan`
-
-          const nextBilledAmount = payload.data?.next_transaction?.totals?.grand_total 
-            || payload.data?.recurring_transaction_details?.totals?.grand_total 
-            || payload.data?.items?.[0]?.price?.unit_price?.amount 
-            || STARTER_MONTHLY_USD
-
-          const currencyCode = payload.data?.currency_code 
-            || payload.data?.next_transaction?.currency_code 
-            || payload.data?.items?.[0]?.price?.unit_price?.currency_code 
-            || 'USD'
-
-          const formattedAmount = getFormattedAmount(nextBilledAmount, currencyCode)
-
-          const reminderHtml = `
-            <div style="background-color: #FFFFFF; color: #1a1a1a; font-family: sans-serif; padding: 30px; border-radius: 3px; max-width: 600px; margin: 0 auto; border: 1px solid #E5E5E5;">
-              <div style="text-align: center; margin-bottom: 20px;">
-                <span style="font-family: Arial, sans-serif; text-transform: uppercase; letter-spacing: 0.08em; font-size: 24px; color: #1a1a1a; font-weight: bold;">ReachDesk</span>
-              </div>
-              <h2 style="color: #5B8FB9; border-bottom: 1px solid #E5E5E5; padding-bottom: 10px; margin-top: 0;">Subscription Renewal</h2>
-              <p>Your ${planName} renews in 7 days on ${dateStr}. Amount: ${formattedAmount}. No action needed to continue.</p>
-              <div style="text-align: center; margin: 30px 0;">
-                <a href="https://app.reachdeskcrm.com/settings" style="background-color: #5B8FB9; color: #FFFFFF; padding: 12px 24px; text-decoration: none; border-radius: 3px; font-weight: bold; display: inline-block;">Manage Subscription</a>
-              </div>
-              <p>If you have any questions or wish to change your plan details, please reach out to us at <a href="mailto:support@reachdeskcrm.com" style="color: #5B8FB9; text-decoration: none;">support@reachdeskcrm.com</a>.</p>
-              <p style="color: #666666; font-size: 0.8rem; border-top: 1px solid #E5E5E5; padding-top: 15px; margin-top: 30px;">
-                This is an automated notification from ReachDesk CRM.
-              </p>
-            </div>
-          `
-          lastEmailId = await sendEmail("Your ReachDesk CRM renewal is coming up", reminderHtml)
-        }
+      if (Object.keys(updateData).length > 1) {
+        await logBillingEvent(supabaseAdmin, {
+          userId: profile?.id ?? null,
+          eventType: scheduledChange?.action === 'cancel'
+            ? 'webhook_subscription_cancel_scheduled'
+            : 'webhook_subscription_updated',
+          source: 'paddle_webhook',
+          rawPayload: { scheduled_change: scheduledChange, status: paddleStatus },
+        });
       }
     } else if (eventType === 'subscription.canceled') {
-      // 1. Update user profile to trial inactive
       const { error: updateError } = await supabaseAdmin
         .from('user_profiles')
         .update({
           plan: 'trial',
-          plan_status: 'inactive'
+          plan_status: 'inactive',
+          plan_cancels_at: null,
+          paddle_subscription_status: 'canceled',
         })
-        .eq('email', customerEmail)
+        .eq('email', customerEmail);
 
-      if (updateError) {
-        throw new Error(`Failed to update user profile: ${updateError.message}`)
-      }
+      if (updateError) throw new Error(`Failed to update user profile: ${updateError.message}`);
 
-      const endsAtStr = payload.data?.ends_at || payload.data?.current_billing_period?.ends_at
-      const endDate = endsAtStr 
-        ? new Date(endsAtStr).toLocaleDateString('en-US', {
-            year: 'numeric',
-            month: 'long',
-            day: 'numeric'
-          })
-        : new Date().toLocaleDateString('en-US', {
-            year: 'numeric',
-            month: 'long',
-            day: 'numeric'
-          })
-
-      const rawProductName = payload.data?.items?.[0]?.price?.product?.name 
-        || payload.data?.subscription?.items?.[0]?.price?.product?.name 
-        || 'Starter Plan'
-      const planName = rawProductName.toLowerCase().endsWith('plan') ? rawProductName : `${rawProductName} Plan`
-
-      // Cancellation Email
-      const cancelHtml = `
-        <div style="background-color: #0D1117; color: #FFFFFF; font-family: sans-serif; padding: 30px; border-radius: 3px; max-width: 600px; margin: 0 auto; border: 1px solid #21262D;">
-          <div style="text-align: center; margin-bottom: 20px;">
-            <span style="font-family: Arial, sans-serif; text-transform: uppercase; letter-spacing: 0.08em; font-size: 24px; color: #FFFFFF; font-weight: bold;">ReachDesk</span>
-          </div>
-          <h2 style="color: #E05252; border-bottom: 1px solid #21262D; padding-bottom: 10px;">Subscription Cancelled</h2>
-          <p>Your ${planName} will remain active until ${endDate}. After that, your data will be retained for 30 days before permanent deletion. You can resubscribe anytime to restore full access.</p>
-          <div style="text-align: center; margin: 30px 0;">
-            <a href="https://app.reachdeskcrm.com/upgrade" style="background-color: #5B8FB9; color: #0D1117; padding: 12px 24px; text-decoration: none; border-radius: 3px; font-weight: bold; display: inline-block;">Resubscribe Now</a>
-          </div>
-          <p>If you have any feedback on how we can improve ReachDesk CRM for you, please let us know by replying to this email.</p>
-          <p style="color: #8B949E; font-size: 0.8rem; border-top: 1px solid #21262D; padding-top: 15px; margin-top: 30px;">
-            This is an automated notification from ReachDesk CRM.
-          </p>
-        </div>
-      `
-      lastEmailId = await sendEmail("Your ReachDesk CRM subscription has been cancelled", cancelHtml)
+      await logBillingEvent(supabaseAdmin, {
+        userId: profile?.id ?? null,
+        eventType: 'webhook_subscription_canceled',
+        source: 'paddle_webhook',
+        rawPayload: data,
+      });
     } else if (eventType === 'transaction.payment_failed') {
-      // Payment Failed Email
-      const failedHtml = `
-        <div style="background-color: #0D1117; color: #FFFFFF; font-family: sans-serif; padding: 30px; border-radius: 3px; max-width: 600px; margin: 0 auto; border: 1px solid #21262D;">
-          <div style="text-align: center; margin-bottom: 20px;">
-            <span style="font-family: Arial, sans-serif; text-transform: uppercase; letter-spacing: 0.08em; font-size: 24px; color: #FFFFFF; font-weight: bold;">ReachDesk</span>
-          </div>
-          <h2 style="color: #E8A838; border-bottom: 1px solid #21262D; padding-bottom: 10px;">Payment Failed</h2>
-          <p>We were unable to process the recent renewal payment for your ReachDesk subscription. Please update your payment details to prevent any service interruptions.</p>
-          <div style="text-align: center; margin: 30px 0;">
-            <a href="https://app.reachdeskcrm.com/upgrade" style="background-color: #5B8FB9; color: #0D1117; padding: 12px 24px; text-decoration: none; border-radius: 3px; font-weight: bold; display: inline-block;">Update Payment Details</a>
-          </div>
-          <p>If you need assistance, please contact our support team at <a href="mailto:support@reachdeskcrm.com" style="color: #5B8FB9; text-decoration: none;">support@reachdeskcrm.com</a>.</p>
-          <p style="color: #8B949E; font-size: 0.8rem; border-top: 1px solid #21262D; padding-top: 15px; margin-top: 30px;">
-            This is an automated notification from ReachDesk CRM.
-          </p>
-        </div>
-      `
-      lastEmailId = await sendEmail("Action needed — ReachDesk CRM payment failed", failedHtml)
+      await logBillingEvent(supabaseAdmin, {
+        userId: profile?.id ?? null,
+        eventType: 'webhook_transaction_payment_failed',
+        source: 'paddle_webhook',
+        rawPayload: data,
+      });
     }
 
-    return new Response(
-      JSON.stringify({ success: true, email_id: lastEmailId }),
-      { headers: { ...corsHeaders, 'Content-Type': 'application/json' }, status: 200 }
-    )
+    return new Response(JSON.stringify({ success: true, email_id: lastEmailId }), {
+      headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+      status: 200,
+    });
   } catch (error) {
-    console.error('[Webhook] Error processing Paddle Webhook:', error)
-    return new Response(
-      JSON.stringify({ success: false, error: error.message }),
-      { headers: { ...corsHeaders, 'Content-Type': 'application/json' }, status: 400 }
-    )
+    console.error('[Webhook] Error processing Paddle Webhook:', error);
+    return new Response(JSON.stringify({ success: false, error: (error as Error).message }), {
+      headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+      status: 400,
+    });
   }
-})
+});

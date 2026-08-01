@@ -4,10 +4,20 @@ import { CURRENCY_MAP } from './CurrencySelector';
 import { supabase } from '../lib/supabase';
 import { useAppContext } from '../App';
 import { getTeamIds, PLAN_LIMITS, getEffectivePlan } from '../lib/utils';
+import { isTeamOwner } from '../lib/teamWorkspace';
+import {
+  buildPersonalUpNextFeed,
+  buildTeamOverview,
+  mismatchCopy,
+} from '../lib/dashboardFeed';
+import {
+  fetchTeamTimelineForDay,
+  actorDisplayName,
+  leadDisplayFromTimeline,
+} from '../lib/leadTimeline';
 import { 
   updateLeadStatusAndCheckpoint, 
   applySuggestion, 
-  getSuggestionForStatus, 
   REPLY_CHECK_STATUSES, 
   FOLLOW_UP_CHECK_STATUSES 
 } from '../lib/reminders';
@@ -66,7 +76,7 @@ function formatTimePhrasing(targetDateStr, type) {
 
 export default function Dashboard({ currentUser, onSelectLead }) {
   const navigate = useNavigate();
-  const { showToast } = useAppContext() || {};
+  const { showToast, teamProfilesMap = {} } = useAppContext() || {};
   const [metrics, setMetrics] = useState({ total: 0, contacted: 0, replied: 0, positive: 0 });
   const [copyAnalytics, setCopyAnalytics] = useState([]);
   const [reminders, setReminders] = useState([]);
@@ -78,12 +88,18 @@ export default function Dashboard({ currentUser, onSelectLead }) {
   const [leadsList, setLeadsList] = useState([]);
   const [upNextFeed, setUpNextFeed] = useState([]);
   const [windowDays, setWindowDays] = useState(2);
+  const [upNextTab, setUpNextTab] = useState('mine');
+  const [teamOverview, setTeamOverview] = useState(null);
+  const [teamActivity, setTeamActivity] = useState([]);
   const [expandedReplies, setExpandedReplies] = useState({});
   const [ignoredMismatches, setIgnoredMismatches] = useState({});
   const { reveal, rootClass, blockClass, blockProp } = useFirstVisitReveal();
 
   const plan = getEffectivePlan(currentUser);
   const limits = PLAN_LIMITS[plan] || PLAN_LIMITS.trial;
+  const isOwner = isTeamOwner(currentUser);
+  const hasTeam = !!currentUser?.team_id;
+  const suggestionsEnabled = currentUser?.suggestions_enabled !== false;
 
   const loadDashboardData = async () => {
     if (!currentUser?.id) return;
@@ -99,8 +115,8 @@ export default function Dashboard({ currentUser, onSelectLead }) {
       const [invoicesRes, rulesRes, leadsRes, remindersRes] = await Promise.all([
         supabase.from('invoices').select('*').eq('user_id', currentUser.id),
         supabase.from('action_suggestion_rules').select('*'),
-        supabase.from('leads').select('id, first_name, last_name, status, created_at, last_contacted_at, action_to_take, next_checkpoint_at, template_used, reply_type, meeting_ends_at').in('user_id', teamIds).order('created_at', { ascending: false }).order('id', { ascending: true }),
-        supabase.from('follow_up_reminders').select('*').eq('status', 'pending').lte('scheduled_at', new Date().toISOString()).order('scheduled_at', { ascending: true }).limit(3)
+        supabase.from('leads').select('id, user_id, first_name, last_name, status, created_at, last_contacted_at, action_to_take, next_checkpoint_at, template_used, reply_type, meeting_ends_at').in('user_id', teamIds).order('created_at', { ascending: false }).order('id', { ascending: true }),
+        supabase.from('follow_up_reminders').select('*').in('user_id', teamIds).eq('status', 'pending').lte('scheduled_at', new Date().toISOString()).order('scheduled_at', { ascending: true }).limit(3)
       ]);
 
       const loadedInvoices = invoicesRes.data || [];
@@ -111,7 +127,7 @@ export default function Dashboard({ currentUser, onSelectLead }) {
       setInvoices(loadedInvoices);
       setSuggestionRules(loadedRules);
       setLeadsList(loadedLeads);
-      setReminders(loadedReminders);
+      setReminders(loadedReminders.filter((r) => r.user_id === currentUser.id));
 
       // 1. Calculate Core Metrics
       const totalLeads = loadedLeads.length;
@@ -151,80 +167,34 @@ export default function Dashboard({ currentUser, onSelectLead }) {
         setCopyAnalytics(sortedAnalytics);
       }
 
-      // 3. Compile "Upcoming Next" Chronological Feed Items (priority: checkpoints -> invoices -> mismatches)
-      const now = new Date();
-      const nowStr = now.toISOString();
-      const windowLimit = new Date(Date.now() + windowDays * 24 * 60 * 60 * 1000);
-      const windowLimitStr = windowLimit.toISOString();
-
-      // A. Upcoming Checkpoints (scheduled in the future, up to window days ahead)
-      const upcomingCheckpoints = loadedLeads
-        .filter(l => l.next_checkpoint_at && l.next_checkpoint_at > nowStr && l.next_checkpoint_at <= windowLimitStr)
-        .map(l => ({
-          id: `checkpoint-${l.id}`,
-          type: 'checkpoint',
-          lead: l,
-          title: `Follow up with ${l.first_name || ''} ${l.last_name || ''}`,
-          date: l.next_checkpoint_at,
-          severity: 'high'
-        }));
-
-      // B. Upcoming Invoices Due (due_date in the future, up to window days ahead, unpaid)
-      const upcomingInvoices = loadedInvoices
-        .filter(inv => {
-          if (inv.status?.toLowerCase() === 'paid') return false;
-          if (!inv.due_date) return false;
-          const dueDate = new Date(inv.due_date);
-          return dueDate > now && dueDate <= windowLimit;
-        })
-        .map(inv => ({
-          id: `invoice-${inv.id}`,
-          type: 'invoice',
-          invoice: inv,
-          title: `Invoice #${inv.invoice_number} is due`,
-          date: inv.due_date,
-          severity: 'medium'
-        }));
-
-      // C. Suggestion Mismatches
-      const mismatchItems = loadedLeads
-        .filter(l => {
-          const suggestion = getSuggestionForStatus(l.status, loadedRules);
-          return suggestion && l.action_to_take !== suggestion;
-        })
-        .map(l => ({
-          id: `mismatch-${l.id}`,
-          type: 'mismatch',
-          lead: l,
-          title: `Suggestion mismatch for ${l.first_name || ''} ${l.last_name || ''}`,
-          suggestion: getSuggestionForStatus(l.status, loadedRules),
-          severity: 'medium'
-        }));
-
-      // D. Post-Meeting Check-Ins (lead status is 'Booked' and meeting_ends_at has already elapsed)
-      const postMeetingCheckIns = loadedLeads
-        .filter(l => l.status === 'Booked' && l.meeting_ends_at && l.meeting_ends_at <= nowStr)
-        .map(l => ({
-          id: `meeting-checkin-${l.id}`,
-          type: 'meeting-checkin',
-          lead: l,
-          title: `How did your meeting with ${l.first_name || ''} go?`,
-          date: l.meeting_ends_at,
-          severity: 'high'
-        }));
-
-      // Sort and compile chronological feed: soonest first, mismatches last
-      const combinedFeed = [...upcomingCheckpoints, ...upcomingInvoices, ...mismatchItems, ...postMeetingCheckIns];
-      combinedFeed.sort((a, b) => {
-        if (a.date && b.date) {
-          return new Date(a.date) - new Date(b.date);
-        }
-        if (a.date && !b.date) return -1;
-        if (!a.date && b.date) return 1;
-        return 0;
+      // 3. Compile personal "Upcoming Next" feed (scoped to current user)
+      const personalFeed = buildPersonalUpNextFeed({
+        leads: loadedLeads,
+        invoices: loadedInvoices,
+        rules: loadedRules,
+        windowDays,
+        currentUserId: currentUser.id,
+        suggestionsEnabled,
       });
+      setUpNextFeed(personalFeed);
 
-      setUpNextFeed(combinedFeed);
+      if (isOwner && hasTeam) {
+        setTeamOverview(buildTeamOverview({
+          leads: loadedLeads,
+          rules: loadedRules,
+          teamProfilesMap,
+          suggestionsEnabled,
+        }));
+        try {
+          const events = await fetchTeamTimelineForDay({ limit: 10 });
+          setTeamActivity(events.slice(0, 10));
+        } catch {
+          setTeamActivity([]);
+        }
+      } else {
+        setTeamOverview(null);
+        setTeamActivity([]);
+      }
 
     } catch (err) {
       console.error('Error loading dashboard analytics:', err);
@@ -237,7 +207,7 @@ export default function Dashboard({ currentUser, onSelectLead }) {
     if (currentUser) {
       loadDashboardData();
     }
-  }, [currentUser, windowDays]);
+  }, [currentUser, windowDays, teamProfilesMap]);
 
   // Unified Handler: Suggestion mismatch apply
   const handleApplyMismatchSuggestion = async (lead, suggestion) => {
@@ -642,11 +612,79 @@ export default function Dashboard({ currentUser, onSelectLead }) {
           <h3 style={{ fontSize: '1rem', display: 'flex', alignItems: 'center', gap: '0.4rem', borderBottom: '1px solid var(--border)', paddingBottom: '0.5rem' }}>
             <Activity size={18} style={{ color: 'var(--text-secondary)' }} /> Upcoming Next
             <HelpPopover title="Upcoming Next Feed">
-              Shows upcoming follow-up checkpoints, invoice due dates, and suggestion mismatches within the next N days. Use the days dropdown to widen or narrow the window.
+              Shows your follow-up checkpoints, invoice due dates, and suggestion mismatches. Team owners can switch to Team for a summary view.
             </HelpPopover>
           </h3>
 
-          {upNextFeed.filter(item => item.type !== 'mismatch' || !ignoredMismatches[item.lead.id]).length === 0 ? (
+          {isOwner && hasTeam && (
+            <div style={{ display: 'flex', gap: '0.5rem' }}>
+              <button
+                type="button"
+                className={upNextTab === 'mine' ? 'btn btn-primary btn-sm' : 'btn btn-secondary btn-sm'}
+                onClick={() => setUpNextTab('mine')}
+              >
+                Mine
+              </button>
+              <button
+                type="button"
+                className={upNextTab === 'team' ? 'btn btn-primary btn-sm' : 'btn btn-secondary btn-sm'}
+                onClick={() => setUpNextTab('team')}
+              >
+                Team
+              </button>
+            </div>
+          )}
+
+          {upNextTab === 'team' && isOwner && teamOverview ? (
+            <div className="flex-col gap-3">
+              <div style={{ fontSize: '0.85rem', color: 'var(--text-muted)' }}>
+                {teamOverview.totalLeads} leads across your team
+              </div>
+              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(140px, 1fr))', gap: '0.5rem' }}>
+                {teamOverview.memberSummaries.map((m) => (
+                  <div key={m.userId} style={{ padding: '0.75rem', border: '1px solid var(--border)', borderRadius: '8px', background: 'var(--bg-card-hover)' }}>
+                    <div style={{ fontWeight: 600, fontSize: '0.85rem', marginBottom: '0.35rem' }}>{m.name}</div>
+                    <div style={{ fontSize: '0.75rem', color: 'var(--text-muted)' }}>{m.leads.length} leads</div>
+                    {m.checkpointCount > 0 && (
+                      <div style={{ fontSize: '0.75rem', color: 'var(--text-secondary)' }}>{m.checkpointCount} upcoming follow-ups</div>
+                    )}
+                    {m.mismatchCount > 0 && (
+                      <button
+                        type="button"
+                        className="btn btn-secondary btn-sm"
+                        style={{ marginTop: '0.5rem', fontSize: '0.7rem', width: '100%', justifyContent: 'center' }}
+                        onClick={() => navigate('/crm')}
+                      >
+                        {m.mismatchCount} suggestion{m.mismatchCount === 1 ? '' : 's'} · Review in CRM
+                      </button>
+                    )}
+                  </div>
+                ))}
+              </div>
+              {teamActivity.length > 0 && (
+                <div>
+                  <div style={{ fontSize: '0.75rem', fontWeight: 700, color: 'var(--text-muted)', marginBottom: '0.5rem', textTransform: 'uppercase', letterSpacing: '0.05em' }}>
+                    Recent team activity
+                  </div>
+                  <div className="flex-col gap-2">
+                    {teamActivity.map((ev) => (
+                      <div key={ev.id} style={{ fontSize: '0.78rem', padding: '0.5rem 0.65rem', border: '1px solid var(--border)', borderRadius: '6px', color: 'var(--text-secondary)' }}>
+                        <strong style={{ color: 'var(--text-primary)' }}>{actorDisplayName(ev)}</strong>
+                        {' · '}{ev.summary || ev.event_type}
+                        {' · '}{leadDisplayFromTimeline(ev)}
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
+            </div>
+          ) : upNextFeed.filter(item => {
+            if (item.type === 'mismatch-overflow') return true;
+            if (item.type === 'mismatch' || item.type === 'mismatch-group') {
+              return !ignoredMismatches[item.lead?.id] && !item.leads?.some((l) => ignoredMismatches[l.id]);
+            }
+            return true;
+          }).length === 0 ? (
             <div style={{ padding: '2.5rem', textAlign: 'center', color: 'var(--text-muted)', fontSize: '0.85rem' }}>
               <div>Nothing coming up in the next {windowDays} days.</div>
               {windowDays === 2 ? (
@@ -674,11 +712,18 @@ export default function Dashboard({ currentUser, onSelectLead }) {
           ) : (
             <div className="flex-col gap-3">
               {upNextFeed
-                .filter(item => item.type !== 'mismatch' || !ignoredMismatches[item.lead.id])
+                .filter((item) => {
+                  if (item.type === 'mismatch-overflow') return true;
+                  if (item.type === 'mismatch') return !ignoredMismatches[item.lead?.id];
+                  if (item.type === 'mismatch-group') return !item.leads?.every((l) => ignoredMismatches[l.id]);
+                  return true;
+                })
                 .map((item) => {
                   const isCheckpoint = item.type === 'checkpoint';
                   const isInvoice = item.type === 'invoice';
                   const isMismatch = item.type === 'mismatch';
+                  const isMismatchGroup = item.type === 'mismatch-group';
+                  const isMismatchOverflow = item.type === 'mismatch-overflow';
                   const isMeetingCheckIn = item.type === 'meeting-checkin';
 
                   if (isMeetingCheckIn) {
@@ -850,6 +895,37 @@ export default function Dashboard({ currentUser, onSelectLead }) {
                     );
                   }
 
+                  if (isMismatchOverflow) {
+                    return (
+                      <div key={item.id} style={{ padding: '0.75rem 1rem', borderRadius: '8px', border: '1px dashed var(--border)', textAlign: 'center' }}>
+                        <p style={{ margin: '0 0 0.5rem', fontSize: '0.82rem', color: 'var(--text-muted)' }}>
+                          {item.count} more suggestion mismatch{item.count === 1 ? '' : 'es'} on your leads
+                        </p>
+                        <button type="button" className="btn btn-secondary btn-sm" onClick={() => navigate('/crm')} style={{ fontSize: '0.75rem' }}>
+                          Review in CRM
+                        </button>
+                      </div>
+                    );
+                  }
+
+                  if (isMismatchGroup) {
+                    return (
+                      <div key={item.id} className="flex-col gap-2" style={{ padding: '0.85rem 1rem', borderRadius: '8px', background: 'var(--bg-card-hover)', border: '1px solid var(--border)' }}>
+                        <div style={{ fontSize: '0.85rem', color: 'var(--text-primary)', lineHeight: 1.4 }}>
+                          {item.count} leads with status &apos;{item.status}&apos; have next step &apos;{item.action || 'No Action'}&apos; — suggested &apos;{item.suggestion}&apos;.
+                        </div>
+                        <button
+                          type="button"
+                          className="btn btn-secondary btn-sm"
+                          onClick={() => navigate('/crm')}
+                          style={{ alignSelf: 'flex-start', fontSize: '0.72rem' }}
+                        >
+                          Review in CRM
+                        </button>
+                      </div>
+                    );
+                  }
+
                   if (isMismatch) {
                     return (
                       <div 
@@ -863,7 +939,13 @@ export default function Dashboard({ currentUser, onSelectLead }) {
                         }}
                       >
                         <div style={{ fontSize: '0.85rem', color: 'var(--text-primary)', lineHeight: '1.4' }}>
-                          You marked {item.lead.first_name || ''}'s next step as '{item.lead.action_to_take || 'No Action'}' — we'd suggest '{item.suggestion}' instead.
+                          {mismatchCopy({
+                            lead: item.lead,
+                            suggestion: item.suggestion,
+                            teamProfilesMap,
+                            currentUserId: currentUser.id,
+                            isOwnLead: item.lead.user_id === currentUser.id,
+                          })}
                         </div>
 
                         <div style={{ display: 'flex', gap: '0.5rem', marginTop: '0.4rem', borderTop: '1px solid var(--border)', paddingTop: '0.5rem' }}>

@@ -6,16 +6,13 @@ import PriorityDropdown from '../PriorityDropdown';
 import EditableDropdown from '../EditableDropdown';
 import CallWindowBadge from '../CallWindowBadge';
 import DateTimePickerCell from '../DateTimePickerCell';
-import CallButton from './CallButton';
-import LogCallModal from './LogCallModal';
-import QuickLogChips from './QuickLogChips';
 import OutcomeBadge from './OutcomeBadge';
 import ResizableTh from '../ResizableTh';
 import ResizableTr from '../ResizableTr';
 import GroupedTemplateDropdown from '../GroupedTemplateDropdown';
 import { TEMPLATE_KINDS } from '../../../lib/templateKinds';
 import { getTableColumns, CALL_QUEUE_DEFAULT_DEFS } from '../crmTableColumns';
-import { logCallWithUpdates, fetchMyCallAttempts } from '../../../lib/callActivity';
+import { fetchMyCallAttempts } from '../../../lib/callActivity';
 import { getCallActionForStatus, displayCallStatus } from '../../../lib/callOutcomeRules';
 import { attemptsByLeadMap, buildOutreachSessionQueue } from '../../../lib/outreachQueue';
 import { formatLocalTime, getEffectiveUserTimeZone } from '../../../lib/dateTime';
@@ -45,7 +42,6 @@ export default function CallQueueTable({
 }) {
   const [attempts, setAttempts] = useState([]);
   const [loading, setLoading] = useState(true);
-  const [logLead, setLogLead] = useState(null);
   const [sessionOpen, setSessionOpen] = useState(false);
 
   const userId = currentUser?.id;
@@ -54,7 +50,7 @@ export default function CallQueueTable({
   const suggestionsEnabled = currentUser?.suggestions_enabled !== false;
 
   const tableCols = useMemo(() => {
-    const cols = getTableColumns(columnDefs, 'call_queue');
+    const cols = getTableColumns(columnDefs, 'call_queue').filter((c) => c.column_key !== '_actions');
     if (cols.length > 0) return cols;
     return CALL_QUEUE_DEFAULT_DEFS.map((d, i) => ({ ...d, id: `default-${d.column_key}`, sort_order: i }));
   }, [columnDefs]);
@@ -105,7 +101,6 @@ export default function CallQueueTable({
 
   const handleLogged = ({ attempt, leadUpdates } = {}) => {
     if (attempt) setAttempts((prev) => [attempt, ...prev]);
-    setLogLead(null);
     if (leadUpdates?.id) {
       onLeadUpdated?.(leadUpdates);
     }
@@ -117,19 +112,6 @@ export default function CallQueueTable({
       setAttempts((prev) => [result.attempt, ...prev]);
     }
     return result;
-  };
-
-  const handleQuickLog = async (lead, outcome) => {
-    if (!userId || !lead?.id) return;
-    const result = await logCallWithUpdates({
-      userId,
-      leadId: lead.id,
-      outcome,
-      teamId,
-      updateLeadFields: true,
-      timeZone: userTimeZone,
-    });
-    handleLogged(result);
   };
 
   const handleLastCalledChange = (lead, iso) => {
@@ -245,19 +227,6 @@ export default function CallQueueTable({
             onChange={(val) => onFieldChange?.(lead.id, 'priority', val)}
           />
         );
-      case '_actions':
-        return (
-          <div style={{ display: 'flex', flexDirection: 'column', gap: '0.35rem', minWidth: 180 }}>
-            <div style={{ display: 'flex', gap: '0.35rem', flexWrap: 'wrap', alignItems: 'center' }}>
-              <CallButton phone={lead.phone} userId={userId} onCopied={onCopied} />
-            </div>
-            <QuickLogChips
-              compact
-              onLog={(outcome) => handleQuickLog(lead, outcome)}
-              onMore={() => setLogLead(lead)}
-            />
-          </div>
-        );
       default:
         return lead[col.column_key] ?? '—';
     }
@@ -336,7 +305,7 @@ export default function CallQueueTable({
             ) : leads.map((lead) => {
               const last = byLead.get(lead.id);
               const attemptList = scopedAttempts.filter((a) => a.lead_id === lead.id);
-              const interactiveKeys = new Set(['status', 'call_action', 'script_used', 'priority', 'phone', '_actions']);
+              const interactiveKeys = new Set(['status', 'call_action', 'script_used', 'priority', 'phone']);
 
               return (
                 <ResizableTr
@@ -363,18 +332,6 @@ export default function CallQueueTable({
           </tbody>
         </table>
       </div>
-
-      <LogCallModal
-        open={!!logLead}
-        onClose={() => setLogLead(null)}
-        leads={leads}
-        userId={userId}
-        teamId={teamId}
-        fixedLead={logLead}
-        showNoteSharing={showNoteSharing}
-        onLogged={handleLogged}
-        timeZone={userTimeZone}
-      />
     </div>
   );
 }

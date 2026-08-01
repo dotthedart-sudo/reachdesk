@@ -44,3 +44,20 @@ export function getMarketingUrl(path = '') {
   const domain = MARKETING_DOMAIN.endsWith('/') ? MARKETING_DOMAIN.slice(0, -1) : MARKETING_DOMAIN;
   return `${domain}${cleanPath}`;
 }
+
+/**
+ * True for public marketing pages (homepage, blog, legal).
+ * @param {string} pathname
+ * @param {{ includeRoot?: boolean }} [options] - includeRoot: count `/` as marketing (default true)
+ */
+export function isMarketingRoute(pathname, { includeRoot = true } = {}) {
+  const path = pathname || '/';
+  if (includeRoot && path === '/') return true;
+  return (
+    path === '/homepage' ||
+    path.startsWith('/blog') ||
+    path === '/terms' ||
+    path === '/privacy' ||
+    path === '/refund'
+  );
+}

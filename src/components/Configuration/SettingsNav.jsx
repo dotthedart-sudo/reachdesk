@@ -2,8 +2,8 @@ import React from 'react';
 import { visibleSettingsTabs } from './settingsTabs';
 import '../Configuration.css';
 
-export default function SettingsNav({ activeTab, onTabChange, canAccessTeam }) {
-  const tabs = visibleSettingsTabs(canAccessTeam);
+export default function SettingsNav({ activeTab, onTabChange, canAccessTeam, isMember = false }) {
+  const tabs = visibleSettingsTabs(canAccessTeam, isMember);
 
   return (
     <nav className="config-nav" aria-label="Settings sections">

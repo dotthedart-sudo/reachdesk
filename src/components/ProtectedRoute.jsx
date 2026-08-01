@@ -2,6 +2,8 @@ import React from 'react';
 import { Navigate } from 'react-router-dom';
 import LoadingSpinner from './LoadingSpinner';
 import { PendingScreen, DeniedScreen } from './Paywalls';
+import MemberBillingNotice from './MemberBillingNotice';
+import { canManageOwnBilling, isTeamMember } from '../lib/teamWorkspace';
 
 export default function ProtectedRoute({ session, profile, subStatus, loading, handleLogout, children }) {
   if (loading) {
@@ -76,6 +78,14 @@ export default function ProtectedRoute({ session, profile, subStatus, loading, h
   }
 
   if (subStatus === 'trial_expired' || subStatus === 'subscription_expired') {
+    if (isTeamMember(profile)) {
+      return (
+        <MemberBillingNotice
+          profile={profile}
+          variant="member"
+        />
+      );
+    }
     return <Navigate to="/upgrade" replace />;
   }
 
@@ -152,6 +162,14 @@ export function UpgradeRoute({ session, profile, subStatus, loading, handleLogou
 
   if (subStatus === 'pending') {
     return <PendingScreen profile={profile} handleLogout={handleLogout} />;
+  }
+
+  if (profile?.role === 'admin') {
+    return <MemberBillingNotice profile={profile} variant="admin" />;
+  }
+
+  if (isTeamMember(profile)) {
+    return <MemberBillingNotice profile={profile} variant="member" />;
   }
 
   return children;

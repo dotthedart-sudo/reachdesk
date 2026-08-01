@@ -45,6 +45,14 @@ import { resolveLeadTimezoneForSave } from '../lib/leadTimezone';
 import { logCallStatusChange } from '../lib/callActivity';
 import { displayCallStatus } from '../lib/callOutcomeRules';
 import { getListFolderSettings, setListFolderSettings, listFolderShowsLocalTime } from '../lib/listFolderSettings';
+import { isTeamOwner } from '../lib/teamWorkspace';
+import {
+  fetchSharesForUser,
+  fetchSharesForFolder,
+  shareCountForFolder as countSharesForFolder,
+  canShareFolder as userCanShareFolder,
+} from '../lib/folderShares';
+import ShareListModal from './CRM/ShareListModal';
 import { mergeTemplateFields, normalizePhoneNumber, generatePrefilledUrl } from '../utils/templateMerge';
 import { celebrateClosedWon } from '../utils/celebrateWin';
 import { generateAIDraft } from '../utils/aiDraft';
@@ -175,6 +183,10 @@ export default function CRM({
     }
   });
   const [userFolders, setUserFolders] = useState([]);
+  const [folderShares, setFolderShares] = useState([]);
+  const [teamMembersList, setTeamMembersList] = useState([]);
+  const [shareListTarget, setShareListTarget] = useState(null);
+  const [shareListShares, setShareListShares] = useState([]);
   const [clients, setClients] = useState([]);
   const [statuses, setStatuses] = useState(() => {
     const defaults = DEFAULT_STATUSES;
@@ -718,6 +730,40 @@ export default function CRM({
         return;
       }
 
+      const isOwner = isTeamOwner(currentUser);
+      const sharesRes = await fetchSharesForUser(currentUser.id);
+      const sharedFolderIds = sharesRes.map((s) => s.folder_id).filter(Boolean);
+
+      const leadsOrClause = sharedFolderIds.length
+        ? `user_id.in.(${teamIds.join(',')}),folder_id.in.(${sharedFolderIds.join(',')})`
+        : null;
+
+      const foldersPromise = isOwner
+        ? supabase.from('folders').select('*').in('user_id', teamIds).order('sort_order', { ascending: true })
+        : (async () => {
+          const [ownRes, sharedRes] = await Promise.all([
+            supabase.from('folders').select('*').eq('user_id', currentUser.id).order('sort_order', { ascending: true }),
+            sharedFolderIds.length
+              ? supabase.from('folders').select('*').in('id', sharedFolderIds).order('sort_order', { ascending: true })
+              : Promise.resolve({ data: [] }),
+          ]);
+          const byId = new Map();
+          [...(ownRes.data || []), ...(sharedRes.data || [])].forEach((f) => byId.set(f.id, f));
+          return { data: [...byId.values()] };
+        })();
+
+      const smartFoldersPromise = isOwner
+        ? supabase.from('user_folders').select('*').in('user_id', teamIds).order('created_at', { ascending: true })
+        : supabase.from('user_folders').select('*').eq('user_id', currentUser.id).order('created_at', { ascending: true });
+
+      const leadsPromise = leadsOrClause
+        ? supabase.from('leads').select('*').or(leadsOrClause).order('created_at', { ascending: false }).order('id', { ascending: true })
+        : supabase.from('leads').select('*').in('user_id', teamIds).order('created_at', { ascending: false }).order('id', { ascending: true });
+
+      const teamMembersPromise = currentUser.team_id
+        ? supabase.from('user_profiles').select('id, email, full_name, team_role').eq('team_id', currentUser.team_id)
+        : Promise.resolve({ data: [] });
+
       const [
         foldersRes,
         smartFoldersRes,
@@ -725,15 +771,17 @@ export default function CRM({
         templatesRes,
         columnsRes,
         leadsRes,
-        rulesRes
+        rulesRes,
+        teamMembersRes,
       ] = await Promise.all([
-        supabase.from('folders').select('*').in('user_id', teamIds).order('sort_order', { ascending: true }),
-        supabase.from('user_folders').select('*').in('user_id', teamIds).order('created_at', { ascending: true }),
+        foldersPromise,
+        smartFoldersPromise,
         supabase.from('custom_statuses').select('*').in('user_id', teamIds).order('sort_order', { ascending: true }),
         supabase.from('templates').select('id, title, platform, is_starter, content, kind').or(`user_id.in.(${teamIds.join(',')}),user_id.is.null`),
         supabase.from('column_definitions').select('*').in('user_id', teamIds).order('sort_order', { ascending: true }),
-        supabase.from('leads').select('*').in('user_id', teamIds).order('created_at', { ascending: false }).order('id', { ascending: true }),
-        supabase.from('action_suggestion_rules').select('*')
+        leadsPromise,
+        supabase.from('action_suggestion_rules').select('*'),
+        teamMembersPromise,
       ]);
 
       if (leadsRes.error) throw leadsRes.error;
@@ -770,6 +818,8 @@ export default function CRM({
       setFolders(fData);
       localStorage.setItem('crm_folders', JSON.stringify(fData));
       setUserFolders(ufData);
+      setFolderShares(sharesRes);
+      setTeamMembersList(teamMembersRes.data || []);
       
       if (sData.length > 0) {
         const messagingStatuses = sData.filter((s) => !s.channel || s.channel === 'messaging');
@@ -2403,12 +2453,26 @@ export default function CRM({
             onDeleteSmartFolder={handleDeleteSmartFolder}
             onExportFolder={handleExportFolder}
             onExportFolderSheets={handleExportFolderSheets}
+            onShareFolder={async (folder) => {
+              try {
+                const shares = await fetchSharesForFolder(folder.id);
+                setShareListShares(shares);
+                setShareListTarget(folder);
+              } catch (err) {
+                alert(err.message || 'Could not load list sharing');
+              }
+            }}
             canExportSheets={canUseIntegrations}
             getFolderSettings={getListFolderSettings}
             onToggleFolderLocalTime={handleToggleFolderLocalTime}
             canBulkImport={canBulkImport}
             canUseIntegrations={canUseIntegrations}
             hasLeads={leads.length > 0}
+            currentUser={currentUser}
+            teamProfilesMap={teamProfilesMap}
+            folderShares={folderShares}
+            shareCountForFolder={(folderId) => countSharesForFolder(folderId, folderShares)}
+            canShareFolder={(folder) => userCanShareFolder(folder, currentUser)}
           />
         ) : (
         <>
@@ -2425,6 +2489,8 @@ export default function CRM({
             systemFolderNames={systemFolderNames}
             getLeadCount={getLeadCountForFolder}
             onSelectFolder={handleSelectFolder}
+            teamProfilesMap={teamProfilesMap}
+            currentUserId={currentUser?.id}
           />
         </nav>
 
@@ -4239,6 +4305,23 @@ export default function CRM({
           }}
         />
       )}
+
+      <ShareListModal
+        open={!!shareListTarget}
+        onClose={() => {
+          setShareListTarget(null);
+          setShareListShares([]);
+        }}
+        folder={shareListTarget}
+        teamMembers={teamMembersList}
+        currentUser={currentUser}
+        existingShares={shareListShares}
+        onSaved={() => {
+          setShareListTarget(null);
+          setShareListShares([]);
+          fetchData();
+        }}
+      />
 
       {/* Google Sheets Import Modal */}
       {showSheetsImportModal && (

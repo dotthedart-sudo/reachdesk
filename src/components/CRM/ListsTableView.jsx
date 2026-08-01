@@ -8,7 +8,7 @@ import ResizableTr from './ResizableTr';
 import { useCrmTableLayout } from './useCrmTableLayout';
 import './DataTableEnhancements.css';
 
-function SectionHeader({ title, colSpan = 4 }) {
+function SectionHeader({ title, colSpan = 5 }) {
   return (
     <tr className="crm-lists-table-section">
       <td colSpan={colSpan}>{title}</td>
@@ -27,6 +27,13 @@ function formatListDate(iso) {
   }
 }
 
+function creatorLabel(userId, teamProfilesMap, currentUserId) {
+  if (!userId) return '—';
+  if (userId === currentUserId) return 'You';
+  const p = teamProfilesMap?.[userId];
+  return p?.full_name || p?.email || 'Teammate';
+}
+
 function ListRow({
   icon: Icon,
   iconColor,
@@ -35,11 +42,15 @@ function ListRow({
   typeVariant,
   count,
   createdAt,
+  createdBy,
+  shareBadge,
   onClick,
   onRename,
   onDelete,
   onExport,
   onExportSheets,
+  onShare,
+  canShare = false,
   canExport = true,
   canExportSheets = false,
   showLocalTime = false,
@@ -74,9 +85,9 @@ function ListRow({
         </span>
         <span className="crm-lists-table-name-col">
           <span className="crm-lists-table-name-text">{name}</span>
-          {dateLine && (
-            <span className="crm-lists-table-name-sub">{dateLine}</span>
-          )}
+          <span className="crm-lists-table-name-sub">
+            {shareBadge || (dateLine ? dateLine : null)}
+          </span>
         </span>
       </td>
       <td className="crm-lists-table-type" style={w('type')}>
@@ -85,6 +96,9 @@ function ListRow({
         </span>
       </td>
       <td className="crm-lists-table-count" style={w('leads_count')}>{count}</td>
+      <td style={{ ...w('created_by'), fontSize: '0.82rem', color: 'var(--text-secondary)' }}>
+        {createdBy}
+      </td>
       <td className="crm-lists-table-actions" style={w('_actions')}>
         <ListRowMenu
           onOpen={onClick}
@@ -92,6 +106,8 @@ function ListRow({
           onDelete={onDelete}
           onExport={onExport}
           onExportSheets={onExportSheets}
+          onShare={onShare}
+          canShare={canShare}
           canExport={canExport}
           canExportSheets={canExportSheets}
           showLocalTime={showLocalTime}
@@ -103,9 +119,71 @@ function ListRow({
   );
 }
 
+function renderFolderRows({
+  list,
+  getWidth,
+  getRowHeight,
+  setRowHeight,
+  resetRowHeight,
+  getLeadCount,
+  teamProfilesMap,
+  currentUserId,
+  shareCountForFolder,
+  onSelectFolder,
+  onRenameFolder,
+  onDeleteFolder,
+  onExportFolder,
+  onExportFolderSheets,
+  onShareFolder,
+  canExportSheets,
+  getFolderSettings,
+  onToggleFolderLocalTime,
+  canShareFolder,
+}) {
+  return list.map((f) => {
+    const shares = shareCountForFolder?.(f.id) || 0;
+    const isOwn = f.user_id === currentUserId;
+    const shareBadge = isOwn && shares > 0
+      ? `Shared · ${shares} member${shares === 1 ? '' : 's'}`
+      : (!isOwn ? 'Shared with you' : null);
+
+    return (
+      <ListRow
+        key={f.id}
+        rowKey={f.id}
+        height={getRowHeight(f.id)}
+        onResizeRow={setRowHeight}
+        onResetRow={resetRowHeight}
+        getWidth={getWidth}
+        icon={FileSpreadsheet}
+        iconColor={f.color}
+        name={f.name}
+        typeLabel="Manual"
+        typeVariant="manual"
+        count={getLeadCount?.(f.id) ?? 0}
+        createdAt={f.created_at}
+        createdBy={creatorLabel(f.user_id, teamProfilesMap, currentUserId)}
+        shareBadge={shareBadge}
+        onClick={() => onSelectFolder(f.id)}
+        onRename={isOwn ? () => onRenameFolder?.(f.id, f.name) : undefined}
+        onDelete={isOwn ? () => onDeleteFolder?.(f.id) : undefined}
+        onExport={() => onExportFolder?.(f.id)}
+        onExportSheets={() => onExportFolderSheets?.(f.id)}
+        onShare={canShareFolder?.(f) ? () => onShareFolder?.(f) : undefined}
+        canShare={!!canShareFolder?.(f)}
+        canExport
+        canExportSheets={canExportSheets}
+        showLocalTime={!!getFolderSettings?.(f.id)?.showLocalTime}
+        onToggleLocalTime={(val) => onToggleFolderLocalTime?.(f.id, val)}
+      />
+    );
+  });
+}
+
 export default function ListsTableView({
   folders = [],
   userFolders = [],
+  listSections = null,
   getLeadCount,
   onSelectFolder,
   onRenameFolder,
@@ -113,22 +191,58 @@ export default function ListsTableView({
   onDeleteSmartFolder,
   onExportFolder,
   onExportFolderSheets,
+  onShareFolder,
   canExportSheets = false,
   getFolderSettings,
   onToggleFolderLocalTime,
+  teamProfilesMap = {},
+  currentUserId,
+  shareCountForFolder,
+  canShareFolder,
 }) {
   const { getWidth, setWidth, resetWidth, getRowHeight, setRowHeight, resetRowHeight } =
     useCrmTableLayout('lists_home');
 
-  const hasOwnedLists = folders.length > 0 || userFolders.length > 0;
+  const sections = listSections || {
+    mine: folders.filter((f) => f.user_id === currentUserId),
+    sharedWithMe: folders.filter((f) => f.user_id !== currentUserId),
+    team: [],
+    auto: userFolders,
+  };
 
-  if (!hasOwnedLists) {
+  const hasLists = (sections.mine?.length || 0)
+    + (sections.sharedWithMe?.length || 0)
+    + (sections.team?.length || 0)
+    + (sections.auto?.length || 0) > 0;
+
+  if (!hasLists) {
     return (
       <div className="crm-lists-table-empty">
-        <p>Create a manual list or auto list above, or import leads to get started.</p>
+        <p>No lists in this view. Create a list or switch filters.</p>
       </div>
     );
   }
+
+  const rowProps = {
+    getWidth,
+    getRowHeight,
+    setRowHeight,
+    resetRowHeight,
+    getLeadCount,
+    teamProfilesMap,
+    currentUserId,
+    shareCountForFolder,
+    onSelectFolder,
+    onRenameFolder,
+    onDeleteFolder,
+    onExportFolder,
+    onExportFolderSheets,
+    onShareFolder,
+    canExportSheets,
+    getFolderSettings,
+    onToggleFolderLocalTime,
+    canShareFolder,
+  };
 
   return (
     <div className="crm-lists-table-wrap">
@@ -144,48 +258,37 @@ export default function ListsTableView({
             <ResizableTh columnKey="leads_count" width={getWidth('leads_count')} onResize={setWidth} onReset={resetWidth}>
               Leads
             </ResizableTh>
+            <ResizableTh columnKey="created_by" width={getWidth('created_by')} onResize={setWidth} onReset={resetWidth}>
+              Created by
+            </ResizableTh>
             <ResizableTh columnKey="_actions" width={getWidth('_actions')} onResize={setWidth} onReset={resetWidth} aria-label="Actions">
               {' '}
             </ResizableTh>
           </tr>
         </thead>
         <tbody>
-          {folders.length > 0 && (
+          {sections.mine?.length > 0 && (
             <>
-              <SectionHeader title="Your lists" />
-              {folders.map((f) => (
-                <ListRow
-                  key={f.id}
-                  rowKey={f.id}
-                  height={getRowHeight(f.id)}
-                  onResizeRow={setRowHeight}
-                  onResetRow={resetRowHeight}
-                  getWidth={getWidth}
-                  icon={FileSpreadsheet}
-                  iconColor={f.color}
-                  name={f.name}
-                  typeLabel="Manual"
-                  typeVariant="manual"
-                  count={getLeadCount?.(f.id) ?? 0}
-                  createdAt={f.created_at}
-                  onClick={() => onSelectFolder(f.id)}
-                  onRename={() => onRenameFolder?.(f.id, f.name)}
-                  onDelete={() => onDeleteFolder?.(f.id)}
-                  onExport={() => onExportFolder?.(f.id)}
-                  onExportSheets={() => onExportFolderSheets?.(f.id)}
-                  canExport
-                  canExportSheets={canExportSheets}
-                  showLocalTime={!!getFolderSettings?.(f.id)?.showLocalTime}
-                  onToggleLocalTime={(val) => onToggleFolderLocalTime?.(f.id, val)}
-                />
-              ))}
+              <SectionHeader title="My lists" />
+              {renderFolderRows({ list: sections.mine, ...rowProps })}
             </>
           )}
-
-          {userFolders.length > 0 && (
+          {sections.sharedWithMe?.length > 0 && (
+            <>
+              <SectionHeader title="Shared with me" />
+              {renderFolderRows({ list: sections.sharedWithMe, ...rowProps })}
+            </>
+          )}
+          {sections.team?.length > 0 && (
+            <>
+              <SectionHeader title="Team lists" />
+              {renderFolderRows({ list: sections.team, ...rowProps })}
+            </>
+          )}
+          {sections.auto?.length > 0 && (
             <>
               <SectionHeader title="Auto lists" />
-              {userFolders.map((uf) => (
+              {sections.auto.map((uf) => (
                 <ListRow
                   key={uf.id}
                   rowKey={uf.id}
@@ -200,9 +303,10 @@ export default function ListsTableView({
                   typeVariant="auto"
                   count={getLeadCount?.(uf.id) ?? 0}
                   createdAt={uf.created_at}
+                  createdBy={creatorLabel(uf.user_id, teamProfilesMap, currentUserId)}
                   onClick={() => onSelectFolder(uf.id)}
-                  onRename={() => onRenameFolder?.(uf.id, uf.name)}
-                  onDelete={() => onDeleteSmartFolder?.(uf.id)}
+                  onRename={uf.user_id === currentUserId ? () => onRenameFolder?.(uf.id, uf.name) : undefined}
+                  onDelete={uf.user_id === currentUserId ? () => onDeleteSmartFolder?.(uf.id) : undefined}
                   canExport={false}
                 />
               ))}

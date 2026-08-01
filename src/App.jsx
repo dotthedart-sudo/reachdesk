@@ -14,7 +14,7 @@ import {
 } from './lib/teamWorkspace';
 import { Lock } from 'lucide-react';
 import { subscribeToPush } from './utils/pushNotifications';
-import { isLocalDev, getAppUrl, getMarketingUrl } from './utils/domain';
+import { isLocalDev, getAppUrl, getMarketingUrl, isMarketingRoute } from './utils/domain';
 import { identifyUser, resetPostHog } from './utils/posthog';
 import { forceAppRefresh, clearAppRefreshFlags, clearServiceWorkersAndCaches } from './utils/forceAppRefresh';
 import { BRAND_NAME } from './config/brand';
@@ -1681,26 +1681,11 @@ function AppRoutes() {
     const path = location.pathname;
 
     if (mode === 'marketing') {
-      const isMarketingPath =
-        path === '/' ||
-        path === '/homepage' ||
-        path.startsWith('/blog') ||
-        path === '/terms' ||
-        path === '/privacy' ||
-        path === '/refund';
-
-      if (!isMarketingPath) {
+      if (!isMarketingRoute(path)) {
         window.location.href = `${getAppUrl(path)}${location.search}${location.hash}`;
       }
     } else if (mode === 'app') {
-      const isMarketingPath =
-        path === '/homepage' ||
-        path.startsWith('/blog') ||
-        path === '/terms' ||
-        path === '/privacy' ||
-        path === '/refund';
-
-      if (isMarketingPath) {
+      if (isMarketingRoute(path, { includeRoot: false })) {
         window.location.href = `${getMarketingUrl(path)}${location.search}${location.hash}`;
       }
     }
@@ -1709,13 +1694,15 @@ function AppRoutes() {
   if (loading) return <LoadingSpinner />;
 
   const appMode = import.meta.env.VITE_APP_MODE;
+  const showAppChrome =
+    session && profile?.has_completed_setup && !isMarketingRoute(location.pathname);
 
   return (
     <Suspense fallback={<LoadingSpinner />}>
-      {session && profile && profile.has_completed_setup && (
+      {showAppChrome && (
         <UserNotificationBell profile={profile} onRefreshProfile={fetchProfile} />
       )}
-      {session && profile && profile.has_completed_setup && (
+      {showAppChrome && (
         <ChatWidget profile={profile} />
       )}
       <Routes>

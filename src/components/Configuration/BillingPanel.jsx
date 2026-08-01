@@ -3,11 +3,19 @@ import { CreditCard, Check, AlertCircle } from 'lucide-react';
 import { PLAN_LIMITS, getEffectivePlan, getEffectiveBillingCycle } from '../../lib/utils';
 import { getPlanLeadLimit } from '../../lib/leadLimits';
 import { getAiCreditLimit } from '../../lib/aiCredits';
+import {
+  canResumeSubscription,
+  formatPlanCancelsAt,
+  hasCancellableSubscription,
+} from '../../lib/billing';
 
 export default function BillingPanel({
   currentUser,
   cancelSuccessMsg,
   cancelErrorMsg,
+  resumeSuccessMsg,
+  resumeErrorMsg,
+  billingActionLoading,
   leadsCount,
   templatesCount,
   aiUsage,
@@ -18,12 +26,16 @@ export default function BillingPanel({
   seatsAtCap,
   onManagePlan,
   onCancelSubscription,
+  onResumeSubscription,
 }) {
   const planKey = getEffectivePlan(currentUser);
   const limits = PLAN_LIMITS[planKey] || PLAN_LIMITS.trial;
   const maxLeads = getPlanLeadLimit(planKey, getEffectiveBillingCycle(currentUser)) ?? limits.leads;
   const maxTemplates = limits.templates;
   const maxAi = aiUsage.limit || getAiCreditLimit(planKey);
+  const canCancel = hasCancellableSubscription(currentUser);
+  const canResume = canResumeSubscription(currentUser);
+  const accessEndsLabel = formatPlanCancelsAt(currentUser?.plan_cancels_at);
 
   return (
     <div className="card flex-col gap-3">
@@ -39,10 +51,24 @@ export default function BillingPanel({
         </div>
       )}
 
+      {resumeSuccessMsg && (
+        <div style={{ padding: '0.75rem 1rem', borderRadius: '8px', background: 'rgba(16, 185, 129, 0.1)', border: '1px solid rgba(16, 185, 129, 0.2)', color: '#10b981', fontSize: '0.875rem', display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+          <Check size={15} style={{ flexShrink: 0 }} />
+          <span>{resumeSuccessMsg}</span>
+        </div>
+      )}
+
       {cancelErrorMsg && (
         <div style={{ padding: '0.75rem 1rem', borderRadius: '8px', background: 'rgba(224, 82, 82, 0.1)', border: '1px solid rgba(224, 82, 82, 0.2)', color: 'var(--status-hot)', fontSize: '0.875rem', display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
           <AlertCircle size={16} style={{ flexShrink: 0 }} />
           <span>{cancelErrorMsg}</span>
+        </div>
+      )}
+
+      {resumeErrorMsg && (
+        <div style={{ padding: '0.75rem 1rem', borderRadius: '8px', background: 'rgba(224, 82, 82, 0.1)', border: '1px solid rgba(224, 82, 82, 0.2)', color: 'var(--status-hot)', fontSize: '0.875rem', display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+          <AlertCircle size={16} style={{ flexShrink: 0 }} />
+          <span>{resumeErrorMsg}</span>
         </div>
       )}
 
@@ -82,6 +108,13 @@ export default function BillingPanel({
                   : 'Inactive'}
           </span>
         </div>
+        {currentUser?.plan_status === 'cancelling' && (
+          <p style={{ margin: '0.25rem 0 0', fontSize: '0.85rem', color: 'var(--text-secondary)', lineHeight: 1.45 }}>
+            Access continues until{' '}
+            <strong>{accessEndsLabel || 'the end of your billing period'}</strong>.
+            {' '}Your plan will not renew after this.
+          </p>
+        )}
       </div>
 
       <div style={{ borderTop: '1px solid var(--border-color)', paddingTop: '0.75rem', marginTop: '0.5rem', display: 'flex', flexDirection: 'column', gap: '0.75rem' }}>
@@ -160,28 +193,31 @@ export default function BillingPanel({
         )}
       </div>
 
-      <div style={{ marginTop: '0.5rem', display: 'flex', flexDirection: 'column', gap: '0.5rem', alignItems: 'flex-start' }}>
+      <div style={{ marginTop: '0.5rem', display: 'flex', flexWrap: 'wrap', gap: '0.75rem', alignItems: 'center' }}>
         <button type="button" className="btn btn-primary" onClick={onManagePlan}>
           <CreditCard size={15} /> Manage Plan
         </button>
 
-        {currentUser?.plan_status === 'active' && currentUser?.paddle_subscription_id && (
+        {canCancel && (
           <button
             type="button"
+            className="btn btn-secondary"
             onClick={onCancelSubscription}
-            style={{
-              background: 'none',
-              border: 'none',
-              color: 'var(--status-hot)',
-              fontSize: '0.85rem',
-              cursor: 'pointer',
-              padding: 0,
-              marginTop: '0.25rem',
-              textDecoration: 'underline',
-              fontFamily: 'inherit',
-            }}
+            disabled={billingActionLoading}
+            style={{ color: 'var(--status-hot)', borderColor: 'color-mix(in srgb, var(--status-hot) 35%, var(--border))' }}
           >
-            Cancel Subscription
+            {billingActionLoading ? 'Working…' : 'Cancel Subscription'}
+          </button>
+        )}
+
+        {canResume && (
+          <button
+            type="button"
+            className="btn btn-secondary"
+            onClick={onResumeSubscription}
+            disabled={billingActionLoading}
+          >
+            {billingActionLoading ? 'Working…' : 'Resume Subscription'}
           </button>
         )}
       </div>
