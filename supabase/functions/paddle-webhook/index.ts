@@ -1,14 +1,20 @@
 import { serve } from 'https://deno.land/std@0.168.0/http/server.ts';
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2';
-import { getPlanFromPriceId } from '../_shared/prices.ts';
 import {
+  applyActiveSubscriptionToProfile,
   findProfileByEmail,
   getScheduledChange,
-  hasPendingCancelSchedule,
   logBillingEvent,
   resolvePlanCancelsAt,
+  resolvePlanFromPayload,
+  resolveProfileForPaddleEvent,
   sendBillingEmail,
 } from '../_shared/billing.ts';
+import {
+  extractCustomerId,
+  extractCustomerEmail,
+  extractSubscriptionId,
+} from '../_shared/paddle.ts';
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
@@ -53,63 +59,6 @@ async function verifySignature(
   return result === 0;
 }
 
-function resolvePlanFromPayload(data: Record<string, unknown>) {
-  const items = data.items as Array<Record<string, unknown>> | undefined;
-  const firstItem = items?.[0];
-  const price = firstItem?.price as Record<string, unknown> | undefined;
-  const priceId = (firstItem?.price_id as string) || (price?.id as string);
-  const rawProductName = ((price?.product as Record<string, unknown>)?.name as string) || '';
-
-  let resolvedPlan = getPlanFromPriceId(priceId);
-  if (!resolvedPlan) {
-    const nameLower = rawProductName.toLowerCase();
-    if (nameLower.includes('pro')) resolvedPlan = 'pro';
-    else if (nameLower.includes('teams') || nameLower.includes('team')) resolvedPlan = 'teams';
-    else if (nameLower.includes('starter')) resolvedPlan = 'starter';
-    else resolvedPlan = 'starter';
-  }
-
-  return { resolvedPlan, rawProductName, priceId };
-}
-
-async function ensureTeamsWorkspace(
-  supabaseAdmin: ReturnType<typeof createClient>,
-  customerEmail: string,
-  resolvedPlan: string,
-  updateData: Record<string, unknown>,
-) {
-  if (resolvedPlan !== 'teams') return;
-
-  const { data: existingTeamProfile } = await supabaseAdmin
-    .from('user_profiles')
-    .select('id, email, team_id, team_role')
-    .eq('email', customerEmail)
-    .maybeSingle();
-
-  if (
-    existingTeamProfile
-    && !existingTeamProfile.team_id
-    && (existingTeamProfile.team_role || 'owner') !== 'member'
-  ) {
-    const ownerEmail = existingTeamProfile.email || customerEmail;
-    const { data: team, error: teamError } = await supabaseAdmin
-      .from('teams')
-      .insert({
-        owner_id: existingTeamProfile.id,
-        name: `${ownerEmail}'s Team`,
-      })
-      .select('id')
-      .single();
-
-    if (teamError || !team) {
-      throw new Error(`Failed to create team workspace: ${teamError?.message || 'unknown error'}`);
-    }
-
-    updateData.team_id = team.id;
-    updateData.team_role = 'owner';
-  }
-}
-
 serve(async (req) => {
   if (req.method === 'OPTIONS') {
     return new Response('ok', { headers: corsHeaders });
@@ -148,68 +97,82 @@ serve(async (req) => {
     const supabaseServiceRoleKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? '';
     const supabaseAdmin = createClient(supabaseUrl, supabaseServiceRoleKey);
 
-    const customerEmail =
-      (data.customer as Record<string, unknown> | undefined)?.email as string
-      || (data.customer_details as Record<string, unknown> | undefined)?.email as string
-      || data.email as string
-      || payload.email as string;
+    const payloadEmail =
+      extractCustomerEmail(data)
+      || (payload.email as string)
+      || null;
 
-    if (!customerEmail) {
-      return new Response(JSON.stringify({ success: false, error: 'No customer email found in webhook payload' }), {
-        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-        status: 200,
-      });
-    }
+    const { profile, customerEmail, matchVia } = await resolveProfileForPaddleEvent(
+      supabaseAdmin,
+      data,
+      payloadEmail,
+    );
 
-    const profile = await findProfileByEmail(supabaseAdmin, customerEmail);
     let lastEmailId: string | null = null;
 
-    if (eventType === 'transaction.completed' || eventType === 'subscription.activated') {
-      const { resolvedPlan, rawProductName } = resolvePlanFromPayload(data);
-      const paddleCustomerId = (data.customer as Record<string, unknown> | undefined)?.id as string
-        || data.customer_id as string;
-      const paddleSubscriptionId = data.subscription_id as string
-        || ((data.items as Array<Record<string, unknown>> | undefined)?.[0]?.subscription_id as string);
-      const paddleStatus = typeof data.status === 'string' ? data.status : 'active';
-      const pendingCancel = hasPendingCancelSchedule(data)
-        || (profile?.plan_status === 'cancelling' && !!profile?.plan_cancels_at);
-
-      const updateData: Record<string, unknown> = {
-        plan: resolvedPlan,
-        trial_ends_at: null,
-        paddle_subscription_status: paddleStatus,
-      };
-
-      if (pendingCancel) {
-        updateData.plan_status = 'cancelling';
-        updateData.plan_cancels_at = resolvePlanCancelsAt(data);
-      } else {
-        updateData.plan_status = 'active';
-        updateData.plan_cancels_at = null;
+    if (
+      eventType === 'transaction.completed'
+      || eventType === 'subscription.created'
+      || eventType === 'subscription.activated'
+    ) {
+      if (!profile) {
+        console.error('[Webhook] No matching user for Paddle event', {
+          eventType,
+          customerEmail,
+          customerId: extractCustomerId(data),
+          subscriptionId: extractSubscriptionId(data, eventType),
+        });
+        await logBillingEvent(supabaseAdmin, {
+          userId: null,
+          eventType: 'webhook_unmatched_user',
+          source: 'paddle_webhook',
+          rawPayload: {
+            event_type: eventType,
+            customer_email: customerEmail,
+            customer_id: extractCustomerId(data),
+            subscription_id: extractSubscriptionId(data, eventType),
+          },
+        });
+        // 200 so Paddle does not infinite-retry; sync-paddle-subscription can repair later
+        return new Response(JSON.stringify({ success: false, error: 'No matching user' }), {
+          headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+          status: 200,
+        });
       }
 
-      if (paddleCustomerId) updateData.paddle_customer_id = paddleCustomerId;
-      if (paddleSubscriptionId) updateData.paddle_subscription_id = paddleSubscriptionId;
+      const { resolvedPlan, rawProductName, billingCycle } = resolvePlanFromPayload(data);
+      const paddleCustomerId = extractCustomerId(data);
+      const paddleSubscriptionId = extractSubscriptionId(data, eventType);
+      const paddleStatus = typeof data.status === 'string' ? data.status : 'active';
+      const pendingCancel = hasPendingCancelFromProfile(data, profile);
 
-      await ensureTeamsWorkspace(supabaseAdmin, customerEmail, resolvedPlan, updateData);
-
-      const { error: updateError } = await supabaseAdmin
-        .from('user_profiles')
-        .update(updateData)
-        .eq('email', customerEmail);
-
-      if (updateError) throw new Error(`Failed to update user profile: ${updateError.message}`);
-
-      await logBillingEvent(supabaseAdmin, {
-        userId: profile?.id ?? null,
-        eventType: 'webhook_transaction_completed',
-        source: 'paddle_webhook',
-        rawPayload: { event_type: eventType, pending_cancel: pendingCancel, subscription_id: paddleSubscriptionId },
+      await applyActiveSubscriptionToProfile(supabaseAdmin, profile, {
+        resolvedPlan,
+        billingCycle,
+        paddleCustomerId,
+        paddleSubscriptionId,
+        paddleStatus: paddleStatus === 'completed' ? 'active' : paddleStatus,
+        pendingCancel,
+        eventData: data,
       });
 
-      const isFirstPayment = !profile || profile.plan_status !== 'active';
-      if (isFirstPayment) {
-        const planName = rawProductName.toLowerCase().endsWith('plan') ? rawProductName : `${rawProductName} Plan`;
+      await logBillingEvent(supabaseAdmin, {
+        userId: profile.id,
+        eventType: 'webhook_transaction_completed',
+        source: 'paddle_webhook',
+        rawPayload: {
+          event_type: eventType,
+          match_via: matchVia,
+          pending_cancel: pendingCancel,
+          subscription_id: paddleSubscriptionId,
+          customer_id: paddleCustomerId,
+          plan: resolvedPlan,
+        },
+      });
+
+      const isFirstPayment = profile.plan_status !== 'active' && profile.plan_status !== 'cancelling';
+      if (isFirstPayment && customerEmail) {
+        const planName = rawProductName.toLowerCase().endsWith('plan') ? rawProductName : `${rawProductName || resolvedPlan} Plan`;
         const resendApiKey = Deno.env.get('RESEND_API_KEY');
         if (resendApiKey) {
           const welcomeHtml = `
@@ -223,59 +186,93 @@ serve(async (req) => {
         }
       }
     } else if (eventType === 'subscription.updated') {
-      const scheduledChange = getScheduledChange(data);
-      const paddleStatus = typeof data.status === 'string' ? data.status : null;
-      const updateData: Record<string, unknown> = {
-        paddle_subscription_status: paddleStatus,
-      };
-
-      if (scheduledChange?.action === 'cancel') {
-        updateData.plan_status = 'cancelling';
-        updateData.plan_cancels_at = resolvePlanCancelsAt(data, scheduledChange);
-      } else if (
-        (scheduledChange == null || scheduledChange === null)
-        && profile?.plan_status === 'cancelling'
-      ) {
-        updateData.plan_status = 'active';
-        updateData.plan_cancels_at = null;
-      }
-
-      const { error: updateError } = await supabaseAdmin
-        .from('user_profiles')
-        .update(updateData)
-        .eq('email', customerEmail);
-
-      if (updateError) throw new Error(`Failed to update user profile: ${updateError.message}`);
-
-      if (Object.keys(updateData).length > 1) {
+      if (!profile) {
         await logBillingEvent(supabaseAdmin, {
-          userId: profile?.id ?? null,
-          eventType: scheduledChange?.action === 'cancel'
-            ? 'webhook_subscription_cancel_scheduled'
-            : 'webhook_subscription_updated',
+          userId: null,
+          eventType: 'webhook_unmatched_user',
           source: 'paddle_webhook',
-          rawPayload: { scheduled_change: scheduledChange, status: paddleStatus },
+          rawPayload: { event_type: eventType, customer_email: customerEmail },
+        });
+        return new Response(JSON.stringify({ success: false, error: 'No matching user' }), {
+          headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+          status: 200,
         });
       }
-    } else if (eventType === 'subscription.canceled') {
-      const { error: updateError } = await supabaseAdmin
-        .from('user_profiles')
-        .update({
-          plan: 'trial',
-          plan_status: 'inactive',
-          plan_cancels_at: null,
-          paddle_subscription_status: 'canceled',
-        })
-        .eq('email', customerEmail);
 
-      if (updateError) throw new Error(`Failed to update user profile: ${updateError.message}`);
+      const scheduledChange = getScheduledChange(data);
+      const paddleStatus = typeof data.status === 'string' ? data.status : null;
+      const paddleCustomerId = extractCustomerId(data);
+      const paddleSubscriptionId = extractSubscriptionId(data, eventType);
+      const { resolvedPlan, billingCycle } = resolvePlanFromPayload(data);
+
+      // Keep plan/IDs in sync on updates (price changes, renewals)
+      if (resolvedPlan && (paddleStatus === 'active' || paddleStatus === 'trialing' || !paddleStatus)) {
+        await applyActiveSubscriptionToProfile(supabaseAdmin, profile, {
+          resolvedPlan,
+          billingCycle,
+          paddleCustomerId,
+          paddleSubscriptionId,
+          paddleStatus: paddleStatus ?? 'active',
+          pendingCancel: scheduledChange?.action === 'cancel',
+          planCancelsAt: resolvePlanCancelsAt(data, scheduledChange),
+          eventData: data,
+        });
+      } else {
+        const updateData: Record<string, unknown> = {
+          paddle_subscription_status: paddleStatus,
+        };
+        if (scheduledChange?.action === 'cancel') {
+          updateData.plan_status = 'cancelling';
+          updateData.plan_cancels_at = resolvePlanCancelsAt(data, scheduledChange);
+        } else if (
+          (scheduledChange == null || scheduledChange === null)
+          && profile.plan_status === 'cancelling'
+        ) {
+          updateData.plan_status = 'active';
+          updateData.plan_cancels_at = null;
+        }
+        if (paddleCustomerId) updateData.paddle_customer_id = paddleCustomerId;
+        if (paddleSubscriptionId) updateData.paddle_subscription_id = paddleSubscriptionId;
+
+        const { error: updateError } = await supabaseAdmin
+          .from('user_profiles')
+          .update(updateData)
+          .eq('id', profile.id);
+        if (updateError) throw new Error(`Failed to update user profile: ${updateError.message}`);
+      }
 
       await logBillingEvent(supabaseAdmin, {
-        userId: profile?.id ?? null,
-        eventType: 'webhook_subscription_canceled',
+        userId: profile.id,
+        eventType: scheduledChange?.action === 'cancel'
+          ? 'webhook_subscription_cancel_scheduled'
+          : 'webhook_subscription_updated',
         source: 'paddle_webhook',
-        rawPayload: data,
+        rawPayload: { scheduled_change: scheduledChange, status: paddleStatus, match_via: matchVia },
       });
+    } else if (eventType === 'subscription.canceled') {
+      const target = profile
+        || (customerEmail ? await findProfileByEmail(supabaseAdmin, customerEmail) : null);
+
+      if (target) {
+        const { error: updateError } = await supabaseAdmin
+          .from('user_profiles')
+          .update({
+            plan: 'trial',
+            plan_status: 'inactive',
+            plan_cancels_at: null,
+            paddle_subscription_status: 'canceled',
+          })
+          .eq('id', target.id);
+
+        if (updateError) throw new Error(`Failed to update user profile: ${updateError.message}`);
+
+        await logBillingEvent(supabaseAdmin, {
+          userId: target.id,
+          eventType: 'webhook_subscription_canceled',
+          source: 'paddle_webhook',
+          rawPayload: { match_via: matchVia, data },
+        });
+      }
     } else if (eventType === 'transaction.payment_failed') {
       await logBillingEvent(supabaseAdmin, {
         userId: profile?.id ?? null,
@@ -285,7 +282,7 @@ serve(async (req) => {
       });
     }
 
-    return new Response(JSON.stringify({ success: true, email_id: lastEmailId }), {
+    return new Response(JSON.stringify({ success: true, email_id: lastEmailId, match_via: matchVia }), {
       headers: { ...corsHeaders, 'Content-Type': 'application/json' },
       status: 200,
     });
@@ -297,3 +294,12 @@ serve(async (req) => {
     });
   }
 });
+
+function hasPendingCancelFromProfile(
+  data: Record<string, unknown>,
+  profile: { plan_status: string | null; plan_cancels_at: string | null },
+): boolean {
+  const scheduled = getScheduledChange(data);
+  if (scheduled?.action === 'cancel') return true;
+  return profile.plan_status === 'cancelling' && !!profile.plan_cancels_at;
+}

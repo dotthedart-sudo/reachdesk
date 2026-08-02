@@ -27,6 +27,7 @@ export default function BillingPanel({
   onManagePlan,
   onCancelSubscription,
   onResumeSubscription,
+  onSyncSubscription,
 }) {
   const planKey = getEffectivePlan(currentUser);
   const limits = PLAN_LIMITS[planKey] || PLAN_LIMITS.trial;
@@ -218,6 +219,17 @@ export default function BillingPanel({
             disabled={billingActionLoading}
           >
             {billingActionLoading ? 'Working…' : 'Resume Subscription'}
+          </button>
+        )}
+
+        {onSyncSubscription && (currentUser?.plan === 'trial' || String(currentUser?.paddle_subscription_id || '').startsWith('sub_test')) && (
+          <button
+            type="button"
+            className="btn btn-secondary"
+            onClick={onSyncSubscription}
+            disabled={billingActionLoading}
+          >
+            {billingActionLoading ? 'Syncing…' : 'Sync from Paddle'}
           </button>
         )}
       </div>

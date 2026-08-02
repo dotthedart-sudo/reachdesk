@@ -4,6 +4,7 @@ import { supabase } from './lib/supabase';
 import { getTeamIds, PLAN_LIMITS, normalizePlan, getEffectivePlan } from './lib/utils';
 import { registerLifetimeSession, validateLifetimeSession, clearLifetimeSession } from './lib/sessionManager';
 import { getEffectiveOutreachAccess, getEffectiveCalendarAccess } from './lib/callActivity';
+import { isValidTrialEndDate } from './lib/billing';
 import {
   ensureProOwnerWorkspaceIfNeeded,
   processTeamInvites,
@@ -619,7 +620,7 @@ function AppProvider({ children }) {
     if (await isActiveTeamMember(p)) return 'active';
 
     if (p.plan === 'trial') {
-      if (p.trial_ends_at && new Date(p.trial_ends_at) < new Date()) {
+      if (isValidTrialEndDate(p.trial_ends_at) && new Date(p.trial_ends_at) < new Date()) {
         return 'trial_expired';
       }
     } else {
@@ -764,10 +765,12 @@ function AppProvider({ children }) {
           const isLifetimeOrLegacy = profileToSet.plan === 'enterprise' || profileToSet.plan === 'lifetime';
           const onActiveTeam = await isActiveTeamMember(profileToSet);
 
+          const trialEnds = isValidTrialEndDate(profileToSet.trial_ends_at)
+            ? new Date(profileToSet.trial_ends_at)
+            : null;
           let isTrialExpired = false;
           if (!onActiveTeam && profileToSet.plan === 'trial') {
-            const trialEnds = profileToSet.trial_ends_at ? new Date(profileToSet.trial_ends_at) : null;
-            isTrialExpired = trialEnds && now > trialEnds && profileToSet.status !== 'approved';
+            isTrialExpired = !!(trialEnds && now > trialEnds && profileToSet.status !== 'approved');
           }
 
           let isSubscriptionExpired = false;
@@ -1452,11 +1455,34 @@ function DashboardPage() {
 
   useEffect(() => {
     if (searchParams.get('upgraded') !== 'true') return;
-    fetchProfile?.();
-    showToast?.('Upgrade successful! Your plan is now active.', 'success');
-    const next = new URLSearchParams(searchParams);
-    next.delete('upgraded');
-    setSearchParams(next, { replace: true });
+
+    let cancelled = false;
+    (async () => {
+      try {
+        const { data, error } = await supabase.functions.invoke('sync-paddle-subscription', { body: {} });
+        if (cancelled) return;
+        if (error) {
+          console.warn('[Upgrade] sync-paddle-subscription failed:', error);
+          showToast?.('Payment received — syncing your plan. Refresh in a moment if it still shows trial.', 'info');
+        } else if (data?.success) {
+          showToast?.('Upgrade successful! Your plan is now active.', 'success');
+        } else {
+          showToast?.(data?.error || 'Payment received. If your plan still shows trial, refresh or contact support.', 'info');
+        }
+      } catch (err) {
+        console.warn('[Upgrade] sync invoke error:', err);
+        showToast?.('Payment received — refreshing your account…', 'info');
+      } finally {
+        if (!cancelled) {
+          await fetchProfile?.();
+          const next = new URLSearchParams(searchParams);
+          next.delete('upgraded');
+          setSearchParams(next, { replace: true });
+        }
+      }
+    })();
+
+    return () => { cancelled = true; };
   }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
   return <Dashboard currentUser={profile} />;

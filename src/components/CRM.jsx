@@ -45,6 +45,7 @@ import { resolveLeadTimezoneForSave } from '../lib/leadTimezone';
 import { teamMemberEmail } from '../lib/teamWorkspace';
 import { logLeadTimelineEvent } from '../lib/leadTimeline';
 import { displayCallStatus } from '../lib/callOutcomeRules';
+import { logCallStatusChange } from '../lib/callActivity';
 import { getListFolderSettings, setListFolderSettings, listFolderShowsLocalTime } from '../lib/listFolderSettings';
 import { isTeamOwner } from '../lib/teamWorkspace';
 import {

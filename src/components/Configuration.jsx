@@ -848,6 +848,32 @@ export default function Configuration({
     }
   };
 
+  const handleSyncSubscription = async () => {
+    setBillingActionLoading(true);
+    setResumeErrorMsg('');
+    setResumeSuccessMsg('');
+    setCancelSuccessMsg('');
+    setCancelErrorMsg('');
+    try {
+      const { data, error } = await supabase.functions.invoke('sync-paddle-subscription', { body: {} });
+      if (error) throw error;
+      if (data && data.success === false) {
+        throw new Error(data.error || 'Could not find an active Paddle subscription for this account');
+      }
+      setResumeSuccessMsg(
+        `Synced from Paddle — ${data?.plan || data?.profile?.plan || 'plan'} is now active.`,
+      );
+      if (onRefreshProfile) {
+        await onRefreshProfile();
+      }
+    } catch (err) {
+      console.error('Error syncing subscription:', err);
+      setResumeErrorMsg(err instanceof Error ? err.message : 'Failed to sync from Paddle. Please try again.');
+    } finally {
+      setBillingActionLoading(false);
+    }
+  };
+
   if (!currentUser) {
     return <div className="loading-container">Loading profile...</div>;
   }
@@ -978,6 +1004,7 @@ export default function Configuration({
             onManagePlan={() => navigate('/upgrade')}
             onCancelSubscription={() => setCancelModalOpen(true)}
             onResumeSubscription={handleResumeSubscription}
+            onSyncSubscription={handleSyncSubscription}
           />
         );
       case 'integrations':

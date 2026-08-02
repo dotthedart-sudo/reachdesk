@@ -9,6 +9,7 @@ import {
 } from 'lucide-react';
 import { useAppContext } from '../App';
 import { isTeamsFeatureLocked, isPaidPlanActive, canManageOwnBilling, isTeamMember, getSidebarPlanLabel } from '../lib/teamWorkspace';
+import { isValidTrialEndDate } from '../lib/billing';
 import UpgradeLockModal from './UpgradeLockModal';
 import MobileNav from './MobileNav';
 import { useLeadLimitStatus, LeadLimitTopBar } from '../lib/leadLimits';
@@ -443,8 +444,8 @@ export default function AppLayout({
 
       {/* ── Main Content ── */}
       <div className="main-content">
-        {/* Trial banner */}
-        {profile?.plan === 'trial' && subStatus === 'active' && (() => {
+        {/* Trial banner — only when on trial with a real future/near end date (never epoch/null) */}
+        {profile?.plan === 'trial' && subStatus === 'active' && isValidTrialEndDate(profile.trial_ends_at) && (() => {
           const msLeft = new Date(profile.trial_ends_at) - Date.now();
           const daysLeft = Math.max(0, Math.ceil(msLeft / (1000 * 60 * 60 * 24)));
           const label = daysLeft === 0 ? 'less than a day' : daysLeft === 1 ? '1 day' : `${daysLeft} days`;

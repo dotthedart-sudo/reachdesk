@@ -70,4 +70,20 @@ export function getPlanFromPriceId(priceId: string | null | undefined): PlanId |
   return null;
 }
 
+/** monthly | quarterly | yearly from a Paddle price id. */
+export function getBillingCycleFromPriceId(priceId: string | null | undefined): string | null {
+  if (!priceId) return null;
+  const targetId = priceId.trim();
+  for (const [cycle, interval] of Object.entries(BILLING)) {
+    if (
+      interval.starter?.priceId === targetId
+      || interval.pro?.priceId === targetId
+      || interval.teams?.priceId === targetId
+    ) {
+      return cycle;
+    }
+  }
+  return null;
+}
+
 export const STARTER_MONTHLY_USD: string = BILLING.monthly.starter.usdTotal;

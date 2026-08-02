@@ -17,6 +17,16 @@ export function canResumeSubscription(profile) {
   return profile.plan_status === 'cancelling' && isRealPaddleSubscriptionId(profile.paddle_subscription_id);
 }
 
+/** Safe trial end date — rejects null, Invalid Date, and Unix-epoch garbage (e.g. 12/31/1969). */
+export function isValidTrialEndDate(value) {
+  if (!value) return false;
+  const d = new Date(value);
+  if (Number.isNaN(d.getTime())) return false;
+  // Anything before year 2000 is almost certainly a bad default / epoch offset
+  if (d.getUTCFullYear() < 2000) return false;
+  return true;
+}
+
 export function formatPlanCancelsAt(iso) {
   if (!iso) return null;
   const d = new Date(iso);
