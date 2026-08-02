@@ -11,6 +11,7 @@ import {
   enrichProfileWithEffectivePlan,
   getStoredInviteToken,
   refreshProfileAfterInvite,
+  setPaidInviteDeferred,
 } from './lib/teamWorkspace';
 import { Lock } from 'lucide-react';
 import { subscribeToPush } from './utils/pushNotifications';
@@ -20,6 +21,7 @@ import { forceAppRefresh, clearAppRefreshFlags, clearServiceWorkersAndCaches } f
 import { BRAND_NAME } from './config/brand';
 import { CALL_SCRIPT_SECTIONS, TEMPLATE_KINDS } from './lib/templateKinds';
 import { countDueCheckpointLeads } from './lib/checkpointNotifications';
+import PaidInviteJoinModal from './components/PaidInviteJoinModal';
 
 // Helper for lazy loading components with automatic retry on dynamic import / chunk load failures (e.g. after new deployments)
 const LAZY_IMPORT_RETRIES = 3;
@@ -444,6 +446,8 @@ function AppProvider({ children }) {
   const [toast, setToast] = useState(null);
   const [outreachUnlocked, setOutreachUnlocked] = useState(false);
   const [calendarUnlocked, setCalendarUnlocked] = useState(false);
+  const [paidInviteConfirm, setPaidInviteConfirm] = useState(null); // { profile }
+  const [paidInviteLoading, setPaidInviteLoading] = useState(false);
 
   // Tracks the user ID whose profile is currently loaded.
   // Using a ref (not state) so the onAuthStateChange closure always reads
@@ -452,6 +456,51 @@ function AppProvider({ children }) {
 
   const showToast = (message, type = 'success') => {
     setToast({ message, type });
+  };
+
+  const handleDeclinePaidInvite = () => {
+    setPaidInviteDeferred(true);
+    setPaidInviteConfirm(null);
+    showToast('Invite kept pending. You can join later from the invite link.', 'info');
+  };
+
+  const handleConfirmPaidInvite = async () => {
+    const confirmProfile = paidInviteConfirm?.profile;
+    if (!confirmProfile?.id) {
+      setPaidInviteConfirm(null);
+      return;
+    }
+    setPaidInviteLoading(true);
+    try {
+      const inviteResult = await processTeamInvites({
+        retries: 3,
+        profile: confirmProfile,
+        confirmPaidJoin: true,
+      });
+      if (!inviteResult?.ok) {
+        showToast(inviteResult?.error || 'Could not join the team. Try again from your invite link.', 'error');
+        return;
+      }
+      const { data: refreshed } = await supabase
+        .from('user_profiles')
+        .select('*')
+        .eq('id', confirmProfile.id)
+        .maybeSingle();
+      if (refreshed) {
+        const enriched = await enrichProfileWithEffectivePlan(refreshed);
+        setProfile(enriched);
+        setSubStatus(await checkSubscriptionStatus(enriched));
+        const ids = await getTeamIds(confirmProfile.id);
+        setTeamIds(ids);
+      }
+      setPaidInviteConfirm(null);
+      showToast('Joined as a team member. Your personal subscription was not refunded or cancelled.', 'info');
+    } catch (err) {
+      console.warn('[Profile] Paid invite confirm failed:', err);
+      showToast(err.message || 'Could not join the team.', 'error');
+    } finally {
+      setPaidInviteLoading(false);
+    }
   };
 
   useEffect(() => {
@@ -539,7 +588,11 @@ function AppProvider({ children }) {
           fetchProfile(session.user.id, session);
         } else if (getStoredInviteToken()) {
           // Signup may finish auth before fetchProfile runs again — retry invite accept.
-          refreshProfileAfterInvite(session.user.id).then(async ({ result, profile: refreshed }) => {
+          refreshProfileAfterInvite(session.user.id).then(async ({ result, profile: refreshed, confirmProfile }) => {
+            if (result?.needsPaidJoinConfirm && confirmProfile) {
+              setPaidInviteConfirm({ profile: confirmProfile });
+              return;
+            }
             if (!result?.ok || !refreshed) return;
             setProfile(await enrichProfileWithEffectivePlan(refreshed));
             setSubStatus(await checkSubscriptionStatus(refreshed));
@@ -654,8 +707,10 @@ function AppProvider({ children }) {
 
           if (joinedProfile) {
           try {
-            const inviteResult = await processTeamInvites({ retries: 3 });
-            if (inviteResult?.ok) {
+            const inviteResult = await processTeamInvites({ retries: 3, profile: joinedProfile });
+            if (inviteResult?.needsPaidJoinConfirm) {
+              setPaidInviteConfirm({ profile: joinedProfile });
+            } else if (inviteResult?.ok) {
               const { data: refreshed } = await supabase.from('user_profiles').select('*').eq('id', userId).maybeSingle();
               if (refreshed) joinedProfile = refreshed;
             } else if (getStoredInviteToken()) {
@@ -693,8 +748,10 @@ function AppProvider({ children }) {
           let profileToSet = p;
 
           try {
-            const inviteResult = await processTeamInvites({ retries: 2 });
-            if (inviteResult?.ok) {
+            const inviteResult = await processTeamInvites({ retries: 2, profile: profileToSet });
+            if (inviteResult?.needsPaidJoinConfirm) {
+              setPaidInviteConfirm({ profile: profileToSet });
+            } else if (inviteResult?.ok) {
               const { data: refreshed } = await supabase.from('user_profiles').select('*').eq('id', userId).maybeSingle();
               if (refreshed) profileToSet = refreshed;
             }
@@ -1284,6 +1341,13 @@ function AppProvider({ children }) {
   return (
     <AppContext.Provider value={value}>
       {children}
+      <PaidInviteJoinModal
+        open={!!paidInviteConfirm}
+        profile={paidInviteConfirm?.profile}
+        loading={paidInviteLoading}
+        onConfirm={handleConfirmPaidInvite}
+        onDecline={handleDeclinePaidInvite}
+      />
       {toast && (
         <div style={{
           position: 'fixed',

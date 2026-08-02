@@ -84,8 +84,10 @@ BEGIN
 END;
 $$;
 
--- Align existing teams with hybrid default (members see own leads only)
-UPDATE public.teams SET members_see_own_leads_only = true WHERE members_see_own_leads_only = false;
+-- NOTE: Do NOT blanket-update existing teams to members_see_own_leads_only = true.
+-- That hid teammate leads and looked like deletion. Default for NEW teams stays true
+-- (set in 20260801120000). Active multi-member workspaces are restored by
+-- 20260802100000_restore_shared_pipeline_for_member_teams.sql.
 
 DROP FUNCTION IF EXISTS public.get_team_timeline_for_day(date, date, date, integer);
 

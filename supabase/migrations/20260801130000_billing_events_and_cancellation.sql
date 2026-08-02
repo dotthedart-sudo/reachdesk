@@ -19,6 +19,7 @@ CREATE INDEX IF NOT EXISTS billing_events_created_at_idx ON billing_events(creat
 ALTER TABLE billing_events ENABLE ROW LEVEL SECURITY;
 
 -- Users can read their own billing history; writes are service-role only
+DROP POLICY IF EXISTS billing_events_select_own ON billing_events;
 CREATE POLICY billing_events_select_own ON billing_events FOR SELECT TO authenticated
   USING (user_id = auth.uid());
 

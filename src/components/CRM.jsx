@@ -1339,7 +1339,7 @@ export default function CRM({
           status: leadForm.status || 'Lead',
           notes: leadForm.notes || null,
           user_id: currentUser.id,
-          folder_id: leadForm.folder_id || null,
+          folder_id: leadForm.folder_id || activeManualFolderId || null,
           template_used: leadForm.template_used || null,
           custom_fields: finalCustomFields,
           timezone: tzFields.timezone,
@@ -1350,6 +1350,11 @@ export default function CRM({
 
       if (error) throw error;
       setLeads(prev => [data, ...prev]);
+      // If sticky filters would hide the new lead, clear them so it appears
+      if (searchQuery || statusFilter || priorityFilter || filterStatuses.length || filterPriorities.length
+        || filterActions.length || filterCallActions.length || filterProjects.length || filterDateRange !== 'all') {
+        resetListFilters();
+      }
       setShowAddLeadModal(false);
 
       // Check remaining quota for countdown toast
@@ -1412,6 +1417,10 @@ export default function CRM({
 
       if (error) throw error;
       setLeads(prev => [data, ...prev]);
+      if (searchQuery || statusFilter || priorityFilter || filterStatuses.length || filterPriorities.length
+        || filterActions.length || filterCallActions.length || filterProjects.length || filterDateRange !== 'all') {
+        resetListFilters();
+      }
       setShowQuickAddModal(false);
       setQuickAddForm({ ...EMPTY_QUICK_ADD_FORM });
 

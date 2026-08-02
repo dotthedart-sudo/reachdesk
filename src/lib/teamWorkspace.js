@@ -13,10 +13,69 @@ export function isPaidPlanActive(profile) {
   return profile.plan_status === 'active' || profile.plan_status === 'cancelling';
 }
 
+/** Solo user on an active personal Starter / Pro / Teams subscription (not already a member). */
+export function hasActivePersonalPaidPlan(profile) {
+  if (!profile || isTeamMember(profile)) return false;
+  const plan = normalizePlan(profile.plan);
+  if (!['starter', 'pro', 'teams'].includes(plan)) return false;
+  return isPaidPlanActive(profile);
+}
+
 /** Invited teammate — billing is owned by the workspace owner, not this user. */
 export function isTeamMember(profile) {
   if (!profile?.team_id) return false;
   return (profile.team_role || 'owner').toLowerCase() === 'member';
+}
+
+const PLAN_DISPLAY_NAMES = {
+  trial: 'Trial',
+  starter: 'Starter',
+  pro: 'Pro',
+  teams: 'Teams',
+  lifetime: 'Lifetime',
+};
+
+/** Sidebar / UI label for current plan (members use workspace effective plan). */
+export function getSidebarPlanLabel(profile) {
+  if (!profile) return '';
+  const key = normalizePlan(profile.effective_plan ?? profile.plan);
+  const base = PLAN_DISPLAY_NAMES[key] || key.charAt(0).toUpperCase() + key.slice(1);
+  if (isTeamMember(profile)) return `${base} · Member`;
+  return base;
+}
+
+/** True when a stored invite token or pending email invite exists for this user. */
+export async function hasPendingTeamInvite(email) {
+  if (getStoredInviteToken()) return true;
+  if (!email) return false;
+  const { data, error } = await supabase
+    .from('team_invitations')
+    .select('id')
+    .eq('status', 'pending')
+    .ilike('invited_email', email.trim())
+    .limit(1);
+  if (error) {
+    console.warn('[teamWorkspace] hasPendingTeamInvite failed:', error);
+    return false;
+  }
+  return (data?.length ?? 0) > 0;
+}
+
+const INVITE_DEFER_KEY = 'rd_invite_defer_paid';
+
+export function wasPaidInviteDeferred() {
+  try {
+    return sessionStorage.getItem(INVITE_DEFER_KEY) === '1';
+  } catch {
+    return false;
+  }
+}
+
+export function setPaidInviteDeferred(deferred) {
+  try {
+    if (deferred) sessionStorage.setItem(INVITE_DEFER_KEY, '1');
+    else sessionStorage.removeItem(INVITE_DEFER_KEY);
+  } catch { /* ignore */ }
 }
 
 /** May view Settings billing and open personal Paddle checkout. */
@@ -193,8 +252,23 @@ export async function isActiveTeamMember(profile) {
 
 /**
  * Accept pending team invite (URL token or email match). Retries briefly for signup race conditions.
+ * Pass profile + confirmPaidJoin:false (default) to gate active personal paid plans behind a confirm UI.
  */
-export async function processTeamInvites({ retries = 2 } = {}) {
+export async function processTeamInvites({
+  retries = 2,
+  profile = null,
+  confirmPaidJoin = false,
+} = {}) {
+  if (hasActivePersonalPaidPlan(profile) && !confirmPaidJoin) {
+    if (wasPaidInviteDeferred()) {
+      return { ok: false, deferred: true };
+    }
+    const pending = await hasPendingTeamInvite(profile.email);
+    if (pending) {
+      return { ok: false, needsPaidJoinConfirm: true };
+    }
+  }
+
   const token = getStoredInviteToken();
   let lastResult = { ok: false };
 
@@ -205,6 +279,7 @@ export async function processTeamInvites({ retries = 2 } = {}) {
         lastResult = result ?? { ok: false };
         if (result?.ok) {
           storeInviteToken(null);
+          setPaidInviteDeferred(false);
           return result;
         }
       } catch (err) {
@@ -218,6 +293,7 @@ export async function processTeamInvites({ retries = 2 } = {}) {
       lastResult = emailResult ?? { ok: false };
       if (emailResult?.ok) {
         storeInviteToken(null);
+        setPaidInviteDeferred(false);
         return emailResult;
       }
     } catch (err) {
@@ -238,8 +314,21 @@ export async function processTeamInvites({ retries = 2 } = {}) {
 }
 
 /** Refresh profile after invite accept (for auth callback when full fetchProfile is skipped). */
-export async function refreshProfileAfterInvite(userId) {
-  const result = await processTeamInvites({ retries: 2 });
+export async function refreshProfileAfterInvite(userId, profile = null) {
+  let p = profile;
+  if (!p && userId) {
+    const { data } = await supabase
+      .from('user_profiles')
+      .select('*')
+      .eq('id', userId)
+      .maybeSingle();
+    p = data;
+  }
+
+  const result = await processTeamInvites({ retries: 2, profile: p });
+  if (result?.needsPaidJoinConfirm) {
+    return { result, profile: null, confirmProfile: p };
+  }
   if (!result?.ok || !userId) return { result, profile: null };
 
   const { data: refreshed } = await supabase

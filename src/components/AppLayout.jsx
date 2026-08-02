@@ -8,7 +8,7 @@ import {
   PanelLeftClose, PanelLeftOpen, UsersRound, Lock
 } from 'lucide-react';
 import { useAppContext } from '../App';
-import { isTeamsFeatureLocked, isPaidPlanActive, canManageOwnBilling, isTeamMember } from '../lib/teamWorkspace';
+import { isTeamsFeatureLocked, isPaidPlanActive, canManageOwnBilling, isTeamMember, getSidebarPlanLabel } from '../lib/teamWorkspace';
 import UpgradeLockModal from './UpgradeLockModal';
 import MobileNav from './MobileNav';
 import { useLeadLimitStatus, LeadLimitTopBar } from '../lib/leadLimits';
@@ -75,6 +75,7 @@ export default function AppLayout({
   };
 
   const isAdmin = profile?.role === 'admin';
+  const planLabel = getSidebarPlanLabel(profile);
 
   const handleNotesClickMobile = () => {
     setIsSidebarOpen(false);
@@ -421,8 +422,13 @@ export default function AppLayout({
                 {profile?.full_name || profile?.email || 'Logged In'}
               </div>
               <div className="user-role" title={profile?.full_name ? profile?.email : undefined} style={{ textOverflow: 'ellipsis', overflow: 'hidden', whiteSpace: 'nowrap', maxWidth: '140px' }}>
-                {profile?.full_name ? profile.email : `${profile?.status?.toUpperCase()} • ${profile?.plan?.toUpperCase()}`}
+                {profile?.full_name ? profile.email : (profile?.email || 'Account')}
               </div>
+              {planLabel && (
+                <div className="user-plan" title={planLabel}>
+                  {planLabel}
+                </div>
+              )}
               {!profile?.full_name && (
                 <div style={{ fontSize: '0.75rem', marginTop: '2px' }}>
                   <Link to="/settings" style={{ color: 'var(--accent-blue)', textDecoration: 'none', fontWeight: 500 }} onMouseEnter={e => e.target.style.textDecoration = 'underline'} onMouseLeave={e => e.target.style.textDecoration = 'none'}>

@@ -4,7 +4,7 @@ import { ArrowLeft, ShieldAlert, Check, Eye, EyeOff } from 'lucide-react';
 import { supabase } from '../lib/supabase';
 import { getAppUrl, getMarketingUrl, isLocalDev } from '../utils/domain';
 import { TRIAL_MARKETING } from '../lib/planMarketing';
-import { getStoredInviteToken, storeInviteToken, processTeamInvites } from '../lib/teamWorkspace';
+import { getStoredInviteToken, storeInviteToken } from '../lib/teamWorkspace';
 import AuthLogo from './AuthLogo';
 import { BRAND_NAME } from '../config/brand';
 
@@ -82,14 +82,8 @@ export default function Auth({ mode = 'login' }) {
     return () => clearInterval(timer);
   }, [resendCooldown]);
 
-  const finishAuthNavigation = async (destination, { acceptInvite = false } = {}) => {
-    if (acceptInvite) {
-      try {
-        await processTeamInvites({ retries: 3 });
-      } catch (inviteErr) {
-        console.warn('[Auth] Team invite accept failed:', inviteErr);
-      }
-    }
+  // Invite accept runs in App fetchProfile (with paid-plan confirm when needed).
+  const finishAuthNavigation = async (destination) => {
     navigate(destination);
   };
 
@@ -156,7 +150,7 @@ export default function Auth({ mode = 'login' }) {
             password: password.trim(),
           });
           if (loginErr) throw loginErr;
-          await finishAuthNavigation('/dashboard', { acceptInvite: !!getStoredInviteToken() });
+          await finishAuthNavigation('/dashboard');
         }
       } catch (err) {
         let msg = err.message || (isSignup ? 'Sign up failed.' : 'Login failed.');
@@ -234,9 +228,7 @@ export default function Auth({ mode = 'login' }) {
         type: 'email',
       });
       if (verifyErr) throw verifyErr;
-      await finishAuthNavigation(isSignup ? '/setup' : '/dashboard', {
-        acceptInvite: !isSignup && !!getStoredInviteToken(),
-      });
+      await finishAuthNavigation(isSignup ? '/setup' : '/dashboard');
     } catch (err) {
       setError('Invalid or expired code. Try again.');
     } finally {
