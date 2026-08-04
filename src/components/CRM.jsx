@@ -3593,6 +3593,8 @@ export default function CRM({
                                 lead={lead}
                                 defaultCountryCode={defaultCountryCode}
                                 showLocalTime
+                                editable
+                                onTimezoneChange={(tz) => handleLeadFieldChange(lead.id, 'timezone', tz || '')}
                               />
                             </td>
                           );

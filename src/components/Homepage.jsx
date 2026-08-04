@@ -325,7 +325,7 @@ export default function Homepage({ currentUserEmail }) {
           </div>
 
           {billing === 'yearly' && (
-            <p className="rd-pricing-yearly-callout">Yearly plans include 2× lead capacity.</p>
+            <p className="rd-pricing-yearly-callout">Yearly: Starter gets 2,000 leads · Pro gets 2× lead capacity.</p>
           )}
 
           <div className="rd-pricing-grid">

@@ -1,7 +1,7 @@
 import { supabase } from '../lib/supabase';
 import { splitFullName, normalizePriority } from './csvMapping';
-import { PLAN_LIMITS, getTeamIds } from '../lib/utils';
-import { normalizePlan } from '../lib/planConfig';
+import { getTeamIds } from '../lib/utils';
+import { getPlanLeadLimit, normalizePlan } from '../lib/planConfig';
 
 interface ImportBatchOptions {
   data: any[][];
@@ -51,11 +51,7 @@ export async function processImportBatch({
 
     const { data: p } = await supabase.from('user_profiles').select('plan').eq('id', userId).maybeSingle();
     plan = effectivePlan || (p?.plan || 'trial').toLowerCase();
-    const baseLimit = (PLAN_LIMITS[plan] || PLAN_LIMITS.trial).leads;
-    leadLimit = baseLimit === null ? Infinity : baseLimit;
-    if ((effectiveBilling ?? '').toLowerCase() === 'yearly' && (plan === 'starter' || plan === 'pro')) {
-      leadLimit = leadLimit * 2;
-    }
+    leadLimit = getPlanLeadLimit(normalizePlan(plan), effectiveBilling) ?? Infinity;
 
     // Get current lead count
     const { count } = await supabase

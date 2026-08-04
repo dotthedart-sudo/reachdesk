@@ -2,8 +2,8 @@ import React, { useEffect, useRef, useState } from 'react';
 import {
   getCallWindowBadgeStyle,
   getCallWindowStatus,
-  getLeadLocalTime,
-  getSupportedTimeZones,
+  getLeadLocalTimeLabel,
+  COUNTRY_TIMEZONE_OPTIONS,
 } from '../../lib/leadTimezone';
 
 export default function CallWindowBadge({
@@ -15,11 +15,21 @@ export default function CallWindowBadge({
   onTimezoneChange,
 }) {
   const [open, setOpen] = useState(false);
+  const [query, setQuery] = useState('');
   const wrapRef = useRef(null);
   const { status, label } = getCallWindowStatus(lead, at, { defaultCountryCode });
   const style = getCallWindowBadgeStyle(status);
-  const localTime = showLocalTime ? getLeadLocalTime(lead, at, defaultCountryCode) : null;
-  const zones = getSupportedTimeZones();
+  const localTime = showLocalTime ? getLeadLocalTimeLabel(lead, at, defaultCountryCode) : null;
+
+  const filtered = COUNTRY_TIMEZONE_OPTIONS.filter((c) => {
+    const q = query.trim().toLowerCase();
+    if (!q) return true;
+    return (
+      c.name.toLowerCase().includes(q)
+      || c.dial.includes(q.replace(/^\+/, ''))
+      || c.timezone.toLowerCase().includes(q)
+    );
+  });
 
   useEffect(() => {
     if (!open) return undefined;
@@ -40,7 +50,7 @@ export default function CallWindowBadge({
           e.stopPropagation();
           if (editable) setOpen((v) => !v);
         }}
-        title={editable ? 'Set lead timezone' : undefined}
+        title={editable ? 'Set lead timezone / country' : undefined}
         style={{
           background: style.bg,
           color: style.color,
@@ -73,25 +83,37 @@ export default function CallWindowBadge({
             border: '1px solid var(--border-color)',
             borderRadius: 8,
             boxShadow: '0 8px 24px rgba(0,0,0,0.18)',
-            minWidth: 220,
+            minWidth: 260,
           }}
         >
           <label style={{ display: 'block', fontSize: '0.7rem', color: 'var(--text-muted)', marginBottom: 4 }}>
-            Lead timezone
+            Country / dial code
           </label>
+          <input
+            type="search"
+            className="form-input"
+            placeholder="Pakistan, +92…"
+            value={query}
+            onChange={(e) => setQuery(e.target.value)}
+            style={{ width: '100%', fontSize: '0.8rem', marginBottom: 6 }}
+            autoFocus
+          />
           <select
             className="form-input"
             style={{ width: '100%', fontSize: '0.8rem' }}
             value={lead?.timezone || ''}
+            size={6}
             onChange={(e) => {
               onTimezoneChange?.(e.target.value || null);
               setOpen(false);
+              setQuery('');
             }}
-            autoFocus
           >
             <option value="">Auto from phone</option>
-            {zones.map((tz) => (
-              <option key={tz} value={tz}>{tz}</option>
+            {filtered.map((c) => (
+              <option key={`${c.name}-${c.timezone}`} value={c.timezone}>
+                {c.name} (+{c.dial})
+              </option>
             ))}
           </select>
         </div>

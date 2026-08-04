@@ -398,7 +398,7 @@ export function UpgradePage({ profile, handleLogout, onRefreshProfile, bankAccou
         </div>
 
         {billing === 'yearly' && (
-          <p className="rd-pricing-yearly-callout">Yearly plans include 2× lead capacity on Pro.</p>
+          <p className="rd-pricing-yearly-callout">Yearly: Starter gets 2,000 leads · Pro gets 2× lead capacity.</p>
         )}
 
         <div className="rd-pricing-grid">

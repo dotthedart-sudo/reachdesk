@@ -13,6 +13,17 @@ const PLAN_LIMITS = {
   teams:   { leads: null as number | null },
 };
 
+const STARTER_YEARLY_LEADS = 2000;
+
+function getPlanLeadLimit(plan: string, billingCycle: string | null): number {
+  const base = (PLAN_LIMITS[plan] || PLAN_LIMITS.trial).leads;
+  if (base === null) return Infinity;
+  if ((billingCycle ?? '').toLowerCase() !== 'yearly') return base;
+  if (plan === 'starter') return STARTER_YEARLY_LEADS;
+  if (plan === 'pro') return base * 2;
+  return base;
+}
+
 function splitFullName(fullName: string): { first_name: string; last_name: string } {
   if (!fullName) return { first_name: "", last_name: "" };
   
@@ -216,11 +227,7 @@ serve(async (req) => {
         }
       }
       
-      const baseLimit = (PLAN_LIMITS[plan] || PLAN_LIMITS.trial).leads;
-      leadLimit = baseLimit === null ? Infinity : baseLimit;
-      if (billingCycle?.toLowerCase() === 'yearly' && (plan === 'starter' || plan === 'pro')) {
-        leadLimit = leadLimit * 2;
-      }
+      leadLimit = getPlanLeadLimit(plan, billingCycle);
 
       const { count } = await supabaseAdmin
         .from('leads')

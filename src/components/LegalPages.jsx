@@ -59,12 +59,12 @@ export function TermsOfService() {
         Paid subscription tiers (USD reference prices; local currency amounts may be shown at checkout via Paddle):
       </p>
       <ul style={{ paddingLeft: '1.5rem', display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
-        <li><strong>Starter</strong> — from $5.00/month (750 leads, 10 templates, 1 user)</li>
+        <li><strong>Starter</strong> — from $5.00/month (750 leads monthly / 2,000 yearly, 10 templates, Calls, 1 user)</li>
         <li><strong>Pro</strong> — from $15.00/month (5,000 leads, 50 templates, 1 user)</li>
         <li><strong>Teams</strong> — from $29.00/month (unlimited leads, unlimited templates, up to 5 team seats)</li>
       </ul>
       <p>
-        Subscriptions are available on monthly, quarterly (approximately 15% off vs. monthly), or yearly (approximately 30% off vs. monthly) billing cycles. Yearly Starter and Pro plans include double the lead capacity shown for monthly billing. Exact prices, limits, and features for each plan are displayed within the Service and at checkout and may be updated from time to time. Continued use of the Service after a price change constitutes acceptance of the new pricing for your next billing cycle.
+        Subscriptions are available on monthly, quarterly (approximately 15% off vs. monthly), or yearly (approximately 30% off vs. monthly) billing cycles. Yearly Starter includes 2,000 leads (vs. 750 on monthly). Yearly Pro includes double the monthly lead capacity. Exact prices, limits, and features for each plan are displayed within the Service and at checkout and may be updated from time to time. Continued use of the Service after a price change constitutes acceptance of the new pricing for your next billing cycle.
       </p>
 
       <h3 style={{ color: 'var(--text-primary)', marginTop: '1rem', fontFamily: 'var(--font-headers)' }}>4. Payment and Auto-Renewal</h3>

@@ -86,6 +86,7 @@ export function buildPersonalUpNextFeed({
       return {
         id: `checkpoint-${l.id}`,
         type: 'checkpoint',
+        channel: 'message',
         lead: l,
         title: `Follow up with ${l.first_name || ''} ${l.last_name || ''}`.trim(),
         date: l.next_checkpoint_at,

@@ -1,5 +1,5 @@
 import React, { useMemo, useState } from 'react';
-import { ChevronRight, Plus, Pencil, Trash2 } from 'lucide-react';
+import { ChevronRight, Plus, Pencil, Trash2, List } from 'lucide-react';
 import {
   CALL_OUTCOMES,
   TERMINAL_OUTCOMES,
@@ -10,6 +10,7 @@ import {
 import CallWindowBadge from '../CallWindowBadge';
 import OutcomeBadge from './OutcomeBadge';
 import EditCallAttemptModal from './EditCallAttemptModal';
+import ManageCallAttemptsModal from './ManageCallAttemptsModal';
 import ResizableTh from '../ResizableTh';
 import ResizableTr from '../ResizableTr';
 import { useCrmTableLayout } from '../useCrmTableLayout';
@@ -40,6 +41,7 @@ export default function MyCallFeed({
   const [filter, setFilter] = useState('all');
   const [sort, setSort] = useState('recent');
   const [editAttempt, setEditAttempt] = useState(null);
+  const [manageLead, setManageLead] = useState(null);
   const { getWidth, setWidth, resetWidth, getRowHeight, setRowHeight, resetRowHeight } =
     useCrmTableLayout('my_call_feed');
 
@@ -50,7 +52,7 @@ export default function MyCallFeed({
       map.get(a.lead_id).push(a);
     }
     for (const list of map.values()) {
-      list.sort((a, b) => new Date(b.created_at) - new Date(a.created_at));
+      list.sort((a, b) => new Date(b.occurred_at || b.created_at) - new Date(a.occurred_at || a.created_at));
     }
     return map;
   }, [attempts]);
@@ -72,10 +74,11 @@ export default function MyCallFeed({
         lead,
         attemptCount: leadAttempts.length,
         lastOutcome: last.outcome,
-        lastAt: last.created_at,
+        lastAt: last.occurred_at || last.created_at,
         lastAttempt: last,
         nextFollowUp,
         needsFollowUpToday,
+        attempts: leadAttempts,
       });
     }
 
@@ -105,11 +108,7 @@ export default function MyCallFeed({
     return sorted;
   }, [leads, attemptsByLead, filter, sort, userTimeZone]);
 
-  const canEdit = (attempt) => {
-    if (!attempt || attempt.user_id !== currentUserId) return false;
-    const age = Date.now() - new Date(attempt.created_at).getTime();
-    return age <= 24 * 60 * 60 * 1000;
-  };
+  const canEdit = (attempt) => attempt && attempt.user_id === currentUserId;
 
   if (loading) {
     return <div style={{ color: 'var(--text-muted)', padding: '1.5rem 0' }}>Loading call activity…</div>;
@@ -205,7 +204,17 @@ export default function MyCallFeed({
                 <td style={{ padding: '0.65rem 0.75rem', width: getWidth('outcome'), minWidth: getWidth('outcome'), maxWidth: getWidth('outcome') }}>
                   <OutcomeBadge outcome={row.lastOutcome} />
                 </td>
-                <td style={{ padding: '0.65rem 0.75rem', width: getWidth('attempts'), minWidth: getWidth('attempts'), maxWidth: getWidth('attempts') }}>{row.attemptCount}</td>
+                <td style={{ padding: '0.65rem 0.75rem', width: getWidth('attempts'), minWidth: getWidth('attempts'), maxWidth: getWidth('attempts') }}>
+                  <button
+                    type="button"
+                    className="btn btn-secondary btn-sm"
+                    title="View / edit / delete call logs"
+                    onClick={() => setManageLead(row.lead)}
+                    style={{ minWidth: 36 }}
+                  >
+                    {row.attemptCount}
+                  </button>
+                </td>
                 <td style={{ padding: '0.65rem 0.75rem', color: row.needsFollowUpToday ? 'var(--status-hot)' : 'var(--text-secondary)', width: getWidth('followup'), minWidth: getWidth('followup'), maxWidth: getWidth('followup') }}>
                   {row.nextFollowUp ? row.nextFollowUp.toLocaleDateString() : '—'}
                   {row.needsFollowUpToday && (
@@ -214,23 +223,18 @@ export default function MyCallFeed({
                 </td>
                 <td style={{ padding: '0.65rem 0.75rem', textAlign: 'right', width: getWidth('_actions'), minWidth: getWidth('_actions'), maxWidth: getWidth('_actions') }}>
                   <div style={{ display: 'flex', gap: '0.25rem', justifyContent: 'flex-end' }}>
+                    <button
+                      type="button"
+                      className="btn btn-secondary btn-sm"
+                      title="Manage call logs"
+                      onClick={() => setManageLead(row.lead)}
+                    >
+                      <List size={12} />
+                    </button>
                     {canEdit(row.lastAttempt) && (
-                      <>
-                        <button type="button" className="btn btn-secondary btn-sm" onClick={() => setEditAttempt(row.lastAttempt)} title="Edit">
-                          <Pencil size={12} />
-                        </button>
-                        <button
-                          type="button"
-                          className="btn btn-secondary btn-sm"
-                          title="Delete"
-                          onClick={async () => {
-                            if (!confirm('Delete this call log?')) return;
-                            await onAttemptDeleted?.(row.lastAttempt.id);
-                          }}
-                        >
-                          <Trash2 size={12} />
-                        </button>
-                      </>
+                      <button type="button" className="btn btn-secondary btn-sm" onClick={() => setEditAttempt(row.lastAttempt)} title="Edit latest">
+                        <Pencil size={12} />
+                      </button>
                     )}
                     <button type="button" className="btn-icon" onClick={() => onOpenLead?.(row.lead, 'calls')}>
                       <ChevronRight size={16} style={{ color: 'var(--text-muted)' }} />
@@ -253,6 +257,17 @@ export default function MyCallFeed({
           }}
         />
       )}
+
+      <ManageCallAttemptsModal
+        open={!!manageLead}
+        lead={manageLead}
+        attempts={manageLead ? (attemptsByLead.get(manageLead.id) || []) : []}
+        currentUserId={currentUserId}
+        onClose={() => setManageLead(null)}
+        onChanged={() => {
+          onAttemptDeleted?.('refresh');
+        }}
+      />
     </>
   );
 }

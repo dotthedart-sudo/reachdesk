@@ -9,7 +9,7 @@ import {
   isLeadCallableNow,
 } from '../../lib/outreachQueue';
 import CallWindowBadge from '../CRM/CallWindowBadge';
-import { getLeadLocalTime } from '../../lib/leadTimezone';
+import { getLeadLocalTimeLabel } from '../../lib/leadTimezone';
 
 const SOURCES = [
   { id: 'search', label: 'Search' },
@@ -230,7 +230,7 @@ export default function PlanColdCallsModal({
             </p>
           ) : (
             available.map((lead) => {
-              const localTime = getLeadLocalTime(lead, new Date(), defaultCountryCode);
+              const localTime = getLeadLocalTimeLabel(lead, new Date(), defaultCountryCode);
               return (
                 <label
                   key={lead.id}

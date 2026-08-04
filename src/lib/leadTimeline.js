@@ -59,6 +59,28 @@ export async function logLeadTimelineEvent({
   return data;
 }
 
+/** Update when a timeline event occurred (backfill / correct). */
+export async function updateTimelineEventOccurredAt(eventId, occurredAt, timeZone = null) {
+  if (!eventId || !occurredAt) return null;
+  const d = new Date(occurredAt);
+  if (Number.isNaN(d.getTime())) throw new Error('Invalid date');
+  const tz = resolveTimeZone(timeZone);
+  const payload = {
+    occurred_at: d.toISOString(),
+    logged_timezone: tz,
+    local_date: toDateKeyInZone(d, tz),
+    local_time: `${isoToLocalTimeInZone(d.toISOString(), tz)}:00`,
+  };
+  const { data, error } = await supabase
+    .from('lead_timeline_events')
+    .update(payload)
+    .eq('id', eventId)
+    .select('*')
+    .single();
+  if (error) throw error;
+  return data;
+}
+
 export async function fetchLeadTimeline(leadId, limit = 200) {
   if (!leadId) return [];
   const { data, error } = await supabase.rpc('get_lead_timeline', {

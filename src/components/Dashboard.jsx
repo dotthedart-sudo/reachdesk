@@ -31,12 +31,23 @@ import { softBadgeStyle, softDotStyle } from '../lib/softBadgeStyle';
 import { 
   Users, Mail, MessageSquare, ThumbsUp, Trophy, Bell,
   ArrowRight, Lock, TrendingUp, DollarSign, Activity,
-  ChevronRight, Calendar, AlertCircle, Check, X, BarChart2
+  ChevronRight, Calendar, AlertCircle, Check, X, BarChart2, Phone
 } from 'lucide-react';
 
 import HelpPopover from './HelpPopover';
 import { celebrateClosedWon } from '../utils/celebrateWin';
 import { useFirstVisitReveal } from '../hooks/useFirstVisitReveal';
+import PipelineStepper from './Dashboard/PipelineStepper';
+import {
+  MESSAGE_PIPELINE_STAGES,
+  MESSAGE_STAGE_COLORS,
+  CALL_PIPELINE_STAGES,
+  countMessagePipeline,
+  countCallPipeline,
+  computeWeekActivity,
+} from '../lib/dashboardMetrics';
+import { fetchMyCallAttempts } from '../lib/callActivity';
+import { hasOutreachByPlan } from '../lib/callActivity';
 
 
 // Use the shared map so any currency code the user picks renders the correct symbol
@@ -100,6 +111,7 @@ export default function Dashboard({ currentUser, onSelectLead }) {
   const [teamActivity, setTeamActivity] = useState([]);
   const [expandedReplies, setExpandedReplies] = useState({});
   const [ignoredMismatches, setIgnoredMismatches] = useState({});
+  const [weekActivity, setWeekActivity] = useState({ messaged: 0, called: 0, followUpsDue: 0, days: 7 });
   const { reveal, rootClass, blockClass, blockProp } = useFirstVisitReveal();
 
   const plan = getEffectivePlan(currentUser);
@@ -120,23 +132,32 @@ export default function Dashboard({ currentUser, onSelectLead }) {
 
       // Parallel Data Fetching
       const remindersEnabled = currentUser?.reminders_enabled !== false;
-      const [invoicesRes, rulesRes, leadsRes, dueCheckpoints] = await Promise.all([
+      const [invoicesRes, rulesRes, leadsRes, dueCheckpoints, attemptsData] = await Promise.all([
         supabase.from('invoices').select('*').eq('user_id', currentUser.id),
         supabase.from('action_suggestion_rules').select('*'),
-        supabase.from('leads').select('id, user_id, first_name, last_name, status, created_at, last_contacted_at, action_to_take, next_checkpoint_at, template_used, reply_type, meeting_ends_at').in('user_id', teamIds).order('created_at', { ascending: false }).order('id', { ascending: true }),
+        supabase.from('leads').select('id, user_id, first_name, last_name, status, call_status, created_at, last_contacted_at, last_called_at, action_to_take, next_checkpoint_at, template_used, reply_type, meeting_ends_at').in('user_id', teamIds).order('created_at', { ascending: false }).order('id', { ascending: true }),
         remindersEnabled
           ? fetchDueCheckpointLeads({ userIds: [currentUser.id], limit: 5 })
+          : Promise.resolve([]),
+        hasOutreachByPlan(currentUser)
+          ? fetchMyCallAttempts(currentUser.id)
           : Promise.resolve([]),
       ]);
 
       const loadedInvoices = invoicesRes.data || [];
       const loadedRules = rulesRes.data || [];
       const loadedLeads = leadsRes.data || [];
+      const loadedAttempts = attemptsData || [];
 
       setInvoices(loadedInvoices);
       setSuggestionRules(loadedRules);
       setLeadsList(loadedLeads);
       setReminders(dueCheckpoints);
+      setWeekActivity(computeWeekActivity({
+        leads: loadedLeads,
+        attempts: loadedAttempts,
+        currentUserId: currentUser.id,
+      }));
 
       // 1. Calculate Core Metrics
       const totalLeads = loadedLeads.length;
@@ -382,21 +403,14 @@ export default function Dashboard({ currentUser, onSelectLead }) {
   const pathLength = 126; // arc circumference length
   const dashOffset = pathLength * (1 - dialPercentage / 100);
 
-  // Stepper calculations (7 stages count) — colors match CRM status palette
-  const forwardStages = ['Lead', 'Contacted', 'Positive Reply', 'Proposal Sent', 'Calendly Sent', 'Booked', 'Closed Won'];
-  const STAGE_COLORS = {
-    'Lead': '#3b82f6',
-    'Contacted': '#f59e0b',
-    'Positive Reply': '#8b5cf6',
-    'Proposal Sent': '#06b6d4',
-    'Calendly Sent': '#6B9FD4',
-    'Booked': '#ec4899',
-    'Closed Won': '#22c55e',
-  };
-  const stageCounts = {};
-  forwardStages.forEach(st => {
-    stageCounts[st] = leadsList.filter(l => l.status === st).length;
-  });
+  // Dual pipelines (messages vs calls)
+  const forwardStages = MESSAGE_PIPELINE_STAGES;
+  const STAGE_COLORS = MESSAGE_STAGE_COLORS;
+  const messageStageCounts = countMessagePipeline(leadsList);
+  const callStageCounts = countCallPipeline(leadsList);
+  const showCallsStrip = hasOutreachByPlan(currentUser);
+  const callStageIds = CALL_PIPELINE_STAGES.map((s) => s.id);
+  const callStageMeta = Object.fromEntries(CALL_PIPELINE_STAGES.map((s) => [s.id, s]));
 
   const revealBlock = blockClass;
 
@@ -535,102 +549,92 @@ export default function Dashboard({ currentUser, onSelectLead }) {
 
       </div>
 
-      {/* Stepper Pipeline Flow */}
+      {/* This week — clear activity (not pipeline confusion) */}
       <div className={`card${revealBlock}`} style={{ marginTop: '0.5rem' }}>
-        <h3 style={{ fontSize: '0.9rem', marginBottom: '1rem', display: 'flex', alignItems: 'center', gap: '0.4rem', color: 'var(--text-secondary)' }}>
-          <TrendingUp size={16} /> Lead Progression Pipeline
+        <h3 style={{ fontSize: '0.9rem', marginBottom: '0.75rem', display: 'flex', alignItems: 'center', gap: '0.4rem', color: 'var(--text-secondary)' }}>
+          <Activity size={16} /> This week
+          <HelpPopover title="This week">
+            How much outreach you logged in the last 7 days — not the same as pipeline stage. Messaged = leads with a contact stamp; Called = leads with a call log; Due = message follow-up checkpoints that are overdue.
+          </HelpPopover>
         </h3>
-
-        {/*
-          Two-row stepper that scrolls horizontally on mobile without breaking.
-          Row 1: dots + inline dashed connectors (no absolute positioning)
-          Row 2: labels aligned under each dot via the same fixed-width columns
-          Both rows share a wrapper with overflow-x: auto.
-        */}
-        <div style={{ overflowX: 'auto', WebkitOverflowScrolling: 'touch', paddingBottom: '0.5rem' }}>
-          {/* Shared grid: each stage gets a 72px column, connectors get 1fr */}
-          <div style={{
-            display: 'grid',
-            gridTemplateColumns: forwardStages.map((_, i) =>
-              i < forwardStages.length - 1 ? '72px 1fr' : '72px'
-            ).join(' '),
-            minWidth: `${forwardStages.length * 72 + (forwardStages.length - 1) * 40}px`,
-            rowGap: '0.4rem'
-          }}>
-
-            {/* Row 1 — dots + connectors */}
-            {forwardStages.map((st, i) => {
-              const hasLeads = stageCounts[st] > 0;
-              const stageColor = STAGE_COLORS[st] || 'var(--text-muted)';
-              const nextHasLeads = i < forwardStages.length - 1 && stageCounts[forwardStages[i + 1]] > 0;
-              const connectorActive = hasLeads || nextHasLeads;
-              return [
-                /* Node column */
-                <div key={`node-${st}`} style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', height: '28px' }}>
-                  <div style={{
-                    width: '26px',
-                    height: '26px',
-                    borderRadius: '50%',
-                    ...(hasLeads ? softBadgeStyle(stageColor) : {
-                      background: 'transparent',
-                      border: '2px solid var(--border-strong)',
-                      color: 'var(--text-muted)',
-                    }),
-                    display: 'flex',
-                    alignItems: 'center',
-                    justifyContent: 'center',
-                    fontSize: '0.7rem',
-                    fontWeight: 800,
-                    flexShrink: 0,
-                    boxShadow: 'none',
-                    zIndex: 1,
-                    position: 'relative'
-                  }}>
-                    {stageCounts[st]}
-                  </div>
-                </div>,
-
-                /* Connector column (not rendered after last node) */
-                i < forwardStages.length - 1 && (
-                  <div key={`conn-${st}`} style={{ display: 'flex', alignItems: 'center', height: '28px' }}>
-                    <div style={{
-                      width: '100%',
-                      height: '2px',
-                      borderTop: `2px ${connectorActive ? 'solid' : 'dashed'} ${connectorActive ? 'var(--text-muted)' : 'var(--border-strong)'}`
-                    }} />
-                  </div>
-                )
-              ];
-            })}
-
-            {/* Row 2 — labels under each dot */}
-            {forwardStages.map((st, i) => {
-              const hasLeads = stageCounts[st] > 0;
-              const stageColor = STAGE_COLORS[st] || 'var(--text-muted)';
-              return [
-                /* Label under node */
-                <div key={`label-${st}`} style={{ display: 'flex', justifyContent: 'center' }}>
-                  <span style={{
-                    fontSize: '0.62rem',
-                    color: hasLeads ? stageColor : 'var(--text-muted)',
-                    fontWeight: hasLeads ? 600 : 400,
-                    textAlign: 'center',
-                    whiteSpace: 'nowrap',
-                    lineHeight: 1.2
-                  }}>
-                    {st}
-                  </span>
-                </div>,
-
-                /* Empty spacer under connector */
-                i < forwardStages.length - 1 && (
-                  <div key={`label-space-${st}`} />
-                )
-              ];
-            })}
-
-          </div>
+        <div style={{ display: 'flex', flexWrap: 'wrap', gap: '1rem' }}>
+          <button
+            type="button"
+            className="btn btn-secondary btn-sm"
+            onClick={() => navigate('/leads?mode=messages')}
+            style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}
+          >
+            <Mail size={14} /> Messaged <strong>{weekActivity.messaged}</strong>
+          </button>
+          {showCallsStrip && (
+            <button
+              type="button"
+              className="btn btn-secondary btn-sm"
+              onClick={() => navigate('/leads?mode=calls&callView=queue')}
+              style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}
+            >
+              <Phone size={14} /> Called <strong>{weekActivity.called}</strong>
+            </button>
+          )}
+          <button
+            type="button"
+            className="btn btn-secondary btn-sm"
+            onClick={() => navigate('/reminders')}
+            style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}
+          >
+            <Bell size={14} /> Follow-ups due <strong>{weekActivity.followUpsDue}</strong>
+          </button>
         </div>
+      </div>
+
+      {/* Dual pipelines */}
+      <div
+        className={revealBlock}
+        style={{
+          display: 'grid',
+          gridTemplateColumns: showCallsStrip ? 'repeat(auto-fit, minmax(300px, 1fr))' : '1fr',
+          gap: '1rem',
+          marginTop: '0.5rem',
+        }}
+      >
+        <div className="card">
+          <h3 style={{ fontSize: '0.9rem', marginBottom: '0.35rem', display: 'flex', alignItems: 'center', gap: '0.4rem', color: 'var(--text-secondary)' }}>
+            <Mail size={16} /> Messages pipeline
+          </h3>
+          <p style={{ fontSize: '0.75rem', color: 'var(--text-muted)', margin: '0 0 0.85rem' }}>
+            Where deals sit after email / LinkedIn — by message status.
+          </p>
+          <PipelineStepper
+            stages={forwardStages}
+            counts={messageStageCounts}
+            getColor={(st) => STAGE_COLORS[st]}
+          />
+        </div>
+
+        {showCallsStrip && (
+          <div className="card">
+            <h3 style={{ fontSize: '0.9rem', marginBottom: '0.35rem', display: 'flex', alignItems: 'center', gap: '0.4rem', color: 'var(--text-secondary)' }}>
+              <Phone size={16} /> Calls pipeline
+            </h3>
+            <p style={{ fontSize: '0.75rem', color: 'var(--text-muted)', margin: '0 0 0.85rem' }}>
+              Where dials sit in the Call Queue — by call status.
+            </p>
+            <PipelineStepper
+              stages={callStageIds}
+              counts={callStageCounts}
+              getColor={(id) => callStageMeta[id]?.color}
+              getLabel={(id) => callStageMeta[id]?.label || id}
+            />
+            <button
+              type="button"
+              className="btn btn-secondary btn-sm"
+              style={{ marginTop: '0.75rem' }}
+              onClick={() => navigate('/leads?mode=calls&callView=queue')}
+            >
+              Open Call Queue →
+            </button>
+          </div>
+        )}
       </div>
 
 
@@ -824,6 +828,7 @@ export default function Dashboard({ currentUser, onSelectLead }) {
                     const pronounWill = isFemale ? "she'll" : "they'll";
                     const pronounReplied = isFemale ? "she replied" : "they replied";
                     const isExpanded = !!expandedReplies[item.lead.id];
+                    const channel = item.channel || 'message';
 
                     return (
                       <div 
@@ -836,6 +841,30 @@ export default function Dashboard({ currentUser, onSelectLead }) {
                           border: '1px solid var(--border)' 
                         }}
                       >
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '0.4rem', flexWrap: 'wrap' }}>
+                          <span
+                            style={{
+                              fontSize: '0.65rem',
+                              fontWeight: 700,
+                              letterSpacing: '0.04em',
+                              textTransform: 'uppercase',
+                              padding: '2px 7px',
+                              borderRadius: 999,
+                              background: channel === 'call' ? 'rgba(16,185,129,0.15)' : 'rgba(59,130,246,0.15)',
+                              color: channel === 'call' ? '#10b981' : '#3b82f6',
+                            }}
+                          >
+                            {channel === 'call' ? 'Call' : 'Message'}
+                          </span>
+                          <button
+                            type="button"
+                            className="btn btn-secondary btn-sm"
+                            style={{ fontSize: '0.68rem', height: 22, padding: '0 8px' }}
+                            onClick={() => navigate(channel === 'call' ? '/leads?mode=calls&callView=queue' : '/leads?mode=messages')}
+                          >
+                            Open →
+                          </button>
+                        </div>
                         <div style={{ fontSize: '0.85rem', color: 'var(--text-primary)', lineHeight: '1.4' }}>
                           Follow up with <span data-ph-mask>{item.lead.first_name || ''} {item.lead.last_name || ''}</span> — {pronounWill} need a follow-up {formatTimePhrasing(item.date, 'checkpoint')} if {pronoun} hasn't replied yet.
                         </div>

@@ -21,7 +21,7 @@ export const siteMeta = {
     
     pricing: {
       title: 'ReachDesk CRM Pricing — Plans from $5/month | Free Trial',
-      description: 'ReachDesk CRM plans: Starter (750 leads), Pro (5,000 leads, 50 templates), Teams (unlimited + 5 seats). Monthly, quarterly, or yearly billing. Start with a 7-day free trial.',
+      description: 'ReachDesk CRM plans: Starter (750 leads monthly / 2,000 yearly, Calls included), Pro (5,000 leads, 50 templates), Teams (unlimited + 5 seats). Monthly, quarterly, or yearly billing. Start with a 7-day free trial.',
       keywords: 'pricing, CRM cost, freelancer CRM plans',
     },
     

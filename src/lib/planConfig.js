@@ -51,7 +51,7 @@ export const PLAN_LIMITS = {
     calendarIntegration: false,
     sheetsIntegration: true,
     projectColumn: true,
-    coldOutreach: false,
+    coldOutreach: true,
   },
   pro: {
     leads: 5000,
@@ -95,15 +95,16 @@ export const NEXT_PLAN_ID = {
   teams: null,
 };
 
+/** Starter yearly lead cap (not a flat 2× of monthly 750). */
+export const STARTER_YEARLY_LEADS = 2000;
+
 export function getPlanLeadLimit(plan, billingCycle) {
   const key = normalizePlan(plan);
   const base = PLAN_LIMITS[key]?.leads ?? null;
   if (base === null) return null;
-  if (key === 'starter' || key === 'pro') {
-    if ((billingCycle ?? '').toLowerCase() === 'yearly') {
-      return base * 2;
-    }
-  }
+  if ((billingCycle ?? '').toLowerCase() !== 'yearly') return base;
+  if (key === 'starter') return STARTER_YEARLY_LEADS;
+  if (key === 'pro') return base * 2;
   return base;
 }
 

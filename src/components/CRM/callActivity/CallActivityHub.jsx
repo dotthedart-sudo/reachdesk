@@ -172,6 +172,12 @@ export default function CallActivityHub({
   };
 
   const handleAttemptDeleted = async (id) => {
+    if (id === 'refresh') {
+      await loadMy();
+      if (tab === 'team') loadTeam();
+      onRefresh?.();
+      return;
+    }
     await deleteCallAttempt(id);
     setAttempts((prev) => prev.filter((a) => a.id !== id));
     if (tab === 'team') loadTeam();
@@ -185,9 +191,9 @@ export default function CallActivityHub({
     return (
       <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', minHeight: 280, gap: '1rem', textAlign: 'center', padding: '2rem', color: 'var(--text-muted)' }}>
         <Lock size={32} />
-        <h3 style={{ margin: 0, color: 'var(--text-primary)' }}>Call Activity is on Pro and Teams</h3>
+        <h3 style={{ margin: 0, color: 'var(--text-primary)' }}>Call Activity is unavailable</h3>
         <p style={{ margin: 0, maxWidth: 420, fontSize: '0.9rem' }}>
-          Log call outcomes, track follow-ups, and run calling sessions. Teams members inherit access from an active Teams workspace.
+          Log call outcomes, track follow-ups, and run calling sessions on Starter, Pro, and Teams. Team members inherit access from an active Teams workspace.
         </p>
         <button type="button" className="btn btn-primary" onClick={() => navigate('/upgrade')}>
           Upgrade

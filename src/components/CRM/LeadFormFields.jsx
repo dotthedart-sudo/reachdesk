@@ -3,7 +3,8 @@ import { Plus, X, ChevronDown, ChevronRight } from 'lucide-react';
 import GroupedStatusDropdown from './GroupedStatusDropdown';
 import GroupedTemplateDropdown from './GroupedTemplateDropdown';
 import { detectDomainIcon } from '../icons/PlatformIcons';
-import { inferTimezoneFromPhone, getSupportedTimeZones } from '../../lib/leadTimezone';
+import { inferTimezoneFromPhone } from '../../lib/leadTimezone';
+import CountryTimezonePicker from './CountryTimezonePicker';
 
 /**
  * Shared Add/Edit lead fields — sectioned layout matching Auth spacing.
@@ -32,8 +33,6 @@ export default function LeadFormFields({
   onAddCustomField,
   defaultCountryCode = '+92',
 }) {
-  const timezoneOptions = getSupportedTimeZones();
-
   const handleDetectTimezone = () => {
     const { timezone } = inferTimezoneFromPhone(leadForm.phone, defaultCountryCode);
     if (timezone) {
@@ -114,31 +113,18 @@ export default function LeadFormFields({
         </div>
 
         <div className="rd-form-group">
-          <label className="form-label" htmlFor="lead-timezone">Timezone</label>
-          <div style={{ display: 'flex', gap: '0.5rem', flexWrap: 'wrap' }}>
-            <select
-              id="lead-timezone"
-              className="form-input"
-              style={{ flex: 1, minWidth: 200 }}
-              value={leadForm.timezone || ''}
-              onChange={(e) => setLeadForm({
-                ...leadForm,
-                timezone: e.target.value,
-                timezone_source: e.target.value ? 'manual' : '',
-                timezoneTouched: !!e.target.value,
-              })}
-            >
-              <option value="">Auto-detect from phone</option>
-              {timezoneOptions.map((tz) => (
-                <option key={tz} value={tz}>{tz.replace(/_/g, ' ')}</option>
-              ))}
-            </select>
+          <CountryTimezonePicker
+            id="lead-timezone"
+            value={leadForm.timezone || ''}
+            onChange={(patch) => setLeadForm({ ...leadForm, ...patch })}
+          />
+          <div style={{ marginTop: '0.5rem' }}>
             <button type="button" className="btn btn-secondary btn-sm" onClick={handleDetectTimezone}>
               Detect from phone
             </button>
           </div>
           <span style={{ fontSize: '0.75rem', color: 'var(--text-muted)', marginTop: '0.25rem', display: 'block' }}>
-            Used for “good time to call” hints in Calendar and Outreach.
+            Used for “good time to call” hints. Search by country or dial code if the number has no country code.
           </span>
         </div>
 

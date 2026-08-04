@@ -17,6 +17,8 @@ import { getCallActionForStatus, displayCallStatus } from '../../../lib/callOutc
 import { attemptsByLeadMap, buildOutreachSessionQueue } from '../../../lib/outreachQueue';
 import { formatLocalTime, getEffectiveUserTimeZone } from '../../../lib/dateTime';
 import CallingSession from './CallingSession';
+import ManageCallAttemptsModal from './ManageCallAttemptsModal';
+
 export default function CallQueueTable({
   leads = [],
   columnDefs = [],
@@ -43,6 +45,7 @@ export default function CallQueueTable({
   const [attempts, setAttempts] = useState([]);
   const [loading, setLoading] = useState(true);
   const [sessionOpen, setSessionOpen] = useState(false);
+  const [manageLead, setManageLead] = useState(null);
 
   const userId = currentUser?.id;
   const userTimeZone = useMemo(() => getEffectiveUserTimeZone(currentUser), [currentUser?.timezone]);
@@ -200,7 +203,7 @@ export default function CallQueueTable({
         return (
           <DateTimePickerCell
             compact
-            value={lead.last_called_at || last?.created_at || null}
+            value={lead.last_called_at || last?.occurred_at || last?.created_at || null}
             timeZone={userTimeZone}
             onChange={(iso) => handleLastCalledChange(lead, iso)}
             placeholder="—"
@@ -219,7 +222,20 @@ export default function CallQueueTable({
       case 'outcome':
         return last ? <OutcomeBadge outcome={last.outcome} /> : '—';
       case 'attempts':
-        return <span style={{ textAlign: 'center', display: 'block' }}>{attemptList.length || '—'}</span>;
+        return (
+          <button
+            type="button"
+            className="btn btn-secondary btn-sm"
+            style={{ fontSize: '0.75rem', minWidth: 36, justifyContent: 'center' }}
+            title="Manage call logs"
+            onClick={(e) => {
+              e.stopPropagation();
+              setManageLead(lead);
+            }}
+          >
+            {attemptList.length || '—'}
+          </button>
+        );
       case 'priority':
         return (
           <PriorityDropdown
@@ -306,7 +322,7 @@ export default function CallQueueTable({
             ) : leads.map((lead) => {
               const last = byLead.get(lead.id);
               const attemptList = scopedAttempts.filter((a) => a.lead_id === lead.id);
-              const interactiveKeys = new Set(['status', 'call_action', 'script_used', 'priority', 'phone']);
+              const interactiveKeys = new Set(['status', 'call_action', 'script_used', 'priority', 'phone', 'attempts', 'local_time', 'last_called', 'last_contacted_at']);
 
               return (
                 <ResizableTr
@@ -333,6 +349,20 @@ export default function CallQueueTable({
           </tbody>
         </table>
       </div>
+
+      <ManageCallAttemptsModal
+        open={!!manageLead}
+        lead={manageLead}
+        attempts={manageLead ? scopedAttempts.filter((a) => a.lead_id === manageLead.id) : []}
+        currentUserId={userId}
+        onClose={() => setManageLead(null)}
+        onChanged={async () => {
+          if (!userId) return;
+          const data = await fetchMyCallAttempts(userId);
+          setAttempts(data);
+          onRefresh?.();
+        }}
+      />
     </div>
   );
 }

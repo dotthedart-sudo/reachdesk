@@ -2,6 +2,15 @@ import React, { useEffect, useState } from 'react';
 import { X } from 'lucide-react';
 import { CALL_OUTCOMES, leadDisplayName } from '../../../lib/outreachQueue';
 import { logCallWithUpdates } from '../../../lib/callActivity';
+import { captureDeviceTimestamp } from '../../../lib/dateTime';
+
+function toLocalInputValue(iso) {
+  if (!iso) return '';
+  const d = new Date(iso);
+  if (Number.isNaN(d.getTime())) return '';
+  const pad2 = (n) => String(n).padStart(2, '0');
+  return `${d.getFullYear()}-${pad2(d.getMonth() + 1)}-${pad2(d.getDate())}T${pad2(d.getHours())}:${pad2(d.getMinutes())}`;
+}
 
 export default function LogCallModal({
   open,
@@ -22,6 +31,7 @@ export default function LogCallModal({
   const [note, setNote] = useState('');
   const [noteVisibility, setNoteVisibility] = useState('team');
   const [applyStatusAction, setApplyStatusAction] = useState(true);
+  const [occurredLocal, setOccurredLocal] = useState('');
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState('');
 
@@ -32,8 +42,9 @@ export default function LogCallModal({
     setNote('');
     setNoteVisibility('team');
     setApplyStatusAction(updateLeadFields);
+    setOccurredLocal(toLocalInputValue(captureDeviceTimestamp(timeZone).occurredAt));
     setError('');
-  }, [open, defaultLeadId, fixedLead?.id, updateLeadFields]);
+  }, [open, defaultLeadId, fixedLead?.id, updateLeadFields, timeZone]);
 
   if (!open) return null;
 
@@ -47,6 +58,7 @@ export default function LogCallModal({
     setSaving(true);
     setError('');
     try {
+      const occurredAt = occurredLocal ? new Date(occurredLocal).toISOString() : null;
       const { attempt, leadUpdates } = await logCallWithUpdates({
         userId,
         leadId: resolvedLeadId,
@@ -57,6 +69,7 @@ export default function LogCallModal({
         updateLeadFields: applyStatusAction,
         timeZone,
         profile,
+        occurredAt,
       });
       onLogged?.({ attempt, leadUpdates });
       onClose();
@@ -117,6 +130,20 @@ export default function LogCallModal({
               Logging call for <strong style={{ color: 'var(--text-primary)' }}>{leadDisplayName(fixedLead)}</strong>
             </div>
           )}
+
+          <div className="form-group">
+            <label className="form-label">When you called</label>
+            <input
+              type="datetime-local"
+              className="form-input"
+              value={occurredLocal}
+              onChange={(e) => setOccurredLocal(e.target.value)}
+              required
+            />
+            <p style={{ margin: '0.35rem 0 0', fontSize: '0.75rem', color: 'var(--text-muted)' }}>
+              Backdate if you called outside ReachDesk.
+            </p>
+          </div>
 
           <div className="form-group">
             <label className="form-label">Outcome</label>

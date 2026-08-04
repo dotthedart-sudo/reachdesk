@@ -1,9 +1,10 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { X, Calendar, User, FileText, Activity as ActivityIcon, Plus, Trash2, Pencil, Check, Receipt, Lock, Copy, Phone } from 'lucide-react';
+import { X, Calendar, User, FileText, Activity as ActivityIcon, Plus, Trash2, Pencil, Check, Receipt, Lock, Copy, Phone, Mail } from 'lucide-react';
 import { supabase } from '../../lib/supabase';
 import { useAppContext } from '../../App';
 import { fetchLeadCallTimeline } from '../../lib/callActivity';
 import LogCallModal from './callActivity/LogCallModal';
+import LogMessageModal from './LogMessageModal';
 import EditableDropdown from './EditableDropdown';
 import RichTextEditor from './RichTextEditor';
 import GroupedStatusDropdown from './GroupedStatusDropdown';
@@ -21,7 +22,7 @@ import { CALL_ACTION_DEFAULT_OPTIONS } from './crmTableColumns';
 import PriorityDropdown from './PriorityDropdown';
 import DateTimePickerCell from './DateTimePickerCell';
 import ActivityTimelineRow from './ActivityTimelineRow';
-import { fetchLeadTimeline, logLeadTimelineEvent } from '../../lib/leadTimeline';
+import { fetchLeadTimeline, logLeadTimelineEvent, updateTimelineEventOccurredAt } from '../../lib/leadTimeline';
 import { getEffectiveUserTimeZone } from '../../lib/dateTime';
 import { mergeTemplateFields } from '../../utils/templateMerge';
 import { celebrateClosedWon } from '../../utils/celebrateWin';
@@ -150,6 +151,7 @@ export default function LeadDrawer({
   const [callAttempts, setCallAttempts] = useState([]);
   const [callAttemptsLoading, setCallAttemptsLoading] = useState(false);
   const [logCallOpen, setLogCallOpen] = useState(false);
+  const [logMessageOpen, setLogMessageOpen] = useState(false);
 
   const titleInputRef = useRef(null);
 
@@ -341,8 +343,14 @@ export default function LeadDrawer({
     }
   };
 
-  const handleCallLogged = async () => {
+  const handleCallLogged = async ({ leadUpdates } = {}) => {
+    if (leadUpdates && onUpdateLead) onUpdateLead(leadUpdates);
     await Promise.all([fetchCallAttempts(), fetchTimeline()]);
+  };
+
+  const handleMessageLogged = async ({ leadUpdates } = {}) => {
+    if (leadUpdates && onUpdateLead) onUpdateLead(leadUpdates);
+    await fetchTimeline();
   };
 
   const logActivity = async (type, detail) => {
@@ -1407,21 +1415,41 @@ export default function LeadDrawer({
           <div className="flex-col gap-3">
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: '0.75rem', flexWrap: 'wrap' }}>
               <h4 style={{ fontSize: '0.9rem', margin: 0, fontWeight: 600 }}>Activity</h4>
-              <button type="button" className="btn btn-primary btn-sm" onClick={() => setLogCallOpen(true)}>
-                <Phone size={12} /> Log call
-              </button>
+              <div style={{ display: 'flex', gap: '0.4rem', flexWrap: 'wrap' }}>
+                <button type="button" className="btn btn-secondary btn-sm" onClick={() => setLogMessageOpen(true)}>
+                  <Mail size={12} /> Log message
+                </button>
+                <button type="button" className="btn btn-primary btn-sm" onClick={() => setLogCallOpen(true)}>
+                  <Phone size={12} /> Log call
+                </button>
+              </div>
             </div>
 
             {timelineLoading || callAttemptsLoading || activitiesLoading ? (
               <div style={{ textAlign: 'center', padding: '2rem', color: 'var(--text-muted)' }}>Loading activity…</div>
             ) : timeline.length === 0 && callAttempts.length === 0 && activities.length === 0 ? (
               <div style={{ textAlign: 'center', padding: '2rem', color: 'var(--text-muted)', fontSize: '0.9rem', border: '1px dashed var(--border-color)', borderRadius: 6 }}>
-                No activity yet. Log a call or change status to start the timeline.
+                No activity yet. Log a call or message to start the timeline.
               </div>
             ) : timeline.length > 0 ? (
               <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
                 {timeline.map((ev) => (
-                  <ActivityTimelineRow key={ev.id} event={ev} showLead={false} />
+                  <ActivityTimelineRow
+                    key={ev.id}
+                    event={ev}
+                    showLead={false}
+                    editableWhen
+                    onSaveWhen={async (event, iso) => {
+                      const updated = await updateTimelineEventOccurredAt(
+                        event.id,
+                        iso,
+                        getEffectiveUserTimeZone(currentUser),
+                      );
+                      if (updated) {
+                        setTimeline((prev) => prev.map((row) => (row.id === updated.id ? { ...row, ...updated } : row)));
+                      }
+                    }}
+                  />
                 ))}
               </div>
             ) : (
@@ -1433,7 +1461,7 @@ export default function LeadDrawer({
                     event={{
                       event_type: 'call_logged',
                       summary: `Call: ${call.outcome}`,
-                      occurred_at: call.created_at,
+                      occurred_at: call.occurred_at || call.created_at,
                       actor_full_name: call.caller_name,
                       actor_email: call.caller_email,
                       detail: { note: call.note, outcome: call.outcome },
@@ -1608,6 +1636,15 @@ export default function LeadDrawer({
         showNoteSharing={!!currentUser?.team_id}
         onLogged={handleCallLogged}
         timeZone={getEffectiveUserTimeZone(currentUser)}
+      />
+      <LogMessageModal
+        open={logMessageOpen}
+        onClose={() => setLogMessageOpen(false)}
+        lead={lead}
+        userId={currentUser?.id}
+        teamId={currentUser?.team_id || null}
+        timeZone={getEffectiveUserTimeZone(currentUser)}
+        onLogged={handleMessageLogged}
       />
       </div>
     </div>

@@ -49,6 +49,7 @@ export async function insertCallAttempt({
   note,
   noteVisibility = 'team',
   teamId = null,
+  occurredAt = null,
 }) {
   const payload = {
     lead_id: leadId,
@@ -56,6 +57,7 @@ export async function insertCallAttempt({
     outcome,
     note: note?.trim() || null,
     note_visibility: noteVisibility === 'private' ? 'private' : 'team',
+    occurred_at: occurredAt || new Date().toISOString(),
   };
   if (teamId) payload.team_id = teamId;
 
@@ -80,8 +82,11 @@ export async function logCallWithUpdates({
   customOutcomeRules = null,
   timeZone = null,
   profile = null,
+  occurredAt = null,
 }) {
   const stamp = captureDeviceTimestamp(timeZone);
+  const when = occurredAt ? new Date(occurredAt) : null;
+  const occurredIso = when && !Number.isNaN(when.getTime()) ? when.toISOString() : stamp.occurredAt;
   const attempt = await insertCallAttempt({
     userId,
     leadId,
@@ -89,6 +94,7 @@ export async function logCallWithUpdates({
     note,
     noteVisibility,
     teamId,
+    occurredAt: occurredIso,
   });
 
   let leadUpdates = null;
@@ -103,10 +109,10 @@ export async function logCallWithUpdates({
 
     leadUpdates = await applyOutcomeToLead(leadId, outcome, userId, profile, customOutcomeRules);
 
-    // Always stamp last_called_at (+ last_contacted_at) to device/profile "now"
+    // Stamp last_called_at (+ last_contacted_at) to the logged time (or device now)
     const timePatch = {
-      last_called_at: stamp.occurredAt,
-      last_contacted_at: stamp.occurredAt,
+      last_called_at: occurredIso,
+      last_contacted_at: occurredIso,
     };
     const { data: stamped, error: stampErr } = await supabase
       .from('leads')
@@ -140,7 +146,7 @@ export async function logCallWithUpdates({
       ...(callStatusDelta || {}),
     },
     timeZone,
-    occurredAt: stamp.occurredAt,
+    occurredAt: occurredIso,
   });
 
   return { attempt, leadUpdates };
@@ -173,6 +179,7 @@ export async function logCallStatusChange({
     leadId,
     outcome,
     teamId,
+    occurredAt: stamp.occurredAt,
   });
 
   const leadUpdates = await applyCallStatusToLead(leadId, newCallStatus, userId, profile);
@@ -210,12 +217,15 @@ export async function logCallStatusChange({
   return { attempt, leadUpdates: mergedUpdates };
 }
 
-export async function updateCallAttempt(id, { outcome, note, noteVisibility }) {
+export async function updateCallAttempt(id, { outcome, note, noteVisibility, occurredAt }) {
   const updates = {};
   if (outcome !== undefined) updates.outcome = outcome;
   if (note !== undefined) updates.note = note?.trim() || null;
   if (noteVisibility !== undefined) {
     updates.note_visibility = noteVisibility === 'private' ? 'private' : 'team';
+  }
+  if (occurredAt !== undefined) {
+    updates.occurred_at = occurredAt ? new Date(occurredAt).toISOString() : null;
   }
   const { data, error } = await supabase
     .from('lead_call_attempts')
@@ -232,14 +242,35 @@ export async function deleteCallAttempt(id) {
   if (error) throw error;
 }
 
+export async function deleteCallAttempts(ids = []) {
+  if (!ids.length) return;
+  const { error } = await supabase.from('lead_call_attempts').delete().in('id', ids);
+  if (error) throw error;
+}
+
 export async function fetchMyCallAttempts(userId) {
   const { data, error } = await supabase
     .from('lead_call_attempts')
-    .select('id, lead_id, user_id, outcome, note, note_visibility, created_at')
+    .select('id, lead_id, user_id, outcome, note, note_visibility, created_at, occurred_at')
     .eq('user_id', userId)
-    .order('created_at', { ascending: false });
+    .order('occurred_at', { ascending: false });
   if (error) throw error;
   return data || [];
+}
+
+/** Sync lead.last_called_at to the latest remaining attempt time for this user. */
+export async function refreshLeadLastCalledAt(leadId, userId) {
+  const { data: rows } = await supabase
+    .from('lead_call_attempts')
+    .select('occurred_at, created_at')
+    .eq('lead_id', leadId)
+    .eq('user_id', userId)
+    .order('occurred_at', { ascending: false })
+    .limit(1);
+  const latest = rows?.[0];
+  const stamp = latest ? (latest.occurred_at || latest.created_at) : null;
+  await supabase.from('leads').update({ last_called_at: stamp }).eq('id', leadId);
+  return stamp;
 }
 
 export async function fetchTeamCallActivity({

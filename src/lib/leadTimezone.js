@@ -51,6 +51,64 @@ const DIAL_CODE_TO_TZ = {
   '254': 'Africa/Nairobi',
 };
 
+/** Searchable country → primary timezone (for lead timezone picker). */
+export const COUNTRY_TIMEZONE_OPTIONS = [
+  { name: 'United States', dial: '1', timezone: 'America/New_York' },
+  { name: 'Canada', dial: '1', timezone: 'America/Toronto' },
+  { name: 'United Kingdom', dial: '44', timezone: 'Europe/London' },
+  { name: 'Pakistan', dial: '92', timezone: 'Asia/Karachi' },
+  { name: 'India', dial: '91', timezone: 'Asia/Kolkata' },
+  { name: 'Bangladesh', dial: '880', timezone: 'Asia/Dhaka' },
+  { name: 'United Arab Emirates', dial: '971', timezone: 'Asia/Dubai' },
+  { name: 'Saudi Arabia', dial: '966', timezone: 'Asia/Riyadh' },
+  { name: 'Germany', dial: '49', timezone: 'Europe/Berlin' },
+  { name: 'France', dial: '33', timezone: 'Europe/Paris' },
+  { name: 'Netherlands', dial: '31', timezone: 'Europe/Amsterdam' },
+  { name: 'Spain', dial: '34', timezone: 'Europe/Madrid' },
+  { name: 'Italy', dial: '39', timezone: 'Europe/Rome' },
+  { name: 'Australia', dial: '61', timezone: 'Australia/Sydney' },
+  { name: 'Singapore', dial: '65', timezone: 'Asia/Singapore' },
+  { name: 'Malaysia', dial: '60', timezone: 'Asia/Kuala_Lumpur' },
+  { name: 'Indonesia', dial: '62', timezone: 'Asia/Jakarta' },
+  { name: 'Philippines', dial: '63', timezone: 'Asia/Manila' },
+  { name: 'Japan', dial: '81', timezone: 'Asia/Tokyo' },
+  { name: 'South Korea', dial: '82', timezone: 'Asia/Seoul' },
+  { name: 'China', dial: '86', timezone: 'Asia/Shanghai' },
+  { name: 'Brazil', dial: '55', timezone: 'America/Sao_Paulo' },
+  { name: 'Mexico', dial: '52', timezone: 'America/Mexico_City' },
+  { name: 'Nigeria', dial: '234', timezone: 'Africa/Lagos' },
+  { name: 'Kenya', dial: '254', timezone: 'Africa/Nairobi' },
+  { name: 'South Africa', dial: '27', timezone: 'Africa/Johannesburg' },
+  { name: 'Egypt', dial: '20', timezone: 'Africa/Cairo' },
+  { name: 'Turkey', dial: '90', timezone: 'Europe/Istanbul' },
+  { name: 'Poland', dial: '48', timezone: 'Europe/Warsaw' },
+  { name: 'Sweden', dial: '46', timezone: 'Europe/Stockholm' },
+  { name: 'Norway', dial: '47', timezone: 'Europe/Oslo' },
+  { name: 'Denmark', dial: '45', timezone: 'Europe/Copenhagen' },
+  { name: 'Switzerland', dial: '41', timezone: 'Europe/Zurich' },
+  { name: 'Austria', dial: '43', timezone: 'Europe/Vienna' },
+  { name: 'Belgium', dial: '32', timezone: 'Europe/Brussels' },
+  { name: 'Greece', dial: '30', timezone: 'Europe/Athens' },
+  { name: 'Portugal', dial: '351', timezone: 'Europe/Lisbon' },
+  { name: 'Ireland', dial: '353', timezone: 'Europe/Dublin' },
+  { name: 'New Zealand', dial: '64', timezone: 'Pacific/Auckland' },
+  { name: 'Thailand', dial: '66', timezone: 'Asia/Bangkok' },
+  { name: 'Sri Lanka', dial: '94', timezone: 'Asia/Colombo' },
+  { name: 'Afghanistan', dial: '93', timezone: 'Asia/Kabul' },
+  { name: 'Israel', dial: '972', timezone: 'Asia/Jerusalem' },
+  { name: 'Peru', dial: '51', timezone: 'America/Lima' },
+  { name: 'Russia', dial: '7', timezone: 'Europe/Moscow' },
+].sort((a, b) => a.name.localeCompare(b.name));
+
+const TZ_TO_COUNTRY = Object.fromEntries(
+  COUNTRY_TIMEZONE_OPTIONS.map((c) => [c.timezone, c.name]),
+);
+
+export function getCountryLabelForTimezone(timezone) {
+  if (!timezone) return null;
+  return TZ_TO_COUNTRY[timezone] || null;
+}
+
 const CALL_WINDOW_BADGE = {
   good: { label: 'Good time', bg: 'rgba(34, 197, 94, 0.15)', color: '#22c55e' },
   early: { label: 'Early', bg: 'rgba(245, 158, 11, 0.15)', color: '#f59e0b' },
@@ -105,6 +163,25 @@ export function getLeadLocalTime(lead, at = new Date(), defaultCountryCode = '+9
     return time;
   } catch {
     return null;
+  }
+}
+
+/** Friendlier label: "3:20 PM · Pakistan" (falls back to zone abbreviation). */
+export function getLeadLocalTimeLabel(lead, at = new Date(), defaultCountryCode = '+92') {
+  const tz = getLeadTimezone(lead, defaultCountryCode);
+  if (!tz) return null;
+  try {
+    const time = new Intl.DateTimeFormat(undefined, {
+      timeZone: tz,
+      hour: 'numeric',
+      minute: '2-digit',
+    }).format(at instanceof Date ? at : new Date(at));
+    const country = getCountryLabelForTimezone(tz);
+    const city = tz.split('/').pop()?.replace(/_/g, ' ');
+    const place = country || city;
+    return place ? `${time} · ${place}` : time;
+  } catch {
+    return getLeadLocalTime(lead, at, defaultCountryCode);
   }
 }
 

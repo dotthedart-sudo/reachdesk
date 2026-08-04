@@ -4,7 +4,7 @@ import { leadDisplayName } from '../../../lib/outreachQueue';
 import { logCallWithUpdates, fetchRecentCallsOnLead } from '../../../lib/callActivity';
 import { displayCallStatus } from '../../../lib/callOutcomeRules';
 import CallWindowBadge from '../CallWindowBadge';
-import { getLeadLocalTime } from '../../../lib/leadTimezone';
+import { getLeadLocalTimeLabel } from '../../../lib/leadTimezone';
 import LogCallModal from './LogCallModal';
 import QuickLogChips, { QUICK_LOG_OUTCOMES } from './QuickLogChips';
 
@@ -27,7 +27,7 @@ export default function CallingSession({
 
   const lead = queue[index] || null;
   const remaining = Math.max(0, queue.length - index);
-  const localTime = lead ? getLeadLocalTime(lead, new Date(), defaultCountryCode) : null;
+  const localTime = lead ? getLeadLocalTimeLabel(lead, new Date(), defaultCountryCode) : null;
 
   useEffect(() => {
     if (!lead?.id) {

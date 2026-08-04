@@ -26,7 +26,7 @@ import { LogCallModal } from './CRM/OutreachTracker';
 import PlanColdCallsModal from './Calendar/PlanColdCallsModal';
 import CallWindowBadge from './CRM/CallWindowBadge';
 import ActivityTimelineRow from './CRM/ActivityTimelineRow';
-import { getLeadLocalTime } from '../lib/leadTimezone';
+import { getLeadLocalTimeLabel } from '../lib/leadTimezone';
 import { fetchTeamTimelineForDay, logLeadTimelineEvent } from '../lib/leadTimeline';
 import {
   fetchTeamCalendarPermissions,
@@ -204,7 +204,7 @@ function PlanTaskRow({ task, onLog, onCancel, onOpenLead, defaultCountryCode }) 
   const lead = task.leads || task.lead;
   const taskType = task.task_type || 'call';
   const isCheckpoint = !!task.is_checkpoint;
-  const localTime = lead ? getLeadLocalTime(lead, new Date(), defaultCountryCode) : null;
+  const localTime = lead ? getLeadLocalTimeLabel(lead, new Date(), defaultCountryCode) : null;
   const statusStyle = {
     pending: { bg: 'rgba(59, 130, 246, 0.15)', color: '#3b82f6' },
     done: { bg: 'rgba(34, 197, 94, 0.15)', color: '#22c55e' },

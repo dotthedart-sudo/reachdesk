@@ -65,6 +65,7 @@ export { AI_BOT_CREDITS };
 const STARTER_FEATURES_BASE = [
   '10 templates',
   `${AI_BOT_CREDITS.starter} AI credits / month`,
+  'Cold Calls · Call Queue',
   '7-checkpoint follow-up reminders',
   'Smart folders · project/niche columns',
   'Notes · whiteboard',
@@ -99,7 +100,7 @@ export function getPlanFeatures(planId, billingCycle) {
   if (key === 'starter') {
     const features = [leadLine, ...STARTER_FEATURES_BASE];
     if (hasYearlyBonus) {
-      features.push({ label: '2× lead capacity on yearly', badge: 'Bonus' });
+      features.push({ label: '2,000 leads on yearly', badge: 'Bonus' });
     }
     return features;
   }
