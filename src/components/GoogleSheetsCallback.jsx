@@ -2,6 +2,7 @@ import React, { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { supabase } from '../lib/supabase';
 import { CheckCircle, XCircle, Loader } from 'lucide-react';
+import { markSheetsScopeAck } from '../lib/googleSheetsOAuth';
 
 /**
  * GoogleSheetsCallback
@@ -72,6 +73,7 @@ export default function GoogleSheetsCallback() {
         if (data?.error) throw new Error(data.error);
 
         // ── Success ───────────────────────────────────────────────────────
+        markSheetsScopeAck();
         setStatus('success');
 
         // Fetch origin redirect or default to Settings

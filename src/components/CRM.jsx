@@ -56,6 +56,11 @@ import {
   canShareFolder as userCanShareFolder,
 } from '../lib/folderShares';
 import { softBadgeStyle } from '../lib/softBadgeStyle';
+import {
+  startGoogleSheetsOAuth,
+  markSheetsScopeAck,
+  needsSheetsReconnect,
+} from '../lib/googleSheetsOAuth';
 
 const ACTION_TO_TAKE_SEED = DEFAULT_ACTION_OPTIONS;
 import ShareListModal from './CRM/ShareListModal';
@@ -674,6 +679,7 @@ export default function CRM({
   const [showSheetsImportModal, setShowSheetsImportModal] = useState(false);
   const [sheetsConnected, setSheetsConnected] = useState(false);
   const [sheetsConnectedChecked, setSheetsConnectedChecked] = useState(false);
+  const [sheetsNeedsReconnect, setSheetsNeedsReconnect] = useState(false);
   const [showFolderModal, setShowFolderModal] = useState(false);
   const [activeLead, setActiveLead] = useState(null);
   const [convertingLead, setConvertingLead] = useState(null);
@@ -1224,7 +1230,9 @@ export default function CRM({
         .select('id')
         .eq('user_id', user.id)
         .maybeSingle();
-      setSheetsConnected(!!data?.id);
+      const connected = !!data?.id;
+      setSheetsConnected(connected);
+      setSheetsNeedsReconnect(needsSheetsReconnect(connected));
       setSheetsConnectedChecked(true);
     }
     checkSheetsConnection();
@@ -1232,7 +1240,9 @@ export default function CRM({
     // Handle ?connected=sheets callback after OAuth
     const connectedParam = new URLSearchParams(window.location.search).get('connected');
     if (connectedParam === 'sheets') {
+      markSheetsScopeAck();
       setSheetsConnected(true);
+      setSheetsNeedsReconnect(false);
       showToast?.('Google Sheets connected successfully!', 'success');
       // Clean the URL param
       const nextUrl = new URL(window.location.href);
@@ -2512,13 +2522,8 @@ export default function CRM({
 
   const openExportSheetsForLeads = (subset, options = {}) => {
     setShowExportDropdown(false);
-    if (!sheetsConnected) {
-      sessionStorage.setItem('sheets_oauth_return', window.location.pathname + window.location.search);
-      const redirectUri = `${window.location.origin}/auth/google-sheets/callback`;
-      const clientId = import.meta.env.VITE_GOOGLE_SHEETS_CLIENT_ID;
-      const scope = 'https://www.googleapis.com/auth/spreadsheets https://www.googleapis.com/auth/drive.file';
-      const authUrl = `https://accounts.google.com/o/oauth2/v2/auth?client_id=${encodeURIComponent(clientId)}&redirect_uri=${encodeURIComponent(redirectUri)}&response_type=code&scope=${encodeURIComponent(scope)}&access_type=offline&prompt=consent`;
-      window.location.href = authUrl;
+    if (!sheetsConnected || sheetsNeedsReconnect) {
+      startGoogleSheetsOAuth(`${window.location.pathname}${window.location.search}`);
       return;
     }
     setExportSheetsOptions(options);
@@ -2535,6 +2540,31 @@ export default function CRM({
     >
       {/* Leads Table Content Section — no Lists sidebar; switch lists via breadcrumb */}
       <div className={`flex-col gap-4${blockClass}`} style={{ flex: 1, textAlign: 'left', minWidth: 0, width: '100%' }}>
+        {canUseIntegrations && sheetsNeedsReconnect && (
+          <div style={{
+            padding: '0.75rem 1rem',
+            borderRadius: 8,
+            background: 'rgba(245, 158, 11, 0.12)',
+            border: '1px solid rgba(245, 158, 11, 0.35)',
+            fontSize: '0.875rem',
+            display: 'flex',
+            justifyContent: 'space-between',
+            alignItems: 'center',
+            gap: '0.75rem',
+            flexWrap: 'wrap',
+          }}>
+            <span>
+              Reconnect Google Sheets to continue importing and exporting. Google now requires updated access permissions.
+            </span>
+            <button
+              type="button"
+              className="btn btn-primary btn-sm"
+              onClick={() => startGoogleSheetsOAuth(`${window.location.pathname}${window.location.search}`)}
+            >
+              Reconnect Sheets
+            </button>
+          </div>
+        )}
         {isBrowseMode ? (
           <FolderBrowser
             folders={folders}
@@ -2830,14 +2860,8 @@ export default function CRM({
             {canUseIntegrations && (
               <button
                 onClick={() => {
-                  if (!sheetsConnected) {
-                    // Start OAuth directly, save CRM path so user returns here
-                    sessionStorage.setItem('sheets_oauth_return', window.location.pathname + window.location.search);
-                    const redirectUri = `${window.location.origin}/auth/google-sheets/callback`;
-                    const clientId = import.meta.env.VITE_GOOGLE_SHEETS_CLIENT_ID;
-                    const scope = 'https://www.googleapis.com/auth/spreadsheets https://www.googleapis.com/auth/drive.file';
-                    const authUrl = `https://accounts.google.com/o/oauth2/v2/auth?client_id=${encodeURIComponent(clientId)}&redirect_uri=${encodeURIComponent(redirectUri)}&response_type=code&scope=${encodeURIComponent(scope)}&access_type=offline&prompt=consent`;
-                    window.location.href = authUrl;
+                  if (!sheetsConnected || sheetsNeedsReconnect) {
+                    startGoogleSheetsOAuth(`${window.location.pathname}${window.location.search}`);
                   } else {
                     setShowSheetsImportModal(true);
                   }
@@ -2848,7 +2872,11 @@ export default function CRM({
                 style={isLeadLimitReached ? { opacity: 0.5, cursor: 'not-allowed' } : {}}
               >
                 <Database size={16} />
-                {sheetsConnected ? 'Import from Sheets' : 'Connect Sheets to Import'}
+                {sheetsNeedsReconnect
+                  ? 'Reconnect Sheets to Import'
+                  : sheetsConnected
+                    ? 'Import from Sheets'
+                    : 'Connect Sheets to Import'}
               </button>
             )}
 
@@ -2883,7 +2911,11 @@ export default function CRM({
                         style={{ display: 'flex', alignItems: 'center', gap: '8px', background: 'transparent', border: 'none', padding: '0.5rem 0.75rem', textAlign: 'left', cursor: 'pointer', color: '#10b981', width: '100%', fontSize: '0.875rem' }}
                       >
                         <Download size={14} />
-                        {sheetsConnected ? 'Export all to Google Sheets' : 'Connect Sheets to Export'}
+                        {sheetsNeedsReconnect
+                          ? 'Reconnect Sheets to Export'
+                          : sheetsConnected
+                            ? 'Export all to Google Sheets'
+                            : 'Connect Sheets to Export'}
                       </button>
                       {canExportCurrentFolder && sheetsConnected && (
                         <button

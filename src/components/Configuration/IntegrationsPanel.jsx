@@ -1,9 +1,10 @@
 import React from 'react';
 import {
-  Plug, Calendar, CheckCircle, Check, Unlink, Lock,
+  Plug, Calendar, CheckCircle, Check, Unlink, Lock, RefreshCw,
 } from 'lucide-react';
 import { PLAN_LIMITS, getEffectivePlan } from '../../lib/utils';
 import { BRAND_NAME } from '../../config/brand';
+import { needsSheetsReconnect } from '../../lib/googleSheetsOAuth';
 
 export default function IntegrationsPanel({
   currentUser,
@@ -21,6 +22,8 @@ export default function IntegrationsPanel({
   onDisconnectSheets,
   onUpgrade,
 }) {
+  const sheetsNeedsReconnect = needsSheetsReconnect(!!sheetsIntegration);
+
   return (
     <div className="card flex-col gap-3" id="integrations">
       <div className="rd-section-head" style={{ borderBottom: '1px solid var(--border-color)', paddingBottom: 'var(--space-3)', marginBottom: 'var(--space-1)' }}>
@@ -41,6 +44,33 @@ export default function IntegrationsPanel({
         <div style={{ padding: '0.75rem 1rem', borderRadius: 'var(--radius-md)', background: 'color-mix(in srgb, var(--success-color) 10%, transparent)', border: '1px solid color-mix(in srgb, var(--success-color) 25%, transparent)', color: 'var(--success-color)', fontSize: 'var(--text-sm)', display: 'flex', alignItems: 'center', gap: 'var(--space-2)' }}>
           <CheckCircle size={16} style={{ flexShrink: 0 }} />
           <span>{sheetsSuccessMsg}</span>
+        </div>
+      )}
+
+      {sheetsNeedsReconnect && (
+        <div style={{
+          padding: '0.75rem 1rem',
+          borderRadius: 'var(--radius-md)',
+          background: 'rgba(245, 158, 11, 0.12)',
+          border: '1px solid rgba(245, 158, 11, 0.35)',
+          fontSize: 'var(--text-sm)',
+          display: 'flex',
+          justifyContent: 'space-between',
+          alignItems: 'center',
+          gap: '0.75rem',
+          flexWrap: 'wrap',
+        }}>
+          <span>
+            Reconnect Google Sheets to continue importing and exporting. Google now requires updated access permissions.
+          </span>
+          <button
+            type="button"
+            className="btn btn-primary btn-sm"
+            onClick={onConnectSheets}
+            style={{ display: 'inline-flex', alignItems: 'center', gap: '0.35rem', flexShrink: 0 }}
+          >
+            <RefreshCw size={14} /> Reconnect Sheets
+          </button>
         </div>
       )}
 
@@ -110,18 +140,32 @@ export default function IntegrationsPanel({
           <span>
             {sheetsLoading
               ? 'Checking status…'
-              : sheetsIntegration
-                ? `Connected · since ${new Date(sheetsIntegration.connected_at).toLocaleDateString()}`
-                : 'Not connected — export and import from Google Sheets'}
+              : sheetsNeedsReconnect
+                ? 'Reconnect required — updated Google permissions'
+                : sheetsIntegration
+                  ? `Connected · since ${new Date(sheetsIntegration.connected_at).toLocaleDateString()}`
+                  : 'Not connected — export and import from Google Sheets'}
           </span>
         </div>
         <div className="rd-integration-actions">
           {!sheetsLoading && (
             sheetsIntegration ? (
               <>
-                <span className="rd-integration-status">
-                  <Check size={14} /> Connected
-                </span>
+                {!sheetsNeedsReconnect && (
+                  <span className="rd-integration-status">
+                    <Check size={14} /> Connected
+                  </span>
+                )}
+                {sheetsNeedsReconnect && (
+                  <button
+                    type="button"
+                    onClick={onConnectSheets}
+                    className="btn btn-primary btn-sm"
+                    style={{ display: 'flex', alignItems: 'center', gap: '0.35rem' }}
+                  >
+                    <RefreshCw size={14} /> Reconnect
+                  </button>
+                )}
                 <button
                   type="button"
                   onClick={onDisconnectSheets}
@@ -149,7 +193,8 @@ export default function IntegrationsPanel({
 
       <p className="rd-integration-footnote">
         {BRAND_NAME} reads your calendar to detect bookings and can create events you add in-app.
-        Disconnect anytime to revoke access. Reconnect if you connected before write access was enabled.
+        Sheets access applies only to files you select in Google Picker.
+        Disconnect anytime to revoke access. Reconnect Calendar if you connected before write access was enabled.
       </p>
     </div>
   );

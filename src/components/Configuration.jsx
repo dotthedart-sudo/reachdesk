@@ -38,6 +38,11 @@ import TeamPanel from './Configuration/TeamPanel';
 import BillingPanel from './Configuration/BillingPanel';
 import IntegrationsPanel from './Configuration/IntegrationsPanel';
 import DataExportPanel from './Configuration/DataExportPanel';
+import {
+  startGoogleSheetsOAuth,
+  markSheetsScopeAck,
+  clearSheetsScopeAck,
+} from '../lib/googleSheetsOAuth';
 import CancelSubscriptionModal from './Configuration/CancelSubscriptionModal';
 import { resolveSettingsTab } from './Configuration/settingsTabs';
 import './Configuration.css';
@@ -535,10 +540,11 @@ export default function Configuration({
     fetchSheetsIntegration();
   }, [currentUser?.id]);
 
-  // â”€â”€ Show sheets success banner if redirected back after OAuth â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+  // ── Show sheets success banner if redirected back after OAuth ───────────
   useEffect(() => {
     const params = new URLSearchParams(location.search);
     if (params.get('connected') === 'sheets') {
+      markSheetsScopeAck();
       setActiveTab('integrations');
       setSheetsSuccessMsg('Google Sheets connected successfully! You can now import and export leads directly.');
       window.history.replaceState({}, '', '/settings?tab=integrations');
@@ -546,24 +552,9 @@ export default function Configuration({
     }
   }, [location.search]);
 
-  // â”€â”€ Connect Google Sheets (initiates OAuth with CSRF state) â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+  // ── Connect Google Sheets (initiates OAuth with CSRF state) ──────────────
   const handleConnectSheets = () => {
-    const state = crypto.randomUUID();
-    sessionStorage.setItem('google_sheets_oauth_state', state);
-    sessionStorage.setItem('google_sheets_oauth_origin', '/settings?tab=integrations');
-    const clientId = import.meta.env.VITE_GOOGLE_SHEETS_CLIENT_ID;
-    const redirectUri = encodeURIComponent(window.location.origin + '/auth/google-sheets/callback');
-    const scope = encodeURIComponent('https://www.googleapis.com/auth/spreadsheets https://www.googleapis.com/auth/drive.file');
-    window.location.href = [
-      'https://accounts.google.com/o/oauth2/v2/auth',
-      `?client_id=${clientId}`,
-      `&redirect_uri=${redirectUri}`,
-      '&response_type=code',
-      `&scope=${scope}`,
-      '&access_type=offline',
-      '&prompt=consent',
-      `&state=${state}`,
-    ].join('');
+    startGoogleSheetsOAuth('/settings?tab=integrations');
   };
 
   // â”€â”€ Disconnect Google Sheets â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
@@ -591,6 +582,7 @@ export default function Configuration({
         .eq('user_id', currentUser.id);
 
       setSheetsIntegration(null);
+      clearSheetsScopeAck();
       setSheetsSuccessMsg('Google Sheets disconnected. You can reconnect anytime.');
       setTimeout(() => setSheetsSuccessMsg(''), 5000);
     } catch (err) {

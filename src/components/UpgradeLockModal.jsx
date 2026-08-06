@@ -5,6 +5,7 @@ import { supabase } from '../lib/supabase';
 import { exportLeads, exportNotes } from '../utils/exportUtils';
 import ExportSheetsModal from './CRM/ExportSheetsModal';
 import { ShinyButton } from '@/registry/magicui/shiny-button';
+import { startGoogleSheetsOAuth, needsSheetsReconnect } from '../lib/googleSheetsOAuth';
 
 // ─────────────────────────────────────────────────────────────────────────────
 
@@ -16,6 +17,7 @@ export default function UpgradeLockModal({ profile, handleLogout, theme }) {
   const [sheetsConnected, setSheetsConnected] = useState(false);
   const [showSheetsExportModal, setShowSheetsExportModal] = useState(false);
   const [leads, setLeads] = useState([]);
+  const sheetsNeedsReconnectBanner = needsSheetsReconnect(sheetsConnected);
 
   useEffect(() => {
     async function checkConnectionAndFetchLeads() {
@@ -265,16 +267,10 @@ export default function UpgradeLockModal({ profile, handleLogout, theme }) {
 
             <button
               onClick={async () => {
-                if (!sheetsConnected) {
-                  // Start OAuth — return user to dashboard after connecting
+                if (!sheetsConnected || sheetsNeedsReconnectBanner) {
                   const { data: { session } } = await supabase.auth.getSession();
                   if (!session) return;
-                  sessionStorage.setItem('sheets_oauth_return', '/dashboard');
-                  const redirectUri = `${window.location.origin}/auth/google-sheets/callback`;
-                  const clientId = import.meta.env.VITE_GOOGLE_SHEETS_CLIENT_ID;
-                  const scope = 'https://www.googleapis.com/auth/spreadsheets https://www.googleapis.com/auth/drive.file';
-                  const authUrl = `https://accounts.google.com/o/oauth2/v2/auth?client_id=${encodeURIComponent(clientId)}&redirect_uri=${encodeURIComponent(redirectUri)}&response_type=code&scope=${encodeURIComponent(scope)}&access_type=offline&prompt=consent`;
-                  window.location.href = authUrl;
+                  startGoogleSheetsOAuth('/dashboard');
                 } else {
                   setShowSheetsExportModal(true);
                 }
@@ -286,10 +282,22 @@ export default function UpgradeLockModal({ profile, handleLogout, theme }) {
               }}
               onMouseEnter={e => { e.currentTarget.style.borderColor = 'var(--accent-blue)'; e.currentTarget.style.color = 'var(--accent-blue)'; }}
               onMouseLeave={e => { e.currentTarget.style.borderColor = 'var(--border-strong)'; e.currentTarget.style.color = 'var(--text-muted)'; }}
-              title={sheetsConnected ? 'Export all your leads directly to Google Sheets' : 'Connect Google Sheets to export your leads'}
+              title={
+                sheetsNeedsReconnectBanner
+                  ? 'Reconnect Google Sheets to export your leads'
+                  : sheetsConnected
+                    ? 'Export all your leads directly to Google Sheets'
+                    : 'Connect Google Sheets to export your leads'
+              }
             >
               <Database size={12} />
-              <span>{sheetsConnected ? 'Export to Sheets' : 'Connect Sheets to Export'}</span>
+              <span>
+                {sheetsNeedsReconnectBanner
+                  ? 'Reconnect Sheets to Export'
+                  : sheetsConnected
+                    ? 'Export to Sheets'
+                    : 'Connect Sheets to Export'}
+              </span>
             </button>
           </div>
         </div>
