@@ -45,6 +45,7 @@ import {
   countMessagePipeline,
   countCallPipeline,
   computeWeekActivity,
+  computeLeadsOverviewMetrics,
 } from '../lib/dashboardMetrics';
 import { fetchMyCallAttempts } from '../lib/callActivity';
 import { hasOutreachByPlan } from '../lib/callActivity';
@@ -159,18 +160,8 @@ export default function Dashboard({ currentUser, onSelectLead }) {
         currentUserId: currentUser.id,
       }));
 
-      // 1. Calculate Core Metrics
-      const totalLeads = loadedLeads.length;
-      const contactedLeads = loadedLeads.filter(l => l.status === 'Contacted').length;
-      const repliedLeads = loadedLeads.filter(l => ['Positive Reply', 'Booked', 'Closed Won'].includes(l.status)).length;
-      const positiveReplies = loadedLeads.filter(l => l.status === 'Positive Reply').length;
-
-      setMetrics({
-        total: totalLeads,
-        contacted: contactedLeads,
-        replied: repliedLeads,
-        positive: positiveReplies
-      });
+      // 1. Calculate Core Metrics (cumulative stage reach for overview cards)
+      setMetrics(computeLeadsOverviewMetrics(loadedLeads));
 
       // 2. Fetch Copy performance templates if allowed
       if (limits.copyAnalytics) {

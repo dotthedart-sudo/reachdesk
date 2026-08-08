@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { Lock, ShieldAlert, Check } from 'lucide-react';
+import { Lock, ShieldAlert, Check, X } from 'lucide-react';
 import { supabase } from '../lib/supabase';
 import { useLocalCurrency } from '../utils/useLocalCurrency';
 import { APP_DOMAIN, isLocalDev } from '../utils/domain';
@@ -7,7 +7,7 @@ import { PLANS, getPlanFeatures } from '../lib/planMarketing';
 import { ShinyButton } from '@/registry/magicui/shiny-button';
 import { isRegionExcluded, formatPlanHeroAmount, formatPlanHeroPeriod, formatPlanHeroSub, formatPlanHeroBillingNote } from '../lib/regionalPricing';
 import { normalizePlan } from '../lib/planConfig';
-import { canManageOwnBilling, isTeamMember } from '../lib/teamWorkspace';
+import { isTeamMember } from '../lib/teamWorkspace';
 import MemberBillingNotice from './MemberBillingNotice';
 import AuthLogo from './AuthLogo';
 
@@ -167,7 +167,7 @@ const PLAN_LEVELS = {
   teams: 3,
 };
 
-function PlanCard({ plan, billing, handlePaddleCheckout, profile, country, formatLocalPrice }) {
+function PlanCard({ plan, billing, onSelectPlan, profile, country, formatLocalPrice }) {
   const { id, name, tagline, comingSoon, highlighted, ctaLabel } = plan;
   const features = getPlanFeatures(id, billing);
   const checkoutBlocked = isRegionExcluded(country);
@@ -287,7 +287,7 @@ function PlanCard({ plan, billing, handlePaddleCheckout, profile, country, forma
         </p>
       ) : isSelectable ? (
         <ShinyButton
-          onClick={() => handlePaddleCheckout(id, pricing?.priceId)}
+          onClick={() => onSelectPlan(id, pricing?.priceId, cardStatus === 'upgrade')}
           className="rd-pricing-cta"
         >
           {ctaText}
@@ -313,9 +313,27 @@ function PlanCard({ plan, billing, handlePaddleCheckout, profile, country, forma
 }
 
 // ─── Main UpgradePage Export ──────────────────────────────────────────────────
+function normalizeBillingCycle(cycle) {
+  const key = String(cycle || '').toLowerCase();
+  return ['monthly', 'quarterly', 'yearly'].includes(key) ? key : null;
+}
+
+function hasPaddleSubscription(profile) {
+  const id = String(profile?.paddle_subscription_id || '');
+  return id.startsWith('sub_');
+}
+
 export function UpgradePage({ profile, handleLogout, onRefreshProfile, bankAccount, bankIban, isEmbedded = false }) {
-  const [billing, setBilling] = useState('monthly');
+  const profileCycle = normalizeBillingCycle(profile?.billing_cycle) || 'monthly';
+  const [billing, setBilling] = useState(profileCycle);
   const { formatLocalPrice, country } = useLocalCurrency();
+  const [upgradeModal, setUpgradeModal] = useState(null); // { planKey, charge, loading, error, confirming }
+  const [actionError, setActionError] = useState('');
+
+  useEffect(() => {
+    const next = normalizeBillingCycle(profile?.billing_cycle);
+    if (next) setBilling(next);
+  }, [profile?.billing_cycle]);
 
   useEffect(() => {
     if (window.Paddle) {
@@ -325,7 +343,7 @@ export function UpgradePage({ profile, handleLogout, onRefreshProfile, bankAccou
     }
   }, []);
 
-  const handlePaddleCheckout = async (planKey, priceId) => {
+  const openPaddleCheckout = async (planKey, priceId) => {
     const { data: { user } } = await supabase.auth.getUser();
     if (!user || !priceId) return;
     if (profile?.role === 'admin' || isTeamMember(profile)) return;
@@ -338,6 +356,106 @@ export function UpgradePage({ profile, handleLogout, onRefreshProfile, bankAccou
         ? `${window.location.origin}/dashboard?upgraded=true`
         : `${APP_DOMAIN}/dashboard?upgraded=true`,
     });
+  };
+
+  const canUseProratedUpgrade = (isUpgradeClick) => {
+    if (!isUpgradeClick) return false;
+    if (!hasPaddleSubscription(profile)) return false;
+    const currentCycle = normalizeBillingCycle(profile?.billing_cycle);
+    if (!currentCycle) return false;
+    // Same-cycle upgrades only
+    return billing === currentCycle;
+  };
+
+  const handleSelectPlan = async (planKey, priceId, isUpgradeClick) => {
+    setActionError('');
+    if (profile?.role === 'admin' || isTeamMember(profile)) return;
+
+    if (!canUseProratedUpgrade(isUpgradeClick)) {
+      await openPaddleCheckout(planKey, priceId);
+      return;
+    }
+
+    setUpgradeModal({
+      planKey,
+      charge: null,
+      loading: true,
+      confirming: false,
+      error: '',
+    });
+
+    try {
+      const { data, error } = await supabase.functions.invoke('upgrade-subscription', {
+        body: {
+          action: 'preview',
+          targetPlan: planKey,
+          billingCycle: billing,
+        },
+      });
+
+      if (error) throw error;
+      if (data?.useCheckout) {
+        setUpgradeModal(null);
+        await openPaddleCheckout(planKey, priceId);
+        return;
+      }
+      if (!data?.success) {
+        throw new Error(data?.error || 'Could not estimate upgrade charge');
+      }
+
+      setUpgradeModal({
+        planKey,
+        charge: data.immediateCharge,
+        loading: false,
+        confirming: false,
+        error: '',
+        billingCycle: data.billingCycle,
+        fromPlan: data.fromPlan,
+        toPlan: data.toPlan,
+      });
+    } catch (err) {
+      console.error('[UpgradePage] preview failed:', err);
+      setUpgradeModal({
+        planKey,
+        charge: null,
+        loading: false,
+        confirming: false,
+        error: err.message || 'Could not estimate upgrade charge',
+      });
+    }
+  };
+
+  const confirmProratedUpgrade = async () => {
+    if (!upgradeModal?.planKey || upgradeModal.confirming) return;
+    setUpgradeModal((prev) => ({ ...prev, confirming: true, error: '' }));
+
+    try {
+      const { data, error } = await supabase.functions.invoke('upgrade-subscription', {
+        body: {
+          action: 'confirm',
+          targetPlan: upgradeModal.planKey,
+          billingCycle: upgradeModal.billingCycle || billing,
+        },
+      });
+
+      if (error) throw error;
+      if (!data?.success) {
+        throw new Error(data?.error || 'Upgrade charge failed. Your plan was not changed.');
+      }
+
+      setUpgradeModal(null);
+      if (onRefreshProfile) await onRefreshProfile();
+      window.location.href = isLocalDev()
+        ? `${window.location.origin}/dashboard?upgraded=true`
+        : `${APP_DOMAIN}/dashboard?upgraded=true`;
+    } catch (err) {
+      console.error('[UpgradePage] confirm failed:', err);
+      setUpgradeModal((prev) => ({
+        ...prev,
+        confirming: false,
+        error: err.message || 'Upgrade charge failed. Your plan was not changed.',
+      }));
+    }
   };
 
   const isTrialExpired = profile?.plan === 'trial';
@@ -362,6 +480,8 @@ export function UpgradePage({ profile, handleLogout, onRefreshProfile, bankAccou
       ? 'Choose a plan to keep your leads, templates, and pipeline data.'
       : `Your plan expired${profile?.plan_expires_at ? ` on ${new Date(profile.plan_expires_at).toLocaleDateString()}` : ''}. Renew below to unlock your workspace.`;
 
+  const planName = (key) => PLANS.find((p) => p.id === key)?.name || String(key || '').toUpperCase();
+
   return (
     <div className={`rd-upgrade-page${isEmbedded ? ' rd-upgrade-page--embedded' : ' rd-upgrade-page--standalone'}`}>
       <div className="rd-upgrade-inner">
@@ -380,6 +500,21 @@ export function UpgradePage({ profile, handleLogout, onRefreshProfile, bankAccou
           <h1 className="rd-upgrade-title">{headerTitle}</h1>
           <p className="rd-upgrade-sub">{headerSub}</p>
         </header>
+
+        {actionError && (
+          <div style={{
+            marginBottom: '1rem',
+            padding: '0.75rem 1rem',
+            borderRadius: 8,
+            background: 'rgba(224, 82, 82, 0.1)',
+            border: '1px solid rgba(224, 82, 82, 0.25)',
+            color: 'var(--status-hot)',
+            fontSize: '0.875rem',
+          }}
+          >
+            {actionError}
+          </div>
+        )}
 
         <div className="rd-billing-toggle-wrap">
           <div className="rd-billing-toggle" role="tablist" aria-label="Billing cycle">
@@ -401,13 +536,20 @@ export function UpgradePage({ profile, handleLogout, onRefreshProfile, bankAccou
           <p className="rd-pricing-yearly-callout">Yearly: Starter gets 2,000 leads · Pro gets 2× lead capacity.</p>
         )}
 
+        {hasPaddleSubscription(profile) && normalizeBillingCycle(profile?.billing_cycle) && (
+          <p style={{ fontSize: '0.8rem', color: 'var(--text-muted)', margin: '0 0 1rem', textAlign: 'center' }}>
+            Same-cycle upgrades (your {normalizeBillingCycle(profile.billing_cycle)} plan) are prorated and charged immediately via Paddle.
+            Changing billing cycle still uses checkout.
+          </p>
+        )}
+
         <div className="rd-pricing-grid">
           {PLANS.map((plan) => (
             <PlanCard
               key={plan.id}
               plan={plan}
               billing={billing}
-              handlePaddleCheckout={handlePaddleCheckout}
+              onSelectPlan={handleSelectPlan}
               profile={profile}
               country={country}
               formatLocalPrice={formatLocalPrice}
@@ -425,6 +567,125 @@ export function UpgradePage({ profile, handleLogout, onRefreshProfile, bankAccou
           </button>
         )}
       </div>
+
+      {upgradeModal && (
+        <div
+          role="dialog"
+          aria-modal="true"
+          aria-labelledby="proration-upgrade-title"
+          style={{
+            position: 'fixed',
+            inset: 0,
+            zIndex: 100000,
+            background: 'rgba(0,0,0,0.55)',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            padding: '1rem',
+          }}
+          onClick={() => {
+            if (!upgradeModal.confirming && !upgradeModal.loading) setUpgradeModal(null);
+          }}
+        >
+          <div
+            className="card"
+            style={{
+              width: '100%',
+              maxWidth: 420,
+              padding: '1.25rem',
+              background: 'var(--bg-card)',
+            }}
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: '0.75rem' }}>
+              <h3 id="proration-upgrade-title" style={{ margin: 0, fontSize: '1.1rem' }}>
+                Confirm upgrade
+              </h3>
+              <button
+                type="button"
+                className="btn btn-secondary btn-sm"
+                onClick={() => setUpgradeModal(null)}
+                disabled={upgradeModal.confirming || upgradeModal.loading}
+                aria-label="Close"
+                style={{ padding: '0.25rem 0.4rem' }}
+              >
+                <X size={14} />
+              </button>
+            </div>
+
+            <p style={{ margin: '0.75rem 0 0', fontSize: '0.9rem', color: 'var(--text-secondary)', lineHeight: 1.45 }}>
+              {upgradeModal.fromPlan
+                ? (
+                  <>
+                    Upgrade from <strong style={{ textTransform: 'capitalize' }}>{planName(upgradeModal.fromPlan)}</strong>
+                    {' '}to <strong>{planName(upgradeModal.toPlan || upgradeModal.planKey)}</strong>
+                    {' '}({upgradeModal.billingCycle || billing}).
+                  </>
+                )
+                : (
+                  <>Upgrade to <strong>{planName(upgradeModal.planKey)}</strong> ({billing}).</>
+                )}
+            </p>
+
+            {upgradeModal.loading ? (
+              <p style={{ margin: '1rem 0', color: 'var(--text-muted)' }}>Calculating prorated charge…</p>
+            ) : (
+              <div style={{
+                marginTop: '1rem',
+                padding: '0.85rem 1rem',
+                borderRadius: 8,
+                border: '1px solid var(--border)',
+                background: 'var(--bg-hover)',
+              }}
+              >
+                <div style={{ fontSize: '0.75rem', color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.04em', fontWeight: 600 }}>
+                  Due today (prorated)
+                </div>
+                <div style={{ fontSize: '1.5rem', fontWeight: 800, marginTop: '0.25rem' }}>
+                  {upgradeModal.charge?.formatted || '—'}
+                </div>
+                <p style={{ margin: '0.4rem 0 0', fontSize: '0.75rem', color: 'var(--text-muted)', lineHeight: 1.4 }}>
+                  Charged now via your payment method on file. Your plan updates only if the charge succeeds.
+                </p>
+              </div>
+            )}
+
+            {upgradeModal.error && (
+              <div style={{
+                marginTop: '0.85rem',
+                padding: '0.65rem 0.85rem',
+                borderRadius: 8,
+                background: 'rgba(224, 82, 82, 0.1)',
+                border: '1px solid rgba(224, 82, 82, 0.25)',
+                color: 'var(--status-hot)',
+                fontSize: '0.85rem',
+              }}
+              >
+                {upgradeModal.error}
+              </div>
+            )}
+
+            <div style={{ display: 'flex', gap: '0.6rem', marginTop: '1.1rem', justifyContent: 'flex-end' }}>
+              <button
+                type="button"
+                className="btn btn-secondary"
+                onClick={() => setUpgradeModal(null)}
+                disabled={upgradeModal.confirming || upgradeModal.loading}
+              >
+                Cancel
+              </button>
+              <button
+                type="button"
+                className="btn btn-primary"
+                onClick={confirmProratedUpgrade}
+                disabled={upgradeModal.loading || upgradeModal.confirming || (!upgradeModal.charge && !!upgradeModal.error)}
+              >
+                {upgradeModal.confirming ? 'Charging…' : 'Confirm & pay'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

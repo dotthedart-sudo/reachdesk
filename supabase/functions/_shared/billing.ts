@@ -291,14 +291,24 @@ export async function applyActiveSubscriptionToProfile(
     ?? hasPendingCancelSchedule(params.eventData)
     ?? false;
 
+  const { data: lockRow } = await supabase
+    .from('user_profiles')
+    .select('lock_reason')
+    .eq('id', profile.id)
+    .maybeSingle();
+  const hasModerationLock = typeof lockRow?.lock_reason === 'string' && lockRow.lock_reason.trim().length > 0;
+
   const updateData: Record<string, unknown> = {
     plan: params.resolvedPlan,
     trial_ends_at: null,
-    account_locked: false,
-    locked_at: null,
     payment_pending: false,
     paddle_subscription_status: params.paddleStatus ?? 'active',
   };
+
+  if (!hasModerationLock) {
+    updateData.account_locked = false;
+    updateData.locked_at = null;
+  }
 
   if (params.billingCycle) {
     updateData.billing_cycle = params.billingCycle;

@@ -3,6 +3,8 @@ import { Navigate } from 'react-router-dom';
 import LoadingSpinner from './LoadingSpinner';
 import { PendingScreen, DeniedScreen } from './Paywalls';
 import MemberBillingNotice from './MemberBillingNotice';
+import ModerationLockScreen from './ModerationLockScreen';
+import { isBillingLock, isModerationLock, getModerationLockMessage } from '../lib/accountLock';
 import { canManageOwnBilling, isTeamMember } from '../lib/teamWorkspace';
 
 export default function ProtectedRoute({ session, profile, subStatus, loading, handleLogout, children }) {
@@ -65,7 +67,16 @@ export default function ProtectedRoute({ session, profile, subStatus, loading, h
     );
   }
 
-  if (profile?.account_locked) {
+  if (isModerationLock(profile)) {
+    return (
+      <ModerationLockScreen
+        lockReason={getModerationLockMessage(profile)}
+        handleLogout={handleLogout}
+      />
+    );
+  }
+
+  if (isBillingLock(profile)) {
     return children;
   }
 
@@ -152,8 +163,17 @@ export function UpgradeRoute({ session, profile, subStatus, loading, handleLogou
     );
   }
 
-  if (profile?.account_locked) {
-    return children; // let locked/expired users reach /upgrade to complete checkout
+  if (isModerationLock(profile)) {
+    return (
+      <ModerationLockScreen
+        lockReason={getModerationLockMessage(profile)}
+        handleLogout={handleLogout}
+      />
+    );
+  }
+
+  if (isBillingLock(profile)) {
+    return children; // let billing-locked users reach /upgrade to complete checkout
   }
 
   if (subStatus === 'denied') {

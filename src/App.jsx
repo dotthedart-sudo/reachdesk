@@ -3,8 +3,9 @@ import { BrowserRouter, Routes, Route, Navigate, useNavigate, useLocation, useSe
 import { supabase } from './lib/supabase';
 import { getTeamIds, PLAN_LIMITS, normalizePlan, getEffectivePlan } from './lib/utils';
 import { registerLifetimeSession, validateLifetimeSession, clearLifetimeSession } from './lib/sessionManager';
-import { getEffectiveOutreachAccess, getEffectiveCalendarAccess } from './lib/callActivity';
+import { getEffectiveOutreachAccess, getEffectiveCalendarAccess, getEffectiveReportsAccess } from './lib/callActivity';
 import { isValidTrialEndDate } from './lib/billing';
+import { isBillingLock, isModerationLock } from './lib/accountLock';
 import {
   ensureProOwnerWorkspaceIfNeeded,
   processTeamInvites,
@@ -232,6 +233,7 @@ const GetStarted = lazyWithRetry(() => import('./components/GetStarted'));
 const GoogleCalendarCallback = lazyWithRetry(() => import('./components/GoogleCalendarCallback'));
 const GoogleSheetsCallback = lazyWithRetry(() => import('./components/GoogleSheetsCallback'));
 const CalendarPageView = lazyWithRetry(() => import('./components/Calendar'));
+const ReportsPageView = lazyWithRetry(() => import('./components/Reports'));
 import UserNotificationBell from './components/UserNotificationBell';
 import SetupModal from './components/SetupModal';
 import ChatWidget from './components/ChatWidget';
@@ -447,6 +449,7 @@ function AppProvider({ children }) {
   const [toast, setToast] = useState(null);
   const [outreachUnlocked, setOutreachUnlocked] = useState(false);
   const [calendarUnlocked, setCalendarUnlocked] = useState(false);
+  const [reportsUnlocked, setReportsUnlocked] = useState(false);
   const [paidInviteConfirm, setPaidInviteConfirm] = useState(null); // { profile }
   const [paidInviteLoading, setPaidInviteLoading] = useState(false);
 
@@ -781,7 +784,7 @@ function AppProvider({ children }) {
 
           const shouldLock = !onActiveTeam && !isAdminUser && !isLifetimeOrLegacy && (isTrialExpired || isSubscriptionExpired);
 
-          if (onActiveTeam && profileToSet.account_locked) {
+          if (onActiveTeam && profileToSet.account_locked && !isModerationLock(profileToSet)) {
             const { data: unlockedProfile, error: unlockError } = await supabase
               .from('user_profiles')
               .update({ account_locked: false, locked_at: null })
@@ -793,7 +796,7 @@ function AppProvider({ children }) {
             } else {
               profileToSet = { ...profileToSet, account_locked: false, locked_at: null };
             }
-          } else if (shouldLock && !profileToSet.account_locked) {
+          } else if (shouldLock && !profileToSet.account_locked && !isModerationLock(profileToSet)) {
             const lockedAt = now.toISOString();
             const { data: updatedProfile, error: updateError } = await supabase
               .from('user_profiles')
@@ -839,6 +842,7 @@ function AppProvider({ children }) {
           try {
             setOutreachUnlocked(await getEffectiveOutreachAccess(profileToSet));
             setCalendarUnlocked(await getEffectiveCalendarAccess(profileToSet));
+            setReportsUnlocked(await getEffectiveReportsAccess(profileToSet));
             identifyUser(userId, {
               email: profileToSet.email,
               plan: profileToSet.plan,
@@ -1040,6 +1044,7 @@ function AppProvider({ children }) {
     setSubStatus('active');
     setOutreachUnlocked(false);
     setCalendarUnlocked(false);
+    setReportsUnlocked(false);
   };
 
   const handleRegisterUser = async (email, password, plan, fullName, avatarFile, referralSource, marketingConsent) => {
@@ -1327,7 +1332,7 @@ function AppProvider({ children }) {
 
   const value = {
     session, profile, subStatus, loading,
-    outreachUnlocked, calendarUnlocked,
+    outreachUnlocked, calendarUnlocked, reportsUnlocked,
     theme, toggleTheme, brandName, currencySymbol, webhookUrl,
     teamIds, teamProfilesMap, leads, templates, userSnippets, invoices, revenueLogs,
     adminNotifCount, remindersCount,
@@ -1428,7 +1433,7 @@ function ProtectedPage({ children }) {
 // Upgrade page route wrapper
 function UpgradeRoutePage() {
   const { session, profile, subStatus, loading, handleLogout, fetchProfile, bankAccount, bankIban } = useAppContext();
-  const isForcedPaywall = subStatus === 'trial_expired' || subStatus === 'subscription_expired' || !!profile?.account_locked;
+  const isForcedPaywall = subStatus === 'trial_expired' || subStatus === 'subscription_expired' || isBillingLock(profile);
 
   const pageContent = (
     <UpgradePage
@@ -1609,6 +1614,11 @@ function TeamsPage() {
 function CalendarPage() {
   const { profile } = useAppContext();
   return <CalendarPageView currentUser={profile} />;
+}
+
+function ReportsPage() {
+  const { profile } = useAppContext();
+  return <ReportsPageView currentUser={profile} />;
 }
 
 function AdminPanelPage() {
@@ -1830,6 +1840,7 @@ function AppRoutes() {
         <Route path="/templates" element={<ProtectedPage><TemplatesPage /></ProtectedPage>} />
         <Route path="/invoices" element={<ProtectedPage><InvoicesPage /></ProtectedPage>} />
         <Route path="/revenue" element={<ProtectedPage><RevenuePage /></ProtectedPage>} />
+        <Route path="/reports" element={<ProtectedPage><ReportsPage /></ProtectedPage>} />
         <Route path="/notes" element={<ProtectedPage><NotesPage /></ProtectedPage>} />
         <Route path="/notes/:id" element={<ProtectedPage><NoteEditorPage /></ProtectedPage>} />
         <Route path="/reminders" element={<ProtectedPage><RemindersPage /></ProtectedPage>} />

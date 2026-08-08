@@ -5,6 +5,11 @@ import {
   jsonResponse,
   requireAdmin,
 } from '../_shared/auth.ts';
+import { allowTestSubscriptions, isRealPaddleSubscriptionId } from '../_shared/billing.ts';
+import {
+  evaluateProratedUpgrade,
+  runProratedUpgrade,
+} from '../_shared/subscriptionUpgrade.ts';
 
 serve(async (req) => {
   if (req.method === 'OPTIONS') {
@@ -42,25 +47,81 @@ serve(async (req) => {
         return jsonResponse({ error: 'No requested plan on this notification' }, 400);
       }
 
-      const profileUpdate: Record<string, unknown> = {
-        plan,
-        payment_pending: false,
-        requested_plan: null,
-        status: 'approved',
-        account_locked: false,
-      };
+      const { data: profile, error: profileLoadErr } = await supabase
+        .from('user_profiles')
+        .select('id, email, plan, billing_cycle, plan_status, paddle_subscription_id, paddle_customer_id, plan_cancels_at')
+        .eq('id', notification.from_user_id)
+        .maybeSingle();
 
-      if (notification.billing_cycle) {
-        profileUpdate.billing_cycle = notification.billing_cycle;
+      if (profileLoadErr || !profile) {
+        return jsonResponse({ error: 'User profile not found' }, 404);
       }
 
-      const { error: profileErr } = await supabase
-        .from('user_profiles')
-        .update(profileUpdate)
-        .eq('id', notification.from_user_id);
+      const targetCycle = notification.billing_cycle || profile.billing_cycle;
+      const subId = profile.paddle_subscription_id;
+      const allowTest = allowTestSubscriptions();
+      const hasPaddleSub = isRealPaddleSubscriptionId(subId)
+        || (allowTest && String(subId || '').startsWith('sub_'));
 
-      if (profileErr) {
-        return jsonResponse({ error: profileErr.message }, 500);
+      const eligibility = hasPaddleSub
+        ? evaluateProratedUpgrade({
+          currentPlan: profile.plan,
+          targetPlan: plan,
+          currentCycle: profile.billing_cycle,
+          targetCycle,
+          paddleSubscriptionId: subId,
+        })
+        : { ok: false as const, reason: 'no_subscription', code: 'no_subscription' };
+
+      if (eligibility.ok) {
+        const result = await runProratedUpgrade({
+          supabase,
+          profile,
+          targetPlan: eligibility.targetPlan,
+          targetCycle: eligibility.targetCycle,
+          source: 'paddle_sync',
+          actor: `admin:${user.id}`,
+        });
+
+        if (!result.ok) {
+          return jsonResponse({
+            error: result.error || 'Paddle upgrade charge failed. Plan was not changed.',
+            code: result.code || 'charge_failed',
+            chargeFailed: true,
+          }, result.status >= 400 ? result.status : 402);
+        }
+
+        // Clear request fields after successful charged upgrade
+        await supabase
+          .from('user_profiles')
+          .update({
+            payment_pending: false,
+            requested_plan: null,
+            status: 'approved',
+          })
+          .eq('id', notification.from_user_id);
+      } else {
+        // Manual / bank-transfer / cycle-change path — no Paddle charge
+        const profileUpdate: Record<string, unknown> = {
+          plan,
+          payment_pending: false,
+          requested_plan: null,
+          status: 'approved',
+          account_locked: false,
+        };
+
+        if (notification.billing_cycle) {
+          profileUpdate.billing_cycle = notification.billing_cycle;
+        }
+
+        const { error: profileErr } = await supabase
+          .from('user_profiles')
+          .update(profileUpdate)
+          .eq('id', notification.from_user_id);
+
+        if (profileErr) {
+          return jsonResponse({ error: profileErr.message }, 500);
+        }
       }
     } else {
       const { error: profileErr } = await supabase

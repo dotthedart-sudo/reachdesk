@@ -35,6 +35,20 @@ export async function getEffectiveCalendarAccess(profile) {
   return isActiveTeamMember(profile);
 }
 
+export function hasReportsAccess(profile) {
+  if (!profile) return false;
+  if (profile.role === 'admin') return true;
+  const key = getEffectivePlan(profile);
+  return !!PLAN_LIMITS[key]?.cumulativeReports;
+}
+
+/** Trial/Pro/Teams plan OR active Teams workspace member on a Reports-enabled workspace. */
+export async function getEffectiveReportsAccess(profile) {
+  if (!profile) return false;
+  if (hasReportsAccess(profile)) return true;
+  return isActiveTeamMember(profile);
+}
+
 import { hasTeammates } from './teamWorkspace';
 
 export function hasTeamCallActivity(profile, teamIds = null) {

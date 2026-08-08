@@ -41,12 +41,51 @@ function callBucket(callStatus) {
   return 'attempted';
 }
 
+/** Index in MESSAGE_PIPELINE_STAGES, or -1 when status is off-pipeline. */
+export function getMessageStageIndex(status) {
+  return MESSAGE_PIPELINE_STAGES.indexOf(status ?? '');
+}
+
+/** Current-distribution snapshot — one lead per exact status (used by funnel steppers). */
 export function countMessagePipeline(leads = []) {
   const counts = {};
   MESSAGE_PIPELINE_STAGES.forEach((st) => {
     counts[st] = leads.filter((l) => l.status === st).length;
   });
   return counts;
+}
+
+/** Cumulative reach — leads at this stage or any later pipeline stage. */
+export function countCumulativeMessagePipeline(leads = []) {
+  const counts = {};
+  MESSAGE_PIPELINE_STAGES.forEach((st, stageIdx) => {
+    counts[st] = leads.filter((l) => getMessageStageIndex(l.status) >= stageIdx).length;
+  });
+  return counts;
+}
+
+/** Leads Overview mini-stats derived from cumulative pipeline counts. */
+export function computeLeadsOverviewMetrics(leads = []) {
+  const cumulative = countCumulativeMessagePipeline(leads);
+  return {
+    total: leads.length,
+    contacted: cumulative.Contacted ?? 0,
+    replied: cumulative['Positive Reply'] ?? 0,
+    positive: leads.filter((l) => l.reply_type === 'positive').length,
+  };
+}
+
+/** Stage-to-stage conversion rates from cumulative counts (0–100, rounded). */
+export function computeStageConversionRates(cumulativeCounts = {}) {
+  const rates = {};
+  for (let i = 1; i < MESSAGE_PIPELINE_STAGES.length; i += 1) {
+    const prev = MESSAGE_PIPELINE_STAGES[i - 1];
+    const curr = MESSAGE_PIPELINE_STAGES[i];
+    const prevCount = cumulativeCounts[prev] ?? 0;
+    const currCount = cumulativeCounts[curr] ?? 0;
+    rates[curr] = prevCount > 0 ? Math.round((currCount / prevCount) * 100) : null;
+  }
+  return rates;
 }
 
 export function countCallPipeline(leads = []) {

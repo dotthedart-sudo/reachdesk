@@ -7,6 +7,13 @@ import {
   ChevronDown, ChevronUp, Calendar, Search
 } from 'lucide-react';
 import { BRAND_NAME, BRAND_LOGO_TEXT } from '../config/brand';
+import {
+  BILLING_PLAN_TABS,
+  formatBillingCycle,
+  isManualAdminAccess,
+  isPaddlePaidCustomer,
+  matchesBillingPlanTab,
+} from '../lib/adminBilling';
 
 class AdminErrorBoundary extends React.Component {
   constructor(props) {
@@ -47,7 +54,10 @@ function AdminPanelContent({ currentUser }) {
   const [isAdmin, setIsAdmin] = useState(false);
   const [authLoading, setAuthLoading] = useState(true);
 
-  const [activeTab, setActiveTab] = useState('requests'); // 'requests' | 'users'
+  const [activeTab, setActiveTab] = useState('requests'); // 'requests' | 'users' | 'billing'
+  const [billingPlanTab, setBillingPlanTab] = useState('all');
+  const [lastPaddleSync, setLastPaddleSync] = useState(null);
+  const [paddleSyncLoading, setPaddleSyncLoading] = useState(false);
   const [timeFilter, setTimeFilter] = useState('all_time');
   const [searchQuery, setSearchQuery] = useState('');
   const [expandedUserId, setExpandedUserId] = useState(null);
@@ -119,6 +129,50 @@ function AdminPanelContent({ currentUser }) {
       setRequests(data || []);
     } catch (err) {
       console.error('Error fetching requests:', err);
+    }
+  };
+
+  // Fetch last Paddle admin sync summary
+  const fetchLastPaddleSync = async () => {
+    try {
+      const { data, error } = await supabase.functions.invoke('admin-sync-paddle-subscriptions', {
+        method: 'GET',
+      });
+      if (error) throw error;
+      if (data?.last_sync) {
+        setLastPaddleSync(data.last_sync);
+      }
+    } catch (err) {
+      console.warn('Could not load last Paddle sync:', err);
+    }
+  };
+
+  const handleSyncAllFromPaddle = async () => {
+    if (!confirm('Pull all live subscriptions from Paddle and update matching user profiles?')) return;
+    setPaddleSyncLoading(true);
+    try {
+      const { data, error } = await supabase.functions.invoke('admin-sync-paddle-subscriptions', {
+        body: {},
+      });
+      if (error) throw error;
+      if (data?.success === false) throw new Error(data.error || 'Sync failed');
+
+      setLastPaddleSync({
+        synced_at: data.synced_at,
+        updated_count: data.updated_count,
+        unmatched_count: data.unmatched_count,
+        error_count: data.error_count,
+      });
+      showToast(
+        `Paddle sync complete — ${data.updated_count ?? 0} updated, ${data.unmatched_count ?? 0} unmatched`,
+        data.error_count ? 'info' : 'success',
+      );
+      await fetchUsers();
+    } catch (err) {
+      console.error('Paddle sync failed:', err);
+      alert(`Paddle sync failed: ${err.message || err}`);
+    } finally {
+      setPaddleSyncLoading(false);
     }
   };
 
@@ -214,6 +268,12 @@ function AdminPanelContent({ currentUser }) {
     };
   }, [isAdmin]);
 
+  useEffect(() => {
+    if (isAdmin && activeTab === 'billing') {
+      fetchLastPaddleSync();
+    }
+  }, [isAdmin, activeTab]);
+
   // Respond to User Upgrade Request
   const handleRespondRequest = async (reqId, action) => {
     const key = `${reqId}-${action}`;
@@ -225,6 +285,9 @@ function AdminPanelContent({ currentUser }) {
 
       if (error) throw error;
       if (data?.error) throw new Error(data.error);
+      if (data?.chargeFailed) {
+        throw new Error(data.error || 'Paddle charge failed — plan was not changed.');
+      }
 
       showToast(`Request ${action === 'approve' ? 'approved' : 'declined'} successfully`, 'success');
       setRequests(prev => prev.filter(r => r.id !== reqId));
@@ -433,6 +496,14 @@ function AdminPanelContent({ currentUser }) {
           <Users size={16} />
           User Directory ({userList.length})
         </button>
+        <button
+          className={`btn ${activeTab === 'billing' ? 'btn-primary' : 'btn-secondary'}`}
+          style={{ borderBottomLeftRadius: 0, borderBottomRightRadius: 0 }}
+          onClick={() => setActiveTab('billing')}
+        >
+          <CreditCard size={16} />
+          Billing &amp; Plans
+        </button>
       </div>
 
       {/* Active Tab View */}
@@ -478,6 +549,129 @@ function AdminPanelContent({ currentUser }) {
                 All caught up — no pending notifications.
               </div>
             )}
+          </div>
+        );
+      })() : activeTab === 'billing' ? (() => {
+        const billingUsers = userList
+          .filter((user) => matchesBillingPlanTab(user, billingPlanTab))
+          .sort((a, b) => {
+            const aPaid = isPaddlePaidCustomer(a) ? 1 : 0;
+            const bPaid = isPaddlePaidCustomer(b) ? 1 : 0;
+            if (aPaid !== bPaid) return bPaid - aPaid;
+            return new Date(b.created_at) - new Date(a.created_at);
+          });
+
+        const lastSyncLabel = lastPaddleSync?.synced_at
+          ? new Date(lastPaddleSync.synced_at).toLocaleString()
+          : 'Never';
+
+        return (
+          <div className="flex-col gap-3">
+            <div className="card" style={{ padding: '1rem 1.25rem', display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: '1rem', flexWrap: 'wrap' }}>
+              <div>
+                <h3 style={{ margin: 0, fontSize: '1rem', fontWeight: 700 }}>Paddle reconciliation</h3>
+                <p className="color-muted" style={{ margin: '0.35rem 0 0', fontSize: '0.85rem' }}>
+                  Last synced: <strong>{lastSyncLabel}</strong>
+                  {lastPaddleSync?.updated_count != null && (
+                    <> · {lastPaddleSync.updated_count} updated, {lastPaddleSync.unmatched_count ?? 0} unmatched</>
+                  )}
+                </p>
+              </div>
+              <button
+                type="button"
+                className="btn btn-primary"
+                onClick={handleSyncAllFromPaddle}
+                disabled={paddleSyncLoading}
+              >
+                <RotateCcw size={14} />
+                {paddleSyncLoading ? 'Syncing from Paddle…' : 'Sync All from Paddle'}
+              </button>
+            </div>
+
+            <div className="flex gap-2" style={{ flexWrap: 'wrap' }}>
+              {BILLING_PLAN_TABS.map((tab) => (
+                <button
+                  key={tab}
+                  type="button"
+                  className={`btn btn-sm ${billingPlanTab === tab ? 'btn-primary' : 'btn-secondary'}`}
+                  onClick={() => setBillingPlanTab(tab)}
+                  style={{ textTransform: 'capitalize' }}
+                >
+                  {tab === 'all' ? 'All plans' : tab}
+                </button>
+              ))}
+            </div>
+
+            <div className="card" style={{ padding: 0, overflowX: 'auto' }}>
+              <table className="w-full" style={{ borderCollapse: 'collapse' }}>
+                <thead>
+                  <tr style={{ borderBottom: '1px solid var(--border-color)', textAlign: 'left', background: 'var(--bg-tertiary)' }}>
+                    <th style={{ padding: '0.75rem 1rem' }}>User</th>
+                    <th style={{ padding: '0.75rem 1rem' }}>Plan</th>
+                    <th style={{ padding: '0.75rem 1rem' }}>Billing cycle</th>
+                    <th style={{ padding: '0.75rem 1rem' }}>Plan status</th>
+                    <th style={{ padding: '0.75rem 1rem' }}>Paddle subscription</th>
+                    <th style={{ padding: '0.75rem 1rem' }}>Paddle customer</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {billingUsers.length === 0 ? (
+                    <tr>
+                      <td colSpan={6} style={{ padding: '1.5rem', color: 'var(--text-muted)', textAlign: 'center' }}>
+                        No users in this plan tab.
+                      </td>
+                    </tr>
+                  ) : billingUsers.map((user) => {
+                    const manualAdmin = isManualAdminAccess(user);
+                    const paid = isPaddlePaidCustomer(user);
+                    const rowStyle = paid
+                      ? { background: 'rgba(16,185,129,0.06)' }
+                      : manualAdmin
+                        ? { background: 'rgba(100,116,139,0.06)' }
+                        : {};
+
+                    return (
+                      <tr key={user.id} style={{ borderBottom: '1px solid var(--border-color)', ...rowStyle }}>
+                        <td style={{ padding: '0.75rem 1rem' }}>
+                          <div style={{ fontWeight: 600, fontSize: '0.9rem' }}>{user.email ?? '—'}</div>
+                          {user.full_name && (
+                            <div style={{ fontSize: '0.75rem', color: 'var(--text-muted)' }}>{user.full_name}</div>
+                          )}
+                          {manualAdmin && (
+                            <span style={{ fontSize: '0.68rem', color: 'var(--text-muted)', fontWeight: 700 }}>Manual admin access</span>
+                          )}
+                        </td>
+                        <td style={{ padding: '0.75rem 1rem', textTransform: 'capitalize' }}>
+                          {user.plan ?? 'trial'}
+                        </td>
+                        <td style={{ padding: '0.75rem 1rem' }}>
+                          {manualAdmin ? '—' : formatBillingCycle(user.billing_cycle)}
+                        </td>
+                        <td style={{ padding: '0.75rem 1rem' }}>
+                          {manualAdmin ? (
+                            <span className="color-muted">Manual</span>
+                          ) : (
+                            <span style={{
+                              color: paid ? 'var(--success-color)' : 'var(--text-muted)',
+                              fontWeight: paid ? 700 : 500,
+                              textTransform: 'capitalize',
+                            }}>
+                              {user.plan_status ?? '—'}
+                            </span>
+                          )}
+                        </td>
+                        <td style={{ padding: '0.75rem 1rem', fontFamily: 'monospace', fontSize: '0.75rem' }}>
+                          {manualAdmin || !user.paddle_subscription_id ? '—' : user.paddle_subscription_id}
+                        </td>
+                        <td style={{ padding: '0.75rem 1rem', fontFamily: 'monospace', fontSize: '0.75rem' }}>
+                          {manualAdmin || !user.paddle_customer_id ? '—' : user.paddle_customer_id}
+                        </td>
+                      </tr>
+                    );
+                  })}
+                </tbody>
+              </table>
+            </div>
           </div>
         );
       })() : (() => {

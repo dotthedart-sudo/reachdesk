@@ -5,11 +5,12 @@ import {
   Sun, Moon, LayoutDashboard, Clock, LogOut,
   Settings, FileText, Bell, CreditCard,
   Menu, X as XIcon, HelpCircle, Calendar,
-  PanelLeftClose, PanelLeftOpen, UsersRound, Lock
+  PanelLeftClose, PanelLeftOpen, UsersRound, Lock, BarChart2
 } from 'lucide-react';
 import { useAppContext } from '../App';
 import { isTeamsFeatureLocked, isPaidPlanActive, canManageOwnBilling, isTeamMember, getSidebarPlanLabel } from '../lib/teamWorkspace';
 import { isValidTrialEndDate } from '../lib/billing';
+import { isBillingLock } from '../lib/accountLock';
 import UpgradeLockModal from './UpgradeLockModal';
 import MobileNav from './MobileNav';
 import { useLeadLimitStatus, LeadLimitTopBar } from '../lib/leadLimits';
@@ -63,7 +64,7 @@ export default function AppLayout({
   // ───────────────────────────────────────────────────────────────────────────
 
   const limitStatus = useLeadLimitStatus(profile?.id);
-  const { calendarUnlocked } = useAppContext() || {};
+  const { calendarUnlocked, reportsUnlocked } = useAppContext() || {};
 
   const handleExportLeads = async () => {
     if (!profile?.id) return;
@@ -196,6 +197,22 @@ export default function AppLayout({
             </li>
 
             <li>
+              <Link
+                to="/reports"
+                title={tip(!reportsUnlocked ? 'Reports (Upgrade)' : 'Reports')}
+                className={`sidebar-item ${pathname === '/reports' ? 'active' : ''}`}
+                style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}
+              >
+                <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
+                  <BarChart2 size={18} /><span className="nav-label">Reports</span>
+                </div>
+                {!reportsUnlocked && (
+                  <Lock size={12} className="nav-label" style={{ opacity: 0.65 }} />
+                )}
+              </Link>
+            </li>
+
+            <li>
               <Link to="/notes" title={tip('Notes')} className={`sidebar-item ${pathname === '/notes' ? 'active' : ''}`}>
                 <FileText size={18} /><span className="nav-label">Notes</span>
               </Link>
@@ -316,6 +333,12 @@ export default function AppLayout({
             <li>
               <Link to="/revenue" onClick={() => setIsSidebarOpen(false)} className="mobile-menu-item">
                 Revenue Tracker
+              </Link>
+            </li>
+
+            <li>
+              <Link to="/reports" onClick={() => setIsSidebarOpen(false)} className="mobile-menu-item">
+                {!reportsUnlocked ? 'Reports (Upgrade)' : 'Reports'}
               </Link>
             </li>
 
@@ -464,7 +487,7 @@ export default function AppLayout({
         {children}
       </div>
 
-      {profile?.account_locked && (
+      {isBillingLock(profile) && (
         <UpgradeLockModal
           profile={profile}
           handleLogout={handleLogout}

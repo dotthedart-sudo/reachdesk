@@ -114,3 +114,59 @@ export async function getPaddleSubscription(subscriptionId: string): Promise<Rec
   if (!ok || !data || typeof data !== 'object') return null;
   return (data as { data?: Record<string, unknown> }).data ?? null;
 }
+
+const ACTIVE_SUBSCRIPTION_STATUSES = ['active', 'trialing', 'past_due'] as const;
+
+/** Paginated list of subscriptions for one or more Paddle statuses. */
+export async function listPaddleSubscriptionsByStatus(
+  status: string,
+  perPage = 200,
+): Promise<Array<Record<string, unknown>>> {
+  const results: Array<Record<string, unknown>> = [];
+  let after: string | undefined;
+
+  for (let page = 0; page < 100; page++) {
+    const params = new URLSearchParams({
+      status,
+      per_page: String(perPage),
+    });
+    if (after) params.set('after', after);
+
+    const { ok, data, text } = await paddleFetch(`/subscriptions?${params.toString()}`);
+    if (!ok) {
+      throw new Error(`Paddle subscriptions list failed (${status}): ${text}`);
+    }
+
+    if (!data || typeof data !== 'object') break;
+    const body = data as {
+      data?: Array<Record<string, unknown>>;
+      meta?: { pagination?: { has_more?: boolean; next?: string } };
+    };
+    const batch = body.data ?? [];
+    results.push(...batch);
+
+    const pagination = body.meta?.pagination;
+    if (!pagination?.has_more || batch.length === 0) break;
+
+    const lastId = batch[batch.length - 1]?.id;
+    after = typeof lastId === 'string' ? lastId : undefined;
+    if (!after) break;
+  }
+
+  return results;
+}
+
+/** All live subscriptions Paddle considers billable (active, trialing, past_due). */
+export async function listAllLivePaddleSubscriptions(): Promise<Array<Record<string, unknown>>> {
+  const byId = new Map<string, Record<string, unknown>>();
+
+  for (const status of ACTIVE_SUBSCRIPTION_STATUSES) {
+    const subs = await listPaddleSubscriptionsByStatus(status);
+    for (const sub of subs) {
+      const id = typeof sub.id === 'string' ? sub.id : null;
+      if (id) byId.set(id, sub);
+    }
+  }
+
+  return [...byId.values()];
+}

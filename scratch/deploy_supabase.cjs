@@ -23,6 +23,13 @@ const PRIORITY_FUNCTIONS = [
   'calendar-webhook-receiver',
   'notify-admin-signup',
   'respond-upgrade-request',
+  'upgrade-subscription',
+  'admin-sync-paddle-subscriptions',
+  'paddle-webhook',
+  'sync-paddle-subscription',
+  'cancel-subscription',
+  'resume-subscription',
+  'google-sheets-oauth-exchange',
 ];
 
 const args = process.argv.slice(2);

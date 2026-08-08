@@ -73,6 +73,10 @@ serve(async (req) => {
     const isTestMode = allowTestBypass && !!testBypassSecret && req.headers.get('X-Test-Bypass') === testBypassSecret;
 
     if (!isTestMode && (!signatureHeader || !secretKey)) {
+      console.error('[Webhook] Auth rejected: missing Paddle-Signature or PADDLE_WEBHOOK_SECRET', {
+        hasSignature: !!signatureHeader,
+        hasSecret: !!secretKey,
+      });
       return new Response(JSON.stringify({ success: false, error: 'Unauthorized' }), {
         headers: { ...corsHeaders, 'Content-Type': 'application/json' },
         status: 401,
@@ -82,6 +86,7 @@ serve(async (req) => {
     if (!isTestMode) {
       const isValid = await verifySignature(rawBody, signatureHeader!, secretKey!);
       if (!isValid) {
+        console.error('[Webhook] Invalid Paddle-Signature — check PADDLE_WEBHOOK_SECRET matches Paddle dashboard');
         return new Response(JSON.stringify({ success: false, error: 'Invalid signature' }), {
           headers: { ...corsHeaders, 'Content-Type': 'application/json' },
           status: 401,
