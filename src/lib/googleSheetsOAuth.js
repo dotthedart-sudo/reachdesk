@@ -1,5 +1,22 @@
 /** Google Sheets OAuth — drive.file (non-sensitive) for Picker-selected files. */
-export const GOOGLE_SHEETS_OAUTH_SCOPES = 'https://www.googleapis.com/auth/drive.file';
+export const GOOGLE_SHEETS_OAUTH_SCOPE_LIST = [
+  'https://www.googleapis.com/auth/drive.file',
+];
+
+/** Space-delimited scope string for Google OAuth authorize URL. */
+export const GOOGLE_SHEETS_OAUTH_SCOPES = GOOGLE_SHEETS_OAUTH_SCOPE_LIST.join(' ');
+
+const FORBIDDEN_SHEETS_SCOPES = ['https://www.googleapis.com/auth/spreadsheets'];
+
+function assertSheetsOAuthScopes() {
+  for (const forbidden of FORBIDDEN_SHEETS_SCOPES) {
+    if (GOOGLE_SHEETS_OAUTH_SCOPE_LIST.includes(forbidden)) {
+      throw new Error(`Forbidden Google Sheets OAuth scope: ${forbidden}`);
+    }
+  }
+}
+
+assertSheetsOAuthScopes();
 
 /** localStorage key: user completed OAuth after the drive.file scope switch. */
 export const SHEETS_SCOPE_ACK_KEY = 'reachdesk_sheets_scope_drive_file_v1';
