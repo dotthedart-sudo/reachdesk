@@ -21,6 +21,7 @@ import { isLocalDev, getAppUrl, getMarketingUrl, isMarketingRoute } from './util
 import { identifyUser, resetPostHog } from './utils/posthog';
 import { forceAppRefresh, clearAppRefreshFlags, clearServiceWorkersAndCaches } from './utils/forceAppRefresh';
 import { BRAND_NAME } from './config/brand';
+import * as Sentry from '@sentry/react';
 import { CALL_SCRIPT_SECTIONS, TEMPLATE_KINDS } from './lib/templateKinds';
 import { countDueCheckpointLeads } from './lib/checkpointNotifications';
 import PaidInviteJoinModal from './components/PaidInviteJoinModal';
@@ -95,6 +96,11 @@ class GlobalErrorBoundary extends React.Component {
 
   componentDidCatch(error, errorInfo) {
     console.error('[GlobalErrorBoundary] Caught error:', error, errorInfo);
+    Sentry.captureException(error, {
+      contexts: {
+        react: { componentStack: errorInfo?.componentStack },
+      },
+    });
     if (typeof window !== 'undefined') {
       window.__lastBoundaryError = error?.message || String(error);
     }
